@@ -4147,22 +4147,27 @@ dialog.symb-dialog {
   border: none;
 }
 
-dialog.symb-dialog .dialog-buttons {
+dialog.symb-dialog .dialog-buttons,
+dialog.symb-dialog footer {
   display: flex;
   flex-direction: row;
   gap: 5px;
   padding: 8px;
 }
 
+dialog.symb-dialog button,
 dialog.symb-dialog .dialog-buttons button,
-dialog.symb-dialog footer.dialog-buttons button,
-dialog.symb-dialog .dialog-buttons button.default {
-  flex: 0 1 auto;
-  width: auto;
-  /* 7.1.4/7.1.6: classic V1 dialog buttons - light grey, dark text,  */
-  /* compact. Replaces the ApplicationV2 theme (accent-coloured       */
-  /* default button, dark buttons with light text). !important guards */
-  /* against the core AppV2 button theming regardless of load order.  */
+dialog.symb-dialog footer button {
+  /* 7.1.8: classic V1 dialog buttons - light grey, dark text, side by   */
+  /* side with equal width (flex: 1, like the old V1 dialog footer).    */
+  /* Replaces the ApplicationV2 theme (accent-coloured default button,  */
+  /* dark/orange buttons with light text). The dialog templates contain */
+  /* no <button> elements of their own, so this catch-all reliably     */
+  /* reaches the DialogV2 footer buttons whatever the footer markup     */
+  /* looks like; !important guards against the core AppV2 button       */
+  /* theming regardless of selector specificity or load order.          */
+  flex: 1 1 auto !important;
+  width: auto !important;
   background: linear-gradient(180deg, #f0f0e8, #cfcfc7) !important;
   border: 1px solid var(--color-border) !important;
   color: #191813 !important;
@@ -4172,10 +4177,8 @@ dialog.symb-dialog .dialog-buttons button.default {
   padding: 4px 12px;
 }
 
-dialog.symb-dialog .dialog-buttons button:hover,
-dialog.symb-dialog .dialog-buttons button:focus,
-dialog.symb-dialog .dialog-buttons button.default:hover,
-dialog.symb-dialog .dialog-buttons button.default:focus {
+dialog.symb-dialog button:hover,
+dialog.symb-dialog button:focus {
   background: linear-gradient(180deg, #ffffff, #e2e2da) !important;
   box-shadow: none !important;
 }
@@ -4191,7 +4194,8 @@ dialog.symb-dialog .dialog-buttons button.default:focus {
 dialog.symb-dialog .window-content,
 dialog.symb-dialog form,
 dialog.symb-dialog .dialog-content,
-dialog.symb-dialog .dialog-buttons {
+dialog.symb-dialog .dialog-buttons,
+dialog.symb-dialog footer {
   background: url(../asset/image/background/foreground.webp) repeat;
 }
 

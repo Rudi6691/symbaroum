@@ -1,3 +1,11 @@
+Version 7.1.8
+
+* Button fix, round two: the classic light-grey buttons still did not show in 7.1.7 (screenshots showed the orange ApplicationV2 default button) - the `.dialog-buttons` selector obviously does not match the actual DialogV2 footer markup, so the previous rules never applied
+* The dialog templates contain no `<button>` elements of their own, so the button styling now uses a catch-all selector `dialog.symb-dialog button` (plus `footer button` fallback) that reliably reaches the DialogV2 footer buttons whatever the footer markup looks like
+* Buttons now look like the old V1 dialog footer: light grey gradient with dark text, side by side with equal width (`flex: 1 1 auto`, like the legacy V1 dialog core styling), natural order with the roll button on the left; all color/layout properties `!important` so the ApplicationV2 theme cannot override them
+* The button footer also receives the beige foreground.webp background
+* No JS, template or data changes; no world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.7
 
 * Dialog background refined: the light green flower sheet texture (`--color-charBG`, 7.1.6) is the window background of the actor sheets, but the content panels with the fields (attributes/Eigenschaften section, class `foreground`) are laid out on the light BEIGE parchment texture `asset/image/background/foreground.webp` - that is the familiar background behind the fields. The roll dialogs now use exactly this beige panel texture (`background: url(../asset/image/background/foreground.webp) repeat`), including the button footer area
