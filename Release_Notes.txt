@@ -1,3 +1,13 @@
+Version 7.1.7
+
+* Dialog background refined: the light green flower sheet texture (`--color-charBG`, 7.1.6) is the window background of the actor sheets, but the content panels with the fields (attributes/Eigenschaften section, class `foreground`) are laid out on the light BEIGE parchment texture `asset/image/background/foreground.webp` - that is the familiar background behind the fields. The roll dialogs now use exactly this beige panel texture (`background: url(../asset/image/background/foreground.webp) repeat`), including the button footer area
+
+Version 7.1.6
+
+* Dialog background changed from the dark core stone texture (7.1.4/7.1.5) to a light sheet texture so the black label banners and input boxes are clearly readable again
+* Button styling made robust: the classic light-grey compact V1 buttons (dark text, natural order, roll button on the left) now use `!important` and additional selector fallbacks (`footer.dialog-buttons button`, `button.default`) so the ApplicationV2 button theme (accent-coloured default button, dark buttons with light text) is reliably overridden regardless of stylesheet load order
+* No JS, template or data changes; no world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.5
 
 * Hotfix for 7.1.4: the roll dialogs failed to open at all with the error "config.content element must have no attributes" - DialogV2 requires that a content element passed to it carries no attributes, and 7.1.4 passed the template root (`<div class="symbaroum dialog">`), which has a class attribute
