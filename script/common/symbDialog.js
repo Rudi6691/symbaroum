@@ -47,11 +47,16 @@ export function symbDialog(options = {}) {
   // V13 look. Passing a pre-built DOM element skips the cleaning entirely
   // ("If string, the content is cleaned ... Otherwise, the content is not
   // cleaned", Foundry V14 DialogV2 documentation).
+  // NOTE: the element passed to DialogV2 must not have any attributes
+  // (DialogV2._initializeApplicationOptions throws "config.content element
+  // must have no attributes"), so the attribute-free wrapper <div> itself is
+  // passed. The classed template root (e.g. <div class="symbaroum dialog">)
+  // lives inside it as a child and keeps its classes.
   let domContent;
   if (typeof content === "string") {
     const wrapper = document.createElement("div");
     wrapper.innerHTML = content ?? "";
-    domContent = wrapper.firstElementChild ?? wrapper;
+    domContent = wrapper;
   } else {
     domContent = content ?? "";
   }

@@ -1,3 +1,9 @@
+Version 7.1.5
+
+* Hotfix for 7.1.4: the roll dialogs failed to open at all with the error "config.content element must have no attributes" - DialogV2 requires that a content element passed to it carries no attributes, and 7.1.4 passed the template root (`<div class="symbaroum dialog">`), which has a class attribute
+* `symbDialog.js` now passes the attribute-free wrapper `<div>` itself; the classed template root lives inside it as a child, keeps its classes and is still exempt from `foundry.utils.cleanHTML`, so both the 7.1.4 fix (V13 dialog styling applies again) and this fix (dialogs open) are in effect
+* No CSS, template or data changes; no world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.4
 
 * Root cause found for why the roll dialogs still looked different from V13 although the dialog width and window frame had already been restored: since 7.1.0 the dialogs are created via `DialogV2`, which sanitizes string content with `foundry.utils.cleanHTML`; the cleaner strips the `class` attributes from the dialog templates, so the system dialog CSS (`.symbaroum.dialog ...` in `scss/chat/_dialog.scss`) stopped applying - the black label banners, the flat grey input styling, the `.lblfavour` banner and other template chrome were silently lost since 7.1.0
