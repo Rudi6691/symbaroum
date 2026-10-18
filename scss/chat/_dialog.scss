@@ -152,7 +152,7 @@ dialog.symb-dialog footer {
   padding: 8px;
 }
 
-dialog.symb-dialog button,
+dialog.symb-dialog .window-content button,
 dialog.symb-dialog .dialog-buttons button,
 dialog.symb-dialog footer button {
   // 7.1.8: classic V1 dialog buttons - light grey, dark text, side by
@@ -163,6 +163,10 @@ dialog.symb-dialog footer button {
   // reaches the DialogV2 footer buttons whatever the footer markup
   // looks like; !important guards against the core AppV2 button
   // theming regardless of selector specificity or load order.
+  // 7.1.11: scoped to the content area - the header buttons are no
+  // longer covered (their font-family and padding broke the window
+  // header control icons); the .dialog-buttons/footer variants stay
+  // as fallback in case the footer ever renders outside the content.
   flex: 1 1 auto !important;
   width: auto !important;
   background: linear-gradient(180deg, #f0f0e8, #cfcfc7) !important;
@@ -174,8 +178,10 @@ dialog.symb-dialog footer button {
   padding: 4px 12px;
 }
 
-dialog.symb-dialog button:hover,
-dialog.symb-dialog button:focus {
+dialog.symb-dialog .window-content button:hover,
+dialog.symb-dialog .window-content button:focus,
+dialog.symb-dialog .dialog-buttons button:hover,
+dialog.symb-dialog footer button:hover {
   background: linear-gradient(180deg, #ffffff, #e2e2da) !important;
   box-shadow: none !important;
 }
@@ -208,19 +214,33 @@ dialog.symb-dialog .window-header .window-title * {
 
 dialog.symb-dialog .window-header button,
 dialog.symb-dialog .window-header .header-control {
-  background: transparent !important;
+  // 7.1.11: white background = glyph colour for core mask-painted icons;
+  // a dark color keeps font-glyph icons (<i>) visible too, whichever way
+  // the core renders the header controls. transparent background made the
+  // mask icons invisible (empty squares in the 7.1.9/7.1.10 screenshots);
+  // the 7.1.8 catch-all additionally broke them via font-family/padding.
+  background: #ffffff !important;
   border: none !important;
-  color: var(--color-title) !important;
+  border-radius: 3px;
+  color: #191813 !important;
   text-shadow: none !important;
   box-shadow: none !important;
-  flex: 0 1 auto !important;
-  width: auto !important;
-  padding: 0 4px;
+  flex: 0 0 auto !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
 }
 
 dialog.symb-dialog .window-header button:hover,
 dialog.symb-dialog .window-header button:focus {
-  background: rgba(255, 255, 255, 0.15) !important;
+  background: #ffffff !important;
+  opacity: 1;
 }
 
 dialog.symb-dialog .window-content,
@@ -282,4 +302,19 @@ dialog.symb-dialog .symbaroum.dialog input[type=checkbox] {
 
 dialog.symb-dialog .symbaroum.dialog .lblfavour {
   text-align: center;
+}
+
+// ----------------------------------------------------------------------
+// 7.1.11: Radios and checkboxes white-filled like V13. The V14 core
+// renders native form controls in dark mode (dark interior); the V13
+// dialogs showed white-filled radios and checkboxes on the dark
+// banners. color-scheme: light restores the native light rendering,
+// an explicit white background-color guarantees the light fill.
+// (kept in sync with the block at the end of css/symbaroum.css)
+// ----------------------------------------------------------------------
+
+dialog.symb-dialog .symbaroum.dialog input[type=radio],
+dialog.symb-dialog .symbaroum.dialog input[type=checkbox] {
+  background-color: #ffffff !important;
+  color-scheme: light !important;
 }

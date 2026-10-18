@@ -1,3 +1,10 @@
+Version 7.1.11
+
+* Header control icons restored: the "Toggle Controls" and "Close" buttons in the dialog title bar showed as empty light squares. Two causes: (a) the 7.1.8 catch-all selector `dialog.symb-dialog button` also hit the header buttons and broke them via font-family/padding - it is now scoped to `dialog.symb-dialog .window-content button` (plus .dialog-buttons/footer fallbacks), so header buttons are excluded again; (b) the 7.1.9 rule `background: transparent` erased the glyph colour of the core's mask-painted icons (mask icons take their colour from the background - transparent = invisible). Header buttons now render as small white square buttons (22x22px) with a dark glyph colour (#191813), so the icons stay visible whichever way the core paints them
+* Radios and checkboxes white-filled like V13: V14 renders native form controls in dark mode (dark interior). `color-scheme: light` plus an explicit white background-color restores the V13 look - white-filled radios (Normal/Gunst/Missgunst) and checkboxes on the dark banners, clearly visible
+* Dark banners: Rudolf accepted the current (flat-weave) rendering - no further texture changes (the 7.1.10 denim remap in hooks.js stays as is)
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.10
 
 * Dark banner texture restored: the dark label bars (dialog labels, .lblfavour radio banner, .packageInfo) and the sheet/h1 banners now use the classic Foundry denim weave (/ui/denim075.png) over a dark base (#191813). Analysis of the V13 screenshots showed a fine diagonal weave - but the repo's title.webp (unchanged since 2021) is a flat dark noise texture that reads as pure flat black; the woven V13 banners came from an older title.webp that the runtime settings no longer resolve to. The weave is also what the 7.1.9 dialog window header already uses
