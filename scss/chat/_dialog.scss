@@ -155,3 +155,19 @@ dialog.symb-dialog .dialog-buttons button {
   flex: 1 1 auto;
   width: auto;
 }
+
+// ----------------------------------------------------------------------
+// 7.1.3: Restore the light textured window look the dialogs had as
+// legacy AppV1 windows, so they match the actor sheets again.
+// (kept in sync with the block at the end of css/symbaroum.css)
+// ----------------------------------------------------------------------
+
+dialog.symb-dialog .window-content,
+dialog.symb-dialog form,
+dialog.symb-dialog .dialog-content {
+  background: var(--color-charBG);
+}
+
+dialog.symb-dialog .window-header .window-title {
+  font-family: var(--font-text);
+}

@@ -4158,4 +4158,24 @@ dialog.symb-dialog .dialog-buttons button {
   flex: 1 1 auto;
   width: auto;
 }
+/* -------------------------------------------------------------------- */
+/* 7.1.3: Restore the light textured window look the dialogs had as    */
+/* legacy AppV1 windows, so they match the actor sheets again.         */
+/* The ApplicationV2 window follows the core UI theme (dark by          */
+/* default) instead of the legacy light parchment window, which made  */
+/* the roll dialogs look different from the sheets. The Symbaroum      */
+/* sheet background texture (same asset as the player sheet)          */
+/* restores the familiar light, textured look.                         */
+/* -------------------------------------------------------------------- */
+
+dialog.symb-dialog .window-content,
+dialog.symb-dialog form,
+dialog.symb-dialog .dialog-content {
+  background: var(--color-charBG);
+}
+
+dialog.symb-dialog .window-header .window-title {
+  font-family: var(--font-text);
+}
+
 /*# sourceMappingURL=symbaroum.css.map */
