@@ -598,14 +598,36 @@ function setup3PartySettings() {
 }
 // This sets the css DOM objects we will change with the registered settings
 async function setupConfigOptions() {
-	let r = document.querySelector(':root');
-	await r.style.setProperty('--color-charBG', game.settings.get('symbaroum', 'switchCharBGColour'));
-	await r.style.setProperty('--color-npcBG', game.settings.get('symbaroum', 'switchNpcBGColour'));
-	await r.style.setProperty('--title-image', game.settings.get('symbaroum', 'titleBGChoice'));
-	await r.style.setProperty('--title-color', game.settings.get('symbaroum', 'switchTitleColour'));
-	await r.style.setProperty('--box-editable', game.settings.get('symbaroum', 'switchEditableColour'));
-	await r.style.setProperty('--box-non-editable', game.settings.get('symbaroum', 'switchNoNEditableColour'));
-	await r.style.setProperty('--chat-background', game.settings.get('symbaroum', 'chatBGChoice'));
+	// 7.1.9: rewritten for Foundry V14 robustness:
+	// - the setting values store image paths relative to the system css
+	//   ("url(../asset/...)"), but applied as an INLINE style on :root they
+	//   resolve against the page URL, not against the stylesheet, and break.
+	//   They are rewritten to root-relative "/systems/symbaroum/asset/..."
+	//   which resolves correctly from any base URL.
+	// - each setting is applied in its own try/catch, so one broken value
+	//   cannot abort the whole loop (which previously left :root with the
+	//   flat static fallbacks: black label bars, white inputs).
+	const cssVarMap = [
+		['--color-charBG', 'switchCharBGColour'],
+		['--color-npcBG', 'switchNpcBGColour'],
+		['--title-image', 'titleBGChoice'],
+		['--title-color', 'switchTitleColour'],
+		['--box-editable', 'switchEditableColour'],
+		['--box-non-editable', 'switchNoNEditableColour'],
+		['--chat-background', 'chatBGChoice'],
+	];
+	const r = document.querySelector(':root');
+	for (const [cssVar, settingKey] of cssVarMap) {
+		try {
+			let value = game.settings.get('symbaroum', settingKey);
+			if (typeof value === 'string') {
+				value = value.replace(/url\(\s*['"]?\.\.\/asset\//gi, 'url(/systems/symbaroum/asset/');
+			}
+			r.style.setProperty(cssVar, value);
+		} catch (error) {
+			game.symbaroum.error(`Could not apply setting "${settingKey}" to css variable "${cssVar}"`, error);
+		}
+	}
 }
 
 // this add new status effect to the foundry list

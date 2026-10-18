@@ -181,23 +181,58 @@ dialog.symb-dialog button:focus {
 }
 
 // ----------------------------------------------------------------------
-// 7.1.7: The roll dialogs use the same light beige parchment texture
-// (foreground.webp) that the content panels of the actor sheets
-// (e.g. the attributes/Eigenschaften section, class "foreground")
-// are laid out on - not the green flower window background and not
-// the dark core stone texture tried before. This is the familiar
-// light panel look behind the fields.
+// 7.1.9: Roll dialog surfaces restored to the V13 look.
+//  - window header: dark denim texture with white title text (the
+//    ApplicationV2 default is a light header with dark text)
+//  - content + button row: the flat light window-content colour
+//    (#cdc8b4) of the classic V1 window - solid, no parchment texture
+//    (7.1.7 wrongly used foreground.webp here)
+//  - text/number inputs: the editable.webp parchment texture the V13
+//    roll dialogs showed on their input fields
+//  - the dark label banners draw their title.webp texture through
+//    var(--title-color), which is now valid unquoted in the :root
+//    block of scss/common/_variable.scss
 // (kept in sync with the block at the end of css/symbaroum.css)
 // ----------------------------------------------------------------------
+
+dialog.symb-dialog .window-header {
+  background: #191813 url("/ui/denim075.png") repeat;
+  border-bottom: 1px solid #000;
+}
+
+dialog.symb-dialog .window-header .window-title,
+dialog.symb-dialog .window-header .window-title * {
+  color: var(--color-title);
+  font-family: var(--font-text);
+}
+
+dialog.symb-dialog .window-header button,
+dialog.symb-dialog .window-header .header-control {
+  background: transparent !important;
+  border: none !important;
+  color: var(--color-title) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  flex: 0 1 auto !important;
+  width: auto !important;
+  padding: 0 4px;
+}
+
+dialog.symb-dialog .window-header button:hover,
+dialog.symb-dialog .window-header button:focus {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
 
 dialog.symb-dialog .window-content,
 dialog.symb-dialog form,
 dialog.symb-dialog .dialog-content,
 dialog.symb-dialog .dialog-buttons,
 dialog.symb-dialog footer {
-  background: url(../asset/image/background/foreground.webp) repeat;
+  background: #cdc8b4;
 }
 
-dialog.symb-dialog .window-header .window-title {
-  font-family: var(--font-text);
+dialog.symb-dialog input[type=text],
+dialog.symb-dialog input[type=number] {
+  background: url(../asset/image/background/editable.webp) repeat !important;
+  color: var(--color-text);
 }

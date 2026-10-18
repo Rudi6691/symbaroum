@@ -1,3 +1,14 @@
+Version 7.1.9
+
+* Root cause of the missing textures found: the css custom properties in the `:root` block (`--title-image`, `--title-color`, `--box-editable`, `--box-non-editable`, `--color-charBG`, `--color-npcBG`, `--chat-roll-border`) were declared as QUOTED strings (`--box-editable: "url(...)"`), which is invalid CSS - as raw values they never produced a background. In V13 the textures only appeared because `setupConfigOptions()` in hooks.js overwrote the variables with inline styles at runtime; in V14 that mechanism no longer produced the V13 look (flat black label bars, flat white inputs, untextured sheet banners)
+* All quoted url() values are now unquoted, so the stylesheet itself resolves the relative image paths (stylesheet-relative `../asset/...` = correct) and the V13 textures show even without any JS override; `--title-color` now statically holds the same title.webp value the V13 runtime override applied
+* `setupConfigOptions()` rewritten defensively for V14: the stored values (`url(../asset/...)`) are rewritten to root-relative paths (`url(/systems/symbaroum/asset/...)`) before being applied as inline styles on `:root` (inline urls resolve against the page URL, not the stylesheet, and broke); each setting is applied in its own try/catch with a clear error log, so one broken value can no longer silently abort the whole loop
+* Roll dialog content: the solid light classic window-content colour (#cdc8b4) like V13 - replaces the beige foreground.webp parchment texture from 7.1.7 which was too textured; the button footer area gets the same flat colour
+* Dialog window header: dark denim texture (`/ui/denim075.png`) with white title text like the classic V13 window bar - replaces the light ApplicationV2 default header; header buttons (close, context menu) stay plain white icon buttons, explicitly excluded from the 7.1.8 catch-all button styling
+* Roll dialog text/number inputs: parchment texture (editable.webp) like V13, `!important` against the ApplicationV2 core input styling
+* The dark label banners (`.symbaroum.dialog label`, `.lblfavour`, `.packageInfo`) automatically regain their title.webp texture through the fixed `--title-color` variable; radio and checkbox arrangement is unchanged (already matches V13); buttons stay flat without texture (7.1.8)
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.8
 
 * Button fix, round two: the classic light-grey buttons still did not show in 7.1.7 (screenshots showed the orange ApplicationV2 default button) - the `.dialog-buttons` selector obviously does not match the actual DialogV2 footer markup, so the previous rules never applied

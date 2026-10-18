@@ -1433,15 +1433,23 @@
   --color-border: black;
   --color-shadow: #a48b02;
   --font-text: "Philosopher";
-  --color-charBG: "url(../asset/image/background/green_flower_light.webp) repeat";
-  --color-npcBG: "url(../asset/image/background/purple_flower_light.webp) repeat";
-  --title-image: "url(../asset/image/background/title.webp)";
-  --title-color: black;
-  --box-editable: "url(../asset/image/background/editable.webp)";
-  --box-non-editable: "url(../asset/image/background/not-editable.webp)";
+  /* 7.1.9: these values were previously quoted strings, which made them
+     invalid CSS - the textures only ever appeared when hooks.js
+     setupConfigOptions() overwrote them with an inline style. Unquoted,
+     the stylesheet itself resolves the relative urls against its own
+     location (systems/symbaroum/css/ -> ../asset = correct), so the V13
+     textures show even without the runtime override. --title-color keeps
+     the value the V13 runtime override applied (title.webp); rules that
+     use it as border-color degrade exactly like they did in V13. */
+  --color-charBG: url(../asset/image/background/green_flower_light.webp) repeat;
+  --color-npcBG: url(../asset/image/background/purple_flower_light.webp) repeat;
+  --title-image: url(../asset/image/background/title.webp);
+  --title-color: url(../asset/image/background/title.webp);
+  --box-editable: url(../asset/image/background/editable.webp);
+  --box-non-editable: url(../asset/image/background/not-editable.webp);
   --chat-background: url(../asset/image/background/editable.webp);
   --chat-colorBG: burlywood;
-  --chat-roll-border: "url(../asset/image/background/title.webp)";
+  --chat-roll-border: url(../asset/image/background/title.webp);
 }
 
 /* Global styles */
@@ -4183,24 +4191,64 @@ dialog.symb-dialog button:focus {
   box-shadow: none !important;
 }
 /* -------------------------------------------------------------------- */
-/* 7.1.7: The roll dialogs use the same light beige parchment texture  */
-/* (foreground.webp) that the content panels of the actor sheets      */
-/* (e.g. the attributes/Eigenschaften section, class "foreground")     */
-/* are laid out on - not the green flower window background and not    */
-/* the dark core stone texture tried before. This is the familiar      */
-/* light panel look behind the fields.                                  */
+/* 7.1.9: Roll dialog surfaces restored to the V13 look.                */
+/*  - Window header: dark denim texture with white title text. The      */
+/*    ApplicationV2 default is a light header with dark text, which    */
+/*    looked broken next to the V13 dialogs' classic dark window bar.   */
+/*    The header buttons (close, context menu) are kept as plain white  */
+/*    icon buttons; the 7.1.8 catch-all button styling is excluded      */
+/*    for them via !important overrides.                                */
+/*  - Dialog content and button row: the flat light window-content      */
+/*    colour (#cdc8b4) of the classic V1 window - a solid colour, no    */
+/*    parchment texture (7.1.7 wrongly used foreground.webp here).     */
+/*  - Text/number inputs: the editable.webp parchment texture the V13   */
+/*    roll dialogs showed on their input fields.                       */
+/*  - The dark label banners (.symbaroum.dialog label, .lblfavour,     */
+/*    .packageInfo) need no extra rule: they draw their title.webp      */
+/*    texture via var(--title-color), which is now valid unquoted in   */
+/*    the :root block above and through the fixed runtime override.    */
 /* -------------------------------------------------------------------- */
+
+dialog.symb-dialog .window-header {
+  background: #191813 url("/ui/denim075.png") repeat;
+  border-bottom: 1px solid #000;
+}
+
+dialog.symb-dialog .window-header .window-title,
+dialog.symb-dialog .window-header .window-title * {
+  color: var(--color-title);
+  font-family: var(--font-text);
+}
+
+dialog.symb-dialog .window-header button,
+dialog.symb-dialog .window-header .header-control {
+  background: transparent !important;
+  border: none !important;
+  color: var(--color-title) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  flex: 0 1 auto !important;
+  width: auto !important;
+  padding: 0 4px;
+}
+
+dialog.symb-dialog .window-header button:hover,
+dialog.symb-dialog .window-header button:focus {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
 
 dialog.symb-dialog .window-content,
 dialog.symb-dialog form,
 dialog.symb-dialog .dialog-content,
 dialog.symb-dialog .dialog-buttons,
 dialog.symb-dialog footer {
-  background: url(../asset/image/background/foreground.webp) repeat;
+  background: #cdc8b4;
 }
 
-dialog.symb-dialog .window-header .window-title {
-  font-family: var(--font-text);
+dialog.symb-dialog input[type=text],
+dialog.symb-dialog input[type=number] {
+  background: url(../asset/image/background/editable.webp) repeat !important;
+  color: var(--color-text);
 }
 
 /*# sourceMappingURL=symbaroum.css.map */
