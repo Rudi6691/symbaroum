@@ -1,3 +1,14 @@
+Version 7.0.2
+
+* Fix: system guide import now searches the pack documents directly instead of the compendium index, which no longer exposes entry names on Foundry VTT V14 ("No system guide found in this release")
+* The optional guide import no longer shows an error notification when unavailable
+
+Version 7.0.1
+
+* Fix: expandObject and other deprecated global helpers replaced with foundry.utils.* (broke the world migration for actors with shield items on Foundry VTT V14)
+* World migration re-run (7.0.0 -> 7.0.1): completes Active Effect and token detection mode migration for actors that previously failed
+* Shield defense migration is now idempotent (guard flag) and skipped for already-migrated world items
+
 Version 7.0.0
 
 * Foundry VTT V14 (Build 360) support

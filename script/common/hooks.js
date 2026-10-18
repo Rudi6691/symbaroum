@@ -657,21 +657,33 @@ async function showReleaseNotes(originalVersion) {
 		}
 		await newReleasePack.getIndex();
 
-		let newReleaseNotes = newReleasePack.index.find((j) => j.name === releaseNoteName);
+		// Foundry VTT V14: the compendium index is not guaranteed to expose entry names,
+		// so load the pack documents directly and search there (index stays as fallback).
+		let newReleaseNotes;
+		try {
+			const documents = await newReleasePack.getDocuments();
+			newReleaseNotes = documents.find((j) => j.name === releaseNoteName) ?? null;
+		} catch (e) {
+			game.symbaroum.error('Could not load the system guide pack contents', e);
+			newReleaseNotes = null;
+		}
+		if (newReleaseNotes === null && Array.isArray(newReleasePack.index)) {
+			newReleaseNotes = newReleasePack.index.find((j) => j.name === releaseNoteName) ?? null;
+		}
 		// game.symbaroum.log("Found new release notes in the compendium pack");
 		if (newReleaseNotes === undefined || newReleaseNotes === null) {
-			let err = 'No system guide found in this release';
-			game.symbaroum.error(err);
-			ui.notifications.error(err);
+			// The guide import is optional: log it, but do not spam the user with an error toast
+			game.symbaroum.error('No system guide found in this release');
 			return;
 		}
+		const newReleaseNotesId = newReleaseNotes.id ?? newReleaseNotes._id;
 
 		// Don't delete until we have new release Pack
 		if (oldReleaseNotes !== null && oldReleaseNotes !== undefined) {
 			await oldReleaseNotes.delete();
 		}
 
-		await game.journal.importFromCompendium(newReleasePack, newReleaseNotes._id, {}, { keepId: true });
+		await game.journal.importFromCompendium(newReleasePack, newReleaseNotesId, {}, { keepId: true });
 		let newReleaseJournal = game.journal.getName(newReleaseNotes.name);
 
 		await newReleaseJournal.setFlag('symbaroum', 'ver', newVer);

@@ -607,7 +607,7 @@ export class SymbaroumMacros {
 						}
 						let tot = actor.system.attributes[type].temporaryMod + calcDam;
 						let modification = {        };
-						setProperty(modification, `system.attributes.${type}.temporaryMod`, tot);        
+						foundry.utils.setProperty(modification, `system.attributes.${type}.temporaryMod`, tot);        
 						await actor.update(modification);
 						ui.notifications.info(`${actor.name} takes ${damage} damage to ${game.i18n.localize(actor.system.attributes[type].label)}.`);
 
@@ -839,35 +839,35 @@ export class SymbaroumMacros {
 										{
 												// game.symbaroum.log("ability="+JSON.stringify(ability));
 
-												ability = duplicate(ability[0]);
+												ability = foundry.utils.duplicate(ability[0]);
 												let abilityAction = "";
 
 												// Master ability
 												if(tmpdata[2] === "master" || tmpdata[2] === "III") {                    
 														higherLevel = true;
-														setProperty(ability, "system.master.isActive",true);                                            
+														foundry.utils.setProperty(ability, "system.master.isActive",true);                                            
 												}                
-												abilityAction = getProperty(ability, "system.master.action");
+												abilityAction = foundry.utils.getProperty(ability, "system.master.action");
 												if( abilityAction === "") {
-														setProperty(ability, "system.master.action", "A");
+														foundry.utils.setProperty(ability, "system.master.action", "A");
 												}
 												// Adept ability
 												if(tmpdata[2] === "adept" || tmpdata[2] === "II" || higherLevel) {                
 														higherLevel = true;
-														setProperty(ability, "system.adept.isActive",true);                        
+														foundry.utils.setProperty(ability, "system.adept.isActive",true);                        
 
 												}    
-												abilityAction = getProperty(ability, "system.adept.action");
+												abilityAction = foundry.utils.getProperty(ability, "system.adept.action");
 												if( abilityAction === "") {
-														setProperty(ability, "system.adept.action", "A");
+														foundry.utils.setProperty(ability, "system.adept.action", "A");
 												}
 												// Novice ability
 												if(tmpdata[2] === "novice" || tmpdata[2] === "I" || higherLevel) {                              
-														setProperty(ability, "system.novice.isActive",true);                        
+														foundry.utils.setProperty(ability, "system.novice.isActive",true);                        
 												}
-												abilityAction = getProperty(ability, "system.novice.action");
+												abilityAction = foundry.utils.getProperty(ability, "system.novice.action");
 												if( abilityAction === "") {
-														setProperty(ability, "system.novice.action", "A");
+														foundry.utils.setProperty(ability, "system.novice.action", "A");
 												}
 												// game.symbaroum.log("Final ability "+JSON.stringify(ability));
 												game.symbaroum.log("Added ability "+ability.name)
@@ -916,51 +916,51 @@ export class SymbaroumMacros {
 				}
 
 				let mannerPattern = /Manner (.*) Race /;
-				setProperty(newValues, "system.bio.manner",extractData(expectedData,mannerPattern));
+				foundry.utils.setProperty(newValues, "system.bio.manner",extractData(expectedData,mannerPattern));
 
 				let racePattern = /Race (.*) Resistance/;
-				setProperty(newValues, "system.bio.race",extractData(expectedData,racePattern));
+				foundry.utils.setProperty(newValues, "system.bio.race",extractData(expectedData,racePattern));
 
 				let attributePattern = /Accurate ([0-9]+)/;
 				// game.symbaroum.log("Accurate["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.accurate.value", parseInt(extractData(expectedData,attributePattern)));
+				foundry.utils.setProperty(newValues, "system.attributes.accurate.value", parseInt(extractData(expectedData,attributePattern)));
 				attributePattern = /Cunning ([0-9]+)/;
 				// game.symbaroum.log("Cunning["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.cunning.value", parseInt(extractData(expectedData,attributePattern)));    
+				foundry.utils.setProperty(newValues, "system.attributes.cunning.value", parseInt(extractData(expectedData,attributePattern)));    
 				attributePattern = /Discreet ([0-9]+)/;
 				// game.symbaroum.log("Discreet["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.discreet.value", parseInt(extractData(expectedData,attributePattern)));
+				foundry.utils.setProperty(newValues, "system.attributes.discreet.value", parseInt(extractData(expectedData,attributePattern)));
 				attributePattern = /Persuasive ([0-9]+)/;
 				// game.symbaroum.log("Persuasive["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.persuasive.value", parseInt(extractData(expectedData,attributePattern)));
+				foundry.utils.setProperty(newValues, "system.attributes.persuasive.value", parseInt(extractData(expectedData,attributePattern)));
 				attributePattern = /Quick ([0-9]+).+\)/;
 				// game.symbaroum.log("Quick["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.quick.value", parseInt(extractData(expectedData,attributePattern)));
+				foundry.utils.setProperty(newValues, "system.attributes.quick.value", parseInt(extractData(expectedData,attributePattern)));
 				attributePattern = /Resolute ([0-9]+)/;
 				// game.symbaroum.log("Resolute["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.resolute.value", parseInt(extractData(expectedData,attributePattern)));
+				foundry.utils.setProperty(newValues, "system.attributes.resolute.value", parseInt(extractData(expectedData,attributePattern)));
 				attributePattern = /Strong ([0-9]+)/;
 				// game.symbaroum.log("Strong["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.strong.value", parseInt(extractData(expectedData,attributePattern)));
+				foundry.utils.setProperty(newValues, "system.attributes.strong.value", parseInt(extractData(expectedData,attributePattern)));
 				attributePattern = /Vigilant ([0-9]+)/;
 				// game.symbaroum.log("Vigilant["+extractData(expectedData,attributePattern)+"]");
-				setProperty(newValues, "system.attributes.vigilant.value", parseInt(extractData(expectedData,attributePattern)));
+				foundry.utils.setProperty(newValues, "system.attributes.vigilant.value", parseInt(extractData(expectedData,attributePattern)));
 
 				let shadowPattern = /Shadow (.*) \(/;
 				// game.symbaroum.log("Shadow["+extractData(expectedData,shadowPattern)+"]");    
-				setProperty(newValues, "system.bio.shadow", extractData(expectedData,shadowPattern));
+				foundry.utils.setProperty(newValues, "system.bio.shadow", extractData(expectedData,shadowPattern));
 				
 				// If nomatch == thouroughly corrupt
 				let corruptionPattern = /\(corruption: ([0-9]+).?\)/;
 				// game.symbaroum.log("Permanent Corruption["+extractData(expectedData,corruptionPattern)+"]");   
 				let corr = extractData(expectedData,corruptionPattern);
 				if( corr !== null && corr !== "nomatch" ) {
-						setProperty(newValues, "system.health.corruption.permanent", parseInt(extractData(expectedData,corruptionPattern))); 
+						foundry.utils.setProperty(newValues, "system.health.corruption.permanent", parseInt(extractData(expectedData,corruptionPattern))); 
 				}
 				
 				let tacticsPattern = / Tactics: (.*)/;
 				// game.symbaroum.log("Tactics["+extractData(expectedData,tacticsPattern)+"]");
-				setProperty(newValues, "system.bio.tactics", extractData(expectedData,tacticsPattern));
+				foundry.utils.setProperty(newValues, "system.bio.tactics", extractData(expectedData,tacticsPattern));
 
 				let actor = await Actor.create(newValues);
 
@@ -999,7 +999,7 @@ export class SymbaroumMacros {
 
 
 				let healMe = {_id:actor.id};
-				setProperty(healMe, "system.health.toughness.value", getProperty(actor, "system.health.toughness.max") );
+				foundry.utils.setProperty(healMe, "system.health.toughness.value", foundry.utils.getProperty(actor, "system.health.toughness.max") );
 				await Actor.updateDocuments([healMe]);
 
 				let message = `Created ${actor.name}<br/>${additionalInfo}`;
@@ -1072,36 +1072,36 @@ export class SymbaroumMacros {
 									{
 											// game.symbaroum.log("ability="+JSON.stringify(ability));
 
-											ability = duplicate(ability[0].data);
+											ability = foundry.utils.duplicate(ability[0].data);
 											let abilityAction = "";
 
 											// Master ability
 											if(tmpdata[2] === "master" || tmpdata[2] === "III") {                    
 													higherLevel = true;
-													setProperty(ability, "data.master.isActive",true);                                            
+													foundry.utils.setProperty(ability, "data.master.isActive",true);                                            
 											}                
-											abilityAction = getProperty(ability, "data.master.action");
+											abilityAction = foundry.utils.getProperty(ability, "data.master.action");
 											if( abilityAction === "") {
-													setProperty(ability, "data.master.action", "A");
+													foundry.utils.setProperty(ability, "data.master.action", "A");
 											}
 											// Adept ability
 											if(tmpdata[2] === "adept" || tmpdata[2] === "II" || higherLevel) {                
 													higherLevel = true;
-													setProperty(ability, "data.adept.isActive",true);                        
+													foundry.utils.setProperty(ability, "data.adept.isActive",true);                        
 
 											}    
-											abilityAction = getProperty(ability, "data.adept.action");
+											abilityAction = foundry.utils.getProperty(ability, "data.adept.action");
 											if( abilityAction === "") {
-													setProperty(ability, "data.adept.action", "A");
+													foundry.utils.setProperty(ability, "data.adept.action", "A");
 											}
 											// Novice ability
 											if(tmpdata[2] === "novice" || tmpdata[2] === "I" || higherLevel) {                              
 													higherLevel = true;
-													setProperty(ability, "data.novice.isActive",true);                        
+													foundry.utils.setProperty(ability, "data.novice.isActive",true);                        
 											}
-											abilityAction = getProperty(ability, "data.novice.action");
+											abilityAction = foundry.utils.getProperty(ability, "data.novice.action");
 											if( abilityAction === "") {
-													setProperty(ability, "data.novice.action", "A");
+													foundry.utils.setProperty(ability, "data.novice.action", "A");
 											}
 											if( !higherLevel ) {
 													message += `Could not establish level for ${ability.name} - change manually <br/>`;
@@ -1189,10 +1189,10 @@ export class SymbaroumMacros {
 			}
 
 			let mannerPattern = /resistance “(.*)”/;
-			setProperty(newValues, "system.bio.manner",extractData(expectedData,mannerPattern));
+			foundry.utils.setProperty(newValues, "system.bio.manner",extractData(expectedData,mannerPattern));
 
 			let racePattern = /NLMARKER (.*?), .* resistance/;
-			setProperty(newValues, "system.bio.race",extractData(expectedData,racePattern));
+			foundry.utils.setProperty(newValues, "system.bio.race",extractData(expectedData,racePattern));
 
 			let myMatches = [];
 			game.symbaroum.log("My count other is "+countother(/ACC CUN DIS PER QUI RES STR VIG/g,expectedData));
@@ -1206,32 +1206,32 @@ export class SymbaroumMacros {
 			}
 			game.symbaroum.log(myMatches);
 			if(myMatches !== null && myMatches.length === 9 ) {
-					setProperty(newValues, "system.attributes.accurate.value", 10 - parseInt(myMatches[1]) );
-					setProperty(newValues, "system.attributes.cunning.value", 10 - parseInt(myMatches[2]) );    
-					setProperty(newValues, "system.attributes.discreet.value", 10 - parseInt(myMatches[3]) );    
-					setProperty(newValues, "system.attributes.persuasive.value", 10 - parseInt(myMatches[4]) );    
-					setProperty(newValues, "system.attributes.quick.value", 10 - parseInt(myMatches[5]) );    
-					setProperty(newValues, "system.attributes.resolute.value", 10 - parseInt(myMatches[6]) );    
-					setProperty(newValues, "system.attributes.strong.value", 10 - parseInt(myMatches[7]) );    
-					setProperty(newValues, "system.attributes.vigilant.value", 10 - parseInt(myMatches[8]) );    
+					foundry.utils.setProperty(newValues, "system.attributes.accurate.value", 10 - parseInt(myMatches[1]) );
+					foundry.utils.setProperty(newValues, "system.attributes.cunning.value", 10 - parseInt(myMatches[2]) );    
+					foundry.utils.setProperty(newValues, "system.attributes.discreet.value", 10 - parseInt(myMatches[3]) );    
+					foundry.utils.setProperty(newValues, "system.attributes.persuasive.value", 10 - parseInt(myMatches[4]) );    
+					foundry.utils.setProperty(newValues, "system.attributes.quick.value", 10 - parseInt(myMatches[5]) );    
+					foundry.utils.setProperty(newValues, "system.attributes.resolute.value", 10 - parseInt(myMatches[6]) );    
+					foundry.utils.setProperty(newValues, "system.attributes.strong.value", 10 - parseInt(myMatches[7]) );    
+					foundry.utils.setProperty(newValues, "system.attributes.vigilant.value", 10 - parseInt(myMatches[8]) );    
 			} else {
 					additionalInfo += "Could not find the attributes<br/>";
 			}
 			let shadowPattern = /Shadow ([^\(]*)/;
 			game.symbaroum.log("Shadow["+extractData(expectedData,shadowPattern)+"]");    
-			setProperty(newValues, "system.bio.shadow", extractData(expectedData,shadowPattern));
+			foundry.utils.setProperty(newValues, "system.bio.shadow", extractData(expectedData,shadowPattern));
 			
 			// If nomatch == thouroughly corrupt
 			let corruptionPattern = /\(corruption: ([0-9]+).?\)/;
 			// game.symbaroum.log("Permanent Corruption["+extractData(expectedData,corruptionPattern)+"]");   
 			let corr = extractData(expectedData,corruptionPattern);
 			if( corr !== null && corr !== "nomatch" ) {
-					setProperty(newValues, "system.health.corruption.permanent", parseInt(extractData(expectedData,corruptionPattern))); 
+					foundry.utils.setProperty(newValues, "system.health.corruption.permanent", parseInt(extractData(expectedData,corruptionPattern))); 
 			}
 			
 			let tacticsPattern = / Tactics: (.*)/;
 			game.symbaroum.log("Tactics["+extractData(expectedData,tacticsPattern)+"]");
-			setProperty(newValues, "systembio.tactics", extractData(expectedData,tacticsPattern));
+			foundry.utils.setProperty(newValues, "systembio.tactics", extractData(expectedData,tacticsPattern));
 
 			let actor = await Actor.create(newValues);
 
@@ -1263,7 +1263,7 @@ export class SymbaroumMacros {
 
 
 			let healMe = {_id:actor.id};
-			setProperty(healMe, "system.health.toughness.value", getProperty(actor, "system.health.toughness.max") );
+			foundry.utils.setProperty(healMe, "system.health.toughness.value", foundry.utils.getProperty(actor, "system.health.toughness.max") );
 			await Actor.updateDocuments([healMe]);
 
 			let message = `Created ${actor.name}<br/>${additionalInfo}`;

@@ -22,7 +22,7 @@ export const migrateWorld = async () => {
     }
     game.symbaroum.info(`Last migration on this world: ${worldSystemVersion}`);
     // the NEEDS_MIGRATION_VERSION have to be increased for migration to happen
-    const NEEDS_MIGRATION_VERSION = '7.0.0';
+    const NEEDS_MIGRATION_VERSION = '7.0.1';
     const COMPATIBLE_MIGRATION_VERSION = '3.1.8' || isNaN('NaN');
     let needMigration = foundry.utils.isNewerVersion(NEEDS_MIGRATION_VERSION, worldSystemVersion);
     game.symbaroum.info('needMigration', needMigration, systemVersion);
@@ -53,7 +53,7 @@ export const migrateWorld = async () => {
     }
     for (let item of game.items.contents) {
         try {
-            const updateData = migrateItemData(item.toObject(), worldSystemVersion);
+            const updateData = foundry.utils.isNewerVersion("7.0.0", worldSystemVersion) ? migrateItemData(item.toObject(), worldSystemVersion) : {};
             if (!foundry.utils.isEmpty(updateData)) {
                 game.symbaroum.info(`Migrating Item entity ${item.name}`);
                 await item.update(updateData, { enforceTypes: false });
@@ -84,7 +84,7 @@ export const migrateWorld = async () => {
     //     await migrateCompendium(pack, worldSystemVersion);
     // }
     // Migrate Scene tokens: detection modes from the v13 array form to the v14 object form (system version 7.0.0)
-    if (foundry.utils.isNewerVersion("7.0.0", worldSystemVersion)) {
+    if (foundry.utils.isNewerVersion("7.0.1", worldSystemVersion)) {
         for (let scene of game.scenes.contents) {
             try {
                 const tokenUpdates = [];
@@ -170,7 +170,7 @@ const migrateDetectionModesV14 = (detectionModes) => {
 const migrateActorData = (actor, worldSystemVersion) => {
     let updateData = {};
     // Migrate Active Effects and prototype token detection modes to the Foundry VTT V14 schema (system version 7.0.0)
-    if (foundry.utils.isNewerVersion("7.0.0", worldSystemVersion)) {
+    if (foundry.utils.isNewerVersion("7.0.1", worldSystemVersion)) {
         const effectUpdates = migrateEffectsV14(actor.effects);
         if (effectUpdates.length > 0) {
             game.symbaroum.info(`Migrating ${effectUpdates.length} Active Effect(s) for Actor ${actor.name}`);
@@ -194,7 +194,7 @@ const migrateActorData = (actor, worldSystemVersion) => {
         let itemUpdate = migrateItemData(itemData);
         if (!foundry.utils.isEmpty(itemUpdate)) {
             itemUpdate._id = itemData._id;
-            arr.push(expandObject(itemUpdate));
+            arr.push(foundry.utils.expandObject(itemUpdate));
         }
         return arr;
     }, []);
@@ -206,8 +206,10 @@ const migrateItemData = (item, worldSystemVersion) => {
     let update = {};
     if (item.type === 'weapon' && item.system.reference === 'shield') {
         let shieldbonus = parseInt(item.system.bonus.defense) || 0;
-        if(shieldbonus > 0) {
+        // Only migrate once: guard flag prevents repeated defense decrements on re-runs
+        if (shieldbonus > 0 && !foundry.utils.getProperty(item, `flags.${game.system.id}.shieldDefenseMigrated`)) {
             update[`system.bonus.defense`] = (shieldbonus-1);
+            update[`flags.${game.system.id}.shieldDefenseMigrated`] = true;
             console.log(`updating Item ${item.name}[${item._id}]`);
         }
     }
