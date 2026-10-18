@@ -4,6 +4,8 @@ import { baseRoll } from "./roll.js";
 
 export class SymbaroumActor extends Actor {
 	prepareBaseData() {
+		// Foundry VTT V14: resets the Active Effect application phases (two-phase application)
+		super.prepareBaseData();
 		// console.log("SymbaroumActor - prepareBaseData");
 		this._initializeData(this.system);
 	}

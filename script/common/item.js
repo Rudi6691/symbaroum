@@ -40,6 +40,8 @@ export class SymbaroumItem extends Item {
   }
 
   prepareBaseData() {
+    // Foundry VTT V14: keep the base data preparation chain intact
+    super.prepareBaseData();
     // We do nothing for now
   }
 

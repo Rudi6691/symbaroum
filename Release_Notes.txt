@@ -1,3 +1,10 @@
+Version 7.0.0
+
+* Foundry VTT V14 (Build 360) support
+* Manifest: compatibility raised to minimum "14" / verified "14.360" (maximum removed)
+* Actor and Item prepareBaseData() now call super to support the two-phase Active Effect application of V14
+* Added world migration for Foundry VTT V14 documents (Active Effects v2: changes -> system.changes, mode -> type; token detection modes: array -> object)
+
 Version 6.1.6
 
 * Fix for #743

@@ -22,7 +22,7 @@ export const migrateWorld = async () => {
     }
     game.symbaroum.info(`Last migration on this world: ${worldSystemVersion}`);
     // the NEEDS_MIGRATION_VERSION have to be increased for migration to happen
-    const NEEDS_MIGRATION_VERSION = '4.3.1';
+    const NEEDS_MIGRATION_VERSION = '7.0.0';
     const COMPATIBLE_MIGRATION_VERSION = '3.1.8' || isNaN('NaN');
     let needMigration = foundry.utils.isNewerVersion(NEEDS_MIGRATION_VERSION, worldSystemVersion);
     game.symbaroum.info('needMigration', needMigration, systemVersion);
@@ -83,13 +83,104 @@ export const migrateWorld = async () => {
     // for (let pack of game.packs.filter((p) => p.metadata.package === "world" && ["Actor", "Item", "Scene"].includes(p.metadata.entity))) {
     //     await migrateCompendium(pack, worldSystemVersion);
     // }
+    // Migrate Scene tokens: detection modes from the v13 array form to the v14 object form (system version 7.0.0)
+    if (foundry.utils.isNewerVersion("7.0.0", worldSystemVersion)) {
+        for (let scene of game.scenes.contents) {
+            try {
+                const tokenUpdates = [];
+                for (const token of scene.tokens.contents) {
+                    const tokenUpdate = migrateDetectionModesV14(token.toObject().detectionModes);
+                    if (!foundry.utils.isEmpty(tokenUpdate)) {
+                        tokenUpdates.push({ _id: token.id, ...tokenUpdate });
+                    }
+                }
+                if (tokenUpdates.length > 0) {
+                    game.symbaroum.info(`Migrating ${tokenUpdates.length} token(s) for Scene ${scene.name}`);
+                    await scene.updateEmbeddedDocuments('Token', tokenUpdates);
+                }
+            } catch (e) {
+                e.message = `Failed v14 migration for Scene ${scene.name}: ${e.message}`;
+                game.symbaroum.error(e);
+            }
+        }
+    }
+
     game.settings.set("symbaroum", "systemMigrationVersion", systemVersion);
     ui.notifications.info("Upgrade complete!");
 };
 
 
+// ---------------------------------------------------------------------------
+// Foundry VTT V14 migrations (system version 7.0.0)
+// ---------------------------------------------------------------------------
+
+/** v13 numeric ActiveEffect change modes -> v14 string change types */
+const ACTIVE_EFFECT_MODE_TO_TYPE = {
+    0: 'custom',
+    1: 'multiply',
+    2: 'add',
+    3: 'downgrade',
+    4: 'upgrade',
+    5: 'override',
+};
+
+const migrateEffectChangeData = (change) => {
+    const newChange = foundry.utils.duplicate(change);
+    if (newChange.mode !== undefined) {
+        newChange.type = ACTIVE_EFFECT_MODE_TO_TYPE[Number(newChange.mode)] ?? 'custom';
+        delete newChange.mode;
+    }
+    return newChange;
+};
+
+/**
+ * Migrate raw ActiveEffect sources from the v13 schema to the Active Effects v2
+ * schema of Foundry VTT V14:
+ * - "changes" moved from the document root to system.changes
+ * - change.mode (number) renamed to change.type (lowercase string key)
+ * Only effects that still carry a root-level changes array are touched,
+ * so this is a safe no-op if the core migration already did the work.
+ * @returns {Array<{_id: string, system: {changes: Array}}>}
+ */
+const migrateEffectsV14 = (effects) => {
+    const updates = [];
+    for (const effect of effects ?? []) {
+        if (!effect?._id) continue;
+        if (!Array.isArray(effect.changes)) continue;
+        updates.push({ _id: effect._id, system: { changes: effect.changes.map(migrateEffectChangeData) } });
+    }
+    return updates;
+};
+
+/**
+ * Migrate a v13 TokenDocument.detectionModes array [{id, enabled, range}] to
+ * the v14 TypedObjectField form { [id]: {enabled, range} }.
+ * Returns an empty object when no migration is needed.
+ */
+const migrateDetectionModesV14 = (detectionModes) => {
+    if (!Array.isArray(detectionModes) || detectionModes.length === 0) return {};
+    const modes = {};
+    for (const mode of detectionModes) {
+        if (!mode?.id) continue;
+        modes[mode.id] = { enabled: mode.enabled ?? true, range: mode.range ?? 0 };
+    }
+    return { detectionModes: modes };
+};
+
 const migrateActorData = (actor, worldSystemVersion) => {
     let updateData = {};
+    // Migrate Active Effects and prototype token detection modes to the Foundry VTT V14 schema (system version 7.0.0)
+    if (foundry.utils.isNewerVersion("7.0.0", worldSystemVersion)) {
+        const effectUpdates = migrateEffectsV14(actor.effects);
+        if (effectUpdates.length > 0) {
+            game.symbaroum.info(`Migrating ${effectUpdates.length} Active Effect(s) for Actor ${actor.name}`);
+            updateData.effects = effectUpdates;
+        }
+        const prototypeTokenUpdate = migrateDetectionModesV14(actor.prototypeToken?.detectionModes);
+        if (!foundry.utils.isEmpty(prototypeTokenUpdate)) {
+            updateData['prototypeToken.detectionModes'] = prototypeTokenUpdate.detectionModes;
+        }
+    }
     // Migrate actor template
 /*   Example
     if (foundry.utils.isNewerVersion("2.21.0", worldSystemVersion)) {
