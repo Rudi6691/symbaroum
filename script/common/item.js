@@ -9,6 +9,7 @@ import {
   createResistRollChatButton,
 } from "./roll.js";
 import { createLineDisplay } from "./dialog.js";
+import { symbDialog } from "./symbDialog.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -291,7 +292,7 @@ export class SymbaroumItem extends Item {
         <div style="display:flex">
         <div  style="flex:1"><select id="reference">${referenceOptions}</select></div>
         </div>`;
-    new Dialog({
+    symbDialog({
       title: game.i18n.localize("ABILITYREF.DIALOG_TITLE"),
       content: htmlTemplate,
       buttons: {
@@ -307,7 +308,7 @@ export class SymbaroumItem extends Item {
           label: "Close",
         },
       },
-    }).render(true);
+    });
   }
 
   getLevel() {
@@ -2991,7 +2992,7 @@ export async function modifierDialog(functionStuff) {
   } else {
     title = functionStuff.weapon.name;
   }
-  let dialog = new Dialog({
+  let dialog = symbDialog({
     title: title,
     content: html,
     buttons: {
@@ -3206,9 +3207,7 @@ export async function modifierDialog(functionStuff) {
       },
     },
     default: "roll",
-    close: () => {},
   });
-  dialog.render(true);
 }
 
 export async function buildRolls(functionStuff) {
@@ -4105,7 +4104,7 @@ async function preDialogLayonHands(functionStuff) {
   let layHandsDialogTemplate = `
     <h1> ${game.i18n.localize("POWER_LAYONHANDS.DIALOG")} </h1>
     `;
-  new Dialog({
+  symbDialog({
     title: game.i18n.localize("POWER_LABEL.LAY_ON_HAND"),
     content: layHandsDialogTemplate,
     buttons: {
@@ -4129,5 +4128,5 @@ async function preDialogLayonHands(functionStuff) {
         label: "Close",
       },
     },
-  }).render(true);
+  });
 }

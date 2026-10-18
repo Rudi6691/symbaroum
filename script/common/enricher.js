@@ -1,3 +1,5 @@
+import { symbDialog } from './symbDialog.js';
+
 export function enrichTextEditors() {
     // With permission from @mcglintlock
     // e.g., @DRAW[Compendium.cy-borg-core.random-tables.vX47Buopuq9t0x9r]{Names}
@@ -203,7 +205,8 @@ ${monster ? getTactics(actor) : ""}
                     <input type="text" id="modifier" name="modifier" value="0" autofocus="autofocus" />
                 </div>
             </form>`;
-            let x = new Dialog({
+            symbDialog({
+                width: 300,
                 title: game.i18n.format("DIALOG.ROLLONTABLE", {
                     tablename: table.name
                 }),
@@ -220,9 +223,6 @@ ${monster ? getTactics(actor) : ""}
                     Cancel: { label: game.i18n.localize("DIALOG.CANCEL") }
                 }
             });
-            x.options.width = 200;
-            x.position.width = 300;
-            x.render(true);
         } else {
             await myF(uuid, 0);
         }

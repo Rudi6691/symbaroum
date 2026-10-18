@@ -1,4 +1,5 @@
 import { prepareRollAttribute } from "../common/dialog.js";
+import { symbDialog } from "../common/symbDialog.js";
 
 export class SymbaroumMacros {
 	constructor() {}
@@ -186,7 +187,6 @@ export class SymbaroumMacros {
 		} else return;
 	}
 
-
 	getPlayerList() {
 		let actorslist = [];
 
@@ -249,7 +249,8 @@ export class SymbaroumMacros {
         </div>
         <br/>
         </div>`;
-		let x = new Dialog({
+		symbDialog({
+			width: 300,
 			title: game.i18n.localize("MACRO.ADDEXP_TITLE"),
 			content: dialog_content,
 			buttons: {
@@ -273,10 +274,6 @@ export class SymbaroumMacros {
 			},
 		});
 
-		x.options.width = 200;
-		x.position.width = 300;
-
-		x.render(true);
 	}
 
 	addExperience(actorids, exp) {
@@ -310,7 +307,7 @@ export class SymbaroumMacros {
 		if (canvas.tokens.controlled.length === 0)
 			return ui.notifications.error("Please select a token first");
 
-		new Dialog({
+		symbDialog({
 			title: `Alternate Damage`,
 			content: `<form>
             <div style="display:flex">
@@ -349,7 +346,7 @@ export class SymbaroumMacros {
 				},
 			},
 			default: "yes",
-		}).render(true);
+		});
 
 		async function dealDamage(type, damage) {
 			for (let token of canvas.tokens.controlled) {
@@ -422,7 +419,8 @@ export class SymbaroumMacros {
         </div><br/>
         </div>`;
     
-        let x = new Dialog({
+        symbDialog({
+          width: 300,
             content : dialog_content,
             alternatives: keys,
             buttons : 
@@ -442,10 +440,7 @@ export class SymbaroumMacros {
             }
         });
         
-        x.options.width = 200;
-        x.position.width = 300;
         
-        x.render(true);
     }
 
     /**********************************************
@@ -475,7 +470,8 @@ export class SymbaroumMacros {
 	
 		// let template = Handlebars.compile(dialog_content);
 		
-		let x = new Dialog({
+		symbDialog({
+			width: 300,
 			content : dialog_content,
 			alternatives: keys,
 			buttons : 
@@ -484,9 +480,6 @@ export class SymbaroumMacros {
 				Cancel : {label : `Cancel`}
 			}
 		});
-		x.options.width = 400;
-		x.position.width = 300;
-		x.render(true);
 	}
 
 	async generateNameChat(category, allNames)
@@ -515,7 +508,8 @@ export class SymbaroumMacros {
       <input name="npctext" type="text">
     </div>`;
   
-    let x = new Dialog({
+    symbDialog({
+      width: 200,
       content : dialog_content,
       buttons : 
       {
@@ -524,10 +518,7 @@ export class SymbaroumMacros {
       }
     });
   
-    x.options.width = 200;
-    x.position.width = 200;
   
-    x.render(true);
 	}
 
 	async change2PC(npcname)
@@ -552,7 +543,7 @@ export class SymbaroumMacros {
 			if (canvas.tokens.controlled.length === 0)
 				return ui.notifications.error("Please select a token first");
 
-			new Dialog({
+			symbDialog({
 				title: `Alternate Damage`,
 				content: `
 					<form>
@@ -589,7 +580,7 @@ export class SymbaroumMacros {
 					},
 				},
 				default: "yes",
-			}).render(true);
+			});
 		}
 
 		async dealDamage(type, damage)
@@ -651,7 +642,8 @@ export class SymbaroumMacros {
 						<div><input type="radio" id="permanent" value="permanent" name="costType"></div>
 				</div>`;
 				dialog_content += `<br /></div>`;
-				let x = new Dialog({
+				symbDialog({
+				width: 300,
 						title: "Pay the cost for re-roll",
 						content : dialog_content,
 						buttons : 
@@ -669,10 +661,7 @@ export class SymbaroumMacros {
 						}
 				});
 				
-				x.options.width = 200;
-				x.position.width = 300;
 				
-				x.render(true);
 		}
 
 		async payCost(actorids, costType)
@@ -732,7 +721,8 @@ export class SymbaroumMacros {
 				${allKeys}
 				<br />
 				</div>`;
-				let x = new Dialog({
+				symbDialog({
+				width: 300,
 						title: "Reset Corruption",
 						content : dialog_content,
 						buttons : 
@@ -751,10 +741,7 @@ export class SymbaroumMacros {
 						}
 				});
 				
-				x.options.width = 200;
-				x.position.width = 300;
 				
-				x.render(true);
 		}
 
 		async resetCorruption(actorids)
@@ -808,7 +795,8 @@ export class SymbaroumMacros {
 						</div>
 				</div>`;
 
-				let x = new Dialog({
+				symbDialog({
+				width: 400,
 						content : dialog_content,
 						buttons : 
 						{
@@ -816,11 +804,6 @@ export class SymbaroumMacros {
 								Cancel : {label : `Cancel`}
 						}
 				});
-
-				x.options.width = 400;
-				x.position.width = 400;
-
-				x.render(true);
 
 		}
 
@@ -997,7 +980,6 @@ export class SymbaroumMacros {
 				let updateObj = await actor.createEmbeddedDocuments("Item", actorItems);
 				// game.symbaroum.log("updateObj "+JSON.stringify(updateObj));
 
-
 				let healMe = {_id:actor.id};
 				foundry.utils.setProperty(healMe, "system.health.toughness.value", foundry.utils.getProperty(actor, "system.health.toughness.max") );
 				await Actor.updateDocuments([healMe]);
@@ -1041,7 +1023,8 @@ export class SymbaroumMacros {
 					</div>
 			</div>`;
 
-			let x = new Dialog({
+			symbDialog({
+			width: 400,
 					content : dialog_content,
 					buttons : 
 					{
@@ -1049,11 +1032,6 @@ export class SymbaroumMacros {
 							Cancel : {label : `Cancel`}
 					}
 			});
-
-			x.options.width = 400;
-			x.position.width = 400;
-
-			x.render(true);
 
 	}
 	/*
@@ -1145,7 +1123,6 @@ export class SymbaroumMacros {
 				return "nomatch";
 			};
 
-
 			const extractWeapons = async function(actorItems, type, weaponList)
 			{
 					game.symbaroum.log(actorItems, type, weaponList);
@@ -1155,7 +1132,6 @@ export class SymbaroumMacros {
 					}
 					return "";
 			};
-
 
 			// Count new lines
 			if( countnl(npcData) > 3 ) {
@@ -1260,7 +1236,6 @@ export class SymbaroumMacros {
 
 			let updateObj = await actor.createEmbeddedDocuments("Item", actorItems);
 			// game.symbaroum.log("updateObj "+JSON.stringify(updateObj));
-
 
 			let healMe = {_id:actor.id};
 			foundry.utils.setProperty(healMe, "system.health.toughness.value", foundry.utils.getProperty(actor, "system.health.toughness.max") );

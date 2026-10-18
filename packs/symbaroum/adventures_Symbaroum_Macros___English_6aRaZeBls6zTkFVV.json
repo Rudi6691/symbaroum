@@ -1,0 +1,413 @@
+{
+  "name": "Symbaroum Macros - English",
+  "img": "systems/symbaroum/asset/image/cover-system-adv.webp",
+  "caption": "",
+  "sort": 0,
+  "description": "<p>This contains useful macros for use with the Symbaroum system.</p>",
+  "actors": [],
+  "combats": [],
+  "items": [],
+  "journal": [],
+  "scenes": [],
+  "tables": [],
+  "macros": [
+    {
+      "name": "Name Generator",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/hanging-sign.svg",
+      "scope": "global",
+      "command": "/**\n * Macro generates 10 names of the appropriate type\n * and puts them as a personal message in chat.\n */\ngame.symbaroum.macros.generateNames();",
+      "flags": {
+        "furnace": {
+          "runAsGM": false
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.M2pRCm23Siqt61qp",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750958421719,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "0ljKrsmjHRy2UCyJ"
+    },
+    {
+      "name": "Pay for re-roll",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/d20-grey.svg",
+      "scope": "global",
+      "command": "/** \n * Macro can be used by either selecting tokens on-screen or, if no tokens are selected, choosing which player characters (default all)\n * \n */\ngame.symbaroum.macros.payForReRoll();",
+      "flags": {
+        "combat-utility-belt": {
+          "macroTrigger": ""
+        },
+        "furnace": {
+          "runAsGM": false
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.ZOmWDVLXwLd9aT1L",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750958439751,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "aR9v6PJIJ40qy62C"
+    },
+    {
+      "name": "Alternate Damage",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/stoned.svg",
+      "scope": "global",
+      "command": "/** \n * Macro can be used by selecting tokens on-screen\n * \n */\ngame.symbaroum.macros.dealAlternativeDamage();",
+      "flags": {
+        "combat-utility-belt": {
+          "macroTrigger": ""
+        },
+        "furnace": {
+          "runAsGM": false
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.8cLkjnA8FBNnVMOm",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750958363299,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "rEDM6vt7xBsXYfu0"
+    },
+    {
+      "name": "CRB Character Importer",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/mystery-man.svg",
+      "scope": "global",
+      "command": "/**\n * To use this macro, paste monster system.from a pdf, for the core book:\n * including the name of the monster, to the end of the \"Tactics\" section\n * \n * For the monster codex, manually type in the name, then copy from Manners to end of tactics and paste.\n * Warning: the tilted character sheet can cause issues, depending on your pdf viewer, you might need to do those manually.\n * \n * WARNING: If you have multiple items that matches the name of abilities, traits and mystical powers, they might be found instead.\n *  \n * Make sure you have all abilities, traits and powers in the \"Items\" in Foundry.\n * \n */\ngame.symbaroum.macros.crbCharacterImporter();",
+      "flags": {
+        "furnace": {
+          "runAsGM": false
+        },
+        "combat-utility-belt": {
+          "macroTrigger": ""
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.rovDHjS4ZPvgmWZM",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750958251107,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "6OwoZhT0MkbPDZ0O"
+    },
+    {
+      "name": "Reset Temporary Corruption",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/ice-aura.svg",
+      "scope": "global",
+      "command": "/** \n * Macro can be used by either selecting tokens on-screen or, if no tokens are selected, choosing which player characters (default all)\n * \n */\ngame.symbaroum.macros.resetTemporaryCorruption();",
+      "flags": {
+        "furnace": {
+          "runAsGM": false
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.rfxvvcoQfLNQNd4L",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750957296625,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "zxnzJQ8A92VP6dNX"
+    },
+    {
+      "name": "Roll Attribute",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/dice-target.svg",
+      "scope": "global",
+      "command": "/** \n * Macro can be used by either selecting tokens on-screen or, if no tokens are selected, choosing which player characters (default all)\n * \n */\ngame.symbaroum.macros.rollAnyAttribute('accurate');",
+      "flags": {
+        "combat-utility-belt": {
+          "macroTrigger": ""
+        },
+        "furnace": {
+          "runAsGM": false
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.jqlw2EhoIe8KhTuu",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750959353107,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "I28wynz1QROJIvZ3"
+    },
+    {
+      "name": "Add Exp",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/upgrade.svg",
+      "scope": "global",
+      "command": "/** \n * Macro can be used by either selecting tokens on-screen or, if no tokens are selected, choosing which player characters (default all)\n * \n */\ngame.symbaroum.macros.addExp()",
+      "flags": {
+        "combat-utility-belt": {
+          "macroTrigger": ""
+        },
+        "furnace": {
+          "runAsGM": false
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.Ib9lVNzgBhxjP5EZ",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750940098914,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "7Lwc0fowNTZBQ9BV"
+    },
+    {
+      "name": "Symbaroum.fr Character Importer",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/up.svg",
+      "scope": "global",
+      "command": "/**\n * To use this macro, paste monster or player JSON data from symbaroum.fr\n * \n * Make sure you have all abilities, traits and powers in the \"Items\" in Foundry.\n * \n */\n\n(()=>{\n    let dialog_content = `  \n    <div class=\"symbaroum dialog\">\n        <div style=\"width:100%; text-align:center\">\n            <h3><a href=\"https://symbaroum.fr/#!/search\" target=\"_blank\">Symbaroum.fr</a> Character Importer</h3>\n        </div>\n        <div class=\"advantage\">\n            <label for=\"isplayer\">Player</label>\n            <span class=\"lblfavour\"><input type=\"checkbox\" id=\"isplayer\" name=\"isplayer\"></span>\n        </div>\n        <div class=\"advantage\">\n            <label for=\"npctext\">Paste json data</label>\n            <input name=\"npctext\" type=\"text\">\n        </div>\n    </div>`;\n\n    let x = new Dialog({\n        content : dialog_content,\n        buttons : \n        {\n            Ok : { label : `Ok`, \n            callback : \n            async (html)=> await extractAllData(html.find('[name=npctext]')[0].value.replace(/[\\r|\\n]/g, \"\"), html.find(\"#isplayer\")[0].checked)},\n            Cancel : {label : `Cancel`}\n        }\n    });\n    x.options.width = 400;\n    x.options.height = 400;\n    x.position.width = 400;\n    x.render(true);\n})();\n\nasync function extractAllData(json, player)\n{\n    // {\"nom\":\"Example for Bithir\",\"agi\":\"15\",\"forc\":\"13\",\"pre\":\"11\",\"vol\":\"10\",\"vig\":\"10\",\"dis\":\"9\",\"ast\":\"7\",\"per\":\"5\",\"ini\":\"\",\"typ\":\"Big Monster\",\"def\":\"15\",\"end\":\"13\",\"sd\":\"7\",\"sc\":\"5\",\"cp\":\"0\",\"deg\":\"Sword 1d8\",\"arm\":\"Light Armor 1d4\",\"notes\":\"Notes bout the character\",\"tactics\":\"Attack first, think last\",\"shadow\":\"Green with golden slashes\",\"equipment\":\"My equipment\",\"regles\":\"\",\"lang\":\"en\",\"epingles\":[\"Acrobatics\"],\"epinglesn\":[\"Bodyguard\"],\"epinglesa\":[\"Berserker\",\"Bodyguard\"],\"epinglesm\":[\"Iron fist\"]}\n    let symbfrJSON = null;\n    try {\n        symbfrJSON = JSON.parse(json);\n    } catch (err)\n    {\n        ui.notification.error(err);\n        return;\n    }\n    console.log(symbfrJSON, player);\n    let newValues = {\n        name: symbfrJSON.nom,\n        type: player ? \"player\": \"monster\",\n        folder: null,\n        sort: 12000,\n        data: {},\n        token: {},\n        items: [],\n        flags: {}        \n    }\n\n    setProperty(newValues, \"system.bio.manner\",\"\");\n\n    setProperty(newValues, \"system.bio.race\", symbfrJSON.typ);\n\n    setProperty(newValues, \"system.attributes.accurate.value\", parseInt(symbfrJSON.pre));\n    setProperty(newValues, \"system.attributes.cunning.value\", parseInt(symbfrJSON.ast));    \n    setProperty(newValues, \"system.attributes.discreet.value\", parseInt(symbfrJSON.dis));\n    setProperty(newValues, \"system.attributes.persuasive.value\", parseInt(symbfrJSON.per));\n    setProperty(newValues, \"system.attributes.quick.value\", parseInt(symbfrJSON.agi));\n    setProperty(newValues, \"system.attributes.resolute.value\", parseInt(symbfrJSON.vol));\n    setProperty(newValues, \"system.attributes.strong.value\", parseInt(symbfrJSON.forc));\n    setProperty(newValues, \"system.attributes.vigilant.value\", parseInt(symbfrJSON.vig));\n    setProperty(newValues, \"system.bio.shadow\", symbfrJSON.shadow);\n    setProperty(newValues, \"system.health.corruption.permanent\", parseInt(symbfrJSON.cp)); \n    setProperty(newValues, \"system.bio.tactics\", symbfrJSON.tactics);\n    setProperty(newValues, \"system.bio.background\", symbfrJSON.notes);\n\n    \n    let actor = await Actor.create(newValues);\n    console.log(actor);\n    let additionalInfo = \"\";\n    let items = [];\n    let itemIds = [];\n    additionalInfo += addPowers(symbfrJSON.epingles, items, 3, itemIds);\n    additionalInfo += addPowers(symbfrJSON.epinglesm, items, 3, itemIds);\n    additionalInfo += addPowers(symbfrJSON.epinglesa, items, 2, itemIds);\n    additionalInfo += addPowers(symbfrJSON.epinglesn, items, 1, itemIds);\n    // additionalInfo += addItems(symbfrJSON.equipment); - Just text\n    additionalInfo += addItems(symbfrJSON.deg, items, itemIds);\n    additionalInfo += addItems(symbfrJSON.arm, items, itemIds);\n\n    let updateObj = await actor.createEmbeddedDocuments(\"Item\", items);\n\n    let healMe = {_id:actor.id};\n    setProperty(healMe, \"system.health.toughness.value\", getProperty(actor, \"system.health.toughness.max\") );\n    await Actor.updateDocuments([healMe]);\n\n    let message = `Created ${actor.name}<br/>${additionalInfo}`;\n    ChatMessage.create({\n        speaker: ChatMessage.getSpeaker({alias: \"SymbFR Importer Macro\"}),\n        whisper: [game.user],\n        content: message\n    });\n\n\n    actor.sheet.render(true);\n}\n\nfunction addPowers(powernames, items, level, exclusions) {\n    let info = \"\";\n    for(let i = 0; i < powernames.length; i++) {\n        let powers = game.items.filter(element => element.name.trim().toLowerCase() === powernames[i].trim().toLowerCase() && element.isPower);\n        if(powers.length > 1) {\n            info += `Found more than one powers of ${powernames[i]}<br>`;\n        }    \n        for(let j = 0; j < powers.length; j++) {\n            let power = duplicate(powers[j].data);\n            if( exclusions.includes(power._id) ) {\n                continue;\n            }\n            console.log(\"Power\",powers[j]);\n            if(powers[j].hasLevels) {\n                if(level > 2)\n                    setProperty(power, \"system.master.isActive\",true);\n                if(level > 1)\n                    setProperty(power, \"system.adept.isActive\",true);\n                setProperty(power, \"system.novice.isActive\",true);\n            }\n            exclusions.push(power._id);\n            items.push(power);\n        }\n    }\n    return info;\n}\n\nfunction addItems(itemName, items, exclusions) {\n    // Exclusions ignored for now\n    let info = \"\";\n    itemName = itemName.replace(/([0-9]+d[0-9]+)/g,'').trim();\n    if( itemName == \"\") {\n        return;\n    }\n    let foundItems = game.items.filter(element => element.name.trim().toLowerCase() === itemName.toLowerCase() && !element.isPower);    \n    if(foundItems.length > 1) {\n        info += `Found more than one item of ${itemName}`;\n    }\n    for(let i = 0; i < foundItems.length; i++) {\n        let item = duplicate(foundItems[i].data);\n        items.push(item);\n    }\n    return info;\n}",
+      "flags": {
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.UhAADqQtMSDxLa5X",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750960028016,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "3A3978mu04ZNpIrU"
+    },
+    {
+      "name": "Toggle player/monster",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/bones.svg",
+      "scope": "global",
+      "command": "game.symbaroum.macros.togglePlayerNPC();",
+      "flags": {
+        "combat-utility-belt": {
+          "macroTrigger": ""
+        },
+        "furnace": {
+          "runAsGM": false
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.pyfWvOpMN1B6lcLS",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750940098914,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "0KTqNUBgpFJlT27l"
+    },
+    {
+      "name": "Starter Set Character Importer",
+      "type": "script",
+      "author": "YsmQXJ6sqv5HM9Ov",
+      "img": "icons/svg/mystery-man.svg",
+      "scope": "global",
+      "command": "/**\n * To use this macro, paste monster data from a pdf, for the starter set or haunted wastes:\n * including the name of the monster, to the end of the \"Tactics\" section\n * \n * If you use qpdfviewer - press 4 returns after the name\n * \n * \n * \n *  \n * Make sure you have all abilities, traits and powers in the \"Items\" in Foundry.\n * \n */\ngame.symbaroum.macros.starterSetCharacterImport();",
+      "flags": {
+        "furnace": {
+          "runAsGM": false
+        },
+        "combat-utility-belt": {
+          "macroTrigger": ""
+        },
+        "core": {}
+      },
+      "ownership": {
+        "default": 0,
+        "IJbBQp9HIZhYkNtD": 3,
+        "yBOfnkxE5pvS5PPZ": 3,
+        "p6DS3gYz6OrQ6H9e": 3,
+        "YsmQXJ6sqv5HM9Ov": 3
+      },
+      "_stats": {
+        "compendiumSource": "Macro.rovDHjS4ZPvgmWZM",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750959362829,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "folder": "6oRNLitVbXIlSgly",
+      "sort": 0,
+      "_id": "oYjqsVxnTdoderCr"
+    }
+  ],
+  "cards": [],
+  "playlists": [],
+  "folders": [
+    {
+      "name": "EN - Macros",
+      "type": "Macro",
+      "folder": null,
+      "description": "",
+      "sorting": "a",
+      "sort": 0,
+      "color": null,
+      "flags": {
+        "core": {}
+      },
+      "_stats": {
+        "compendiumSource": "Folder.6oRNLitVbXIlSgly",
+        "duplicateSource": null,
+        "coreVersion": "13.344",
+        "systemId": "symbaroum",
+        "systemVersion": "6.0.0",
+        "modifiedTime": 1750940098950,
+        "lastModifiedBy": "G3dVrvt9EbTG8afn",
+        "exportSource": null
+      },
+      "_id": "6oRNLitVbXIlSgly"
+    }
+  ],
+  "_id": "6aRaZeBls6zTkFVV",
+  "flags": {},
+  "_stats": {
+    "systemId": "symbaroum",
+    "systemVersion": "6.0.0",
+    "coreVersion": "13.344",
+    "modifiedTime": 1750960098755,
+    "lastModifiedBy": "G3dVrvt9EbTG8afn",
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null
+  },
+  "folder": null
+}

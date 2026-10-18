@@ -1,5 +1,6 @@
 import { SymbaroumActorSheet } from './actor.js';
 import { prepareRollAttribute, prepareRollDeathTest } from '../common/dialog.js';
+import { symbDialog } from '../common/symbDialog.js';
 
 export class PlayerSheet extends SymbaroumActorSheet {
 	static get defaultOptions() {
@@ -337,7 +338,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			system: system,
 		});
 		let title = game.i18n.localize('TITLE.ATTRIBUTES');
-		let dialog = new Dialog({
+		let dialog = symbDialog({
 			//              label: "toto",
 			title: title,
 			content: html,
@@ -374,7 +375,5 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				},
 			},
 		});
-
-		dialog.render(true);
 	}
 }

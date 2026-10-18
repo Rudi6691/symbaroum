@@ -1,3 +1,10 @@
+Version 7.1.0
+
+* Deprecated AppV1 `Dialog` calls replaced with `foundry.applications.api.DialogV2` (18 call sites: roll dialogs for attributes, weapons and death tests, ability reference picker, lay-on-hands, attribute modifiers, item delete confirmation, quantity change, attribute edit dialog, rollable-table enricher, and all system macros)
+* New compatibility helper `script/common/symbDialog.js` translates the old V1 dialog options to DialogV2 while keeping the existing button callbacks working unchanged; dialog buttons are now rendered by the native V2 dialog frame
+* All dialogs now render without the AppV1 deprecation warnings in the console; this is phase 1 of the AppV1 modernization - the character/item sheets remain on AppV1 for now (removal of AppV1 is scheduled for Foundry VTT V16)
+* No data migration; no world content is changed (systemMigrationVersion stays at 7.0.1)
+
 Version 7.0.4
 
 * Fix: compendium packs are now provided in the folder-based JSON pack format that Foundry VTT V13+ reads natively, and each pack declares its path in the manifest (packs/systemuserguides, packs/symbaroum)

@@ -1,5 +1,6 @@
 import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './roll.js';
 import { buildRolls } from './item.js';
+import { symbDialog } from './symbDialog.js';
 
 let roll_defaults = {};
 
@@ -17,7 +18,7 @@ export async function prepareRollDeathTest(actor, showDialogue) {
     "roll_defaults":attri_defaults,
     "groupName" : "favour",
   });
-  let dialog = new Dialog({
+  let dialog = symbDialog({
     title: "Death Test",
     content: dialoghtml,
     buttons: {
@@ -49,25 +50,11 @@ export async function prepareRollDeathTest(actor, showDialogue) {
       },
     },
     default: 'roll',
-    close: () => {},
   });
-  dialog.render(true);
 }
 
 export async function prepareRollAttribute(actor, attributeName, armor, weapon, ecData = {targetData: {hasTarget: false, leaderTarget: false, actor: {}}}) {
   return new Promise(async (resolve, reject) => {
-  const CombatDialog = class extends Dialog {
-    activateListeners (html) {
-      super.activateListeners(html);
-    //   // TODO: PW - Need to work out what this is doing !!
-    //   html.find(".packageInfo").click(function(ev) {
-    //     if(ev.target.className === 'packageDetail') {
-    //       let checkbox = $(ev.currentTarget).querySelector('input[type="checkbox"]');
-    //       checkbox.prop('checked', !checkbox.prop('checked'));
-    //     }
-    //   });
-    }
-  }
   let targetTokens = Array.from(game.user.targets);
   let attri_mods = getVersusModifiers(targetTokens);
 	let attri_defaults = getRollDefaults(attributeName,armor !== null, weapon !== null, ecData);
@@ -143,7 +130,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "targetAttribute_selection":targetAttribute_selection
   });
 
-  const dialog = new CombatDialog({
+  const dialog = symbDialog({
     title: game.symbaroum.api.getAttributeLabel(actor, attributeName),
     content: dialoghtml,
     buttons: {
@@ -397,10 +384,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       },
     },
     default: 'roll',
-    close: () => {},
   });
 
-  dialog.render(true);
   })
 }
 

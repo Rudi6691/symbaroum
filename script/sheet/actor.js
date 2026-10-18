@@ -1,3 +1,5 @@
+import { symbDialog } from '../common/symbDialog.js';
+
 export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
 	// nbrOfFailedDeathRoll = 0;
 
@@ -109,10 +111,10 @@ export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
 		if (item === null) {
 			return;
 		}
-		let b = new Dialog({
+		symbDialog({
 			content: `${game.i18n.localize('TOOLTIP.DELETE_ITEM')} ${item.name}`,
-			rejectClose: false,
 			default: 'no',
+			width: 100,
 			buttons: {
 				yes: {
 					label: game.i18n.localize(`DIALOG.OK`),
@@ -126,9 +128,6 @@ export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
 				},
 			},
 		});
-		b.options.width = 100;
-		b.position.width = 100;
-		b.render(true);
 	}
 
 	_onFocusIn(event) {
@@ -191,7 +190,8 @@ export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
       </div>      
       <br/>
       </div>`;
-			let x = new Dialog({
+			symbDialog({
+				width: 300,
 				title: game.i18n.localize(increase ? 'TOOLTIP.INCREASE_COUNT_TITLE' : 'TOOLTIP.DECREASE_COUNT_TITLE'),
 				content: dialog_content,
 				buttons: {
@@ -212,11 +212,6 @@ export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
 					Cancel: { label: game.i18n.localize('DIALOG.CANCEL') },
 				},
 			});
-
-			x.options.width = 200;
-			x.position.width = 300;
-
-			x.render(true);
 		}
 	}
 
