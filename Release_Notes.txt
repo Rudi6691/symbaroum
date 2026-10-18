@@ -1,3 +1,13 @@
+Version 7.2.3
+
+* Sheet fixes from Rudolf's 7.2.2 test round (CSS only; no JS/template changes). Confirmed working in 7.2.2 and unchanged: sheets open without console errors, tabs keep their state, death test/recover, item state toggle, attribute macro + dialog, item creation, context menu entries/position, prose-mirror editors BIO/Notes, no extra input frames, item drag to macro bar, no regressions
+* Uneven weapon columns on Main (image-21): every cell of the weapon/armor rows has a fixed width except the roll-weapon / roll-armor name button, which only carries an inline max-width: 234px - under V14 its width follows the name length and the Schaden/Eigenschaft columns drift apart row by row. Fix: fixed width 234px for both name buttons (inline max-width stays as safety cap, shrinking on narrow windows still works). Restores the uniform V13 columns
+* Field heights (Felder zu klein): V14 core styles buttons with its own button-size variables, so the dark name buttons no longer stretch to the flex row height like they did in V13 (where they matched the 45px ability icons). Fix: height: auto on the sheet buttons - the flex rows stretch them again; buttons with explicit sizes (ability icons, header icon buttons, add buttons) keep their height
+* Pale texts (Schaden/Eig. / gear cells): only inputs carry an explicit colour (money = black); the gear cells (Ruestung, Waffen, Artefakte, Ausruestung) and the Main tab combat fields inherit their text colour - under V14 they inherit the pale core application text instead of the V13 dark one. Fix: explicit color: var(--color-text) on those cells; disabled inputs additionally get opacity: 1 and black text against core disabled dimming
+* Banner texture (black title bars): NOT a code issue - Rudolf's diagnostic showed the client setting switchTitleColour stored as url(../asset/image/background/new_title.webp) (a 364-byte flat near-black texture from an old upstream default; the wanted V13 texture is title.webp, 1976 bytes). Fix on the client: game.settings.set('symbaroum', 'switchTitleColour', 'url(../asset/image/background/title.webp)') and reload (see README-7.2.3.md). The other six colour settings should be checked for old new-*.webp values the same way
+* Header icons and armour context menu: still open - diagnostic snippets in README-7.2.3.md (DOM dump of the window header; armor list/menu instance dump). Fixes follow as 7.2.4 once the outputs are in
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.2.2
 
 * Sheet follow-up fixes from Rudolf's 7.2.1 test reports - all ten points trace back to four verified root causes

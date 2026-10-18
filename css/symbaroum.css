@@ -4496,4 +4496,56 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
   text-align: center;
 }
 
+/* -------------------------------------------------------------------- */
+/* 7.2.3: Sheet fixes from Rudolf's 7.2.2 test reports                   */
+/*                                                                      */
+/*  Weapon/armor rows on Main (uneven columns): every row cell has a     */
+/*  fixed width except the roll-weapon / roll-armor name button, which  */
+/*  only carries an inline max-width: 234px - under V14 its width       */
+/*  follows the name length, so the damage/attribute columns drift      */
+/*  apart from row to row. A fixed width restores the uniform V13       */
+/*  columns (the inline max-width stays as the safety cap, shrinking    */
+/*  still works when the window gets narrow).                           */
+/*                                                                      */
+/*  Button heights: V14 core styles buttons with its own button-size   */
+/*  variables, so sheet buttons no longer stretch to the flex row       */
+/*  height (V13 stretched the dark name banners to icon height).       */
+/*  height: auto restores that stretch behaviour; buttons with          */
+/*  explicit sizes (ability icons, header icon buttons, add buttons)   */
+/*  keep their height.                                                  */
+/*                                                                      */
+/*  Pale texts: the only fields with an explicit colour are the inputs  */
+/*  (money - black). The gear cells (Ruestung / Waffen / Artefakte /    */
+/*  Ausruestung) and the Main tab combat fields inherit their text      */
+/*  colour - under V14 they inherit the pale core application text     */
+/*  instead of the dark V13 one. Explicit var(--color-text) on those    */
+/*  cells, plus opacity: 1 and black text on disabled inputs (against   */
+/*  core disabled dimming), restores the V13 black texts.               */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.sheet.actor button {
+  height: auto;
+}
+
+.symbaroum.sheet.actor .player .main .combat .armor .roll-armor,
+.symbaroum.sheet.actor .player .main .combat .weapons .roll-weapon {
+  width: 234px;
+}
+
+.symbaroum.sheet.actor .gear .wrapper-left .armor.item-row .protection,
+.symbaroum.sheet.actor .gear .wrapper-left .armor.item-row .impeding,
+.symbaroum.sheet.actor .gear .wrapper-left .weapon.item-row .damage,
+.symbaroum.sheet.actor .gear .wrapper-left .weapon.item-row .attribute,
+.symbaroum.sheet.actor .gear .wrapper-left .artifact.item-row .action,
+.symbaroum.sheet.actor .gear .wrapper-left .artifact.item-row .corruption,
+.symbaroum.sheet.actor .gear .wrapper-right .equipment.item-row .quantity {
+  color: var(--color-text);
+}
+
+.symbaroum.sheet.actor input[type='text'][disabled],
+.symbaroum.sheet.actor input[type='number'][disabled] {
+  opacity: 1;
+  color: var(--color-text);
+}
+
 /*# sourceMappingURL=symbaroum.css.map */
