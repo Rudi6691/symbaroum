@@ -1,70 +1,70 @@
 import { symbDialog } from '../common/symbDialog.js';
 
-export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
-	// nbrOfFailedDeathRoll = 0;
+/**
+ * Header controls that ActorSheetV2 adds by default (token configuration and artwork).
+ * They are hidden to keep the V13 sheet header: the two symbaroum buttons plus close.
+ */
+const HIDDEN_TOKEN_CONTROLS = new Set(['configureToken', 'configurePrototypeToken', 'showPortraitArtwork', 'showTokenArtwork']);
 
-	activateListeners(html) {
-		super.activateListeners(html);
+/**
+ * Base class for all Symbaroum actor sheets, built on ApplicationV2 (V14 migration, phase 2).
+ * The sheets keep their V13 context shape (id, actor, system, items, cssClass, editable,
+ * symbaroumOptions, attribute_selection) so the handlebars templates stay unchanged.
+ */
+export class SymbaroumActorSheet extends foundry.applications.sheets.ActorSheetV2 {
+	static DEFAULT_OPTIONS = {
+		classes: ['symbaroum', 'sheet', 'actor'],
+		sheetConfig: false,
+		ownershipConfig: false,
+		window: {
+			icon: false,
+			resizable: true,
+		},
+		form: {
+			submitOnChange: true,
+		},
+	};
 
-		const addItem = html[0].querySelectorAll('.item-create');
+	/**
+	 * Keep the V13 header: no token/artwork controls of the ActorSheetV2 base class.
+	 */
+	_getHeaderControls() {
+		return super._getHeaderControls().filter((control) => !HIDDEN_TOKEN_CONTROLS.has(control.action));
+	}
+
+	/**
+	 * Bind the sheet interactions to the freshly rendered content.
+	 * In contrast to the old activateListeners(html) this runs after every render,
+	 * and the queried elements are recreated on each render, so re-binding is safe.
+	 */
+	async _onRender(context, options) {
+		await super._onRender(context, options);
+		const element = this.element;
+
+		const addItem = element.querySelectorAll('.item-create');
 		for (const s of addItem) {
 			s.addEventListener('click', (ev) => {
 				this._onItemCreate(ev);
 			});
 		}
-		const editItem = html[0].querySelectorAll('.item-edit');
+		const editItem = element.querySelectorAll('.item-edit');
 		for (const s of editItem) {
 			s.addEventListener('click', (ev) => {
 				this._onItemEdit(ev);
 			});
 		}
-		const dataInput = html[0].querySelectorAll('focusin');
-		for (const s of dataInput) {
-			s.addEventListener('focusin', (ev) => {
-				this._onFocusIn(ev);
-			});
-		}
-		const itemState = html[0].querySelectorAll('.item-state');
+		const itemState = element.querySelectorAll('.item-state');
 		for (const s of itemState) {
 			s.addEventListener('click', (ev) => {
 				this._onItemStateUpdate(ev);
 			});
 		}
-		const activateAbility = html[0].querySelectorAll('.activate-ability');
+		const activateAbility = element.querySelectorAll('.activate-ability');
 		for (const s of activateAbility) {
 			s.addEventListener('click', (ev) => {
 				this._onPrepareActivateAbility(ev);
 			});
 		}
-
-
-		// html[0].querySelector('.item-create')?.addEventListener('click', (ev) => this._onItemCreate(ev));
-		// html[0].querySelector('.item-edit')?.addEventListener('click',  (ev) => this._onItemEdit(ev));
-		// html.find('.item-delete').click((ev) => this._onItemDelete(ev));
-		// html[0].querySelector('input')?.addEventListener('focusin',(ev) => this._onFocusIn(ev));
-		// html[0].querySelector('.item-state')?.addEventListener('click', async (ev) => await this._onItemStateUpdate(ev));
-		// html[0].querySelector('.activate-ability')?.addEventListener('click', async (ev) => await this.activateAbility(ev));
-
-		// Drag events for macros.
-		if (this.actor.owner) {
-			let handler = (ev) => this._onDragStart(ev);
-			// Find all items on the character sheet.
-			html[0].querySelectorAll('li.trait').each((i, li) => {
-				// Ignore for the header row.
-				if (li.classList.contains('item-header')) return;
-				// Add draggable attribute and dragstart listener.
-				li.setAttribute('draggable', true);
-				li.addEventListener('dragstart', handler, false);
-			});
-		}
-	}
-
-	_getHeaderButtons() {
-		let buttons = super._getHeaderButtons();
-		if (this.actor.isOwner) {
-			buttons = [].concat(buttons);
-		}
-		return buttons;
 	}
 
 	_onItemCreate(event) {
@@ -120,7 +120,7 @@ export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
 					label: game.i18n.localize(`DIALOG.OK`),
 					callback: (html) => {
 						this.actor.deleteEmbeddedDocuments('Item', [item.id], { render: true });
-					}
+					},
 				},
 				no: {
 					label: game.i18n.localize(`DIALOG.CANCEL`),
@@ -128,10 +128,6 @@ export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
 				},
 			},
 		});
-	}
-
-	_onFocusIn(event) {
-		event.target.select();
 	}
 
 	async _onItemStateUpdate(event) {
@@ -234,7 +230,7 @@ export class SymbaroumActorSheet extends foundry.appv1.sheets.ActorSheet {
 
 	async _prepareRollWeapon(div) {
 		const weapon = this.actor.items.get(div.dataset.itemId);
-		this.actor.rollWeapon(weapon);
+		await this.actor.rollWeapon(weapon);
 	}
 
 	async _enrichTextFields(data, fieldNameArr) {

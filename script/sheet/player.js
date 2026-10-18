@@ -2,33 +2,100 @@ import { SymbaroumActorSheet } from './actor.js';
 import { prepareRollAttribute, prepareRollDeathTest } from '../common/dialog.js';
 import { symbDialog } from '../common/symbDialog.js';
 
-export class PlayerSheet extends SymbaroumActorSheet {
-	static get defaultOptions() {
-		return foundry.utils.mergeObject(super.defaultOptions, {
-			classes: ['symbaroum', 'sheet', 'actor', 'player'],
-			template: 'systems/symbaroum/template/sheet/player.hbs',
-			width: 800,
-			height: 1020,
-			resizable: true,
-			dragDrop: [{ dragSelector: '.item[data-item-id]', dropSelector: '.tab-content' }, { dragSelector: '.attrDragM[data-attribute]' }],
-			tabs: [
-				{
-					navSelector: '.sheet-tabs',
-					contentSelector: '.sheet-body',
-					initial: 'main',
-				},
-			],
+/**
+ * Context menu for mystical powers / traits / gear on the actor sheet.
+ * Filters the menu entries per item document (isVisible receives the Item, not the HTML
+ * element) and lets the V14 base ContextMenu handle positioning - this replaces the old
+ * AppV1-era manual positioning (former TODO "needs fixing").
+ */
+class CMPowerMenu extends foundry.applications.ux.ContextMenu {
+	constructor(container, selector, menuItems, { eventName = 'contextmenu', onOpen, onClose, jQuery = false, parent } = {}) {
+		super(container, selector, menuItems, {
+			eventName: eventName,
+			onOpen: onOpen,
+			onClose: onClose,
+			jQuery: jQuery,
 		});
+		this.myParent = parent;
+		this.originalMenuItems = [...menuItems];
 	}
 
-	async getData(options) {
-		// game.symbaroum.log("actor-getData(..)",options);
-		let data = {
-			id: this.actor.id,
-			actor: foundry.utils.deepClone(this.actor),
-			system: foundry.utils.deepClone(this.actor.system),
-			options: options,
-		};
+	render(target, options) {
+		let item = null;
+		if (target.dataset.itemId == game.symbaroum.config.noArmorID) {
+			// special case
+			item = game.symbaroum.config.noArmorID;
+		} else {
+			item = this.myParent?.actor.items.get(target.dataset.itemId);
+		}
+		if (item) {
+			this.menuItems = this.originalMenuItems.filter((elem) => {
+				return elem.isVisible(item);
+			});
+		} else {
+			this.menuItems = this.originalMenuItems;
+		}
+		return super.render(target, options);
+	}
+}
+
+export class PlayerSheet extends SymbaroumActorSheet {
+	static DEFAULT_OPTIONS = {
+		classes: ['symbaroum', 'sheet', 'actor', 'player'],
+		position: {
+			width: 800,
+			height: 1020,
+		},
+		window: {
+			resizable: true,
+			controls: [
+				{
+					action: 'deathRoll',
+					icon: 'fas fa-skull',
+					label: 'BUTTON.DEATH',
+					visible: function () {
+						return this.actor?.isOwner ?? false;
+					},
+				},
+				{
+					action: 'recover',
+					icon: 'fas fa-heart',
+					label: 'BUTTON.RECOVER',
+					visible: function () {
+						return this.actor?.isOwner ?? false;
+					},
+				},
+			],
+		},
+		actions: {
+			deathRoll: async function (event) {
+				event.preventDefault();
+				await prepareRollDeathTest(this.actor, event.shiftKey);
+			},
+			recover: async function (event) {
+				event.preventDefault();
+				await this.actor.update({ 'system.nbrOfFailedDeathRoll': 0 });
+			},
+		},
+	};
+
+	/** Single content part - the tabs stay part of the template (V13 look, minimal risk). */
+	static PARTS = {
+		main: {
+			template: 'systems/symbaroum/template/sheet/player.hbs',
+		},
+	};
+
+	/**
+	 * Prepare the render context. The V13 getData() shape is kept deliberately
+	 * (id, actor, system, items, cssClass, editable, symbaroumOptions, attribute_selection)
+	 * so that the templates remain unchanged.
+	 */
+	async _prepareContext(options) {
+		const context = await super._prepareContext(options);
+		context.id = this.actor.id;
+		context.actor = foundry.utils.deepClone(this.actor);
+		context.system = foundry.utils.deepClone(this.actor.system);
 
 		let enrichedFields = [
 			'system.bio.appearance',
@@ -38,7 +105,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			'system.bio.tactics',
 			'system.notes',
 		];
-		await this._enrichTextFields(data, enrichedFields);
+		await this._enrichTextFields(context, enrichedFields);
 
 		let items = Array.from(this.actor.items.values()).sort((a, b) => {
 			if (a.type == b.type) {
@@ -48,68 +115,95 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			}
 		});
 
-		data.items = items;
-		data.cssClass = this.isEditable ? 'editable' : 'locked';
-		data.editable = this.isEditable;
+		context.items = items;
+		context.cssClass = this.isEditable ? 'editable' : 'locked';
+		context.editable = this.isEditable;
 
-		data.symbaroumOptions = {
+		context.symbaroumOptions = {
 			isGM: game.user.isGM,
 			isNPC: this.actor.type === 'monster',
 			showNpcModifiers: game.settings.get('symbaroum', 'showNpcModifiers'),
 		};
-		data.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
-		return data;
+		context.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
+		return context;
 	}
 
-	_onDragStart(event) {
-		if (event.srcElement.dataset.attribute !== undefined) {
+	/**
+	 * Drag start for attributes (macro support) and for items.
+	 */
+	async _onDragStart(event) {
+		const attrElement = event.target.closest?.('.attrDragM[data-attribute]');
+		if (attrElement) {
 			const dragData = {
 				actorId: this.actor.id,
 				sceneId: this.actor.isToken ? canvas.scene?.id : null,
 				tokenId: this.actor.isToken ? this.actor.token.id : null,
 			};
 			dragData.type = 'attribute';
-			dragData.attribute = event.srcElement.dataset.attribute;
+			dragData.attribute = attrElement.dataset.attribute;
 			return event.dataTransfer.setData('text/plain', JSON.stringify(dragData));
 		}
 		return super._onDragStart(event);
 	}
 
-	activateListeners(html) {
-		super.activateListeners(html);
+	async _onRender(context, options) {
+		await super._onRender(context, options);
+		const element = this.element;
 
-		const rollAttrib = html[0].querySelectorAll('.roll-attribute');
+		const rollAttrib = element.querySelectorAll('.roll-attribute');
 		for (const s of rollAttrib) {
 			s.addEventListener('click', (ev) => {
 				this._prepareRollAttribute(ev);
 			});
 		}
-		const rollArmor = html[0].querySelectorAll('.roll-armor');
+		const rollArmor = element.querySelectorAll('.roll-armor');
 		for (const s of rollArmor) {
 			s.addEventListener('click', (ev) => {
 				this._onPrepareRollArmor(ev);
 			});
 		}
-		const rollWeapon = html[0].querySelectorAll('.roll-weapon');
+		const rollWeapon = element.querySelectorAll('.roll-weapon');
 		for (const s of rollWeapon) {
 			s.addEventListener('click', (ev) => {
 				this._onPrepareRollWeapon(ev);
 			});
 		}
-		const modAttrib = html[0].querySelectorAll('.modify-attributes');
+		const modAttrib = element.querySelectorAll('.modify-attributes');
 		for (const s of modAttrib) {
 			s.addEventListener('click', (ev) => {
 				this._modifyAttributes(ev);
 			});
 		}
 
+		// Tab navigation on the existing V13 markup (.sheet-tabs / .sheet-body)
+		// (not present in limited view)
+		if (element.querySelector('.sheet-tabs')) {
+			this.tabs ??= new foundry.applications.ux.Tabs({
+				navSelector: '.sheet-tabs',
+				contentSelector: '.sheet-body',
+				initial: 'main',
+			});
+			this.tabs.bind(element);
+		}
 
-		// document.querySelector('.roll-attribute').addEventListener('click', async (ev) => await this._prepareRollAttribute(ev));
-		// document.querySelector('.roll-armor').addEventListener('click', async (ev) => await this._onPrepareRollArmor(ev));
-		// document.querySelector('.roll-weapon').addEventListener('click', async (ev) => await this._onPrepareRollWeapon(ev));
-		// document.querySelector('.modify-attributes').addEventListener('click', async (ev) => await this._modifyAttributes(ev));
+		// Attribute drag support (drag only - the V13 sheet had no drop targets)
+		new foundry.applications.ux.DragDrop({
+			dragSelector: '.attrDragM[data-attribute]',
+			dropSelector: null,
+			callbacks: {
+				dragstart: (ev) => this._onDragStart(ev),
+			},
+		}).bind(element);
 
-		const symbaroumContextMenu = [
+		// Power/gear context menu - the app root element persists across re-renders,
+		// so the menu is only created once per sheet instance.
+		this.powerMenu ??= new CMPowerMenu(element, '.symbaroum-contextmenu', this._getPowerMenuItems(), {
+			parent: this,
+		});
+	}
+
+	_getPowerMenuItems() {
+		return [
 			{
 				name: `TOOLTIP.USE_ABILITY`,
 				icon: `<i class="fa-solid fa-bolt-lightning"></i>`,
@@ -206,102 +300,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				callback: (elem) => this._itemDelete(elem),
 			},
 		];
-
-		class CMPowerMenu extends foundry.applications.ux.ContextMenu {
-			constructor(html, selector, menuItems, { eventName = 'contextmenu', onOpen, onClose, jQuery, parent } = {}) {
-				super(html, selector, menuItems, {
-					eventName: eventName,
-					onOpen: onOpen,
-					onClose: onClose,
-					jQuery: false,
-				});
-				this.myParent = parent;
-				this.originalMenuItems = [...menuItems];
-			}
-
-			activateListeners(html) {
-				super.activateListeners(html);
-				const parentContainer = this.element.parentElement;
-				const closestWindow = parentContainer.closest('.app.window-app.symbaroum.sheet');
-				/*
-				console.log('menu', this.menu);
-				console.log('menu.position()', this.menu.position());
-				console.log('menu.get(0).getBoundingClientRect()', this.menu.get(0).getBoundingClientRect());
-				console.log('parentContainer', parentContainer);
-				console.log('parentContainer.position()', parentContainer.position());
-				console.log('parentContainer.get(0).getBoundingClientRect()', parentContainer.get(0).getBoundingClientRect());
-				console.log('closestWindow', closestWindow);
-				console.log('closestWindow.position()', closestWindow.position());
-				console.log('closestWindow.get(0).getBoundingClientRect()', closestWindow.get(0).getBoundingClientRect());
-				*/
-				let yoffset = parentContainer.getBoundingClientRect().height / 2; // Bump it down half way the container as default?
-				if (this.element.classList.contains('expand-up') && !this.element.classList.contains('expand-down')) {
-					yoffset = -1 * this.element.getBoundingClientRect().height; // if it expands up wards, bump it up for the full length of the menu
-				}
-				let coords = getCoords(parentContainer);
-				this.element.style.top = coords.bottom + yoffset + 'px';
-				this.element.style.left = coords.left + 'px';
-			}
-			render(html) {
-				let item = null;
-				if (html.dataset.itemId == game.symbaroum.config.noArmorID) {
-					// special case
-					item = game.symbaroum.config.noArmorID;
-				} else {
-					item = this.myParent?.actor.items.get(html.dataset.itemId);
-				}
-				if (item) {
-					this.menuItems = this.originalMenuItems.filter((elem) => {
-						return elem.isVisible(item);
-					});
-				} else {
-					this.menuItems = this.originalMenuItems;
-				}
-				super.render(html);
-			}
-		}
-
-		// TODO needs fixing
-		new CMPowerMenu(html[0], '.symbaroum-contextmenu', symbaroumContextMenu, {
-			parent: this,
-		});
-
-		function getCoords(elem) {
-			let box = elem.getBoundingClientRect();
-
-			return {
-				top: box.top + window.pageYOffset,
-				right: box.right + window.pageXOffset,
-				bottom: box.bottom + window.pageYOffset,
-				left: box.left + window.pageXOffset,
-			};
-		}
-	}
-
-	_getHeaderButtons() {
-		let buttons = super._getHeaderButtons();
-		if (this.actor.isOwner) {
-			buttons = [
-				{
-					label: game.i18n.localize('BUTTON.DEATH'),
-					class: 'death-roll',
-					icon: 'fas fa-skull',
-					onclick: async (ev) => await this._prepareRollDeathTest(ev),
-				},
-				{
-					label: game.i18n.localize('BUTTON.RECOVER'),
-					class: 'recover-death-roll',
-					icon: 'fas fa-heart',
-					onclick: async (ev) => await this.actor.update({ 'system.nbrOfFailedDeathRoll': 0 }),
-				},
-			].concat(buttons);
-		}
-		return buttons;
-	}
-
-	async _prepareRollDeathTest(event) {
-		event.preventDefault();
-		await prepareRollDeathTest(this.actor, event.shiftKey);
 	}
 
 	async _prepareRollAttribute(event) {
@@ -320,7 +318,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 
 	async _onPrepareRollWeapon(event) {
 		event.preventDefault();
-		const div = event.target.closest('.item');		
+		const div = event.target.closest('.item');
 		this._prepareRollWeapon(div);
 	}
 	async _prepareRollWeapon(div) {

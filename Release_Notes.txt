@@ -1,3 +1,15 @@
+Version 7.2.0
+
+* Phase 2 (Sheets -> ApplicationV2), iteration 1: PlayerSheet and MonsterSheet migrated from the deprecated AppV1 ActorSheet to foundry.applications.sheets.ActorSheetV2 (DocumentSheetV2). The AppV1 deprecation warnings for the actor sheets disappear from the console
+* The rendered sheet keeps the V13 look and behaviour: the templates stay almost unchanged (only the outer form wrapper became a div - the V2 window itself is the form element now - and the profile image got the editImage action for the V2 file picker). The tab markup (.sheet-tabs / .tab data-group/data-tab) is unchanged and is now driven by the V14 Tabs controller; tabs are bound in _onRender
+* getData() became _prepareContext() with the same context shape (id, actor, system, items, cssClass, editable, symbaroumOptions, attribute_selection) - the templates did not change their data source. Form changes are submitted on change like in V13 (submitOnChange)
+* Header buttons Todesschaden/Erholen (death roll / recover) are V2 window header controls now, visible for sheet owners; they keep their icons and labels (BUTTON.DEATH / BUTTON.RECOVER)
+* Attribute drag & drop for macros (.attrDragM) is bound via the V14 DragDrop controller; item drag & drop is handled by the ActorSheetV2 base class. Note: with ActorSheetV2 dropping an item onto the sheet now works as well (in V13 the drop selector .tab-content matched nothing in the templates, so drops were ignored)
+* Context menu (CMPowerMenu) on powers/traits/gear: the AppV1-era manual positioning (TODO "needs fixing") is removed - the V14 base ContextMenu positions the menu at the target; the per-item entry filtering (isVisible on the Item document) is kept
+* Dead code removed: the querySelectorAll('focusin') listeners and the li.trait .each(...) block (NodeList has no .each - the attribute dragstart listener that block was meant to add is covered by the DragDrop controller above)
+* MonsterSheet: ApplicationV2 concatenates the classes of the inheritance chain - the inherited 'player' class is filtered out so only .symbaroum.sheet.actor.monster CSS rules apply (window-content background)
+* Item sheets and journal sheets remain on AppV1 for now (iterations 7.2.1 / 7.2.2); no world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.15
 
 * White form controls, second attempt with a layered approach: Rudolf's 7.1.14 screenshots still showed the dark native/core rendering (dark disc/box with light ring, orange accent dot when checked) - Foundry V14's form-control styling out-cascades plain input rules. Now: (a) color-scheme: light on the WHOLE dialog - if the controls stay native, they render in light mode (white interior, dark accent dot/check); (b) the custom-drawn rules are kept with maximum selector specificity (html body prefix) and kill any core background-image, mask or pseudo-element painting - if appearance:none wins, the controls are plain white without frame with dark glyphs when checked. Whichever side wins the cascade: white-filled controls

@@ -1,8 +1,8 @@
-<form class="{{cssClass}}" autocomplete="off">
+<div class="{{cssClass}}">
     <div class="player">
         <div class="sheet-header foreground border">
             <div class="avatar" style="position:relative">
-                <img class="profile-img" src="{{actor.img}}" data-edit="img" data-tooltip="{{actor.name}}" />
+                <img class="profile-img" src="{{actor.img}}" data-edit="img" data-action="editImage" data-tooltip="{{actor.name}}" />
                 {{#ifgt system.nbrOfFailedDeathRoll 0}}
                 <div data-tooltip="{{localize "TOOLTIP.DEATH_SKULLS"}}" style="position: absolute; top: 70%;left: 15px;">{{#times system.nbrOfFailedDeathRoll}}<i class="fas fa-skull" style="margin: 5px; color:rgb(255, 255, 255); vertical-align: bottom; -webkit-text-stroke-width: 1px; -webkit-text-stroke-color: rgb(0, 0, 0);"></i>{{/times}}</div>
                 {{/ifgt}}
@@ -90,4 +90,4 @@
 		{{/ifNotLimited}}
        
     </div>
-</form>
+</div>
