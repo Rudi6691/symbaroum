@@ -4438,4 +4438,62 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
   text-align: center;
 }
 
+/* -------------------------------------------------------------------- */
+/* 7.2.2: Structural follow-ups for the ApplicationV2 actor sheets       */
+/*  (fixes for Rudolf's 7.2.1 test reports).                             */
+/*                                                                      */
+/*  Cascade layers: system.json now loads this stylesheet with           */
+/*  "layer": null (unlayered). Foundry V14 pulls manifest css into       */
+/*  @layer system, where every core rule of the higher-priority layers   */
+/*  beats system rules regardless of selector specificity - that is what */
+/*  shrank the ability/power input fields, pastel-tinted the disabled    */
+/*  texts, added the extra input frames and squeezed the weapon banner  */
+/*  rows in 7.2.1, and it is the real explanation behind the 7.1.15     */
+/*  form-control cascade battles (the 7.1.x !important fixes only won   */
+/*  because !important inverts the layer order). Unlayered css outranks  */
+/*  every layered rule and restores the V13 cascade.                     */
+/*                                                                      */
+/*  Header controls: under ApplicationV2 the window header controls     */
+/*  are <button> elements (V13 rendered <a>), so the sheet-wide dark     */
+/*  banner button rule catches them too - and the core mask-painted     */
+/*  icons disappear into the dark background. The proven 7.1.11 dialog   */
+/*  recipe keeps them as plain white icon buttons with dark glyphs       */
+/*  (the accepted dice-dialog look).                                     */
+/*                                                                      */
+/*  Tab spacing: V13 core distributed the sheet tab items evenly; the   */
+/*  V14 core does not. A flex rule restores the V13 look.               */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.sheet.actor .window-header button {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 3px;
+  color: #191813 !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  flex: 0 0 auto !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 3px;
+  opacity: 0.9;
+}
+
+.symbaroum.sheet.actor .window-header button:hover,
+.symbaroum.sheet.actor .window-header button:focus {
+  background: #ffffff !important;
+  opacity: 1;
+}
+
+.symbaroum.sheet.actor .sheet-tabs .item {
+  flex: 1 1 auto;
+  text-align: center;
+}
+
 /*# sourceMappingURL=symbaroum.css.map */

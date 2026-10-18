@@ -12,7 +12,7 @@
                 </li>
 
                 {{#each actor.system.armors as |item|}}
-                <li class="symbaroum-contextmenu armor item-row item" data-item-id="{{item.id}}">
+                <li class="symbaroum-contextmenu armor item-row item draggable" data-item-id="{{item.id}}">
                     <div class="name">
                         <div class="image-container">
                             <div class="image" style="background-image: url('{{item.img}}')"></div>
@@ -52,7 +52,7 @@
                     <div class="state">{{localize "GEAR.STATE"}}</div>
                 </li>
                 {{#each actor.system.weapons as |item|}}
-                <li class="symbaroum-contextmenu weapon item-row item" data-item-id="{{item.id}}">
+                <li class="symbaroum-contextmenu weapon item-row item draggable" data-item-id="{{item.id}}">
                     <div class="name">
                         <div class="image-container">
                             <div class="image" style="background-image: url('{{item.img}}')"></div>
@@ -87,7 +87,7 @@
                     </li>
                     {{#each items as |item|}}
                         {{#if item.system.isArtifact}}                        
-                    <li class="symbaroum-contextmenu artifact item-row item" data-item-id="{{item.id}}">
+                    <li class="symbaroum-contextmenu artifact item-row item draggable" data-item-id="{{item.id}}">
                         <div class="name">
                             <div class="image-container">
                                 <div class="image" style="background-image: url('{{item.img}}')"></div>
@@ -129,7 +129,7 @@
                     </tr>
                     {{#each items as |item|}}
                     {{#if item.system.isEquipment}}                       
-                    <li class="symbaroum-contextmenu equipment item-row item" data-item-id="{{item.id}}">
+                    <li class="symbaroum-contextmenu equipment item-row item draggable" data-item-id="{{item.id}}">
                         <div class="name" data-tooltip="{{item.name}}">
                             <div class="image-container">
                                 <div class="image" style="background-image: url('{{item.img}}')"></div>

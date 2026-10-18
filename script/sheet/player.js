@@ -4,9 +4,11 @@ import { symbDialog } from '../common/symbDialog.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
- * Filters the menu entries per item document (isVisible receives the Item, not the HTML
+ * Filters the menu entries per item document (visible receives the Item, not the HTML
  * element) and lets the V14 base ContextMenu handle positioning - this replaces the old
- * AppV1-era manual positioning (former TODO "needs fixing").
+ * AppV1-era manual positioning (former TODO "needs fixing"). V14 note: the entry fields
+ * are label/visible/onClick (the AppV1 fields name/isVisible/callback are deprecated
+ * since v14 until v16 and stopped working in 7.2.1 - the menu never opened).
  */
 class CMPowerMenu extends foundry.applications.ux.ContextMenu {
 	constructor(container, selector, menuItems, { eventName = 'contextmenu', onOpen, onClose, jQuery = false, parent } = {}) {
@@ -28,13 +30,14 @@ class CMPowerMenu extends foundry.applications.ux.ContextMenu {
 		} else {
 			item = this.myParent?.actor.items.get(target.dataset.itemId);
 		}
-		if (item) {
-			this.menuItems = this.originalMenuItems.filter((elem) => {
-				return elem.isVisible(item);
-			});
-		} else {
-			this.menuItems = this.originalMenuItems;
-		}
+		// Filter the entries per Item document (visible receives the Item, not
+		// the HTML element). The remaining entries are handed to the V14 base
+		// render() WITHOUT their visible functions: the base calls visible
+		// itself - with the target HTMLElement - and would filter everything
+		// out a second time.
+		this.menuItems = (item ? this.originalMenuItems.filter((elem) => elem.visible(item)) : this.originalMenuItems).map(
+			({ visible, ...entry }) => entry
+		);
 		return super.render(target, options);
 	}
 }
@@ -105,6 +108,18 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			'system.bio.tactics',
 			'system.notes',
 		];
+		// 7.2.2: the prose-mirror editors (BIO/Notes) keep the RAW value in
+		// their value attribute; the enriched HTML stays in system.bio.* /
+		// system.notes as display content. Stash the raw values before
+		// _enrichTextFields replaces them in place.
+		context.rawBio = {
+			appearance: context.system.bio.appearance ?? '',
+			background: context.system.bio.background ?? '',
+			personalGoal: context.system.bio.personalGoal ?? '',
+			stigmas: context.system.bio.stigmas ?? '',
+			tactics: context.system.bio.tactics ?? '',
+			notes: context.system.notes ?? '',
+		};
 		await this._enrichTextFields(context, enrichedFields);
 
 		let items = Array.from(this.actor.items.values()).sort((a, b) => {
@@ -205,99 +220,99 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	_getPowerMenuItems() {
 		return [
 			{
-				name: `TOOLTIP.USE_ABILITY`,
+				label: `TOOLTIP.USE_ABILITY`,
 				icon: `<i class="fa-solid fa-bolt-lightning"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					if (elem.system?.hasScript && elem.system?.isPower) return true;
 					return false;
 				},
-				callback: (elem) => this._prepareActivateAbility(elem),
+				onClick: (event, elem) => this._prepareActivateAbility(elem),
 			},
 			{
-				name: 'TOOLTIP.USE_WEAPON',
+				label: 'TOOLTIP.USE_WEAPON',
 				icon: `<i class="fa-solid fa-hand-fist"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					return elem.system?.isWeapon && elem.system?.isActive;
 				},
-				callback: (elem, event) => {
+				onClick: (event, elem) => {
 					this._prepareRollWeapon(elem);
 				},
 			},
 			{
-				name: 'TOOLTIP.USE_ARMOR',
+				label: 'TOOLTIP.USE_ARMOR',
 				icon: `<i class="fa-solid fa-shield"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					return elem == game.symbaroum.config.noArmorID || (elem.system.isArmor && elem.system.isActive);
 				},
-				callback: (elem, event) => {
+				onClick: (event, elem) => {
 					this._prepareRollArmor(elem);
 				},
 			},
 			{
-				name: 'TOOLTIP.INCREASE_COUNT',
+				label: 'TOOLTIP.INCREASE_COUNT',
 				icon: `<i class="fa-regular fa-square-plus"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					return elem.system?.isEquipment;
 				},
-				callback: (elem, event) => {
+				onClick: (event, elem) => {
 					this._itemQuantityUpdate(elem, true, false);
 				},
 			},
 			{
-				name: game.i18n.format('TOOLTIP.INCREASE_COUNT_DEFAULT', {
+				label: game.i18n.format('TOOLTIP.INCREASE_COUNT_DEFAULT', {
 					quantity: game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag),
 					sign: '+',
 				}),
 				icon: `<i class="fa-regular fa-square-plus"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					let quantity = game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag);
 					return elem.system?.isEquipment && quantity;
 				},
-				callback: (elem, event) => {
+				onClick: (event, elem) => {
 					this._itemQuantityUpdate(elem, true, true);
 				},
 			},
 			{
-				name: 'TOOLTIP.DECREASE_COUNT',
+				label: 'TOOLTIP.DECREASE_COUNT',
 				icon: `<i class="fa-regular fa-square-minus"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					return elem.system?.isEquipment && elem.system?.number > 0;
 				},
-				callback: (elem, event) => {
+				onClick: (event, elem) => {
 					this._itemQuantityUpdate(elem, false, false);
 				},
 			},
 			{
-				name: game.i18n.format('TOOLTIP.DECREASE_COUNT_DEFAULT', {
+				label: game.i18n.format('TOOLTIP.DECREASE_COUNT_DEFAULT', {
 					quantity: game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag),
 					sign: '-',
 				}),
 				icon: `<i class="fa-regular fa-square-minus"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					let quantity = game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag);
 					return elem.system?.isEquipment && quantity && quantity <= elem.system?.number;
 				},
-				callback: (elem, event) => {
+				onClick: (event, elem) => {
 					this._itemQuantityUpdate(elem, false, true);
 				},
 			},
 			{
-				name: 'TOOLTIP.VIEW_ITEM',
+				label: 'TOOLTIP.VIEW_ITEM',
 				icon: `<i class="fa-regular fa-eye"></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					return elem != game.symbaroum.config.noArmorID;
 				},
-				callback: (elem, event) => {
+				onClick: (event, elem) => {
 					this._itemEdit(elem);
 				},
 			},
 			{
-				name: `TOOLTIP.DELETE_ITEM`,
+				label: `TOOLTIP.DELETE_ITEM`,
 				icon: `<i class='fas fa-trash'></i>`,
-				isVisible: (elem) => {
+				visible: (elem) => {
 					return elem != game.symbaroum.config.noArmorID;
 				},
-				callback: (elem) => this._itemDelete(elem),
+				onClick: (event, elem) => this._itemDelete(elem),
 			},
 		];
 	}
