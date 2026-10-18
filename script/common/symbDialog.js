@@ -8,7 +8,7 @@
  *     content: <html string>,
  *     buttons: { <key>: { icon, label, callback(html) } },
  *     default: <key of the default button>,
- *     width: <number>
+ *     width: <number>  (default 400, matching the V1 Dialog)
  *   }
  *
  * and creates, renders and returns a foundry.applications.api.DialogV2 instance.
@@ -45,7 +45,10 @@ export function symbDialog(options = {}) {
     content: content ?? '',
     buttons: v2Buttons,
   };
-  if (width !== undefined) config.position = { width };
+  // The legacy V1 Dialog rendered with a default window width of 400px; ApplicationV2
+  // defaults to "auto" which stretches the flex rows of the roll dialogs. Restore the
+  // previous look unless the call site requests an explicit width.
+  config.position = { width: width ?? 400 };
 
   dialog = new foundry.applications.api.DialogV2(config);
   dialog.render({ force: true });

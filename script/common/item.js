@@ -3557,9 +3557,9 @@ async function attackResult(rollData, functionStuff) {
     }),
     content: html,
     rolls: [createRollData(rolls)],
-    rollMode: game.settings.get("core", "rollMode"),
+    rollMode: game.settings.get("core", "messageMode"),
   };
-  ChatMessage.applyRollMode(chatData, "roll");
+  ChatMessage.applyMode(chatData, "public");
   let NewMessage = await ChatMessage.create(chatData);
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
@@ -3996,7 +3996,7 @@ async function standardPowerResult(rollData, functionStuff) {
       alias: game.user.name,
       actor: actorid,
     }),
-    rollMode: game.settings.get("core", "rollMode"),
+    rollMode: game.settings.get("core", "messageMode"),
     content: html,
   };
   if (functionStuff.gmOnlyChatResultNPC && !functionStuff.attackFromPC) {
@@ -4008,7 +4008,7 @@ async function standardPowerResult(rollData, functionStuff) {
     // Only shows rolls if they are displayed to  
     chatData.rolls = [createRollData(rolls)];
   }
-  ChatMessage.applyRollMode(chatData, "roll");
+  ChatMessage.applyMode(chatData, "public");
   let NewMessage = await ChatMessage.create(chatData);
   if (trueActorSucceeded && functionStuff.addTargetEffect.length > 0) {
     for (let effect of functionStuff.addTargetEffect) {

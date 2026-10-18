@@ -291,7 +291,7 @@ export class SymbaroumMacros {
 
 		Actor.updateDocuments(updates);
 		let chatOptions = {
-			rollMode: game.settings.get("core", "rollMode"),
+			rollMode: game.settings.get("core", "messageMode"),
 			content: `<h2>${game.i18n.localize("MACRO.ADDEXP_CHANGE")}</h2> 
 						${game.i18n.format("MACRO.ADDEXP_CHANGE_LONG", {actorNames:actorNames, exp:exp })}`
 			/// The following actors:<ul> ${actorNames}</ul> were awarded ${exp} experience`,
@@ -687,7 +687,7 @@ export class SymbaroumMacros {
 						{
 					actor: aexp._id
 						},
-						rollMode: game.settings.get("core", "rollMode")
+						rollMode: game.settings.get("core", "messageMode")
 				};
 
 				// 
@@ -760,7 +760,7 @@ export class SymbaroumMacros {
 				
 				Actor.updateDocuments(updates);
 				let chatOptions = {
-						rollMode: game.settings.get('core', 'rollMode'),        
+						rollMode: game.settings.get('core', 'messageMode'),        
 						content: `<h2>Temporary corruption was washed away</h2> 
 												The following actors:<ul> ${actorNames}</ul> is now at zero temporary corruption`
 				};

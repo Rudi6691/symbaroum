@@ -139,12 +139,12 @@ export class SymbaroumItemSheet extends foundry.appv1.sheets.ItemSheet {
             alias: this.item.actor?.name ?? game.user.name,
             actor: this.item.actor?.id
         }),            
-        rollMode: game.settings.get("core", "rollMode"),
+        rollMode: game.settings.get("core", "messageMode"),
         content: html,
     };
-    if (["gmroll", "blindroll"].includes(chatData.rollMode)) {
+    if (["gm", "blind"].includes(chatData.rollMode)) {
         chatData.whisper = ChatMessage.getWhisperRecipients("GM");
-    } else if (chatData.rollMode === "selfroll") {
+    } else if (chatData.rollMode === "self") {
         chatData.whisper = [game.user];
     }
     ChatMessage.create(chatData);

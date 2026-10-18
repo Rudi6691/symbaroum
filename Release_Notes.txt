@@ -1,3 +1,9 @@
+Version 7.1.1
+
+* Roll dialogs rendered with the new DialogV2 frame now restore the previous default width of 400 pixels (`symbDialog.js` sets an explicit `position.width`), fixing the overly wide and hard-to-read dialog layout introduced in 7.1.0
+* Migrated deprecated V14 roll mode APIs: `core.rollMode` setting replaced with `core.messageMode`, `ChatMessage.applyRollMode` replaced with `ChatMessage.applyMode`, and roll mode values migrated from `roll`/`gmroll`/`blindroll`/`selfroll` to the new `public`/`gm`/`blind`/`self` (roll.js, item.js, macro.js, sheet/item.js)
+* Remaining AppV1 deprecation warnings in the console originate from the character/item/journal sheets (phase 2 of the AppV1 modernization) and from third-party modules (ForgeVTT FilePicker, Tour); they are not caused by dialogs anymore
+
 Version 7.1.0
 
 * Deprecated AppV1 `Dialog` calls replaced with `foundry.applications.api.DialogV2` (18 call sites: roll dialogs for attributes, weapons and death tests, ability reference picker, lay-on-hands, attribute modifiers, item delete confirmation, quantity change, attribute edit dialog, rollable-table enricher, and all system macros)
