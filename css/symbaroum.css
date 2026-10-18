@@ -1433,23 +1433,22 @@
   --color-border: black;
   --color-shadow: #a48b02;
   --font-text: "Philosopher";
-  /* 7.1.9: these values were previously quoted strings, which made them
-     invalid CSS - the textures only ever appeared when hooks.js
-     setupConfigOptions() overwrote them with an inline style. Unquoted,
-     the stylesheet itself resolves the relative urls against its own
-     location (systems/symbaroum/css/ -> ../asset = correct), so the V13
-     textures show even without the runtime override. --title-color keeps
-     the value the V13 runtime override applied (title.webp); rules that
-     use it as border-color degrade exactly like they did in V13. */
+  /* 7.1.10: the title/banner texture is the classic Foundry denim weave
+     (/ui/denim075.png), not the repo's title.webp. title.webp in the repo
+     (unchanged since 2021) is a flat dark noise texture; the woven dark
+     banners the V13 installation showed came from an older title.webp
+     that the runtime settings no longer resolve to. The denim weave is
+     shipped with Foundry core, always available, and matches the V13
+     banner look (fine diagonal weave, dark grey). */
   --color-charBG: url(../asset/image/background/green_flower_light.webp) repeat;
   --color-npcBG: url(../asset/image/background/purple_flower_light.webp) repeat;
-  --title-image: url(../asset/image/background/title.webp);
-  --title-color: url(../asset/image/background/title.webp);
+  --title-image: url("/ui/denim075.png");
+  --title-color: url("/ui/denim075.png");
   --box-editable: url(../asset/image/background/editable.webp);
   --box-non-editable: url(../asset/image/background/not-editable.webp);
   --chat-background: url(../asset/image/background/editable.webp);
   --chat-colorBG: burlywood;
-  --chat-roll-border: url(../asset/image/background/title.webp);
+  --chat-roll-border: url("/ui/denim075.png");
 }
 
 /* Global styles */
@@ -4249,6 +4248,55 @@ dialog.symb-dialog input[type=text],
 dialog.symb-dialog input[type=number] {
   background: url(../asset/image/background/editable.webp) repeat !important;
   color: var(--color-text);
+}
+
+/* -------------------------------------------------------------------- */
+/* 7.1.10: Dark banner texture and radio/checkbox rows, V13 look.       */
+/*  - All dark banner elements (labels, .lblfavour, .packageInfo) get   */
+/*    the woven dark texture. The repo's title.webp is flat noise, NOT  */
+/*    the woven texture the V13 dialogs showed (that came from an       */
+/*    older title.webp); the classic Foundry denim weave reproduces      */
+/*    the V13 banner look. Dark base colour under the 75% weave.        */
+/*  - Radio options (label.checkbox wrappers from the radioBoxes        */
+/*    helper) render inline on ONE row of the dark banner, like V13.     */
+/*  - Checkboxes: plain browser checkboxes - no parchment background   */
+/*    box (that rule only "worked" in V13 because the quoted variable   */
+/*    made it invalid), auto size, centered in their second column.     */
+/* -------------------------------------------------------------------- */
+
+dialog.symb-dialog .symbaroum.dialog label,
+dialog.symb-dialog .symbaroum.dialog .lblfavour,
+dialog.symb-dialog .symbaroum.dialog .packageInfo {
+  background: #191813 url("/ui/denim075.png") repeat !important;
+}
+
+dialog.symb-dialog .symbaroum.dialog .lblfavour .checkbox {
+  display: inline-block !important;
+  width: auto !important;
+  min-width: 0 !important;
+  background: transparent !important;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=radio] {
+  width: auto !important;
+  margin: 0 4px 0 0;
+  vertical-align: middle;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=checkbox] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
+  accent-color: auto;
+  vertical-align: middle;
+}
+
+dialog.symb-dialog .symbaroum.dialog .lblfavour {
+  text-align: center;
 }
 
 /*# sourceMappingURL=symbaroum.css.map */

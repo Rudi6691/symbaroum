@@ -1,3 +1,12 @@
+Version 7.1.10
+
+* Dark banner texture restored: the dark label bars (dialog labels, .lblfavour radio banner, .packageInfo) and the sheet/h1 banners now use the classic Foundry denim weave (/ui/denim075.png) over a dark base (#191813). Analysis of the V13 screenshots showed a fine diagonal weave - but the repo's title.webp (unchanged since 2021) is a flat dark noise texture that reads as pure flat black; the woven V13 banners came from an older title.webp that the runtime settings no longer resolve to. The weave is also what the 7.1.9 dialog window header already uses
+* The `:root` variables --title-image, --title-color and --chat-roll-border now hold the denim weave url; hooks.js setupConfigOptions() additionally remaps any title.webp reference (default or previously saved client setting) to /ui/denim075.png, so the banners show the weave regardless of stored settings
+* Radio buttons: the three options ("Normal", "Gunst", "Missgunst" etc.) render inline on ONE row of the dark banner like V13 - the label.checkbox wrappers from the radioBoxes helper are forced to inline-block with auto width (they previously stretched and broke the row)
+* Checkboxes: plain browser checkboxes like V13 - the parchment background box (background: var(--box-editable), width: 100% from the old input[type=checkbox] rule) is removed; in V13 that rule never painted a background because the quoted variable made it invalid. Checkboxes are centered in their second column (.lblfavour spans keep text-align: center)
+* Advantage/simplebox rows ("Vorteil", "Behinderung" etc.): label on the dark woven banner + plain centered checkbox beside it, matching the V13 screenshots
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.9
 
 * Root cause of the missing textures found: the css custom properties in the `:root` block (`--title-image`, `--title-color`, `--box-editable`, `--box-non-editable`, `--color-charBG`, `--color-npcBG`, `--chat-roll-border`) were declared as QUOTED strings (`--box-editable: "url(...)"`), which is invalid CSS - as raw values they never produced a background. In V13 the textures only appeared because `setupConfigOptions()` in hooks.js overwrote the variables with inline styles at runtime; in V14 that mechanism no longer produced the V13 look (flat black label bars, flat white inputs, untextured sheet banners)

@@ -236,3 +236,50 @@ dialog.symb-dialog input[type=number] {
   background: url(../asset/image/background/editable.webp) repeat !important;
   color: var(--color-text);
 }
+
+// ----------------------------------------------------------------------
+// 7.1.10: Dark banner texture and radio/checkbox rows, V13 look.
+//  - dark banners (labels, .lblfavour, .packageInfo): woven dark texture;
+//    the repo's title.webp is flat noise, NOT the woven texture the V13
+//    dialogs showed - classic Foundry denim weave + dark base colour
+//  - radio options (label.checkbox wrappers from the radioBoxes helper)
+//    inline on ONE row of the dark banner, like V13
+//  - checkboxes: plain browser checkboxes - no parchment background box,
+//    auto size, centered in their second column (like V13)
+// (kept in sync with the block at the end of css/symbaroum.css)
+// ----------------------------------------------------------------------
+
+dialog.symb-dialog .symbaroum.dialog label,
+dialog.symb-dialog .symbaroum.dialog .lblfavour,
+dialog.symb-dialog .symbaroum.dialog .packageInfo {
+  background: #191813 url("/ui/denim075.png") repeat !important;
+}
+
+dialog.symb-dialog .symbaroum.dialog .lblfavour .checkbox {
+  display: inline-block !important;
+  width: auto !important;
+  min-width: 0 !important;
+  background: transparent !important;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=radio] {
+  width: auto !important;
+  margin: 0 4px 0 0;
+  vertical-align: middle;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=checkbox] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
+  accent-color: auto;
+  vertical-align: middle;
+}
+
+dialog.symb-dialog .symbaroum.dialog .lblfavour {
+  text-align: center;
+}
