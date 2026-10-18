@@ -307,16 +307,70 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
 }
 
 // ----------------------------------------------------------------------
-// 7.1.11: Radios and checkboxes white-filled like V13. The V14 core
-// renders native form controls in dark mode (dark interior); the V13
-// dialogs showed white-filled radios and checkboxes on the dark
-// banners. color-scheme: light restores the native light rendering,
-// an explicit white background-color guarantees the light fill.
+// 7.1.13: Radios and checkboxes fully custom-drawn, plain white fill
+// when unchecked, no frame. The 7.1.11 attempt (background-color +
+// color-scheme: light) failed: with native appearance the browser
+// paints the control itself, CSS background/border do not reach it -
+// the controls still rendered dark with a light frame (Rudolf's
+// 7.1.12 test). appearance: none removes the native rendering
+// completely. Unchecked = plain white square (checkbox) / white circle
+// (radio) with NO border on the dark banners; checked = dark glyphs
+// like the V13 light-scheme native look.
 // (kept in sync with the block at the end of css/symbaroum.css)
 // ----------------------------------------------------------------------
 
 dialog.symb-dialog .symbaroum.dialog input[type=radio],
 dialog.symb-dialog .symbaroum.dialog input[type=checkbox] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
   background-color: #ffffff !important;
-  color-scheme: light !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  vertical-align: middle !important;
+  flex: 0 0 auto;
+  accent-color: auto;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=radio] {
+  border-radius: 50% !important;
+  margin: 0 4px 0 0 !important;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=radio]:checked {
+  background-image: radial-gradient(circle, #191813 0 26%, #ffffff 32% 100%) !important;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=checkbox] {
+  margin: 0 !important;
+}
+
+dialog.symb-dialog .symbaroum.dialog input[type=checkbox]:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23191813' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 12px 12px !important;
+}
+
+// ----------------------------------------------------------------------
+// 7.1.14: Vertically centered dialog rows - the flex rows keep their
+// default align-items: stretch, so the label banner stretched to the
+// row height and its text sat at the top ("Vorteil" not centered,
+// Rudolf's 7.1.13 test). align-items: center hugs label and control
+// to their content and centers them like V13.
+// (kept in sync with the block at the end of css/symbaroum.css)
+// ----------------------------------------------------------------------
+
+dialog.symb-dialog .symbaroum.dialog .advantage,
+dialog.symb-dialog .symbaroum.dialog .damagemodifier,
+dialog.symb-dialog .symbaroum.dialog .favour,
+dialog.symb-dialog .symbaroum.dialog .simplebox,
+dialog.symb-dialog .symbaroum.dialog .attribute,
+dialog.symb-dialog .symbaroum.dialog .maintain,
+dialog.symb-dialog .symbaroum.dialog .bonus {
+  align-items: center;
 }

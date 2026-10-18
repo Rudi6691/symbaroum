@@ -1,3 +1,9 @@
+Version 7.1.14
+
+* Includes all changes of the not-committed 7.1.13: radios and checkboxes fully custom-drawn via appearance: none - unchecked = plain WHITE square (checkbox) / white circle (radio) with NO border on the dark banners (the 7.1.11 background-color + color-scheme approach cannot recolour native controls: with native appearance the browser paints the control itself); checked = dark glyphs like the V13 light-scheme native look (radio: dark dot in the white circle, checkbox: dark check mark on white), fixed size 14x14px
+* NEW 7.1.14: vertically centered dialog rows - the flex rows (.advantage, .damagemodifier, .favour, .simplebox, .attribute, .maintain, .bonus) kept the default align-items: stretch, so the label banner stretched to the row height and its text sat at the top (Rudolf's test: the "Vorteil" label text was not vertically centered). align-items: center lets the label and its control hug their content and centers both on the row, matching the V13 look
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.12
 
 * Dark banner fields with the repo's own texture: Rudolf found and verified the original V13 banner texture in the repo at asset/image/background/title.webp. All dark banner fields now use it: dialog label banners (.symbaroum.dialog label), the radio banner (.lblfavour), .packageInfo, and through the :root variables --title-image / --title-color the sheet h1 banners as well; --chat-roll-border also points to title.webp again
