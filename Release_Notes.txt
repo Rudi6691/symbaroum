@@ -1,3 +1,10 @@
+Version 7.1.15
+
+* White form controls, second attempt with a layered approach: Rudolf's 7.1.14 screenshots still showed the dark native/core rendering (dark disc/box with light ring, orange accent dot when checked) - Foundry V14's form-control styling out-cascades plain input rules. Now: (a) color-scheme: light on the WHOLE dialog - if the controls stay native, they render in light mode (white interior, dark accent dot/check); (b) the custom-drawn rules are kept with maximum selector specificity (html body prefix) and kill any core background-image, mask or pseudo-element painting - if appearance:none wins, the controls are plain white without frame with dark glyphs when checked. Whichever side wins the cascade: white-filled controls
+* Input fields share the label height again: 7.1.14's align-items: center had shrunk label and input apart (Rudolf: input fields no longer as tall as the label banners). The rows are back to align-items: stretch - label, input and span all share the row height like V13; the label text stays vertically centered via flex on the label itself
+* Radio banner and checkbox spans: the Normal/Gunst/Missgunst banner spans the full row width and centers the three options as a group; the checkbox spans (.lblfavour) center their control over the dark banner area
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.14
 
 * Includes all changes of the not-committed 7.1.13: radios and checkboxes fully custom-drawn via appearance: none - unchecked = plain WHITE square (checkbox) / white circle (radio) with NO border on the dark banners (the 7.1.11 background-color + color-scheme approach cannot recolour native controls: with native appearance the browser paints the control itself); checked = dark glyphs like the V13 light-scheme native look (radio: dark dot in the white circle, checkbox: dark check mark on white), fixed size 14x14px
