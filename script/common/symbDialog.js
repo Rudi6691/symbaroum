@@ -40,13 +40,29 @@ export function symbDialog(options = {}) {
       : {}),
   }));
 
+  // DialogV2 cleans string content with foundry.utils.cleanHTML, which strips
+  // the class attributes from the dialog templates. All system dialog styling
+  // in scss/chat/_dialog.scss (.symbaroum.dialog label banners, input chrome,
+  // .lblfavour, ...) is keyed on those classes, so a cleaned string loses the
+  // V13 look. Passing a pre-built DOM element skips the cleaning entirely
+  // ("If string, the content is cleaned ... Otherwise, the content is not
+  // cleaned", Foundry V14 DialogV2 documentation).
+  let domContent;
+  if (typeof content === "string") {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = content ?? "";
+    domContent = wrapper.firstElementChild ?? wrapper;
+  } else {
+    domContent = content ?? "";
+  }
+
   const config = {
     // Tag every dialog created here so css/symbaroum.css can restore the
     // previous AppV1 dialog chrome (horizontal button row, window frame
     // free of native <dialog> user-agent styles) on the DialogV2 window.
     classes: ['symb-dialog'],
     window: { title: title ?? '' },
-    content: content ?? '',
+    content: domContent,
     buttons: v2Buttons,
   };
   // The legacy V1 Dialog rendered with a default window width of 400px; ApplicationV2

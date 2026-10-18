@@ -1,3 +1,10 @@
+Version 7.1.4
+
+* Root cause found for why the roll dialogs still looked different from V13 although the dialog width and window frame had already been restored: since 7.1.0 the dialogs are created via `DialogV2`, which sanitizes string content with `foundry.utils.cleanHTML`; the cleaner strips the `class` attributes from the dialog templates, so the system dialog CSS (`.symbaroum.dialog ...` in `scss/chat/_dialog.scss`) stopped applying - the black label banners, the flat grey input styling, the `.lblfavour` banner and other template chrome were silently lost since 7.1.0
+* `symbDialog.js` now converts the template string into a DOM element before passing it to `DialogV2`; DOM element content is not cleaned ("If string, the content is cleaned ... Otherwise, the content is not cleaned"), so all classes survive and the original V13 dialog styling applies again
+* The dialog background now uses the core dark stone texture (`ui/denim075.png`) that the V13 windows had, instead of the green player-sheet texture that 7.1.3 applied
+* The dialog buttons now have the classic V1 look again: natural order (roll button on the left), compact width, light grey with dark text, replacing the ApplicationV2 theme (accent-coloured default button, dark buttons with light text) and the full-width buttons of 7.1.2
+
 Version 7.1.3
 
 * Root cause found for the remaining visual difference of the roll dialogs: the system's own dialog CSS never changed and no system CSS was lost, but the old AppV1 dialog window got its light, textured appearance from the legacy Foundry window chrome (light parchment window background), which made it visually match the Symbaroum actor sheets; the ApplicationV2 window instead follows the core UI theme (dark by default), so the dialogs no longer looked like the sheets
