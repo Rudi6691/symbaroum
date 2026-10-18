@@ -1,3 +1,9 @@
+Version 7.0.3
+
+* Fix: compendium packs are now included in the package (folder-based pack format). Previous 7.x packages did not ship the packs directory, so the "Symbaroum for FVTT system user guides" and "Symbaroum System" compendia were empty, causing "No system guide found in this release" on startup
+* The system guide journal import will now run once on first startup after updating, then stay silent
+* The "Symbaroum System" adventure compendium (base items and macros for all languages) is available again for fresh worlds
+
 Version 7.0.2
 
 * Fix: system guide import now searches the pack documents directly instead of the compendium index, which no longer exposes entry names on Foundry VTT V14 ("No system guide found in this release")
