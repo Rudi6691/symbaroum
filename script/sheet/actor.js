@@ -6,12 +6,22 @@ import { symbDialog } from '../common/symbDialog.js';
  */
 const HIDDEN_TOKEN_CONTROLS = new Set(['configureToken', 'configurePrototypeToken', 'showPortraitArtwork', 'showTokenArtwork']);
 
+const { api, sheets } = foundry.applications;
+
+/**
+ * Foundry V14: the typed sheet base classes (ActorSheetV2, ItemSheetV2, DocumentSheetV2)
+ * are NOT renderable on their own - they must be composed with HandlebarsApplicationMixin,
+ * which provides the _renderHTML and _replaceHTML methods for static PARTS template
+ * rendering (official V14 API docs, module foundry.applications.sheets).
+ */
+const SymbaroumActorSheetBase = api.HandlebarsApplicationMixin(sheets.ActorSheetV2);
+
 /**
  * Base class for all Symbaroum actor sheets, built on ApplicationV2 (V14 migration, phase 2).
  * The sheets keep their V13 context shape (id, actor, system, items, cssClass, editable,
  * symbaroumOptions, attribute_selection) so the handlebars templates stay unchanged.
  */
-export class SymbaroumActorSheet extends foundry.applications.sheets.ActorSheetV2 {
+export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 	static DEFAULT_OPTIONS = {
 		classes: ['symbaroum', 'sheet', 'actor'],
 		sheetConfig: false,

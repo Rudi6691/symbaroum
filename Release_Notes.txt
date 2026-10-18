@@ -1,3 +1,10 @@
+Version 7.2.1
+
+* Hotfix for 7.2.0: neither PlayerSheet nor MonsterSheet could be opened - the console showed "The PlayerSheet Application class is not renderable because it does not implement the abstract methods _renderHTML and _replaceHTML"
+* Root cause: in Foundry V14 the typed sheet base classes (ActorSheetV2, ItemSheetV2, DocumentSheetV2) are not renderable on their own; they must be composed with HandlebarsApplicationMixin (official V14 API docs, module foundry.applications.sheets). 7.2.0 extended ActorSheetV2 directly, so the sheet had no template renderer
+* Fix: script/sheet/actor.js composes the base class via foundry.applications.api.HandlebarsApplicationMixin(foundry.applications.sheets.ActorSheetV2); PlayerSheet and MonsterSheet inherit it automatically. No other file changed functionally; the V13 context shape, templates and CSS of 7.2.0 remain untouched
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.2.0
 
 * Phase 2 (Sheets -> ApplicationV2), iteration 1: PlayerSheet and MonsterSheet migrated from the deprecated AppV1 ActorSheet to foundry.applications.sheets.ActorSheetV2 (DocumentSheetV2). The AppV1 deprecation warnings for the actor sheets disappear from the console
@@ -8,7 +15,7 @@ Version 7.2.0
 * Context menu (CMPowerMenu) on powers/traits/gear: the AppV1-era manual positioning (TODO "needs fixing") is removed - the V14 base ContextMenu positions the menu at the target; the per-item entry filtering (isVisible on the Item document) is kept
 * Dead code removed: the querySelectorAll('focusin') listeners and the li.trait .each(...) block (NodeList has no .each - the attribute dragstart listener that block was meant to add is covered by the DragDrop controller above)
 * MonsterSheet: ApplicationV2 concatenates the classes of the inheritance chain - the inherited 'player' class is filtered out so only .symbaroum.sheet.actor.monster CSS rules apply (window-content background)
-* Item sheets and journal sheets remain on AppV1 for now (iterations 7.2.1 / 7.2.2); no world migration (systemMigrationVersion stays 7.0.1)
+* Item sheets and journal sheets remain on AppV1 for now (iterations 7.2.2 / 7.2.3); no world migration (systemMigrationVersion stays 7.0.1)
 
 Version 7.1.15
 
