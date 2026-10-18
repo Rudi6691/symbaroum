@@ -1,3 +1,11 @@
+Version 7.1.12
+
+* Dark banner fields with the repo's own texture: Rudolf found and verified the original V13 banner texture in the repo at asset/image/background/title.webp. All dark banner fields now use it: dialog label banners (.symbaroum.dialog label), the radio banner (.lblfavour), .packageInfo, and through the :root variables --title-image / --title-color the sheet h1 banners as well; --chat-roll-border also points to title.webp again
+* The 7.1.10 detour over the Foundry core denim weave (/ui/denim075.png) is reverted for the banners; the hooks.js remap that rewrote every title.webp reference to denim075.png is removed, so stored client settings with title.webp pass through unchanged
+* The dialog window title bar keeps the accepted 7.1.9 denim look (it was confirmed twice)
+* Contains all 7.1.11 fixes (header icons, white-filled radios/checkboxes) - 7.1.11 was committed but not separately tested
+* No world migration (systemMigrationVersion stays 7.0.1)
+
 Version 7.1.11
 
 * Header control icons restored: the "Toggle Controls" and "Close" buttons in the dialog title bar showed as empty light squares. Two causes: (a) the 7.1.8 catch-all selector `dialog.symb-dialog button` also hit the header buttons and broke them via font-family/padding - it is now scoped to `dialog.symb-dialog .window-content button` (plus .dialog-buttons/footer fallbacks), so header buttons are excluded again; (b) the 7.1.9 rule `background: transparent` erased the glyph colour of the core's mask-painted icons (mask icons take their colour from the background - transparent = invisible). Header buttons now render as small white square buttons (22x22px) with a dark glyph colour (#191813), so the icons stay visible whichever way the core paints them

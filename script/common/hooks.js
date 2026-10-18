@@ -622,12 +622,9 @@ async function setupConfigOptions() {
 			let value = game.settings.get('symbaroum', settingKey);
 			if (typeof value === 'string') {
 				value = value.replace(/url\(\s*['"]?\.\.\/asset\//gi, 'url(/systems/symbaroum/asset/');
-				// 7.1.10: the repo's title.webp (unchanged since 2021) is a flat dark
-				// noise texture - the woven dark banners of the V13 installation came
-				// from an older title.webp that these settings no longer resolve to.
-				// Map any title.webp reference to the classic Foundry denim weave,
-				// which reproduces the V13 banner look and ships with Foundry core.
-				value = value.replace(/url\(\s*['"]?[^)'"]*\/background\/title\.webp/gi, 'url(/ui/denim075.png');
+				// 7.1.12: the 7.1.10 remap (title.webp -> /ui/denim075.png) is removed.
+				// Rudolf verified that the repo's title.webp IS the wanted V13 banner
+				// texture - stored settings with title.webp now pass through unchanged.
 			}
 			r.style.setProperty(cssVar, value);
 		} catch (error) {

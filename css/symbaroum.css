@@ -1433,22 +1433,20 @@
   --color-border: black;
   --color-shadow: #a48b02;
   --font-text: "Philosopher";
-  /* 7.1.10: the title/banner texture is the classic Foundry denim weave
-     (/ui/denim075.png), not the repo's title.webp. title.webp in the repo
-     (unchanged since 2021) is a flat dark noise texture; the woven dark
-     banners the V13 installation showed came from an older title.webp
-     that the runtime settings no longer resolve to. The denim weave is
-     shipped with Foundry core, always available, and matches the V13
-     banner look (fine diagonal weave, dark grey). */
+  /* 7.1.12: the title/banner texture is the repo's own
+     asset/image/background/title.webp - Rudolf verified that this is the
+     texture the V13 banners showed. The 7.1.10 detour over the Foundry
+     core denim weave (/ui/denim075.png) is reverted; the hooks.js remap
+     that rewrote title.webp references to denim is removed as well. */
   --color-charBG: url(../asset/image/background/green_flower_light.webp) repeat;
   --color-npcBG: url(../asset/image/background/purple_flower_light.webp) repeat;
-  --title-image: url("/ui/denim075.png");
-  --title-color: url("/ui/denim075.png");
+  --title-image: url(../asset/image/background/title.webp);
+  --title-color: url(../asset/image/background/title.webp);
   --box-editable: url(../asset/image/background/editable.webp);
   --box-non-editable: url(../asset/image/background/not-editable.webp);
   --chat-background: url(../asset/image/background/editable.webp);
   --chat-colorBG: burlywood;
-  --chat-roll-border: url("/ui/denim075.png");
+  --chat-roll-border: url(../asset/image/background/title.webp);
 }
 
 /* Global styles */
@@ -4289,7 +4287,9 @@ dialog.symb-dialog input[type=number] {
 dialog.symb-dialog .symbaroum.dialog label,
 dialog.symb-dialog .symbaroum.dialog .lblfavour,
 dialog.symb-dialog .symbaroum.dialog .packageInfo {
-  background: #191813 url("/ui/denim075.png") repeat !important;
+  /* 7.1.12: repo's own title.webp texture (verified by Rudolf) instead
+     of the Foundry core denim weave from 7.1.10. */
+  background: #191813 url("../asset/image/background/title.webp") repeat !important;
 }
 
 dialog.symb-dialog .symbaroum.dialog .lblfavour .checkbox {

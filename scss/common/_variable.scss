@@ -45,15 +45,15 @@
 
   --font-text: 'Philosopher';
 
-  /* 7.1.10: title/banner texture = classic Foundry denim weave; the repo's
-     title.webp is flat dark noise, not the woven V13 look. */
+  /* 7.1.12: title/banner texture = the repo's own title.webp (verified by
+     Rudolf as the V13 banner texture); denim detour from 7.1.10 reverted. */
   --color-charBG: url(../asset/image/background/green_flower_light.webp) repeat;
   --color-npcBG: url(../asset/image/background/purple_flower_light.webp) repeat;
-  --title-image: url("/ui/denim075.png");
-  --title-color: url("/ui/denim075.png");
+  --title-image: url(../asset/image/background/title.webp);
+  --title-color: url(../asset/image/background/title.webp);
   --box-editable: url(../asset/image/background/editable.webp);
   --box-non-editable: url(../asset/image/background/not-editable.webp);
   --chat-background: url(../asset/image/background/editable.webp);
   --chat-colorBG: burlywood;
-  --chat-roll-border: url("/ui/denim075.png");
+  --chat-roll-border: url(../asset/image/background/title.webp);
 }

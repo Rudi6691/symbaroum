@@ -272,7 +272,9 @@ dialog.symb-dialog input[type=number] {
 dialog.symb-dialog .symbaroum.dialog label,
 dialog.symb-dialog .symbaroum.dialog .lblfavour,
 dialog.symb-dialog .symbaroum.dialog .packageInfo {
-  background: #191813 url("/ui/denim075.png") repeat !important;
+  // 7.1.12: repo's own title.webp texture (verified by Rudolf) instead
+  // of the Foundry core denim weave from 7.1.10.
+  background: #191813 url("../asset/image/background/title.webp") repeat !important;
 }
 
 dialog.symb-dialog .symbaroum.dialog .lblfavour .checkbox {
