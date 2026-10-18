@@ -41,6 +41,10 @@ export function symbDialog(options = {}) {
   }));
 
   const config = {
+    // Tag every dialog created here so css/symbaroum.css can restore the
+    // previous AppV1 dialog chrome (horizontal button row, window frame
+    // free of native <dialog> user-agent styles) on the DialogV2 window.
+    classes: ['symb-dialog'],
     window: { title: title ?? '' },
     content: content ?? '',
     buttons: v2Buttons,

@@ -1,3 +1,9 @@
+Version 7.1.2
+
+* Restores the previous AppV1 dialog appearance for all DialogV2 dialogs: the system's own dialog CSS never changed, but the legacy core chrome around the content (window frame and button footer) was replaced by the ApplicationV2 window frame in 7.1.0
+* All dialogs created through `symbDialog.js` are now tagged with a `.symb-dialog` class, and `css/symbaroum.css` re-imposes the legacy look on them: user-agent styles of the native `<dialog>` element are cleared (margin/padding/border), and the buttons render in a horizontal row again (first button on the right) instead of stacked vertically at full width, each button taking an equal share of the row
+* The remaining console warnings are unchanged and expected: AppV1 warnings from the character/item/journal sheets (phase 2 of the AppV1 modernization), FilePicker/Tour warnings from the ForgeVTT module (third-party), and the deprecated renderChatMessage hook warning triggered by the Dice So Nice module when it renders dice for chat messages
+
 Version 7.1.1
 
 * Roll dialogs rendered with the new DialogV2 frame now restore the previous default width of 400 pixels (`symbDialog.js` sets an explicit `position.width`), fixing the overly wide and hard-to-read dialog layout introduced in 7.1.0

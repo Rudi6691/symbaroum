@@ -4128,4 +4128,34 @@ Monster Codex Stuff
   font-weight: bold;
 }
 
-/* Styles limited to alienrpg sheets *//*# sourceMappingURL=symbaroum.css.map */
+/* Styles limited to alienrpg sheets *//* -------------------------------------------------------------------- */
+/* 7.1.2: Restore the legacy AppV1 dialog appearance on DialogV2.       */
+/* Every system dialog is created through script/common/symbDialog.js,  */
+/* which tags the DialogV2 window (a native <dialog> element) with the   */
+/* .symb-dialog class. This block re-imposes the previous V1 dialog     */
+/* chrome that the ApplicationV2 window frame no longer provides:        */
+/*  - clears user-agent styles of the native <dialog> element that the  */
+/*    ApplicationV2 window frame does not fully reset                   */
+/*  - renders the buttons in a horizontal row (first button on the       */
+/*    right, like the old V1 dialog) instead of stacked vertically      */
+/*    at full width                                                     */
+/* -------------------------------------------------------------------- */
+
+dialog.symb-dialog {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+dialog.symb-dialog .dialog-buttons {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 5px;
+  padding: 8px;
+}
+
+dialog.symb-dialog .dialog-buttons button {
+  flex: 1 1 auto;
+  width: auto;
+}
+/*# sourceMappingURL=symbaroum.css.map */
