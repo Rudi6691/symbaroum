@@ -1,3 +1,10 @@
+Version 7.0.4
+
+* Fix: compendium packs are now provided in the folder-based JSON pack format that Foundry VTT V13+ reads natively, and each pack declares its path in the manifest (packs/systemuserguides, packs/symbaroum)
+* The 7.0.3 package copied fvtt CLI source JSON files into packs/, which Foundry could not read as pack contents - the compendia appeared empty and the system guide import failed with "No system guide found in this release"
+* Document files were cleaned of the fvtt CLI's internal _key metadata to match the native folder pack format (as used by current V14 systems)
+* Both compendia ("Symbaroum for FVTT system user guides" and "Symbaroum System") are now populated; the system guide journal import runs once on first startup, then stays silent
+
 Version 7.0.3
 
 * Fix: compendium packs are now included in the package (folder-based pack format). Previous 7.x packages did not ship the packs directory, so the "Symbaroum for FVTT system user guides" and "Symbaroum System" compendia were empty, causing "No system guide found in this release" on startup

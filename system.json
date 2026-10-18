@@ -2,7 +2,7 @@
 	"id": "symbaroum",
 	"title": "Symbaroum",
 	"description": "Twilight falls. Davokar darkens.",
-	"version": "7.0.3",
+	"version": "7.0.4",
 	"compatibility": {
 		"minimum": "14",
 		"verified": "14.360"
@@ -15,6 +15,7 @@
 		{
 			"name": "systemuserguides",
 			"label": "Symbaroum for FVTT system user guides",
+			"path": "packs/systemuserguides",
 			"system": "symbaroum",
 			"module": "symbaroum",
 			"type": "JournalEntry",
@@ -23,6 +24,7 @@
 		{
 			"name": "symbaroum",
 			"label": "Symbaroum System",
+			"path": "packs/symbaroum",
 			"system": "symbaroum",
 			"module": "symbaroum",
 			"type": "Adventure",
