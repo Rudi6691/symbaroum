@@ -2502,7 +2502,7 @@ Monster Codex Stuff
 .symbaroum.sheet.actor .gear .wrapper-left .armor .armorname,
 .symbaroum.sheet.actor .gear .wrapper-left .weapon .weaponname,
 .symbaroum.sheet.actor .gear .wrapper-left .artifact .artifactname,
-.symbaroum.sheet.actor .gear .wrapper-right .equipment .equipmenttname {
+.symbaroum.sheet.actor .gear .wrapper-right .equipment .equipmentname {
   width: 100%;
   min-width: 131px;
 }
@@ -4570,5 +4570,42 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
   font-family: var(--font-awesome, 'Font Awesome 7 Pro') !important;
   font-weight: 900 !important;
 }
+
+/* -------------------------------------------------------------------- */
+/* 7.2.6: Actor sheet row layouts (Main + Gear tab, player & monster)   */
+/*                                                                      */
+/*  Both fixes trace back to the same V14 behaviour: the core no       */
+/*  longer stretches <button> elements to full width (V13 default;     */
+/*  the 7.2.3 height fix already showed the same button restyling).    */
+/*  Buttons render at fit-content now, and every name button that      */
+/*  relied on the old core default - without a width rule of its own - */
+/*  shrink-wraps to its text length.                                    */
+/*                                                                      */
+/*  1) Abilities & powers (Main tab): the name button .item-edit has   */
+/*     no width rule; short names leave a ragged gap before the        */
+/*     learning-status (.actions) field. Fix: let the button grow into */
+/*     the remaining .name width - the dark text block always reaches  */
+/*     the status field again, regardless of name length. Long names   */
+/*     truncate with ellipsis (same pattern as the gear names) instead */
+/*     of wrapping out of the 38px row.                                */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.sheet.actor .player .main .abilities-powers .traits .trait .name .item-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------------- */
+/*  2) Equipment names (Gear tab): the width rule for the equipment     */
+/*     name button never applied - the css selector said .equipment-   */
+/*     ttname (double t) while the template class is equipmentname     */
+/*     (single t). Inherited upstream typo, invisible in V13 because   */
+/*     the core default filled the row anyway. Corrected in-place at   */
+/*     the .armorname/.weaponname/.artifactname rule - no extra rule   */
+/*     needed here.                                                     */
+/* -------------------------------------------------------------------- */
 
 /*# sourceMappingURL=symbaroum.css.map */
