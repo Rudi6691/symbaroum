@@ -4548,4 +4548,21 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
   color: var(--color-text);
 }
 
+/* -------------------------------------------------------------------- */
+/* 7.2.4: Window header icons                                            */
+/*                                                                      */
+/*  Under V14 the window header controls are <button> elements (V13      */
+/*  rendered <a>), so the sheet-wide V13 button rule (font-family:        */
+/*  var(--font-text), css line ~564) applies to them and overrides the   */
+/*  FontAwesome font of the .fa-solid/.fa-... icon classes - the icon     */
+/*  codepoints then render as empty squares. The 7.2.2 white-button rule */
+/*  provides background and colour; this restores the icon font.         */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.sheet.actor .window-header button,
+.symbaroum.sheet.actor .window-header .header-control {
+  font-family: 'Font Awesome 6 Free' !important;
+  font-weight: 900 !important;
+}
+
 /*# sourceMappingURL=symbaroum.css.map */

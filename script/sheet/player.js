@@ -12,14 +12,37 @@ import { symbDialog } from '../common/symbDialog.js';
  */
 class CMPowerMenu extends foundry.applications.ux.ContextMenu {
 	constructor(container, selector, menuItems, { eventName = 'contextmenu', onOpen, onClose, jQuery = false, parent } = {}) {
+		// 7.2.4: fixed: true opens the menu as a popover at the mouse cursor
+		// (document.body, popover API) instead of injecting it into the row.
+		// The menu then survives sheet re-renders (e.g. a status change while it
+		// is open) and cannot be clipped by the row geometry.
 		super(container, selector, menuItems, {
 			eventName: eventName,
 			onOpen: onOpen,
 			onClose: onClose,
 			jQuery: jQuery,
+			fixed: true,
 		});
 		this.myParent = parent;
 		this.originalMenuItems = [...menuItems];
+		// 7.2.4: stale-state cleanup. The core toggle swallows a right-click on a
+		// row that still carries the .context class while no live menu exists
+		// (close-only: no menu, no error). Orphaned .context classes and
+		// #context-menu nodes are left behind whenever a menu is destroyed
+		// without close() (direct render() calls never set ui.context, so such
+		// menus never auto-close). This capture-phase listener runs before the
+		// core listener and resets that state; while a real menu is open the
+		// normal toggle behaviour (second right-click closes it) is preserved.
+		container.addEventListener(
+			eventName,
+			(ev) => {
+				if (!ev.target.closest?.(selector)) return;
+				if (ui.context?.element?.isConnected) return;
+				document.querySelectorAll('#context-menu').forEach((m) => m.remove());
+				document.querySelectorAll('.context').forEach((el) => el.classList.remove('context'));
+			},
+			true
+		);
 	}
 
 	render(target, options) {
