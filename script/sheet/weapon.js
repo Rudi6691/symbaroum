@@ -1,36 +1,41 @@
-import { SymbaroumItemSheet } from "./item.js";
+import { SymbaroumItemSheet } from './item.js';
 
+/**
+ * V13 default options (700 x 600) mapped to ApplicationV2.
+ */
 export class WeaponSheet extends SymbaroumItemSheet {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["symbaroum", "sheet", "item"],
-      template: "systems/symbaroum/template/sheet/weapon.hbs",
-      width: 700,
-      height: 600,
-      resizable: false,
-      tabs: [
-        {
-          navSelector: ".sheet-tabs",
-          contentSelector: ".sheet-body",
-          initial: "description",
-        },
-      ],
-    });
-  }
+	static DEFAULT_OPTIONS = {
+		position: {
+			width: 700,
+			height: 600,
+		},
+	};
 
-  async getData() {
-    let data = await super.getData(...arguments);
-    data.qualities = game.symbaroum.config.weaponQualities;
-    data.compatibilities = game.symbaroum.config.weaponCompatibilities;
-    data.bonuses = [...data.bonuses, ...game.symbaroum.config.BONUS_FIELDS_WEAPON];
-    data.alternative_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
-    data.alternative_selection.none = {
-      id: "none",
-      label: game.i18n.localize(`WEAPON.NONE`),
-    };
-    data.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
-    data.weapon_damage_selection = game.symbaroum.config.WEAPON_DAMAGE_SELECTION;
-    data.weapon_type_selection = game.symbaroum.config.WEAPON_TYPE_SELECTION;
-    return data;
-  }
+	static PARTS = {
+		main: {
+			template: 'systems/symbaroum/template/sheet/weapon.hbs',
+		},
+	};
+
+	/**
+	 * V13 getData() additions for the stats/qualities tabs. Note: the V13 code
+	 * mutated game.symbaroum.config.ATTRIBUTE_SELECTION by adding the 'none'
+	 * entry (alternative_selection.none = ...) - it now gets a local shallow
+	 * copy so the global config object stays untouched.
+	 */
+	async _prepareContext(options) {
+		const context = await super._prepareContext(options);
+		context.qualities = game.symbaroum.config.weaponQualities;
+		context.compatibilities = game.symbaroum.config.weaponCompatibilities;
+		context.bonuses = [...context.bonuses, ...game.symbaroum.config.BONUS_FIELDS_WEAPON];
+		context.alternative_selection = { ...game.symbaroum.config.ATTRIBUTE_SELECTION };
+		context.alternative_selection.none = {
+			id: 'none',
+			label: game.i18n.localize('WEAPON.NONE'),
+		};
+		context.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
+		context.weapon_damage_selection = game.symbaroum.config.WEAPON_DAMAGE_SELECTION;
+		context.weapon_type_selection = game.symbaroum.config.WEAPON_TYPE_SELECTION;
+		return context;
+	}
 }

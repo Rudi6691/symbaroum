@@ -4608,4 +4608,56 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
 /*     needed here.                                                     */
 /* -------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------- */
+/* 7.2.7: Item sheets on ApplicationV2                                   */
+/*                                                                      */
+/*  Header buttons: the item sheets now render V14 window header        */
+/*  controls (the "Posten" sheet control plus close), and the same two   */
+/*  V13 rules that hit the actor sheets apply to them: the sheet-wide    */
+/*  item button rule (font-family: var(--font-text), css ~815) and the  */
+/*  missing white button styling. The accepted actor recipe from         */
+/*  7.2.2/7.2.5 is carried over, scoped to .symbaroum.sheet.item.        */
+/*                                                                      */
+/*  Body buttons: height: auto (7.2.3 lesson) so the activate-ability   */
+/*  button stretches to its row like in V13. Header buttons keep their   */
+/*  height via the !important rule above.                                */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.sheet.item .window-header button {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 3px;
+  color: #191813 !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  flex: 0 0 auto !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 3px;
+  opacity: 0.9;
+}
+
+.symbaroum.sheet.item .window-header button:hover,
+.symbaroum.sheet.item .window-header button:focus {
+  background: #ffffff !important;
+  opacity: 1;
+}
+
+.symbaroum.sheet.item .window-header button,
+.symbaroum.sheet.item .window-header .header-control {
+  font-family: var(--font-awesome, 'Font Awesome 7 Pro') !important;
+  font-weight: 900 !important;
+}
+
+.symbaroum.sheet.item button {
+  height: auto;
+}
+
 /*# sourceMappingURL=symbaroum.css.map */

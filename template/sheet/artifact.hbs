@@ -1,8 +1,8 @@
-<form class="{{cssClass}}" autocomplete="off">
+<div class="{{cssClass}}">
     <div class="artifact">
         <div class="sheet-header foreground border">
             <div class="avatar">
-                <img class="profile-img" src="{{item.img}}" data-edit="img" data-tooltip="{{item.name}}" />
+                <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" data-tooltip="{{item.name}}" />
             </div>
             <div class="wrapper-column">
                 <div class="name">
@@ -23,7 +23,7 @@
             <div class="tab" data-group="primary" data-tab="description">
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
-                    {{editor system.description target="system.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="power1">
@@ -39,7 +39,7 @@
                         <label>{{localize "ARTIFACT.CORRUPTION"}}</label>
                         <input name="system.power1.corruption" type="text" value="{{system.power1.corruption}}" />
                     </div>
-                    {{editor system.power1.description target="system.power1.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.power1.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.power1.description}}">{{{system.power1.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="power2">
@@ -55,7 +55,7 @@
                         <label>{{localize "ARTIFACT.CORRUPTION"}}</label>
                         <input name="system.power2.corruption" type="text" value="{{system.power2.corruption}}" />
                     </div>
-                    {{editor system.power2.description target="system.power2.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.power2.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.power2.description}}">{{{system.power2.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="power3">
@@ -71,7 +71,7 @@
                         <label>{{localize "ARTIFACT.CORRUPTION"}}</label>
                         <input name="system.power3.corruption" type="text" value="{{system.power3.corruption}}" />
                     </div>
-                    {{editor system.power3.description target="system.power3.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.power3.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.power3.description}}">{{{system.power3.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="bonus">
@@ -79,4 +79,4 @@
             </div>
         </div>
     </div>
-</form>
+</div>

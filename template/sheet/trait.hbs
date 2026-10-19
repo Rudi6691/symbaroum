@@ -1,8 +1,8 @@
-<form class="{{cssClass}}" autocomplete="off">
+<div class="{{cssClass}}">
     <div class="trait">
         <div class="sheet-header foreground border">
             <div class="avatar">
-                <img class="profile-img" src="{{item.img}}" data-edit="img" data-tooltip="{{item.name}}"/>
+                <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" data-tooltip="{{item.name}}"/>
             </div>
             <div class="wrapper-column">
                 <div class="name">
@@ -17,7 +17,7 @@
                 {{/ifat}}                
             </div>
             <div class="avatar">
-                    <button class="activate-ability" ><img src="icons/vtt-512.png" /></button>
+                    <button class="activate-ability" data-action="activateAbility"><img src="icons/vtt-512.png" /></button>
             </div>
         </div>
 
@@ -35,7 +35,7 @@
             <div class="tab" data-group="primary" data-tab="description">
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
-                    {{editor system.description target="system.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                     <div class="marker" style="width:100%"><label for="{{id}}-system.marker">{{localize "TRAIT.MARKERTRAIT"}}</label>                        
                         <input id="{{id}}-system.marker" name="system.marker" type="checkbox" value="active" {{#if system.marker}}checked{{/if}}/>
                     </div>
@@ -56,7 +56,7 @@
                         <input id="{{id}}-system.novice.isActive" name="system.novice.isActive" type="checkbox" value="active" {{checked system.novice.isActive}}/>
                     </div>
                     {{/if}}            
-                    {{editor system.novice.description target="system.novice.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.novice.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.novice.description}}">{{{system.novice.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="adept">
@@ -74,7 +74,7 @@
                         <input id="{{id}}-system.adept.isActive" name="system.adept.isActive" type="checkbox" value="active" {{checked system.adept.isActive}}/>
                     </div>
                     {{/if}}
-                    {{editor system.adept.description target="system.adept.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.adept.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.adept.description}}">{{{system.adept.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="master">
@@ -92,7 +92,7 @@
                         <input id="{{id}}-system.master.isActive" name="system.master.isActive" type="checkbox" value="active" {{checked system.master.isActive}}/>
                     </div>
                     {{/if}}
-                    {{editor system.master.description target="system.master.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.master.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.master.description}}">{{{system.master.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="bonus">
@@ -100,4 +100,4 @@
             </div>
         </div>
     </div>
-</form>
+</div>

@@ -1,21 +1,21 @@
-import { SymbaroumItemSheet } from "./item.js";
+import { SymbaroumItemSheet } from './item.js';
 
+/**
+ * V13 default options (700 x 600, not resizable, tabs in the template) mapped
+ * to ApplicationV2: the base class carries window/form/actions, this only
+ * declares the position and the single content part.
+ */
 export class AbilitySheet extends SymbaroumItemSheet {
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["symbaroum", "sheet", "item"],
-            template: "systems/symbaroum/template/sheet/ability.hbs",
-            width: 700,
-            height: 600,
-            resizable: false,
-            tabs: [
-                {
-                    navSelector: ".sheet-tabs",
-                    contentSelector: ".sheet-body",
-                    initial: "description",
-                },
-            ]
-        });
-    }
+	static DEFAULT_OPTIONS = {
+		position: {
+			width: 700,
+			height: 600,
+		},
+	};
 
+	static PARTS = {
+		main: {
+			template: 'systems/symbaroum/template/sheet/ability.hbs',
+		},
+	};
 }

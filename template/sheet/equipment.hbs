@@ -1,8 +1,8 @@
-<form class="{{cssClass}}" autocomplete="off">
+<div class="{{cssClass}}">
     <div class="equipment">
         <div class="sheet-header foreground border">
             <div class="avatar">
-                <img class="profile-img" src="{{item.img}}" data-edit="img" data-tooltip="{{item.name}}"/>
+                <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" data-tooltip="{{item.name}}"/>
             </div>
             <div class="wrapper-column">
                 <div class="name">
@@ -39,7 +39,7 @@
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact"/>
                         {{/if}}
                     </div>
-                    {{editor system.description target="system.description" button=true owner=owner editable=true engine="prosemirror"}}
+                    <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="bonus">
@@ -52,4 +52,4 @@
             {{/if}}
         </div>
     </div>
-</form>
+</div>

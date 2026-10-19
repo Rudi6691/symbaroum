@@ -1,14 +1,14 @@
-<div class="tab item" data-group="primary" data-tab="power">    
-    <div class="artifact foreground border">        
+<div class="tab item" data-group="primary" data-tab="power">
+    <div class="artifact foreground border">
         <h1>{{localize "ARTIFACT.TITLE"}}</h1>
         {{#each system.power  as |power key|}}
         <div class="power-n" data-power-id="{{key}}">
-            <div class="power-header">                
+            <div class="power-header">
                 <div class="heading"><h2>{{localize "TITLE.POWER"}} {{addOne key}} </h2></div>
                 {{#if @first}} {{else}}
                 <div class="button">
-                    <a class="power-control power-delete" data-tooltip="{{localize "ARTIFACT.POWER_DELETEBUTTON"}}"><i class="fas fa-trash"></i></a>
-                </div> 
+                    <a class="power-control power-delete" data-action="powerDelete" data-tooltip="{{localize "ARTIFACT.POWER_DELETEBUTTON"}}"><i class="fas fa-trash"></i></a>
+                </div>
                 {{/if}}
             </div>
             <div class="name">
@@ -25,12 +25,12 @@
                 <label for="{{../id}}-system.power.{{key}}.corruption">{{localize "ARTIFACT.CORRUPTION"}}</label>
                 <input name="system.power.{{key}}.corruption" type="text" id="{{../id}}-system.power.{{key}}.corruption" value="{{power.corruption}}" />
             </div>
-            {{editor this.description target=(keyIndex key) button=true owner=owner editable=true engine="prosemirror"}}
+            <prose-mirror toggled name="system.power.{{key}}.description" {{ifThen ../editable '' 'disabled'}} value="{{lookup (lookup ../rawSystem.power key) 'description'}}">{{{power.description}}}</prose-mirror>
         </div>
         {{/each}}
         <div class="power-add">
             <div class="button"></div>
-            <div><a class="power-control power-create" data-tooltip="{{localize "ARTIFACT.POWER_ADDBUTTON"}}" data-type="power"><label>{{localize "ARTIFACT.POWER_ADDBUTTON"}}</label><i class="fas fa-plus"></i></a></div>
+            <div><a class="power-control power-create" data-action="powerCreate" data-tooltip="{{localize "ARTIFACT.POWER_ADDBUTTON"}}" data-type="power"><label>{{localize "ARTIFACT.POWER_ADDBUTTON"}}</label><i class="fas fa-plus"></i></a></div>
         </div>
     </div>
 </div>

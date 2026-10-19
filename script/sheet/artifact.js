@@ -1,34 +1,21 @@
-import { SymbaroumItemSheet } from "./item.js";
+import { SymbaroumItemSheet } from './item.js';
 
+/**
+ * V13 default options (500 x 472) mapped to ApplicationV2. The V13 passthrough
+ * overrides (getData/_getHeaderButtons/activateListeners only called super)
+ * are dropped - they are obsolete under ApplicationV2.
+ */
 export class ArtifactSheet extends SymbaroumItemSheet {
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["symbaroum", "sheet", "item"],
-            template: "systems/symbaroum/template/sheet/artifact.hbs",
-            width: 500,
-            height: 472,
-            resizable: false,
-            tabs: [
-                {
-                    navSelector: ".sheet-tabs",
-                    contentSelector: ".sheet-body",
-                    initial: "description",
-                },
-            ]
-        });
-    }
+	static DEFAULT_OPTIONS = {
+		position: {
+			width: 500,
+			height: 472,
+		},
+	};
 
-    getData() {
-        const data = super.getData();
-        return data;
-    }
-
-    _getHeaderButtons() {
-        let buttons = super._getHeaderButtons();
-        return buttons;
-    }
-
-    activateListeners(html) {
-        super.activateListeners(html);
-    }
+	static PARTS = {
+		main: {
+			template: 'systems/symbaroum/template/sheet/artifact.hbs',
+		},
+	};
 }
