@@ -4660,4 +4660,130 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
   height: auto;
 }
 
+/* -------------------------------------------------------------------- */
+/* 7.2.8: Item sheet test round fixes (1/2) - Rudolf's item sheet       */
+/* test, 19.10. (shipped as 7.2.8 - the 7.2.7 commit went out with     */
+/* the original item sheet build)                                        */
+/*                                                                      */
+/*  1) Item sheet tab bar: V13 distributed the tab items evenly across   */
+/*     the bar; the V14 core does not (same finding as the actor sheets  */
+/*     in 7.2.2, same accepted flex rule). Scoped to the item sheets -  */
+/*     the tabs spread evenly again on every item sheet, from the two-   */
+/*     tab ritual to the five-tab ability sheet.                        */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.sheet.item .sheet-tabs .item {
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+/* -------------------------------------------------------------------- */
+/*  2) Item sheet checkboxes (level activation on ability/trait/power,  */
+/*     artifact flag on armor/weapon/equipment, marker trait): V14       */
+/*     renders form controls dark by default (dark box, light ring,      */
+/*     orange accent). The accepted 7.1.15 dice dialog recipe, scoped   */
+/*     to the item sheet windows: white-filled boxes with a dark check   */
+/*     mark, whichever way the cascade resolves - color-scheme: light    */
+/*     for native rendering, appearance: none + white background + dark   */
+/*     accent for custom rendering.                                     */
+/* -------------------------------------------------------------------- */
+
+.window-app.symbaroum.sheet.item {
+  color-scheme: light !important;
+}
+
+html body .window-app.symbaroum.sheet.item input[type='checkbox'] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  accent-color: #191813 !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  vertical-align: middle !important;
+  flex: 0 0 auto;
+}
+
+/* -------------------------------------------------------------------- */
+/*  3) "Eigenschaften aendern" dialog (player sheet, attributes.hbs):    */
+/*     the bonus/total columns are DISABLED inputs - the V14 core dims   */
+/*     disabled controls (opacity + light text). The 7.2.3 fix only      */
+/*     covered the actor sheet scope, so the same rule now covers the    */
+/*     dialog scopes (.symbaroum.attributes = the attribute dialog       */
+/*     content root, .symbaroum.dialog = the other system dialogs).     */
+/*     The column header row under the "Eigenschaften" heading has no    */
+/*     colour rule of its own and inherits the pale core application      */
+/*     text under V14 - it gets the V13 text colour explicitly.          */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.dialog input[type='text'][disabled],
+.symbaroum.dialog input[type='number'][disabled],
+.symbaroum.attributes input[type='text'][disabled],
+.symbaroum.attributes input[type='number'][disabled] {
+  opacity: 1;
+  color: var(--color-text);
+}
+
+.symbaroum.attributes .col-header b {
+  color: var(--color-text);
+}
+
+/* -------------------------------------------------------------------- */
+/* 7.2.8: Item sheet test round fixes (2/2) - follow-up findings from   */
+/* Rudolf's item sheet test, 19.10. (shipped as 7.2.8 - the 7.2.7       */
+/* commit went out with the original item sheet build)                  */
+/*                                                                      */
+/*  1) Window scrolling (artifact power list): the V14 core clips sheet  */
+/*     content - .application .window-content { overflow: hidden }       */
+/*     (foundry2.css) out-cascades the older .window-app .window-content  */
+/*     { overflow: hidden auto } rule of the same core stylesheet, so    */
+/*     no scrollbar ever appears and the second artifact power vanishes  */
+/*     below the window edge (Rudolf could not add more than one power). */
+/*     V13 scrolled at the window level; overflow-y: auto restores that  */
+/*     for every item sheet, and the artifact power list can grow again. */
+/*     The resize handle stays reserved for the A5 geometry step.        */
+/* -------------------------------------------------------------------- */
+
+.symbaroum.sheet.item .window-content {
+  overflow-y: auto;
+}
+
+/* -------------------------------------------------------------------- */
+/*  2) Item sheet checkbox check mark (follow-up to the round 1 recipe,  */
+/*     Rudolf's spec: unchecked = white fill like the dice dialog,       */
+/*     checked = black check on white): with appearance: none winning    */
+/*     the cascade, the white-filled boxes render EMPTY when checked -   */
+/*     activated and deactivated levels look identical. The 7.1.15 dice  */
+/*     dialog recipe paints the mark itself, via an SVG background      */
+/*     image on the :checked state; the base rule above kills            */
+/*     background-image, this later and more specific rule brings it     */
+/*     back - the accepted dice dialog look: black check on white.      */
+/*     The pseudo-element guard prevents the core from painting a       */
+/*     second mark on top. Covers all item checkboxes: level activation  */
+/*     (ability/trait/mystical power), isArtifact (armor/weapon/         */
+/*     equipment), marker trait.                                         */
+/* -------------------------------------------------------------------- */
+
+html body .window-app.symbaroum.sheet.item input[type='checkbox']::before,
+html body .window-app.symbaroum.sheet.item input[type='checkbox']::after {
+  content: none !important;
+  background: none !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+
+html body .window-app.symbaroum.sheet.item input[type='checkbox']:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23191813' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 12px 12px !important;
+}
+
 /*# sourceMappingURL=symbaroum.css.map */

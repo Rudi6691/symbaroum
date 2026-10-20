@@ -1,3 +1,13 @@
+Version 7.2.8
+
+* Item sheet fixes from Rudolf's test rounds (all 10 sheet types tested; CSS only, no data model changes, no world migration - systemMigrationVersion stays 7.0.1). The 7.2.7 commit went out with the original item sheet build; these follow-ups ship as 7.2.8
+* Item sheet tab bar: V13 distributed the tab items evenly across the bar, the V14 core does not (the 7.2.2 actor sheet finding again) - the accepted 7.2.2 flex rule, scoped to .symbaroum.sheet.item - the tabs spread evenly on every item sheet
+* Item sheet checkboxes (level activation on ability/trait/mystical power, artifact flag on armor/weapon/equipment, marker trait): V14 renders form controls dark by default; the accepted 7.1.15 dice dialog recipe, scoped to the item sheet windows (color-scheme: light + appearance: none + white fill + dark accent) plus the dice dialog SVG check mark on the :checked state - white-filled boxes with a black check mark, like the dice dialogs
+* "Modify attributes" dialog (player sheet, attributes.hbs): the disabled bonus/total boxes were dimmed pale by the V14 core (the 7.2.3 disabled-input fix only covered the actor sheet scope); opacity: 1 + dark text now also for the dialog scopes, and the column header row under the "Eigenschaften" heading gets the V13 text colour explicitly
+* Window scrolling: the V14 core clips sheet content (.application .window-content { overflow: hidden } out-cascades the .window-app rule of the same core stylesheet), so no scrollbar ever appeared and the second artifact power vanished below the window edge; overflow-y: auto on .symbaroum.sheet.item .window-content restores the V13 window-level scrolling on every item sheet
+* Resize on item sheets deliberately stays V13-original (resizable: false) - item sheet resizing goes into the joint geometry step with backlog A5 after this release
+* Roadmap shift: journal (journal.js) moves to 7.2.9
+
 Version 7.2.7
 
 * Item sheets migrated to ApplicationV2 (all 10 sheet types: trait, ability, mystical power, ritual, burden, boon, equipment, armor, weapon, artifact; JS + templates + CSS; no data model changes, no world migration - systemMigrationVersion stays 7.0.1)
