@@ -77,17 +77,17 @@
 	"initiative": "1d20[tiebreaker]/100000 + @initiative.value",
 	"socket": true,
 	"media": [
-		{
-			"type": "cover",
-			"url": "https://raw.githubusercontent.com/pwatson100/symbaroum/master/asset/image/symbaroum-banner.webp"
-		},
-		{
-			"type": "setup",
-			"thumbnail": "systems/symbaroum/asset/image/symbaroum-cover.webp"
-		}
-	],
-	"url": "https://github.com/pwatson100/symbaroum",
-	"manifest": "https://github.com/pwatson100/symbaroum/releases/latest/download/system.json",
-	"download": "https://github.com/pwatson100/symbaroum/releases/latest/download/master.zip",
+    {
+        "type": "cover",
+        "url": "asset/image/symbaroum-banner.webp"
+    },
+    {
+        "type": "setup",
+        "thumbnail": "asset/image/symbaroum-cover.webp"
+    }
+],
+	"url": "https://github.com/Rudi6691/symbaroum",
+	"manifest": "https://github.com/Rudi6691/symbaroum/releases/latest/download/system.json",
+	"download": "https://github.com/Rudi6691/symbaroum/releases/latest/download/symbaroum-v14-7.2.10.zip",
 	"license": "LICENSE.txt"
 }
