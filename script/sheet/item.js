@@ -109,6 +109,23 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			});
 			this.tabs.bind(element);
 		}
+		// Test round 2, finding 1: Enter/Tab in an input commits via
+		// submitOnChange and the re-rendered .window-content starts scrolled
+		// back to the top - with the restored window scrolling (7.2.8) the
+		// artifact power list jumped up on every commit while entering
+		// further powers. The window scroll position is remembered and
+		// restored across these re-renders.
+		const content = element.querySelector('.window-content');
+		if (content) {
+			content.scrollTop = this._windowScrollTop ?? 0;
+			content.addEventListener(
+				'scroll',
+				() => {
+					this._windowScrollTop = content.scrollTop;
+				},
+				{ passive: true }
+			);
+		}
 	}
 
 	async enrichAllFields(data) {
@@ -131,50 +148,72 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 	/**
 	 * Delete one power entry of the dynamic artifact power list.
 	 *
-	 * V14 note: the V13 updateOutstandingMCEValues() hack (this.editors /
-	 * MCE content harvesting) is obsolete - the prose-mirror elements take
-	 * part in the sheet form, and this.submit() collects ALL current form
-	 * values (including editor content that has not been change-submitted
-	 * yet) and merges updateData on top (DocumentSheetV2._prepareSubmitData
-	 * processes the "-=" deletion keys with performDeletions).
+	 * Test round 2, finding 2: the legacy "-=N" deletion key no longer
+	 * works through this.submit(). DocumentSheetV2._prepareSubmitData
+	 * merges updateData twice - once with deletion handling, once without;
+	 * since V14 the legacy key is migrated to a ForcedDeletion operator in
+	 * the first pass and DROPPED in the second, so the deletion never
+	 * reached the document (Foundry logged a deprecation warning and the
+	 * power simply stayed). The form is committed first (silently via
+	 * render:false - this harvests open prose-mirror editors, the V2
+	 * replacement of the V13 updateOutstandingMCEValues call), then the
+	 * deletion is applied directly on the item with the V14 operator
+	 * syntax (foundry.data.operators.ForcedDeletion).
 	 */
 	async _onPowerDelete(event) {
 		event.preventDefault();
+		if (!this.isEditable) {
+			return;
+		}
 		const div = event.target.closest('.power-n');
 		if (!div) {
 			return;
 		}
-		let powerId = parseInt(div.dataset.powerId);
+		const powerId = parseInt(div.dataset.powerId);
 		if (isNaN(powerId)) {
 			return;
 		}
+		// 1) Commit the current form state silently - unsaved editor content
+		//    of the REMAINING powers is preserved.
+		await this.submit({ render: false });
+		// 2) Delete the entry and re-index the list on the committed data.
 		const arr = foundry.utils.deepClone(this.item.system.power) ?? {};
-		delete arr[powerId];
-		let vals = Object.values(arr);
-		let newArr = {};
-		for (let i = 0; i < vals.length; i++) {
-			newArr[i] = vals[i];
+		if (!(powerId in arr)) {
+			return;
 		}
-		await this.submit({
-			updateData: {
-				'system.power': newArr,
-				[`system.power.-=${vals.length}`]: null,
-			},
-		});
+		delete arr[powerId];
+		const vals = Object.values(arr);
+		const powers = {};
+		for (let i = 0; i < vals.length; i++) {
+			powers[i] = vals[i];
+		}
+		// The re-indexed list is shorter than the stored one - the now
+		// dangling last key needs an explicit forced deletion.
+		powers[vals.length] = new foundry.data.operators.ForcedDeletion();
+		await this.item.update({ 'system.power': powers });
 	}
 
 	/**
-	 * Append a new empty power entry to the dynamic artifact power list
-	 * (see _onPowerDelete for the submit() replacement of the MCE hack).
+	 * Append a new empty power entry to the dynamic artifact power list.
+	 *
+	 * Test round 2, finding 4: updateData must only ADD the new power key.
+	 * The first version replaced the whole system.power object with a clone
+	 * of the committed data - the submit merge then overwrote the freshly
+	 * harvested form values, so an open, unsaved prose-mirror editor lost
+	 * its content whenever a new power was added. Only the new key is
+	 * passed now; the harvested values of the existing powers survive the
+	 * merge.
 	 */
 	async _onPowerCreate(event) {
 		event.preventDefault();
-		const arr = foundry.utils.deepClone(this.item.system.power) ?? {};
-		const keys = Object.keys(arr);
-		arr[keys.length] = { name: '', description: '', action: '', corruption: '' };
+		if (!this.isEditable) {
+			return;
+		}
+		const arr = this.item.system.power ?? {};
+		const newKey = Object.keys(arr).length;
 		await this.submit({
 			updateData: {
-				'system.power': arr,
+				[`system.power.${newKey}`]: { name: '', description: '', action: '', corruption: '' },
 			},
 		});
 	}

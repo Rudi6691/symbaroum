@@ -4685,14 +4685,22 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
 /*     to the item sheet windows: white-filled boxes with a dark check   */
 /*     mark, whichever way the cascade resolves - color-scheme: light    */
 /*     for native rendering, appearance: none + white background + dark   */
-/*     accent for custom rendering.                                     */
+/*     accent for custom rendering.                                      */
+/*     Test round 2 re-scope: the rules originally prefixed on            */
+/*     .window-app - but the V14 ApplicationV2 window frames carry the    */
+/*     sheet classes plus "application" and NOT the legacy "window-app"   */
+/*     class, so they never matched and the checkboxes stayed dark.       */
+/*     Re-scoped on the classes that are actually on the frame (the       */
+/*     working .symbaroum.sheet.item .window-content scroll rule proves   */
+/*     them); the dialog rules keep working because dialogs hang in body  */
+/*     with their own dialog/symb-dialog classes.                         */
 /* -------------------------------------------------------------------- */
 
-.window-app.symbaroum.sheet.item {
+.symbaroum.sheet.item {
   color-scheme: light !important;
 }
 
-html body .window-app.symbaroum.sheet.item input[type='checkbox'] {
+html body .symbaroum.sheet.item input[type='checkbox'] {
   appearance: none !important;
   -webkit-appearance: none !important;
   accent-color: #191813 !important;
@@ -4765,21 +4773,24 @@ html body .window-app.symbaroum.sheet.item input[type='checkbox'] {
 /*     image on the :checked state; the base rule above kills            */
 /*     background-image, this later and more specific rule brings it     */
 /*     back - the accepted dice dialog look: black check on white.      */
+/*     Test round 2: these rules were re-scoped off .window-app like    */
+/*     the round 1 checkbox rules above (V14 window frames carry no     */
+/*     window-app class) - the guards and the :checked mark now match.   */
 /*     The pseudo-element guard prevents the core from painting a       */
 /*     second mark on top. Covers all item checkboxes: level activation  */
 /*     (ability/trait/mystical power), isArtifact (armor/weapon/         */
 /*     equipment), marker trait.                                         */
 /* -------------------------------------------------------------------- */
 
-html body .window-app.symbaroum.sheet.item input[type='checkbox']::before,
-html body .window-app.symbaroum.sheet.item input[type='checkbox']::after {
+html body .symbaroum.sheet.item input[type='checkbox']::before,
+html body .symbaroum.sheet.item input[type='checkbox']::after {
   content: none !important;
   background: none !important;
   mask-image: none !important;
   -webkit-mask-image: none !important;
 }
 
-html body .window-app.symbaroum.sheet.item input[type='checkbox']:checked {
+html body .symbaroum.sheet.item input[type='checkbox']:checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23191813' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: center !important;

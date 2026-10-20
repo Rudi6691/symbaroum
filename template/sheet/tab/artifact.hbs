@@ -5,11 +5,9 @@
         <div class="power-n" data-power-id="{{key}}">
             <div class="power-header">
                 <div class="heading"><h2>{{localize "TITLE.POWER"}} {{addOne key}} </h2></div>
-                {{#if @first}} {{else}}
                 <div class="button">
                     <a class="power-control power-delete" data-action="powerDelete" data-tooltip="{{localize "ARTIFACT.POWER_DELETEBUTTON"}}"><i class="fas fa-trash"></i></a>
                 </div>
-                {{/if}}
             </div>
             <div class="name">
                 <label for="{{../id}}-system.power.{{key}}.name">{{localize "ARTIFACT.NAME"}}</label>
