@@ -2,7 +2,7 @@
 	"id": "symbaroum",
 	"title": "Symbaroum",
 	"description": "Twilight falls. Davokar darkens.",
-	"version": "7.2.9",
+	"version": "7.2.10",
 	"compatibility": {
 		"minimum": "14",
 		"verified": "14.360"

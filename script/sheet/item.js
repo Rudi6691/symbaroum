@@ -26,7 +26,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		sheetConfig: false,
 		window: {
 			icon: false,
-			resizable: false,
+			// 7.2.10 A5-light: resizable again like the V13 core default;
+			// the 7.2.7 window-content overflow fix scrolls the content
+			// when the item window is shrunk instead of clipping it.
+			resizable: true,
 			// V13 _getHeaderButtons "Posten" - under V14 sheet-defined controls
 			// render as header controls (in the toggle-controls dropdown, like
 			// the actor sheet's death roll/recover buttons).

@@ -39,6 +39,11 @@ export class SymbaroumWide extends foundry.applications.sheets.journal.JournalEn
         classes: ['symbaroum-mod', 'journal-sheet', 'journal-entry', 'sheet'],
         position: {
             width: 1268,
+            // 7.2.10 A5-light: height "auto" opens the wide journal with
+            // its content height instead of the core's 800px default. The
+            // core's #onWindowResizeStart converts "auto" to a pixel value
+            // on the first resize drag, so the window stays resizable.
+            height: 'auto',
         },
     };
 }

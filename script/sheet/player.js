@@ -69,8 +69,16 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	static DEFAULT_OPTIONS = {
 		classes: ['symbaroum', 'sheet', 'actor', 'player'],
 		position: {
-			width: 800,
-			height: 1020,
+			// 7.2.10 A5-light: default opening width matches the new CSS
+			// min-width (844px, Rudolf's measured lower usable bound), so
+			// the sheet never renders narrower than its layout.
+			width: 844,
+			// 7.2.10 test round 4: at 1020 the main tab content is a few
+			// pixels taller than the window, so the window scrollbar
+			// showed right away. 1036 is Rudolf's measured height where
+			// the default window fits without a scrollbar (monster
+			// sheets inherit this position).
+			height: 1036,
 		},
 		window: {
 			resizable: true,

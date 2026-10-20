@@ -5019,4 +5019,479 @@ html body .symbaroum.sheet.item input[type='checkbox']:checked {
   font-display: swap;
 }
 
+/* -------------------------------------------------------------------- */
+/*  7.2.10 A5-LIGHT: SHEET GEOMETRY                                     */
+/*  Window minimum width, window scrollbar, height-flexible combat      */
+/*  section and bio editor heights on the actor sheets (player &        */
+/*  monster). CSS only - no templates, no data model changes.          */
+/* -------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------- */
+/*  1) Minimum window width for the actor sheets. Rudolf's measurement */
+/*     of the narrowest still-usable window: 844px - below that the     */
+/*     two-column trait rows and the combat lines get crushed. The     */
+/*     resize handle now stops at the minimum instead of letting the   */
+/*     content break; the default opening width (player.js) is raised  */
+/*     to match, so the sheet never renders narrower than its layout.  */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor {
+  min-width: 844px;
+}
+
+/* -------------------------------------------------------------------- */
+/*  2) Window scrollbar instead of clipping (the same fix the item     */
+/*     sheets got in 7.2.7): the V14 core clips .application           */
+/*     .window-content, so a vertically shrunk sheet silently cut off   */
+/*     its lower parts with no scrollbar. The content scrolls again    */
+/*     like a V13 window. The flex column below lets the flexible       */
+/*     sections absorb extra height when the window grows.              */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .window-content {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* 7.2.10 test round 2: explicit alignment - the content chain (root
+     div, .player and everything below) must span the full window
+     width on EVERY tab, header and tab bar included. */
+  align-items: stretch;
+}
+
+/* -------------------------------------------------------------------- */
+/*  3) Height chain: window-content -> form -> sheet root -> .player    */
+/*     -> .sheet-body -> tab. flex: 1 0 auto on the roots: they never     */
+/*     shrink below their content (the window scrolls when the fixed   */
+/*     sections need more space) and they fill a taller window so the  */
+/*     flexible sections (combat, bio) can grow.                       */
+/*     7.2.10 test round 6 (the 6th draft changed nothing but the bio    */
+/*     gaps): the V14 core wraps the rendered template in a <form>       */
+/*     element (options.form, submitOnChange) BETWEEN window-content     */
+/*     and the template root div (class editable/locked). The old       */
+/*     rule below targeted window-content > div and never matched       */
+/*     anything. The core sizes the form intrinsically, so the whole     */
+/*     chain - header, tab bar and content - shrink-wrapped to the       */
+/*     active tab's intrinsic width on every tab: measured 800px        */
+/*     (main), 883px (gear, with a horizontal scrollbar), 738px (bio)   */
+/*     and 610px (note) at the 842px window, and the height chain        */
+/*     never resolved either (bio pane only 472px of ~770px). The       */
+/*     form rules carry !important on purpose: the exact core           */
+/*     selector that intrinsically sizes the form (foundry2.css) is     */
+/*     unknown and must lose at any specificity. With every layer       */
+/*     pinned to 100% width the header and the tab bar keep identical    */
+/*     measures on ALL tabs (Rudolf's general rule) and the flex        */
+/*     height chain from test rounds 2-4 finally resolves.              */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .window-content form {
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 1 0 auto !important;
+  min-height: 0 !important;
+  align-self: stretch !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+.symbaroum.sheet.actor .window-content form > div,
+.symbaroum.sheet.actor .window-content > div.editable,
+.symbaroum.sheet.actor .window-content > div.locked,
+.symbaroum.sheet.actor .window-content > div {
+  width: 100%;
+  min-width: 0;
+  flex: 1 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.symbaroum.sheet.actor .player {
+  flex: 1 0 auto;
+  /* 7.2.10 test round 6: height auto kills the old V13 height: 100%
+     (line ~3620) - now that the layers above finally carry definite
+     heights, 100% would CLAMP .player to the window height and force
+     the children to squeeze (sheet-body shrinks, bio/note compress)
+     instead of letting the window scroll in a shrunk window. auto
+     keeps the A5-light behaviour: .player is never smaller than its
+     content and the window-content scrollbar takes over. flex-wrap:
+     nowrap is belt-and-braces against the old wrap value: with a
+     definite height a wrapping column would lay the tab content
+     NEXT to the header instead of below it. */
+  height: auto;
+  flex-wrap: nowrap;
+  display: flex;
+  flex-direction: column;
+  /* 7.2.10 test round 1: the old V13 .player rule (line ~3620) is a
+     flex ROW carrying align-items: flex-start. Flipped to a column
+     here, that value flipped its meaning to "do not stretch the
+     children horizontally" - header, tab bar and sheet body shrink-
+     wrapped and the whole sheet stopped short of the window width
+     (test round findings: header at ~75%, tabs squeezed left, gear/
+     bio/note content narrow). stretch restores the full width. */
+  align-items: stretch;
+}
+
+.symbaroum.sheet.actor .player .sheet-header {
+  flex: 0 0 auto;
+}
+
+.symbaroum.sheet.actor .player .sheet-tabs {
+  flex: 0 0 auto;
+}
+
+.symbaroum.sheet.actor .player .sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .player .sheet-body > .tab.active {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* 7.2.10 test round 3: the rule was first written without .active -
+     its display: flex overrode the core's display: none for the
+     INACTIVE panes (lower specificity), so all four tab contents
+     showed at once, stacked below each other. Scoped to .active the
+     inactive panes stay hidden and the active pane keeps the flex
+     column that lets the tab content div (main/gear/bio/note) fill
+     the height purely via flex - the bio grid in particular did not
+     resolve the percentage height and left the lower part of the
+     default window empty. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* -------------------------------------------------------------------- */
+/*  4) Tab content height: main, gear, bio and note are direct children  */
+/*     of the tab pane (a flex column since test round 2). They fill     */
+/*     the pane purely via flex - no percentage heights, which the bio   */
+/*     grid in particular did not resolve (the lower part of the default */
+/*     window stayed empty). The main tab combat section keeps its       */
+/*     height-flexible scope (Rudolf's A5 design) below.                 */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .player .sheet-body > .tab > .main,
+.symbaroum.sheet.actor .player .sheet-body > .tab > .gear,
+.symbaroum.sheet.actor .player .sheet-body > .tab > .bio,
+.symbaroum.sheet.actor .player .sheet-body > .tab > .note {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.symbaroum.sheet.actor .player .main .playerMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .player .main .playerMain .section1 {
+  flex: 0 0 auto;
+}
+
+/*  7.2.10 test round 1: the V13 rule for this block carries            */
+/*     flex-basis: 100% - a full row in the .main row-wrap. The first    */
+/*     draft used the flex shorthand with basis auto, which reset the    */
+/*     row basis: the block lost its full width and with it the two-     */
+/*     column trait list (the second column only reappeared on very     */
+/*     wide windows). flex: 0 0 100% restores the full row - both trait  */
+/*     columns are fully visible at the 844px minimum again.            */
+.symbaroum.sheet.actor .player .main .abilities-powers {
+  flex: 0 0 100%;
+}
+
+.symbaroum.sheet.actor .player .main .combat {
+  flex: 1 1 auto;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .player .main .combat .combatheader {
+  flex: 0 0 auto;
+}
+
+.symbaroum.sheet.actor .player .main .combat .armor {
+  flex: 0 1 auto;
+  min-height: 40px;
+  overflow-y: auto;
+}
+
+.symbaroum.sheet.actor .player .main .combat .weapons {
+  flex: 1 1 120px;
+  height: auto;
+  min-height: 40px;
+  overflow-y: auto;
+}
+
+/* -------------------------------------------------------------------- */
+/*  5) Bio tab (Rudolf's design from the 7.2.10 test round): a CSS      */
+/*     grid. Appearance keeps its full-width row on top; background,    */
+/*     personal goal and stigmata (the monster's tactics field shares    */
+/*     the .stigmas scope) form three equal columns below it, in that    */
+/*     order (the DOM order). They share one grid row: equal width,      */
+/*     equal height, and the row grows and shrinks with the window       */
+/*     (the 1fr track; its automatic minimum keeps the blocks at their   */
+/*     min-height in a small window - below that the window scrollbar    */
+/*     takes over). Long content scrolls inside the editors; the        */
+/*     .editor overrides below beat the old fixed 264/154px heights      */
+/*     and the core prose-mirror minimum.                              */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .player .bio {
+  /* 7.2.10 test round 2: percentage height did not resolve inside the
+     flex chain - the grid fills the pane purely via flex now. */
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  /* 7.2.10 test round 5: the grid itself provides the spacing - the
+     old V13 margins on the blocks are reset below (they fused the
+     personal-goal and stigmas frames: zero gap between them). */
+  row-gap: 10px;
+  column-gap: 10px;
+}
+
+.symbaroum.sheet.actor .player .bio .appearance {
+  grid-column: 1 / -1;
+}
+
+.symbaroum.sheet.actor .player .bio .background,
+.symbaroum.sheet.actor .player .bio .personal-goal,
+.symbaroum.sheet.actor .player .bio .stigmas {
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+  /* 7.2.10 test round 5: the old V13 margins (5px here, 0px there)
+     still applied to the grid items and let personal-goal and
+     stigmata touch - one common-looking frame. The grid gap above
+     handles the spacing now, every block gets its own frame. */
+  margin: 0;
+}
+
+.symbaroum.sheet.actor .player .bio .background prose-mirror,
+.symbaroum.sheet.actor .player .bio .personal-goal prose-mirror,
+.symbaroum.sheet.actor .player .bio .stigmas prose-mirror {
+  /* 7.2.10 test round 5: the bio editors are prose-mirror elements -
+     there is NO .editor class in the V14 template, so the previous
+     .editor overrides (and the old V13 .editor heights before them)
+     never matched anything. The core prose-mirror carries an
+     intrinsic minimum width that made the editors stick out of
+     their narrow grid columns and paint over the container frames;
+     zeroed here. Flexed like this the editor also fills its block
+     height - the flex chain (tab -> bio -> grid row) does the rest. */
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  /* 7.2.10 test round 7: the round-5/6 rules stretched the HOST
+     element, but prose-mirror renders its toolbar/editor as LIGHT
+     DOM children (.editor-container > .editor-content - proven in
+     7.2.7 on the item sheets). Those internals stayed content-
+     sized: Rudolf saw the dark editor boxes at text height with
+     100-150px of empty space below them inside the frames. The
+     host becomes a flex column now so the internal chain can be
+     flexed to fill it (see the two rules below).               */
+  display: flex;
+  flex-direction: column;
+  /* 7.2.10 test round 7, second pass: the filled editors sat flush
+     on the ornamental rim - the bio blocks carry the .border class,
+     which paints a 10px border-image frame, and a 240px editor in a
+     260px block fills the content box edge to edge (left, right and
+     bottom; the h1 bar sits flush on the top rim), which read as the
+     boxes poking over the rim. Rudolf's target: a small uniform
+     parchment margin like the notes tab. margin: 10px moves the box
+     10px off every rim; the column flex above keeps filling the
+     remaining height (expected prose-mirror: 220x434 in the
+     unchanged 260x504 block).                                   */
+  margin: 10px;
+  /* 7.2.10 test round 8: the margins of the 9th draft computed to
+     10px on all four sides and the height already flexed correctly
+     (Rudolf's console: the V13 border-top:none on the blocks leaves
+     240x494 of content, 494-30(h1)-20(margins)=444 measured), but
+     the host kept a DEFINITE width: the core pins prose-mirror to
+     width:100% (computed 240px = the full content width), so the
+     left margin only SHIFTED the box - its right edge landed 10px
+     over the ornamental rim (measured "Rand rechts: -10").
+     width: calc(100% - 20px) makes the box exactly fit between the
+     two side margins (expected prose-mirror: 220x444, all three
+     rim distances 10).                                          */
+  width: calc(100% - 20px);
+}
+
+.symbaroum.sheet.actor .player .bio .background prose-mirror .editor-container,
+.symbaroum.sheet.actor .player .bio .personal-goal prose-mirror .editor-container,
+.symbaroum.sheet.actor .player .bio .stigmas prose-mirror .editor-container {
+  /* 7.2.10 test round 7: the toggle button keeps its auto height,
+     the editor container flexes over the rest of the host.      */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .player .bio .background prose-mirror .editor-content,
+.symbaroum.sheet.actor .player .bio .personal-goal prose-mirror .editor-content,
+.symbaroum.sheet.actor .player .bio .stigmas prose-mirror .editor-content {
+  /* 7.2.10 test round 7: the visible dark editor box. The old V13
+     rule (.bio .editor-content: height 100% / width 100%, dark
+     background, inset shadow) still matches via the light DOM and
+     keeps the V13 look; its percentage height resolves against an
+     auto-height container though, so the box stayed content-sized.
+     Flexed with an explicit auto height it fills its frame down
+     to the bottom instead and scrolls its own content if needed. */
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* -------------------------------------------------------------------- */
+/*  6) Gear tab (test round 2): the gear layout keeps its V13 percent   */
+/*     split (wrapper-left 60% / wrapper-right 40%) and its fixed       */
+/*     section heights. But the row name columns carried flex-shrink: 0 */
+/*     from V13 - long names pushed the rows out of the narrow wrappers */
+/*     and forced a wider window. The names shrink now (the 7.2.6      */
+/*     ellipsis on the buttons keeps them readable), and the scrollable */
+/*     lists get a horizontal scrollbar as a safety net. The tab stays */
+/*     usable at the 844px minimum width, like Main.                    */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .gear .wrapper-left .armor .name,
+.symbaroum.sheet.actor .gear .wrapper-left .weapon .name,
+.symbaroum.sheet.actor .gear .wrapper-left .artifact .name,
+.symbaroum.sheet.actor .gear .wrapper-right .equipment .name {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.symbaroum.sheet.actor .gear .scrollable {
+  overflow-x: auto;
+}
+
+/*  7.2.10 test round 5 (fund L): belt-and-braces so no item label    */
+/*     can ever force a wider window again. The name cells shrink     */
+/*     (test round 2) and the .ellipsis buttons clip - but neither     */
+/*     got an explicit minimum of zero nor an overflow guard: a       */
+/*     residual intrinsic minimum could still hold a row open. Both   */
+/*     are zeroed/clipped now; together with the scroll safety net     */
+/*     above the tab cannot widen the sheet at the 844px minimum,     */
+/*     so header and tab bar keep Main's measures on every tab        */
+/*     (Rudolf's general rule).                                        */
+.symbaroum.sheet.actor .gear .name {
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .gear .name button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/*  7.2.10 test round 7 (gear columns): root cause of the wide gear    */
+/*     area and the clipped right column. The V13 wrapper and section  */
+/*     flex items keep min-width: auto - the intrinsic minimum runs    */
+/*     up the chain (row -> list -> section -> wrapper-left) and is    */
+/*     driven by the longest nowrap weapon name in the test list -   */
+/*     text-overflow never reduces an element's min-content          */
+/*     contribution, so the ellipsis could not clip either.          */
+/*     wrapper-left grew past its 60% basis (about 849px of          */
+/*     content in the 800px pane), pushed wrapper-right against the    */
+/*     window edge and made the area under the tab bar wider than     */
+/*     the header. The centered item labels are NOT the cause (Rudolf  */
+/*     asked) - this min-content chain was. Zeroing the automatic      */
+/*     minimum along the chain pins the V13 60/40 split; the name      */
+/*     cells then clip their buttons and the 7.2.6 ellipsis shows.     */
+.symbaroum.sheet.actor .gear .wrapper-left,
+.symbaroum.sheet.actor .gear .wrapper-right {
+  min-width: 0;
+}
+
+.symbaroum.sheet.actor .gear .wrapper-left .armors,
+.symbaroum.sheet.actor .gear .wrapper-left .weapons,
+.symbaroum.sheet.actor .gear .wrapper-left .artifacts,
+.symbaroum.sheet.actor .gear .wrapper-right .money,
+.symbaroum.sheet.actor .gear .wrapper-right .equipments {
+  min-width: 0;
+}
+
+/*  The old V13 name-button rule (min-width: 131px at specificity      */
+/*  0,7,0) outranked the round-5 belt-and-braces rule (0,5,1). The     */
+/*  same selectors later in the file win the cascade and free the      */
+/*  buttons completely; the 131px floor is dead weight now that the    */
+/*  chain above is pinned.                                              */
+.symbaroum.sheet.actor .gear .wrapper-left .armor .armorname,
+.symbaroum.sheet.actor .gear .wrapper-left .weapon .weaponname,
+.symbaroum.sheet.actor .gear .wrapper-left .artifact .artifactname,
+.symbaroum.sheet.actor .gear .wrapper-right .equipment .equipmentname {
+  min-width: 0;
+}
+
+/* -------------------------------------------------------------------- */
+/*  7) Notes tab (test round 5, fund N): the wrapper keeps its confirmed */
+/*     height (755px - untouched, like the editor position Rudolf        */
+/*     confirmed). But the prose-mirror editor was content-width inside  */
+/*     the row-flex wrapper, leaving the right part of the frame empty. */
+/*     Flexed it fills the wrapper width; in a row flex container that  */
+/*     only affects the width - the heights stay exactly as tested.     */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .player .note .wrapper prose-mirror {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* -------------------------------------------------------------------- */
+/*  8) Abilities & powers, long names (test round 9, fund A): the      */
+/*     7.2.6 rule gave ONLY the name button (.item-edit) min-width: 0.  */
+/*     Its flex parent .name kept min-width: auto, and the automatic    */
+/*     minimum carries the button's nowrap min-content - the full       */
+/*     untruncated text width. With a long ability name the .name cell  */
+/*     therefore cannot shrink, the .actions status field wraps onto a  */
+/*     second row inside the fixed 38px trait row and falls out of it   */
+/*     (same nested-flex min-content chain as the gear-name fix, test  */
+/*     round 7; 7.2.6 was only tested with short names). Fix: let      */
+/*     .name shrink (min-width: 0) so the button's own overflow:        */
+/*     hidden + text-overflow: ellipsis (7.2.6) can bite, and pin the  */
+/*     status column so it never shrinks or wraps again.                */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .player .main .abilities-powers .traits .trait .name {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .player .main .abilities-powers .traits .trait .actions {
+  flex: 0 0 20%;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------------- */
+/*  9) Abilities & powers, row icon + marker column (test round 10,      */
+/*     fund C): the round-9 .name fix (min-width: 0) lets the cell      */
+/*     shrink - and inside .name ALL THREE flex children shrink with it, */
+/*     not only the name button: the ability icon button (.activate-      */
+/*     ability, V13 width 47px) and the marker column (.smallbackground, */
+/*     V13 width 20px) keep min-width: auto, whose automatic minimum is  */
+/*     CONTENT-based. Both elements are empty (icon image and bolt/     */
+/*     shield markers are backgrounds), so their automatic minimum is    */
+/*     about zero - the specified widths do NOT protect flex items from */
+/*     shrinking. In long-name rows the shrink distribution (scaled by  */
+/*     base size) squeezes icon and marker column down; the 45px icon   */
+/*     background gets clipped to the shrunk box, the marker column      */
+/*     narrows and the V13 gap between icon and text collapses - the    */
+/*     name text crowds onto the icon ("ragt in das Icon am            */
+/*     Zeilenanfang"). Fix: pin both at their V13 sizes (like the       */
+/*     .actions status column in section 8) - the name button alone     */
+/*     (min-width: 0 since 7.2.6) absorbs the shrink and clips with     */
+/*     its ellipsis.                                                    */
+/* -------------------------------------------------------------------- */
+.symbaroum.sheet.actor .player .main .abilities-powers .traits .trait .name .activate-ability {
+  flex: 0 0 47px;
+}
+
+.symbaroum.sheet.actor .player .main .abilities-powers .traits .trait .name .smallbackground {
+  flex: 0 0 20px;
+}
+
 /*# sourceMappingURL=symbaroum.css.map */
