@@ -126,6 +126,53 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				{ passive: true }
 			);
 		}
+		// Test round 2 addendum, V13 parity: the cursor stays in the input
+		// field across a submitOnChange re-render (Rudolf's report: editing
+		// a property of a new power kept the cursor in V13). ApplicationV1
+		// preserved the focus, ApplicationV2 does not - the focused form
+		// control is captured in _renderHTML (the old content is still in
+		// the DOM there) and restored here. preventScroll leaves the scroll
+		// handling to the restore above.
+		if (this._activeElement) {
+			const { name, selectionStart, selectionEnd } = this._activeElement;
+			this._activeElement = null;
+			const restore = element.querySelector(`[name="${name}"]`);
+			if (restore && !restore.disabled) {
+				restore.focus({ preventScroll: true });
+				if (typeof selectionStart === 'number' && typeof restore.setSelectionRange === 'function') {
+					try {
+						restore.setSelectionRange(selectionStart, selectionEnd);
+					} catch (error) {
+						// setSelectionRange is not supported for every input
+						// type - the restored focus alone matches V13.
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Remember the focused form control before the rendered content is
+	 * replaced - at this point of the render pipeline the old element is
+	 * still in the DOM, so :focus resolves against the pre-render state.
+	 * _onRender restores the focus on the freshly rendered content.
+	 */
+	async _renderHTML(context, options) {
+		const element = this.element;
+		const active = element?.querySelector(':focus');
+		this._activeElement = null;
+		if (
+			active &&
+			['INPUT', 'SELECT', 'TEXTAREA'].includes(active.tagName) &&
+			active.name
+		) {
+			this._activeElement = {
+				name: active.name,
+				selectionStart: active.selectionStart,
+				selectionEnd: active.selectionEnd,
+			};
+		}
+		return super._renderHTML(context, options);
 	}
 
 	async enrichAllFields(data) {

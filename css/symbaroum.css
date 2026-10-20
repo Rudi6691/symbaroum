@@ -4681,11 +4681,13 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
 /*  2) Item sheet checkboxes (level activation on ability/trait/power,  */
 /*     artifact flag on armor/weapon/equipment, marker trait): V14       */
 /*     renders form controls dark by default (dark box, light ring,      */
-/*     orange accent). The accepted 7.1.15 dice dialog recipe, scoped   */
-/*     to the item sheet windows: white-filled boxes with a dark check   */
-/*     mark, whichever way the cascade resolves - color-scheme: light    */
-/*     for native rendering, appearance: none + white background + dark   */
-/*     accent for custom rendering.                                      */
+/*     orange accent). Test round 3 spec (Rudolf's V13 screenshot,       */
+/*     20.10.): the ITEM sheet checkboxes get the V13 original look -   */
+/*     unchecked = white fill with a thin border and the inset shadow,   */
+/*     like an empty input field (the V13 system rule border 1px        */
+/*     solid var(--color-border) + inset 0 0 6px black); checked = dark  */
+/*     grey fill (#404040) with a white check mark - NOT the dice        */
+/*     dialog recipe (black check on white), which stays untouched.     */
 /*     Test round 2 re-scope: the rules originally prefixed on            */
 /*     .window-app - but the V14 ApplicationV2 window frames carry the    */
 /*     sheet classes plus "application" and NOT the legacy "window-app"   */
@@ -4706,11 +4708,12 @@ html body .symbaroum.sheet.item input[type='checkbox'] {
   accent-color: #191813 !important;
   background: #ffffff !important;
   background-image: none !important;
-  border: none !important;
-  box-shadow: none !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: inset 0 0 6px black !important;
   outline: none !important;
   mask-image: none !important;
   -webkit-mask-image: none !important;
+  border-radius: 0 !important;
   width: 14px !important;
   min-width: 14px !important;
   height: 14px !important;
@@ -4764,15 +4767,14 @@ html body .symbaroum.sheet.item input[type='checkbox'] {
 }
 
 /* -------------------------------------------------------------------- */
-/*  2) Item sheet checkbox check mark (follow-up to the round 1 recipe,  */
-/*     Rudolf's spec: unchecked = white fill like the dice dialog,       */
-/*     checked = black check on white): with appearance: none winning    */
-/*     the cascade, the white-filled boxes render EMPTY when checked -   */
-/*     activated and deactivated levels look identical. The 7.1.15 dice  */
-/*     dialog recipe paints the mark itself, via an SVG background      */
-/*     image on the :checked state; the base rule above kills            */
-/*     background-image, this later and more specific rule brings it     */
-/*     back - the accepted dice dialog look: black check on white.      */
+/*  2) Item sheet checkbox check mark. Test round 3 spec (Rudolf's V13   */
+/*     screenshot, 20.10.): checked = DARK GREY fill (#404040) with a    */
+/*     WHITE check mark - the V13 original look. The base rule above    */
+/*     keeps the unchecked state as an empty input field (white fill,    */
+/*     thin border, inset shadow); this rule repaints the checked state: */
+/*     dark grey background + the white SVG check, painted via           */
+/*     background image because appearance: none removed every native    */
+/*     drawing path.                                                     */
 /*     Test round 2: these rules were re-scoped off .window-app like    */
 /*     the round 1 checkbox rules above (V14 window frames carry no     */
 /*     window-app class) - the guards and the :checked mark now match.   */
@@ -4791,7 +4793,8 @@ html body .symbaroum.sheet.item input[type='checkbox']::after {
 }
 
 html body .symbaroum.sheet.item input[type='checkbox']:checked {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23191813' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-color: #404040 !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: center !important;
   background-size: 12px 12px !important;
