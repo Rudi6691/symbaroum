@@ -414,6 +414,7 @@ SYMBAROUM.scriptedAbilities = [
   "maltransformation",
   "mindthrow",
   "priosburningglass",
+  "protectiverunes",
   "revenantstrike",
   "tormentingspirits",
   "unnoticeable",
@@ -548,6 +549,12 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.MALTRANSFORMATION",
     name: "POWER_LABEL.MALTRANSFORMATION",
     icon: "systems/symbaroum/asset/image/frog.png",
+  },
+  {
+    id: "protectiverunes",
+    label: "POWER_LABEL.PROTECTIVE_RUNES",
+    name: "POWER_LABEL.PROTECTIVE_RUNES",
+    icon: "systems/symbaroum/asset/image/powers/protectiverunes.svg",
   },
   {
     id: "revenantstrike",

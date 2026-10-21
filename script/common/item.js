@@ -1415,6 +1415,28 @@ export class SymbaroumItem extends Item {
     }
   }
 
+  getItemModifierProtectiverunes(combatMods, armors, weapons, abilities) {
+    let lvl = this.getLevel();
+    if (lvl.level == 0) return;
+    this.system.isIntegrated = !!this.actor.hasCondition("protectiverunes");
+    if (!this.actor.hasCondition("protectiverunes")) return;
+    let bonusDice = lvl.level === 3 ? "1d6" : "1d4";
+    let npcBonus = lvl.level === 3 ? 3 : 2;
+    for (let i = 0; i < armors.length; i++) {
+      let base = this._getBaseFormat();
+      base.label = game.i18n.localize("POWER_LABEL.PROTECTIVE_RUNES");
+      base.type = game.symbaroum.config.DAM_FIXED;
+      base.alternatives = [
+        {
+          protectionMod: "+" + bonusDice,
+          protectionModNPC: npcBonus,
+          displayMod: "+" + bonusDice,
+        },
+      ];
+      combatMods.armors[armors[i].id].protectionChoices.push(base);
+    }
+  }
+
   getItemModifierRapidfire(combatMods, armors, weapons, abilities) {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
@@ -2477,6 +2499,31 @@ export class SymbaroumItem extends Item {
     };
     if (base.powerLvl.level === 3) {
       base.targetFullyCorruptedFSmod.finalTextSucceed = game.i18n.localize("POWER_PRIOSBURNINGGLASS.CHAT_EXTRA");
+    }
+    return base;
+  }
+
+  mysticPowerSetupProtectiverunes(base) {
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.traditions = [game.symbaroum.config.TRAD_STAFFM, game.symbaroum.config.TRAD_SYMBOLISM];
+    base.gmOnlyChatResultNPC = true;
+    base.flagTest = "protectiverunes";
+    base.flagPresentFSmod = {
+      introText: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_DEACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_RESULT_DEACTIVATE"),
+      corruption: game.symbaroum.config.TEMPCORRUPTION_NONE,
+      removeCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "protectiverunes"))],
+    };
+    base.flagNotPresentFSmod = {
+      flagData: base.powerLvl.level,
+      introText: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_ACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE"),
+      addCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "protectiverunes"))],
+    };
+    if (base.powerLvl.level === 3) {
+      base.flagNotPresentFSmod.finalText = game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_MASTER");
+    } else if (base.powerLvl.level === 2) {
+      base.flagNotPresentFSmod.finalText = game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_ADEPT");
     }
     return base;
   }

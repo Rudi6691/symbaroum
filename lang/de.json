@@ -632,6 +632,13 @@
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} fokussiert das Licht der Seele als brenennden Strahl.",
   "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} könnte das Ziel betäuben [Willenskraft <-- Willenskraft]",
 
+  "POWER_PROTECTIVERUNES.CHAT_ACTIVATE": "{actorname} aktiviert Schutzrunen.",
+  "POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE": "Der Schutz der Runen ist aktiv.",
+  "POWER_PROTECTIVERUNES.CHAT_DEACTIVATE": "{actorname} deaktiviert Schutzrunen.",
+  "POWER_PROTECTIVERUNES.CHAT_RESULT_DEACTIVATE": "Der Schutz der Runen endet.",
+  "POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_ADEPT": "Vergeltung: 1W4 Schaden an jedem Angreifer (Rüstung ignoriert), vom SL anzuwenden.",
+  "POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_MASTER": "Vergeltung: 1W6 Schaden an jedem Angreifer (Rüstung ignoriert), vom SL anzuwenden.",
+
   "POWER_REVENANTSTRIKE.CHAT_ACTIVATE": "Waffe von {actorname} wird dunkler.",
   "POWER_REVENANTSTRIKE.CHAT_DEACTIVATE": "Waffe von {actorname} glüht nicht mehr.",
   "POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE": "Waffenwerte werden wieder normal.",
