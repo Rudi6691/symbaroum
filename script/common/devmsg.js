@@ -2,7 +2,7 @@
 export async function sendDevMessage() 
 {
     if( game.user.isGM ) {
-        let data = await foundry.utils.fetchJsonWithTimeout( "https://raw.githubusercontent.com/pwatson100/symbaroum/master/msgdata/data.json");
+        let data = await foundry.utils.fetchJsonWithTimeout( "https://raw.githubusercontent.com/Rudi6691/symbaroum/v14/msgdata/data.json");
         let latestVersion = game.settings.get('symbaroum', 'symbaroumDevMessageVersionNumber');
         if(isNaN(latestVersion)) {
             latestVersion = 0;
