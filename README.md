@@ -40,10 +40,10 @@
 <p>This guide presents the functionalities of the system.</p>
 <b> Preview </b>
 <p>
-  <img src="https://github.com/pwatson100/symbaroum/blob/master/asset/preview/character-1.webp?raw=true" alt="" width="716" height="500" />
+  <img src="https://github.com/Rudi6691/symbaroum/blob/v14/asset/preview/character-1.webp?raw=true" alt="" width="716" height="500" />
   <br>
-  <img src="https://github.com/pwatson100/symbaroum/blob/master/asset/image/system-guide/14.webp?raw=true" alt="" width="291" height="446" />
-  <img src="https://github.com/pwatson100/symbaroum/blob/master/asset/image/system-guide/22.webp?raw=true" alt="" width="250" height="446" />
+  <img src="https://github.com/Rudi6691/symbaroum/blob/v14/asset/image/system-guide/14.webp?raw=true" alt="" width="291" height="446" />
+  <img src="https://github.com/Rudi6691/symbaroum/blob/v14/asset/image/system-guide/22.webp?raw=true" alt="" width="250" height="446" />
 </p>
 <p>
   <b>Install</b>
