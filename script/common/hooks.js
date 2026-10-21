@@ -635,7 +635,16 @@ async function setupConfigOptions() {
 
 // this add new status effect to the foundry list
 async function setupStatusEffects() {
-	CONFIG.statusEffects.push(...game.symbaroum.config.systemConditionEffects);
+	// V14: CONFIG.statusEffects is id-indexed (the old .push() is deprecated) and icon/label are
+	// deprecated aliases for img/name - register the custom conditions with their canonical fields
+	// so the token HUD status palette picks up their graphics (the V14 palette reads src from img)
+	for (const status of game.symbaroum.config.systemConditionEffects) {
+		CONFIG.statusEffects[status.id] = {
+			...status,
+			name: status.name ?? status.label,
+			img: status.img ?? status.icon,
+		};
+	}
 }
 
 async function createBlessedShield(actor, protection = '1d4') {

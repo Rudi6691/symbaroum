@@ -777,7 +777,7 @@ export class SymbaroumActor extends Actor {
 
 	async addCondition(effect, flagData) {
 		if (typeof effect === "string") {
-			effect = CONFIG.statusEffects.find((e) => e.id == effect);
+			effect = CONFIG.statusEffects[effect] ?? CONFIG.statusEffects.find((e) => e.id == effect);
 		}
 		if (!effect) return "No Effect Found";
 		if (!effect.id) return "Conditions require an id field";
@@ -794,14 +794,19 @@ export class SymbaroumActor extends Actor {
 			if( flagData ) {
 				effect[`flags.${game.system.id}.flagData`] = flagData;
 			}
-			effect["statuses"] = effect.id;
+			// V14: statuses must be the array of status ids (a plain id string is not accepted by the
+			// data model), showIcon ALWAYS displays the icon on the token for permanent conditions
+			// too (the schema default CONDITIONAL only shows effects with a temporary duration)
+			effect["statuses"] = [effect.id];
+			effect.showIcon = CONST.ACTIVE_EFFECT_SHOW_ICON?.ALWAYS ?? 2;
+			effect.img ??= effect.icon;
 			delete effect.id;
 			return this.createEmbeddedDocuments("ActiveEffect", [effect]);
 		}
 	}
 
 	async removeCondition(effect) {
-		if (typeof effect === "string") effect = CONFIG.statusEffects.find((e) => e.id == effect);
+		if (typeof effect === "string") effect = CONFIG.statusEffects[effect] ?? CONFIG.statusEffects.find((e) => e.id == effect);
 		if (!effect) return "No Effect Found";
 		if (!effect.id) return "Conditions require an id field";
 		let existing = this.hasCondition(effect.id);
