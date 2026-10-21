@@ -399,6 +399,7 @@ SYMBAROUM.scriptedAbilities = [
   "bendwill",
   "blackbolt",
   "blessedshield",
+  "blindingsymbol",
   "confusion",
   "curse",
   "dancingweapon",

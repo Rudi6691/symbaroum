@@ -571,6 +571,10 @@
   "POWER_BLESSEDSHIELD.CHAT_SUCCESS": "{actorname} is surrounded by a shield of light.",
   "POWER_BLESSEDSHIELD.CHAT_FAILURE": "{actorname} stays in darkness.",
   "POWER_BLESSEDSHIELD.PROTECTED": "{actorname} is protected",
+  "POWER_BLINDINGSYMBOL.CHAT_INTRO_M": "{targetname} tries to shake off the blinding symbol.",
+  "POWER_BLINDINGSYMBOL.CHAT_SUCCESS": "{targetname} is blinded by the symbol.",
+  "POWER_BLINDINGSYMBOL.CHAT_FAILURE": "{targetname} resists the blinding symbol.",
+  "POWER_BLINDINGSYMBOL.UNTIL_HEALED": "{targetname} is blinded until healed.",
 
   "POWER_BRIMSTONECASC.CHAT_INTRO": "{actorname} throws fire at its target.",
   "POWER_BRIMSTONECASC.CHAT_SUCCESS": "{targetname} gets burned.",

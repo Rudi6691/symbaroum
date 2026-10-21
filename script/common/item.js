@@ -1835,6 +1835,23 @@ export class SymbaroumItem extends Item {
     }
   }
 
+  getItemModifierSymbolism(combatMods, armors, weapons, abilities) {
+    let lvl = this.getLevel();
+    if (lvl.level == 0) return;
+    if (lvl.level > 1) {
+      for (let i = 0; i < abilities.length; i++) {
+        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_SYMBOLISM)) {
+          combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
+        }
+      }
+    }
+    let base = this._getBaseFormat();
+    base.value = game.symbaroum.config.TRAD_SYMBOLISM;
+    base.level = lvl.level;
+    this.system.isIntegrated = true;
+    combatMods.traditions.push(base);
+  }
+
   getItemModifierTactician(combatMods, armors, weapons, abilities) {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
@@ -2189,6 +2206,23 @@ export class SymbaroumItem extends Item {
       base.multipleTargets = true;
       base.multipleTargetsNb = base.powerLvl.level - 1;
     }
+    return base;
+  }
+
+  mysticPowerSetupBlindingsymbol(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.targetResistAttribute = "resolute";
+    base.maintain = base.powerLvl.level === 2 ? game.symbaroum.config.MAINTAIN_RES : game.symbaroum.config.MAINTAIN_NOT;
+    base.introTextMaintain = game.i18n.localize("POWER_BLINDINGSYMBOL.CHAT_INTRO_M");
+    base.resultTextSuccess = game.i18n.localize("POWER_BLINDINGSYMBOL.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_BLINDINGSYMBOL.CHAT_FAILURE");
+    if (base.powerLvl.level === 3) {
+      base.finalTextSucceed = game.i18n.localize("POWER_BLINDINGSYMBOL.UNTIL_HEALED");
+    }
+    base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "blind"))];
     return base;
   }
 

@@ -151,7 +151,7 @@
   "ARMOR.PROTECTION_SHORT": "Schu.",
   "ARMOR.BASE_PROT": "Basis-Schutz",
   "ARMOR.BONUS_PROT": "Bonus-Schutz",
-  "ARMOR.PC_PROTECTION": "SC-Schutz.",
+  "ARMOR.PC_PROTECTION": "SC-Schutz",
   "ARMOR.NPC_PROTECTION": "NSC-Schutz",
   "ARMOR.IMPEDING": "Behinderung",
   "ARMOR.IMPEDINGABBR": "Beh.",
@@ -572,6 +572,11 @@
   "POWER_BLESSEDSHIELD.CHAT_FAILURE": "{actorname} verbleibt in der Dunkelheit.",
   "POWER_BLESSEDSHIELD.PROTECTED": "{actorname} ist geschützt.",
 
+  "POWER_BLINDINGSYMBOL.CHAT_INTRO_M": "{targetname} versucht, das blendende Symbol abzuschütteln.",
+  "POWER_BLINDINGSYMBOL.CHAT_SUCCESS": "{targetname} wird vom Symbol geblendet.",
+  "POWER_BLINDINGSYMBOL.CHAT_FAILURE": "{targetname} widersteht dem blendenden Symbol.",
+  "POWER_BLINDINGSYMBOL.UNTIL_HEALED": "{targetname} bleibt geblendet, bis Heilung erfolgt.",
+
   "POWER_BRIMSTONECASC.CHAT_INTRO": "{actorname} entfesselt eine tobende Flammenwelle.",
   "POWER_BRIMSTONECASC.CHAT_SUCCESS": "{targetname} fängt Feuer.",
   "POWER_BRIMSTONECASC.CHAT_FAILURE": "{targetname} vermeidet einen Teil des Schadens.",
@@ -629,8 +634,8 @@
 
   "POWER_REVENANTSTRIKE.CHAT_ACTIVATE": "Waffe von {actorname} wird dunkler.",
   "POWER_REVENANTSTRIKE.CHAT_DEACTIVATE": "Waffe von {actorname} glüht nicht mehr.",
-  "POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE": "Waffenwerte werden wieder normal..",
-  "POWER_REVENANTSTRIKE.CHAT_RESULT": "Der Bonus wür Wiedergänger-Schlag wird angewendet.",
+  "POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE": "Waffenwerte werden wieder normal.",
+  "POWER_REVENANTSTRIKE.CHAT_RESULT": "Der Bonus für Wiedergänger-Schlag wird angewendet.",
 
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO": "{actorname} versucht, die Geister zu erwecken.",
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO_M": "{actorname} versucht, den Wandel der Geister aufrechtzuerhalten.",
