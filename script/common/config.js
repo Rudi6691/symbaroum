@@ -543,7 +543,7 @@ SYMBAROUM.systemConditionEffects = [
     id: "drainingglyph",
     label: "POWER_LABEL.DRAINING_GLYPH",
     name: "POWER_LABEL.DRAINING_GLYPH",
-    icon: "systems/symbaroum/asset/image/powers/drainingglyph.svg",
+    icon: "icons/svg/degen.svg",
   },
   {
     id: "entanglingvines",

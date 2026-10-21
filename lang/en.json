@@ -405,6 +405,8 @@
   "DIALOG.CASTING": "Initial casting",
   "DIALOG.IMPEDING": "Include impeding malus?",
   "DIALOG.MAINTAINING": "Maintaining ability",
+  "DIALOG.CHAIN_NEXT_TARGET": "The power strikes one target after another. Mark the next target token, then press \"Yes\" to continue the chain. Press \"No\" to end it.",
+  "DIALOG.CHAIN_NO_NEW_TARGET": "No new target marked - the chain ends here.",
   "DIALOG.ROLLONTABLE": "Roll on table {tablename}",
 
   "EQUIPMENT.NAME": "Name",

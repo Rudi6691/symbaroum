@@ -404,7 +404,9 @@
   "DIALOG.WEAPON_DAMAGE": "Effektwurf",
   "DIALOG.CASTING": "Erster Zauber",
   "DIALOG.IMPEDING": "Zuzüglich Behinderungsmalus?",
-  "DIALOG.MAINTAINING": "Benötigte Eigenschaft",
+  "DIALOG.MAINTAINING": "Aufrechterhalten",
+  "DIALOG.CHAIN_NEXT_TARGET": "Die Kraft wirkt auf ein Ziel nach dem anderen. Markiere das nächste Ziel und klicke auf \"Ja\", um die Kette fortzusetzen. Mit \"Nein\" endet sie.",
+  "DIALOG.CHAIN_NO_NEW_TARGET": "Kein neues Ziel markiert - die Kette endet hier.",
   "DIALOG.ROLLONTABLE": "Wurf auf Tabelle {tablename}",
 
   "EQUIPMENT.NAME": "Name",

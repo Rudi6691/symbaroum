@@ -3512,7 +3512,10 @@ export async function buildRolls(functionStuff) {
    sequence through the remaining pre-selected targets (functionStuff.chainTargets,
    populated by the power's pre-dialog), with a confirmation before each follow-up
    and a stop at the first failed test. Chain targets cost no additional corruption
-   (one casting). */
+   (one casting).
+   A19: the Kette powers Anathema, Brimstone Cascade and Black Bolt (Adept+) use
+   the same mechanism with targets marked one after another (see
+   chainSequenceResult below). */
 function getPowerResultFunction(functionStuff) {
   switch (functionStuff.ability?.reference) {
     case "staffprojectile":
@@ -3521,6 +3524,12 @@ function getPowerResultFunction(functionStuff) {
       return banishingSealChainResult;
     case "drainingglyph":
       return functionStuff.isMaintained ? standardPowerResult : drainingGlyphResult;
+    case "anathema":
+      return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained ? anathemaChainResult : standardPowerResult;
+    case "brimstonecascade":
+      return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained ? brimstoneCascadeChainResult : standardPowerResult;
+    case "blackbolt":
+      return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained ? blackboltChainResult : standardPowerResult;
     default:
       return standardPowerResult;
   }
@@ -3604,11 +3613,11 @@ async function banishingSealChainResult(rollData, functionStuff) {
    marker. Follow-ups cost no additional corruption (one casting), advantage
    applies to the first attack only, and a failed test does not end the
    sequence. */
-function glyphNextTargetConfirmation(functionStuff) {
+function glyphNextTargetConfirmation(functionStuff, questionKey = "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET") {
   return new Promise((resolve) => {
     symbDialog({
       title: functionStuff.abilityName,
-      content: `<p>${game.i18n.localize("POWER_DRAININGGLYPH.CHAT_NEXT_TARGET")}</p>`,
+      content: `<p>${game.i18n.localize(questionKey)}</p>`,
       buttons: {
         yes: {
           icon: '<i class="fas fa-check"></i>',
@@ -3682,6 +3691,72 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.maintain = savedMaintain;
   functionStuff.activelyMaintainedTargetEffect = savedMaintainedEffect;
   functionStuff.addTargetEffect = savedAddTargetEffect;
+}
+
+/* A19 Kette (chain): from Adept level on, Anathema, Brimstone Cascade and
+   Black Bolt can strike one enemy after another (GRW "Kette": one probe per
+   target in a player-chosen order). Like the A17 glyph, follow-up targets are
+   handled one after another through a confirmation dialog, the next token
+   being read fresh from the user's targeting. Each follow-up keeps the
+   power's own setup effects (Black Bolt paralysis, Brimstone Cascade damage
+   incl. its reduced fail damage), costs no additional corruption (one
+   casting) and gets no advantage (first attack only). Anathema and Black
+   Bolt stop at the first failed probe; Brimstone Cascade stops at the first
+   failed probe as Adept and only at the second failed probe as Master.
+   Maintaining an earlier casting never chains. */
+async function chainSequenceResult(rollData, functionStuff, opts) {
+  // primary target: standard behaviour (chat, damage, corruption, effects)
+  await standardPowerResult(rollData, functionStuff);
+  // advantage applies to the first attack only
+  functionStuff.hasAdvantage = false;
+  let fails = rollData?.[0]?.trueActorSucceeded === false ? 1 : 0;
+  if (fails >= opts.stopAfterFails) return;
+  const savedCorruption = functionStuff.corruption;
+  const savedMaintain = functionStuff.maintain;
+  // the chain belongs to one casting: no further corruption, no maintain
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  const handled = new Set([functionStuff.targetData.tokenId]);
+  while (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET")) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+    const rollDataNext = [
+      await baseRoll(
+        functionStuff.actor,
+        functionStuff.castingAttributeName,
+        nextToken.actor,
+        functionStuff.targetResistAttribute,
+        functionStuff.favour,
+        functionStuff.modifier,
+        false
+      ),
+    ];
+    await standardPowerResult(rollDataNext, functionStuff);
+    if (!rollDataNext[0].trueActorSucceeded) {
+      fails++;
+      if (fails >= opts.stopAfterFails) break;
+    }
+  }
+  functionStuff.corruption = savedCorruption;
+  functionStuff.maintain = savedMaintain;
+}
+
+async function anathemaChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+async function brimstoneCascadeChainResult(rollData, functionStuff) {
+  // Master: the chain only ends at the second failed probe
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: functionStuff.powerLvl.level === 3 ? 2 : 1 });
+}
+
+async function blackboltChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
 }
 
 export function checkSpecialResistanceMod(damageReductions, autoParams = "", abilityRef) {
