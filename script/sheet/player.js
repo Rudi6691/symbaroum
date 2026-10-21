@@ -234,12 +234,19 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			this.tabs.bind(element);
 		}
 
-		// Attribute drag support (drag only - the V13 sheet had no drop targets)
+		// Attribute drag support; this binding also carries the sheet's drop handling.
+		// Foundry 14's DragDrop.bind() assigns ondragover/ondrop as single-slot element
+		// properties, so the last DragDrop bound to the sheet root owns the drop handler.
+		// Keep this as the final DragDrop binding in _onRender.
 		new foundry.applications.ux.DragDrop({
 			dragSelector: '.attrDragM[data-attribute]',
 			dropSelector: null,
+			permissions: {
+				drop: (selector) => this._canDragDrop?.(selector) ?? this.isEditable,
+			},
 			callbacks: {
 				dragstart: (ev) => this._onDragStart(ev),
+				drop: (ev) => this._onDrop(ev),
 			},
 		}).bind(element);
 

@@ -75,28 +75,6 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 				this._onPrepareActivateAbility(ev);
 			});
 		}
-
-		// V14 drag&drop fix: under ApplicationV2 drag & drop is opt-in. The old
-		// AppV1 ActorSheet had the whole form as dropzone (core default) and
-		// ActorSheetV2 provides the standard drop handlers (_onDrop ->
-		// _onDropItem / _onDropActiveEffect / sorting), but they only run for
-		// listeners that are bound explicitly. Without this binding, dropping
-		// items onto the sheet silently does nothing. The app root element
-		// persists across re-renders, so the dropzone is bound exactly once per
-		// sheet instance (same once-per-instance pattern as this.powerMenu) -
-		// re-binding on every render would stack duplicate drop listeners.
-		if (!this.itemDrop) {
-			this.itemDrop = new foundry.applications.ux.DragDrop({
-				dropSelector: null,
-				permissions: {
-					drop: () => this._canDragDrop?.(null) ?? this.isEditable,
-				},
-				callbacks: {
-					drop: (ev) => this._onDrop(ev),
-				},
-			});
-			this.itemDrop.bind(element);
-		}
 	}
 
 	_onItemCreate(event) {
