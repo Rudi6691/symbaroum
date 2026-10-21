@@ -49,12 +49,12 @@
 		},
 		{
 			"lang": "sv",
-			"name": "Svenska ",
+			"name": "Svenska",
 			"path": "lang/sv.json"
 		},
 		{
 			"lang": "de",
-			"name": "Deutsche ",
+			"name": "Deutsche",
 			"path": "lang/de.json"
 		},
 		{
