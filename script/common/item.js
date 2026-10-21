@@ -3519,6 +3519,8 @@ function getPowerResultFunction(functionStuff) {
       return staffProjectileChainResult;
     case "banishingseal":
       return banishingSealChainResult;
+    case "drainingglyph":
+      return functionStuff.isMaintained ? standardPowerResult : drainingGlyphResult;
     default:
       return standardPowerResult;
   }
@@ -3590,6 +3592,96 @@ async function staffProjectileChainResult(rollData, functionStuff) {
 
 async function banishingSealChainResult(rollData, functionStuff) {
   return chainResult(rollData, functionStuff, null);
+}
+
+/* A17 draining glyph: the glyph affects every enemy that can see the symbol
+   and stands in front of it - one casting, one independent opposed test per
+   target. Targets are handled one after another (Rudolf's design): after
+   each roll a dialog offers the next enemy, whose token is read fresh from
+   the user's targeting, so no multi-target selection is needed. The maintain
+   test stays with the primary target only; additional targets just carry the
+   condition marker - the GM applies their per-round damage and removes the
+   marker. Follow-ups cost no additional corruption (one casting), advantage
+   applies to the first attack only, and a failed test does not end the
+   sequence. */
+function glyphNextTargetConfirmation(functionStuff) {
+  return new Promise((resolve) => {
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<p>${game.i18n.localize("POWER_DRAININGGLYPH.CHAT_NEXT_TARGET")}</p>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: () => resolve(true),
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+          callback: () => resolve(false),
+        },
+      },
+      default: "yes",
+    });
+  });
+}
+
+function buildGlyphTargetData(targetToken, resistAttributeName) {
+  const leaderEffect = targetToken?.actor.hasCondition("eye");
+  return {
+    hasTarget: true,
+    token: targetToken,
+    actor: targetToken.actor,
+    name: targetToken.name,
+    tokenId: targetToken.id,
+    resistAttributeName: resistAttributeName,
+    leaderTarget: leaderEffect,
+    autoParams: leaderEffect ? game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_LEADER") : "",
+    isCorrupted: targetToken.actor.system.isThoroughlyCorrupt,
+  };
+}
+
+async function drainingGlyphResult(rollData, functionStuff) {
+  // primary target: standard behaviour (chat, damage, corruption, maintain)
+  await standardPowerResult(rollData, functionStuff);
+  // advantage (+1d4 damage) applies to the first attack only
+  functionStuff.hasAdvantage = false;
+  const savedCorruption = functionStuff.corruption;
+  const savedMaintain = functionStuff.maintain;
+  const savedMaintainedEffect = functionStuff.activelyMaintainedTargetEffect;
+  const savedAddTargetEffect = functionStuff.addTargetEffect;
+  // the follow-ups belong to one casting: no further corruption, no maintain
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  functionStuff.activelyMaintainedTargetEffect = [];
+  functionStuff.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
+  const handled = new Set([functionStuff.targetData.tokenId]);
+  while (await glyphNextTargetConfirmation(functionStuff)) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+    const rollDataNext = [
+      await baseRoll(
+        functionStuff.actor,
+        functionStuff.castingAttributeName,
+        nextToken.actor,
+        functionStuff.targetResistAttribute,
+        functionStuff.favour,
+        functionStuff.modifier,
+        false
+      ),
+    ];
+    // one independent test per target: a failure does not end the sequence
+    await standardPowerResult(rollDataNext, functionStuff);
+  }
+  functionStuff.corruption = savedCorruption;
+  functionStuff.maintain = savedMaintain;
+  functionStuff.activelyMaintainedTargetEffect = savedMaintainedEffect;
+  functionStuff.addTargetEffect = savedAddTargetEffect;
 }
 
 export function checkSpecialResistanceMod(damageReductions, autoParams = "", abilityRef) {

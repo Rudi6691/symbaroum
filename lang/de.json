@@ -625,6 +625,8 @@
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} wird durch die Glyphe geschwächt.",
   "POWER_DRAININGGLYPH.CHAT_FAILURE": "{targetname} widersteht der schwächenden Glyphe.",
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "{actorname} wird pro Runde um 1W4 Zähigkeit geheilt, solange die Glyphe aufrechterhalten wird (vom Spielleiter anzuwenden).",
+  "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Die Glyphe wirkt auf alle Feinde, die das Symbol sehen können und sich vor ihm befinden. Markiere das nächste Ziel und klicke auf \"Ja\", um einen weiteren Feind zu prüfen. Mit \"Nein\" endet der Zauber.",
+  "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - die Glyphe wirkt nur auf die bereits geprüften Feinde.",
 
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} versucht sich von den Ranken loszureißen.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} ist in Ranken verstrickt.",

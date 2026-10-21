@@ -624,6 +624,8 @@
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} is weakened by the glyph and suffers 1d4 damage.",
   "POWER_DRAININGGLYPH.CHAT_FAILURE": "{targetname} resists the draining glyph.",
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "{actorname} is healed 1d4 Toughness each round while the glyph is maintained (to be applied by the GM).",
+  "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "The glyph affects all enemies that can see the symbol and stand in front of it. Mark the next target token, then press \"Yes\" to affect another enemy. Press \"No\" to end the casting.",
+  "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "No new target marked - the glyph affects only the enemies already tested.",
 
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} tries to break free from the vines.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} is entangled in the vines.",
