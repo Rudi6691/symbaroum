@@ -297,6 +297,8 @@
   "BUTTON.ROLL": "Roll",
   "BUTTON.CANCEL": "Cancel",
   "BUTTON.CONFIRM": "Confirm",
+  "BUTTON.YES": "Yes",
+  "BUTTON.NO": "No",
 
   "CHAT.GMTEXT_BUTTON": "This button is for GM use only. It will apply the results on the characters.",
   "CHAT.APPLY_BUTTON": "Apply results",
@@ -380,6 +382,14 @@
 
   "DIALOG.CASTING_ATTRIBUTE": "Casting attribute",
   "DIALOG.RESIST_ATTRIBUTE": "Opposition attribute",
+
+  "DIALOG.CONFIRM_ACTIVATE": "Do you want to activate {ability}? This costs you {cost} points of temporary corruption.",
+  "DIALOG.CONFIRM_ACTIVATE_ONE": "Do you want to activate {ability}? This costs you 1 point of temporary corruption.",
+  "DIALOG.CONFIRM_ACTIVATE_NOCOST": "Do you want to activate {ability}?",
+  "DIALOG.CONFIRM_DEACTIVATE": "Do you want to deactivate {ability}?",
+  "DIALOG.CONFIRM_DEACTIVATE_COST": "Do you want to deactivate {ability}? This costs you {cost} points of temporary corruption.",
+  "DIALOG.CORRUPTION_COST_1D4": "1d4",
+  "DIALOG.CORRUPTION_COST_2D4KL": "2d4 (lowest result counts)",
 
   "DIALOG.VERSUS": "Versus",
   "DIALOG.ASK_CORRUPTION": "Target fully corrupted?",

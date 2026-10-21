@@ -2289,6 +2289,7 @@ export class SymbaroumItem extends Item {
     base.corruption = false;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "dancingweapon";
+    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_DANCINGWEAPON.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("POWER_DANCINGWEAPON.CHAT_RESULT_DEACTIVATE"),
@@ -2508,6 +2509,7 @@ export class SymbaroumItem extends Item {
     base.traditions = [game.symbaroum.config.TRAD_STAFFM, game.symbaroum.config.TRAD_SYMBOLISM];
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "protectiverunes";
+    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_RESULT_DEACTIVATE"),
@@ -2532,6 +2534,7 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "revenantstrike";
+    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_REVENANTSTRIKE.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE"),
@@ -2584,6 +2587,7 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "witchhammer";
+    base.confirmDialog = true;
     base.traditions = [game.symbaroum.config.TRAD_THEURGY];
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_WITCHHAMMER.CHAT_DEACTIVATE"),
@@ -2624,6 +2628,7 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "berserker";
+    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("ABILITY_BERSERKER.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("ABILITY_BERSERKER.CHAT_RESULT_DEACTIVATE"),
@@ -2797,6 +2802,7 @@ export class SymbaroumItem extends Item {
 
   traitSetupRegeneration(base) {
     base.introText = game.i18n.localize("TRAIT_REGENERATION.CHAT_ACTION");
+    base.confirmDialog = true;
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.healedToken = game.symbaroum.config.ACTING_TOKEN;
 
@@ -2969,6 +2975,54 @@ function checkPainEffect(functionStuff, damageTotal) {
     return true;
   }
   return false;
+}
+
+/*Confirmation dialog for scripted CASTING_NOT powers (no roll): asks whether the
+power should be (de)activated, previews the corruption cost and calls buildRolls()
+directly on confirmation - replacing the empty roll-modifier dialog.
+   * @param {any} functionStuff  the usual functionStuff object, requires confirmDialog=true */
+export async function confirmPowerDialog(functionStuff) {
+  const isDeactivate = Boolean(functionStuff.flagTest && functionStuff.actor.hasCondition(functionStuff.flagTest));
+  // on deactivation the flagPresentFSmod values apply (same merge as in standardPowerResult)
+  const fs = isDeactivate && functionStuff.flagPresentFSmod ? Object.assign({}, functionStuff, functionStuff.flagPresentFSmod) : functionStuff;
+  const corruption = functionStuff.actor.getCorruptionPreview(fs);
+  const cost =
+    corruption.corruptionFormula === "2d4kl"
+      ? game.i18n.localize("DIALOG.CORRUPTION_COST_2D4KL")
+      : game.i18n.localize("DIALOG.CORRUPTION_COST_1D4");
+  let question;
+  if (isDeactivate) {
+    // the power is active - ask for deactivation
+    if (corruption.value === 0) {
+      question = game.i18n.format("DIALOG.CONFIRM_DEACTIVATE", { ability: functionStuff.abilityName });
+    } else {
+      question = game.i18n.format("DIALOG.CONFIRM_DEACTIVATE_COST", { ability: functionStuff.abilityName, cost: corruption.value === 1 ? "1" : cost });
+    }
+  } else if (corruption.value === 0) {
+    question = game.i18n.format("DIALOG.CONFIRM_ACTIVATE_NOCOST", { ability: functionStuff.abilityName });
+  } else if (corruption.value === 1) {
+    question = game.i18n.format("DIALOG.CONFIRM_ACTIVATE_ONE", { ability: functionStuff.abilityName });
+  } else {
+    question = game.i18n.format("DIALOG.CONFIRM_ACTIVATE", { ability: functionStuff.abilityName, cost: cost });
+  }
+  symbDialog({
+    title: functionStuff.abilityName,
+    content: `<p>${question}</p>`,
+    buttons: {
+      yes: {
+        icon: '<i class="fas fa-check"></i>',
+        label: game.i18n.localize("BUTTON.YES"),
+        callback: async (html) => {
+          await buildRolls(functionStuff);
+        },
+      },
+      no: {
+        icon: '<i class="fas fa-times"></i>',
+        label: game.i18n.localize("BUTTON.NO"),
+      },
+    },
+    default: "yes",
+  });
 }
 
 /*usualy called by any prepareAbility function, or the combat function
@@ -3790,11 +3844,16 @@ async function standardPowerResult(rollData, functionStuff) {
     corruptionText = game.i18n.localize("POWER.CHAT_CORRUPTION") + corruption.value;
     if (corruption.sorceryRoll) corruptionText += " (sorcery roll result:" + corruption.sorceryRoll.diceResult + ")";
     checkCorruptionThreshold(functionStuff.actor, corruption.value);
-    flagDataArray.push({
-      tokenId: functionStuff.tokenId,
-      actorId: functionStuff.actor.id,
-      corruptionChange: corruption.value,
-    });
+    if (functionStuff.confirmDialog) {
+      // the player already confirmed the corruption cost in the dialog - apply it directly, no GM approval card
+      await functionStuff.actor.update({ "system.health.corruption.temporary": functionStuff.actor.system.health.corruption.temporary + corruption.value });
+    } else {
+      flagDataArray.push({
+        tokenId: functionStuff.tokenId,
+        actorId: functionStuff.actor.id,
+        corruptionChange: corruption.value,
+      });
+    }
   }
 
   if (functionStuff.resultRolls !== undefined && functionStuff.resultRolls !== null) {
@@ -4007,7 +4066,16 @@ async function standardPowerResult(rollData, functionStuff) {
         templateData.damageTooltip = healResult.damageTooltip;
       }
       templateData.damageFinalText = "";
-      flagDataArray.push(healResult.flagData);
+      if (functionStuff.confirmDialog) {
+        // the player already confirmed - apply the healing directly, no GM approval card
+        let healedActor = functionStuff.healedToken?.actor;
+        if (healedActor) {
+          let newToughness = Math.max(0, Math.min(healedActor.system.health.toughness.max, healedActor.system.health.toughness.value + healResult.healed));
+          await healedActor.update({ "system.health.toughness.value": newToughness });
+        }
+      } else {
+        flagDataArray.push(healResult.flagData);
+      }
 
       if (functionStuff.ability.reference === "inheritwound") {
         let inheritDamage = functionStuff.powerLvl.level > 1 ? Math.ceil(healResult.healed / 2) : healResult.healed;

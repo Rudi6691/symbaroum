@@ -1,4 +1,4 @@
-import { modifierDialog } from "./item.js";
+import { modifierDialog, confirmPowerDialog } from "./item.js";
 import { prepareRollAttribute } from "../common/dialog.js";
 import { baseRoll } from "./roll.js";
 
@@ -854,6 +854,33 @@ export class SymbaroumActor extends Actor {
 		return { value: corRoll.total, sorceryRoll: sorceryRoll, corruptionRoll: corRoll };
 	}
 
+	//preview the temporary corruption cost without rolling - used by confirmPowerDialog
+	//mirrors getCorruption(): {value:0} = no cost, {value:1} = fixed 1 point,
+	//{value:null, corruptionFormula} = dice cost shown in the confirmation dialog
+	getCorruptionPreview(functionStuff) {
+		if (this.system.isThoroughlyCorrupt || functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_NONE) {
+			return { value: 0 };
+		}
+		if (functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_ONE) {
+			return { value: 1 };
+		}
+		if (functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_TESTFORONE) {
+			//no confirmDialog power uses this - preview as the 1 point it costs on a successful test
+			return { value: 1, tradition: "sorcery" };
+		}
+		let corruptionFormula = functionStuff.corruptionFormula ?? "1d4"; // TODO move literal to config
+		if (functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_FAVOUR) {
+			corruptionFormula = "2d4kl";
+		} else {
+			for (let i = 0; i < this.system.combat.combatMods.corruption.length; i++) {
+				if (this.system.combat.combatMods.corruption[i].type === game.symbaroum.config.TEMPCORRUPTION_FAVOUR) {
+					corruptionFormula = "2d4kl";
+				}
+			}
+		}
+		return { value: null, corruptionFormula: corruptionFormula };
+	}
+
 	async usePower(ability) {
 		const api = game.symbaroum.api;
 		if (!ability.isOwned || ability.system.reference === undefined || ability.system.reference === null) {
@@ -941,7 +968,10 @@ export class SymbaroumActor extends Actor {
 				return;
 			}
 			let functionStuff = Object.assign({}, fsDefault, specificStuff);
-			if (functionStuff.preDialogFunction) {
+			if (functionStuff.confirmDialog) {
+				//scripted CASTING_NOT power: ask for confirmation instead of showing the empty roll dialog
+				await confirmPowerDialog(functionStuff);
+			} else if (functionStuff.preDialogFunction) {
 				await functionStuff.preDialogFunction(functionStuff);
 			} else {
 				await modifierDialog(functionStuff);

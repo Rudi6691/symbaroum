@@ -297,6 +297,8 @@
   "BUTTON.ROLL": "Würfeln",
   "BUTTON.CANCEL": "Abbruch",
   "BUTTON.CONFIRM": "Bestätigen",
+  "BUTTON.YES": "Ja",
+  "BUTTON.NO": "Nein",
 
   "CHAT.GMTEXT_BUTTON": "Diese Schaltfläche ist nur für die Spielleitung und fügt dem Token den Effekt hinzu.",
   "CHAT.APPLY_BUTTON": "Wende die Ergebnisse auf den Token an",
@@ -380,6 +382,14 @@
 
   "DIALOG.CASTING_ATTRIBUTE": "Mystische Eigenschaft",
   "DIALOG.RESIST_ATTRIBUTE": "Gegnerische Eigenschaft",
+
+  "DIALOG.CONFIRM_ACTIVATE": "Willst du {ability} anwenden? Das kostet dich {cost} Punkte temporäre Korruption.",
+  "DIALOG.CONFIRM_ACTIVATE_ONE": "Willst du {ability} anwenden? Das kostet dich 1 Punkt temporäre Korruption.",
+  "DIALOG.CONFIRM_ACTIVATE_NOCOST": "Willst du {ability} anwenden?",
+  "DIALOG.CONFIRM_DEACTIVATE": "Willst du {ability} deaktivieren?",
+  "DIALOG.CONFIRM_DEACTIVATE_COST": "Willst du {ability} deaktivieren? Das kostet dich {cost} Punkte temporäre Korruption.",
+  "DIALOG.CORRUPTION_COST_1D4": "1W4",
+  "DIALOG.CORRUPTION_COST_2D4KL": "2W4 (der niedrigere Wurf zählt)",
 
   "DIALOG.VERSUS": "Versus",
   "DIALOG.ASK_CORRUPTION": "Ziel vollständig korrumpiert?",
