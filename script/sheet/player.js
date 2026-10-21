@@ -82,24 +82,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		},
 		window: {
 			resizable: true,
-			controls: [
-				{
-					action: 'deathRoll',
-					icon: 'fas fa-skull',
-					label: 'BUTTON.DEATH',
-					visible: function () {
-						return this.actor?.isOwner ?? false;
-					},
-				},
-				{
-					action: 'recover',
-					icon: 'fas fa-heart',
-					label: 'BUTTON.RECOVER',
-					visible: function () {
-						return this.actor?.isOwner ?? false;
-					},
-				},
-			],
 		},
 		actions: {
 			deathRoll: async function (event) {
@@ -119,6 +101,26 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			template: 'systems/symbaroum/template/sheet/player.hbs',
 		},
 	};
+
+	/**
+	 * A1 (V14): death roll and recover used to be window.controls entries, which
+	 * V14 collects in the "⋮" toggle-controls dropdown instead of showing them
+	 * inline in the header as V13 did. Frame buttons are rendered inline in the
+	 * window header, which restores the V13 look. The click routing keeps using
+	 * the existing DEFAULT_OPTIONS.actions handlers (deathRoll/recover). The old
+	 * window.controls "visible" functions (owner only) become a conditional push,
+	 * following the draw-steel reference implementation.
+	 */
+	_getFrameButtons(options) {
+		const buttons = super._getFrameButtons(options);
+		if ( this.actor?.isOwner ) {
+			buttons.push(
+				{ action: 'deathRoll', icon: 'fas fa-skull', label: 'BUTTON.DEATH' },
+				{ action: 'recover', icon: 'fas fa-heart', label: 'BUTTON.RECOVER' }
+			);
+		}
+		return buttons;
+	}
 
 	/**
 	 * Prepare the render context. The V13 getData() shape is kept deliberately

@@ -4240,6 +4240,9 @@ dialog.symb-dialog .window-header .header-control {
   width: 22px !important;
   min-width: 22px !important;
   height: 22px !important;
+  /* A2: see the actor sheet rule - min-height pins the used height at 22px
+     against the core's min-height: var(--button-size) clamp. */
+  min-height: 22px !important;
   padding: 0 !important;
   display: inline-flex;
   align-items: center;
@@ -4498,6 +4501,11 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
   width: 22px !important;
   min-width: 22px !important;
   height: 22px !important;
+  /* A2: the core button base rule sets min-height: var(--button-size)
+     (24px for header controls) without !important. min-height clamps the
+     used height above our height: 22px, so the height read 24px while
+     width read 22px. Pinning min-height closes that gap (V13 look). */
+  min-height: 22px !important;
   padding: 0 !important;
   display: inline-flex;
   align-items: center;
@@ -4657,6 +4665,9 @@ dialog.symb-dialog .symbaroum.dialog .lblfavour {
   width: 22px !important;
   min-width: 22px !important;
   height: 22px !important;
+  /* A2: see the actor sheet rule above - min-height pins the used height
+     at 22px against the core's clamp. */
+  min-height: 22px !important;
   padding: 0 !important;
   display: inline-flex;
   align-items: center;

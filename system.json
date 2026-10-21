@@ -2,12 +2,12 @@
 	"id": "symbaroum",
 	"title": "Symbaroum",
 	"description": "Twilight falls. Davokar darkens.",
-	"version": "7.2.11",
+	"version": "40.0.0",
 	"compatibility": {
 		"minimum": "14",
 		"verified": "14.360"
 	},
-	"authors": [{ "name": "Paul Watson" }, { "name": "Bithir" }, { "name": "Khaali" }],
+	"authors": [{ "name": "Paul Watson" }, { "name": "Bithir" }, { "name": "Khaali" }, { "name": "Rudi6691" }],
 	"scripts": [],
 	"esmodules": ["script/common/hooks.js"],
 	"styles": [{ "src": "css/symbaroum.css", "layer": null }],
