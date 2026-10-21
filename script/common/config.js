@@ -395,6 +395,7 @@ SYMBAROUM.scriptedAbilities = [
   "strangler",
   "witchsight",
   "anathema",
+  "banishingseal",
   "brimstonecascade",
   "bendwill",
   "blackbolt",
@@ -403,6 +404,7 @@ SYMBAROUM.scriptedAbilities = [
   "confusion",
   "curse",
   "dancingweapon",
+  "drainingglyph",
   "earthshot",
   "entanglingvines",
   "flamewall",
@@ -416,6 +418,8 @@ SYMBAROUM.scriptedAbilities = [
   "priosburningglass",
   "protectiverunes",
   "revenantstrike",
+  "sphere",
+  "staffprojectile",
   "tormentingspirits",
   "unnoticeable",
   "poisonous",
@@ -503,6 +507,12 @@ SYMBAROUM.equipmentCompatibilities = [];
 
 SYMBAROUM.systemConditionEffects = [
   {
+    id: "banishingseal",
+    label: "POWER_LABEL.BANISHING_SEAL",
+    name: "POWER_LABEL.BANISHING_SEAL",
+    icon: "systems/symbaroum/asset/image/powers/banishingseal.svg",
+  },
+  {
     id: "bendwill",
     label: "POWER_LABEL.BEND_WILL",
     name: "POWER_LABEL.BEND_WILL",
@@ -525,6 +535,12 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.DANCING_WEAPON",
     name: "POWER_LABEL.DANCING_WEAPON",
     icon: "systems/symbaroum/asset/image/powers/dancingweapon.svg",
+  },
+  {
+    id: "drainingglyph",
+    label: "POWER_LABEL.DRAINING_GLYPH",
+    name: "POWER_LABEL.DRAINING_GLYPH",
+    icon: "systems/symbaroum/asset/image/powers/drainingglyph.svg",
   },
   {
     id: "entanglingvines",
@@ -561,6 +577,12 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.REVENANT_STRIKE",
     name: "POWER_LABEL.REVENANT_STRIKE",
     icon: "systems/symbaroum/asset/image/powers/revenantstrike.svg",
+  },
+  {
+    id: "sphere",
+    label: "POWER_LABEL.SPHERE",
+    name: "POWER_LABEL.SPHERE",
+    icon: "systems/symbaroum/asset/image/powers/sphere.svg",
   },
   {
     id: "strangler",

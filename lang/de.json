@@ -416,6 +416,7 @@
   "EQUIPMENT.DELETEBUTTON": "Ausrüstung entfernen",
 
   "ERROR.NO_TOKEN_SELECTED": "Wähle die handelnde Figur.",
+  "ERROR.NOT_LEARNED": "{name} ist nicht erlernt.",
   "ERROR.MACRO_NOT_OWNED": "Du kannst nur Makros für Gegenstände und Merkmale anlegen, die dein Charakter besitzt.",
   "ERROR.MACRO_NO_OBJECT": "Der ausgewählte Token hat keinen Gegenstand und kein Merkmal mit der Bezeichnung: ",
   "ERROR.MACRO_NO_SCRIPT": " wurde nicht mit einem Skript versehen.",
@@ -568,6 +569,15 @@
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} unterbricht die Kraft.",
   "POWER_ANATHEMA.CHAT_FAILURE": "{actorname} versagt.",
 
+  "POWER_BANISHINGSEAL.CHAT_INTRO": "{actorname} versucht {targetname} zu bannen.",
+  "POWER_BANISHINGSEAL.CHAT_SUCCESS": "{targetname} wird vom Bannsiegel verbannt.",
+  "POWER_BANISHINGSEAL.CHAT_FAILURE": "{targetname} widersteht dem Bannsiegel.",
+  "POWER_BANISHINGSEAL.CHAT_NO_TARGET": "Wähle mindestens ein Ziel-Token für das Bannsiegel.",
+  "POWER_BANISHINGSEAL.DIALOG_TYPE": "Kreaturentyp, den das Siegel betrifft:",
+  "POWER_BANISHINGSEAL.CHAIN_CONFIRM": "Das Siegel wirkt auf {targetname} weiter. Kette fortsetzen?",
+  "POWER_BANISHINGSEAL.CHAT_ADEPT": "Kreaturen ohne den betroffenen Typ im Siegel erleiden 1W4 Schaden (vom Spielleiter anzuwenden).",
+  "POWER_BANISHINGSEAL.CHAT_MASTER": "Kreaturen ohne den betroffenen Typ im Siegel erleiden 1W8 Schaden, fliehende 1W4 (vom Spielleiter anzuwenden).",
+
   "POWER_BENDWILL.CHAT_INTRO": "{actorname} versucht {targetname} zu kontrollieren.",
   "POWER_BENDWILL.CHAT_INTRO_M": "{actorname} hält Zwang aufrecht.",
   "POWER_BENDWILL.CHAT_SUCCESS": "{actorname} kontrolliert nun {targetname}.",
@@ -608,6 +618,12 @@
   "POWER_DANCINGWEAPON.CHAT_DEACTIVATE": "{actorname} beendet Tanzende Waffe.",
   "POWER_DANCINGWEAPON.CHAT_RESULT_ACTIVATE": "Präzision (Angr.) und Gewandheit (Vert.) werden im Kampf durch Willenskraft ersetzt.",
   "POWER_DANCINGWEAPON.CHAT_RESULT_DEACTIVATE": "Die üblichen Eigenschaften werden wieder für den Kampf verwendet.",
+
+  "POWER_DRAININGGLYPH.CHAT_INTRO": "{actorname} zeichnet eine schwächende Glyphe auf {targetname}.",
+  "POWER_DRAININGGLYPH.CHAT_INTRO_M": "{actorname} hält die schwächende Glyphe aufrecht.",
+  "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} wird durch die Glyphe geschwächt.",
+  "POWER_DRAININGGLYPH.CHAT_FAILURE": "{targetname} widersteht der schwächenden Glyphe.",
+  "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "{actorname} wird pro Runde um 1W4 Zähigkeit geheilt, solange die Glyphe aufrechterhalten wird (vom Spielleiter anzuwenden).",
 
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} versucht sich von den Ranken loszureißen.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} ist in Ranken verstrickt.",
@@ -653,6 +669,20 @@
   "POWER_REVENANTSTRIKE.CHAT_DEACTIVATE": "Waffe von {actorname} glüht nicht mehr.",
   "POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE": "Waffenwerte werden wieder normal.",
   "POWER_REVENANTSTRIKE.CHAT_RESULT": "Der Bonus für Wiedergänger-Schlag wird angewendet.",
+
+  "POWER_SPHERE.CHAT_ACTIVATE": "{actorname} aktiviert die Sphäre.",
+  "POWER_SPHERE.CHAT_RESULT_ACTIVATE": "Die Sphäre ist aktiv – die Verteidigung nutzt Willenskraft, solange sie höher ist.",
+  "POWER_SPHERE.CHAT_DEACTIVATE": "{actorname} deaktiviert die Sphäre.",
+  "POWER_SPHERE.CHAT_RESULT_DEACTIVATE": "Die Sphäre endet.",
+  "POWER_SPHERE.CHAT_ADEPT": "Adept: Die Sphäre verteidigt automatisch.",
+  "POWER_SPHERE.CHAT_MASTER": "Meister: Die Sphäre kann einen Verbündeten schützen, die Hände bleiben frei.",
+
+  "POWER_STAFFPROJECTILE.CHAT_INTRO": "{actorname} schleudert ein Stabgeschoss auf {targetname}.",
+  "POWER_STAFFPROJECTILE.CHAT_SUCCESS": "{targetname} wird vom Stabgeschoss getroffen.",
+  "POWER_STAFFPROJECTILE.CHAT_FAILURE": "{targetname} weicht dem Stabgeschoss aus.",
+  "POWER_STAFFPROJECTILE.CHAT_NO_TARGET": "Wähle mindestens ein Ziel-Token für das Stabgeschoss.",
+  "POWER_STAFFPROJECTILE.CHAIN_CONFIRM": "Stabgeschoss auf {targetname} fortsetzen ({dice} Schaden)?",
+  "POWER_STAFFPROJECTILE.CHAT_ADEPT": "Adept: Keine Sichtlinie nötig; eine aktivierte Elementarrune addiert ihren Schaden (im Schadensmodifikator-Feld eintragen).",
 
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO": "{actorname} versucht, die Geister zu erwecken.",
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO_M": "{actorname} versucht, den Wandel der Geister aufrechtzuerhalten.",

@@ -1640,6 +1640,25 @@ export class SymbaroumItem extends Item {
     combatMods.traditions.push(base);
   }
 
+  getItemModifierSphere(combatMods, armors, weapons, abilities) {
+    let lvl = this.getLevel();
+    if (lvl.level == 0) return;
+    if (!this.actor.hasCondition("sphere") && !this.actor.getFlag(game.system.id, "sphere")) return;
+    // A16 Sphere (active toggle): while the sphere condition is active, defense is
+    // rolled with Resolute instead of Quick (same replacement mechanism as Tactician,
+    // applied when Resolute is the higher attribute)
+    for (let i = 0; i < armors.length; i++) {
+      if (armors[i].system.isStackableArmor) {
+        continue;
+      }
+      let base = this._getBaseFormat();
+      base.attribute = "resolute";
+      base.type = game.symbaroum.config.TYPE_ATTRIBUTE;
+      this.system.isIntegrated = true;
+      combatMods.armors[armors[i].id].attributes.push(base);
+    }
+  }
+
   getItemModifierSpiritform(combatMods, armors, weapons, abilities) {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
@@ -2053,6 +2072,23 @@ export class SymbaroumItem extends Item {
     }
   }
 
+  getItemModifierTrollsinging(combatMods, armors, weapons, abilities) {
+    let lvl = this.getLevel();
+    if (lvl.level == 0) return;
+    if (lvl.level > 1) {
+      for (let i = 0; i < abilities.length; i++) {
+        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_TROLLS)) {
+          combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
+        }
+      }
+    }
+    let base = this._getBaseFormat();
+    base.value = game.symbaroum.config.TRAD_TROLLS;
+    base.level = lvl.level;
+    this.system.isIntegrated = true;
+    combatMods.traditions.push(base);
+  }
+
   getItemModifierWitchcraft(combatMods, armors, weapons, abilities) {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
@@ -2149,6 +2185,26 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_RES;
 
     if (base.powerLvl.level > 1) base.chain = game.symbaroum.config.CHAIN;
+    return base;
+  }
+
+  mysticPowerSetupBanishingseal(base) {
+    base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
+    base.targetResistAttribute = "resolute";
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.maintain = game.symbaroum.config.MAINTAIN_NOT;
+    base.multipleTargets = true;
+    base.multipleTargetsNb = 10;
+    base.preDialogFunction = preDialogBanishingSeal;
+    base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "banishingseal"))];
+    base.introText = game.i18n.localize("POWER_BANISHINGSEAL.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_BANISHINGSEAL.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_BANISHINGSEAL.CHAT_FAILURE");
+    if (base.powerLvl.level === 2) {
+      base.finalTextSucceed = game.i18n.localize("POWER_BANISHINGSEAL.CHAT_ADEPT");
+    } else if (base.powerLvl.level === 3) {
+      base.finalTextSucceed = game.i18n.localize("POWER_BANISHINGSEAL.CHAT_MASTER");
+    }
     return base;
   }
 
@@ -2302,6 +2358,30 @@ export class SymbaroumItem extends Item {
       resultTextSuccess: game.i18n.localize("POWER_DANCINGWEAPON.CHAT_RESULT_ACTIVATE"),
       addCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "dancingweapon"))],
     };
+    return base;
+  }
+
+  mysticPowerSetupDrainingglyph(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.targetResistAttribute = "strong";
+    base.maintain = game.symbaroum.config.MAINTAIN_RES;
+    base.hasDamage = true;
+    base.damageDice = "1d4";
+    base.damageType = {
+      mysticIgnArm: true,
+    };
+    base.ignoreArm = true;
+    base.introText = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_INTRO");
+    base.introTextMaintain = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_INTRO_M");
+    base.resultTextSuccess = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_FAILURE");
+    base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
+    if (base.powerLvl.level === 3) {
+      base.finalTextSucceed = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_MASTER_HEAL");
+    }
     return base;
   }
 
@@ -2547,6 +2627,59 @@ export class SymbaroumItem extends Item {
       addCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "revenantstrike"))],
     };
     base.flagNotPresentFSmod.resultTextSuccess = game.i18n.localize("POWER_REVENANTSTRIKE.CHAT_RESULT");
+    return base;
+  }
+
+  mysticPowerSetupSphere(base) {
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.traditions = [game.symbaroum.config.TRAD_STAFFM];
+    base.gmOnlyChatResultNPC = true;
+    base.flagTest = "sphere";
+    base.confirmDialog = true;
+    base.flagPresentFSmod = {
+      introText: game.i18n.localize("POWER_SPHERE.CHAT_DEACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_SPHERE.CHAT_RESULT_DEACTIVATE"),
+      corruption: game.symbaroum.config.TEMPCORRUPTION_NONE,
+      removeCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "sphere"))],
+    };
+    base.flagNotPresentFSmod = {
+      flagData: base.powerLvl.level,
+      introText: game.i18n.localize("POWER_SPHERE.CHAT_ACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_SPHERE.CHAT_RESULT_ACTIVATE"),
+      addCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "sphere"))],
+    };
+    if (base.powerLvl.level === 3) {
+      base.flagNotPresentFSmod.finalText = game.i18n.localize("POWER_SPHERE.CHAT_MASTER");
+    } else if (base.powerLvl.level === 2) {
+      base.flagNotPresentFSmod.finalText = game.i18n.localize("POWER_SPHERE.CHAT_ADEPT");
+    }
+    return base;
+  }
+
+  mysticPowerSetupStaffprojectile(base) {
+    base.traditions = [game.symbaroum.config.TRAD_STAFFM];
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.targetResistAttribute = "defense";
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.hasDamage = true;
+    base.damageType = {
+      mysticArm: true,
+    };
+    base.introText = game.i18n.localize("POWER_STAFFPROJECTILE.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_STAFFPROJECTILE.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_STAFFPROJECTILE.CHAT_FAILURE");
+    if (base.powerLvl.level === 1) {
+      base.damageDice = "1d8";
+    } else if (base.powerLvl.level === 2) {
+      base.damageDice = "1d10";
+      base.finalTextSucceed = game.i18n.localize("POWER_STAFFPROJECTILE.CHAT_ADEPT");
+    } else {
+      base.damageDice = "1d12";
+      base.multipleTargets = true;
+      base.multipleTargetsNb = 5;
+      base.preDialogFunction = preDialogStaffProjectile;
+    }
     return base;
   }
 
@@ -3385,8 +3518,95 @@ export async function buildRolls(functionStuff) {
   if (isWeaponRoll) {
     return await attackResult(rollData, functionStuff);
   } else {
-    return await standardPowerResult(rollData, functionStuff);
+    const resultFunction = getPowerResultFunction(functionStuff);
+    return await resultFunction(rollData, functionStuff);
   }
+}
+
+/* A16 chain powers: scripted powers that strike one target after another
+   (Staff Projectile master, Banishing Seal). buildRolls only rolls the opposed
+   test against the primary target; the result functions below continue the
+   sequence through the remaining pre-selected targets (functionStuff.chainTargets,
+   populated by the power's pre-dialog), with a confirmation before each follow-up
+   and a stop at the first failed test. Chain targets cost no additional corruption
+   (one casting). */
+function getPowerResultFunction(functionStuff) {
+  switch (functionStuff.ability?.reference) {
+    case "staffprojectile":
+      return staffProjectileChainResult;
+    case "banishingseal":
+      return banishingSealChainResult;
+    default:
+      return standardPowerResult;
+  }
+}
+
+function chainTargetConfirmation(functionStuff, target, damageDice) {
+  return new Promise((resolve) => {
+    const key =
+      functionStuff.ability.reference === "staffprojectile" ? "POWER_STAFFPROJECTILE.CHAIN_CONFIRM" : "POWER_BANISHINGSEAL.CHAIN_CONFIRM";
+    const question = game.i18n.format(key, { targetname: target.name, dice: damageDice ?? "" });
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<p>${question}</p>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: () => resolve(true),
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+          callback: () => resolve(false),
+        },
+      },
+      default: "yes",
+    });
+  });
+}
+
+async function chainResult(rollData, functionStuff, chainDamageDice) {
+  // primary target: standard behaviour (chat, damage, corruption, effects)
+  await standardPowerResult(rollData, functionStuff);
+  // advantage (+1d4 damage) applies to the primary attack only
+  functionStuff.hasAdvantage = false;
+  if (!rollData?.[0]?.trueActorSucceeded) return;
+  const chainTargets = functionStuff.chainTargets ?? [];
+  const savedCorruption = functionStuff.corruption;
+  // the chain is part of one casting: no further corruption per target
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  for (let i = 0; i < chainTargets.length; i++) {
+    const next = chainTargets[i];
+    const damageDice = chainDamageDice?.(i);
+    const proceed = await chainTargetConfirmation(functionStuff, next, damageDice);
+    if (!proceed) return;
+    if (damageDice) functionStuff.damageDice = damageDice;
+    functionStuff.targetData = next;
+    const rollDataNext = [
+      await baseRoll(
+        functionStuff.actor,
+        functionStuff.castingAttributeName,
+        next.actor,
+        next.resistAttributeName ?? "defense",
+        functionStuff.favour,
+        functionStuff.modifier,
+        false
+      ),
+    ];
+    await standardPowerResult(rollDataNext, functionStuff);
+    if (!rollDataNext[0].trueActorSucceeded) return;
+  }
+  functionStuff.corruption = savedCorruption;
+}
+
+async function staffProjectileChainResult(rollData, functionStuff) {
+  const dice = ["1d10", "1d8", "1d6", "1d4"];
+  return chainResult(rollData, functionStuff, (index) => dice[Math.min(index, dice.length - 1)]);
+}
+
+async function banishingSealChainResult(rollData, functionStuff) {
+  return chainResult(rollData, functionStuff, null);
 }
 
 export function checkSpecialResistanceMod(damageReductions, autoParams = "", abilityRef) {
@@ -4247,6 +4467,54 @@ async function standardPowerResult(rollData, functionStuff) {
     await createModifyTokenChatButton(flagDataArray);
   }
   return templateData;
+}
+
+/* A16 pre-dialog helpers for the chain powers: with multipleTargets the usePower
+   flow collects all targeted tokens in functionStuff.targets and leaves targetData
+   empty; these helpers promote the first target to the primary target and queue
+   the rest as chain targets for the result functions above. */
+async function preDialogStaffProjectile(functionStuff) {
+  if (!functionStuff.targetData.hasTarget && functionStuff.targets?.length) {
+    functionStuff.targetData = functionStuff.targets[0];
+    functionStuff.chainTargets = functionStuff.targets.slice(1);
+  }
+  if (!functionStuff.targetData.hasTarget) {
+    ui.notifications.error(game.i18n.localize("POWER_STAFFPROJECTILE.CHAT_NO_TARGET"));
+    return;
+  }
+  await modifierDialog(functionStuff);
+}
+
+async function preDialogBanishingSeal(functionStuff) {
+  if (!functionStuff.targetData.hasTarget && functionStuff.targets?.length) {
+    functionStuff.targetData = functionStuff.targets[0];
+    functionStuff.chainTargets = functionStuff.targets.slice(1);
+  }
+  if (!functionStuff.targetData.hasTarget) {
+    ui.notifications.error(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_TARGET"));
+    return;
+  }
+  symbDialog({
+    title: functionStuff.abilityName,
+    content: `<p>${game.i18n.localize("POWER_BANISHINGSEAL.DIALOG_TYPE")}</p>
+      <input type="text" id="creatureType" style="width: 100%">`,
+    buttons: {
+      cast: {
+        icon: '<i class="fas fa-check"></i>',
+        label: game.i18n.localize("BUTTON.ROLL"),
+        callback: (html) => {
+          const creatureType = html[0].querySelector("#creatureType").value.trim();
+          if (creatureType.length) functionStuff.autoParams += "(" + creatureType + "), ";
+          modifierDialog(functionStuff);
+        },
+      },
+      cancel: {
+        icon: '<i class="fas fa-times"></i>',
+        label: game.i18n.localize("BUTTON.CANCEL"),
+      },
+    },
+    default: "cast",
+  });
 }
 
 async function preDialogLayonHands(functionStuff) {

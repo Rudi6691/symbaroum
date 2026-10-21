@@ -4267,6 +4267,17 @@ dialog.symb-dialog footer {
   background: #cdc8b4;
 }
 
+/* 7.1.16 (A10): dialog text colour. The 7.1.9 light surfaces kept      */
+/* the light theme text colour, making confirmation queries             */
+/* (cast/deactivate, item delete) illegible. Force the system text      */
+/* colour (black) on the dialog content and paragraphs.                 */
+dialog.symb-dialog .window-content,
+dialog.symb-dialog .dialog-content,
+dialog.symb-dialog .window-content p,
+dialog.symb-dialog .dialog-content p {
+  color: var(--color-text);
+}
+
 dialog.symb-dialog input[type=text],
 dialog.symb-dialog input[type=number] {
   background: url(../asset/image/background/editable.webp) repeat !important;

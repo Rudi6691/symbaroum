@@ -886,6 +886,11 @@ export class SymbaroumActor extends Actor {
 		if (!ability.isOwned || ability.system.reference === undefined || ability.system.reference === null) {
 			return;
 		}
+		// A13: block the use of unlearned abilities, powers and traits (level 0)
+		if (ability.system.hasLevels && ability.getLevel().level === 0) {
+			ui.notifications.warn(game.i18n.format("ERROR.NOT_LEARNED", { name: ability.name }));
+			return;
+		}
 		// get acting token
 		let actingToken = api.getActorToken(this);
 		if (this.system.combat.combatMods.abilities[ability.id]) {
