@@ -1,3 +1,12 @@
+Version 40.0.1
+
+* A9, German language file (lang/de.json) overhauled in two passes: designations for abilities, mystic powers, boons, burdens and monster traits replaced from Rudolf's German reference collection (161 value changes plus the key rename TYPES.Item.mysticalpower to mysticalPower, matching the English master), followed by a wording pass (70 changes: Du-form consistency, TAB/TITLE casing instead of caps, hyphen and double-space fixes, typos); 16 previously untranslated keys are now German; the English master's trailing/leading spacing rule (concat semantics) is honored; system.json language names "Deutsche " and "Svenska " lose their trailing spaces. CRLF line endings fully preserved
+* A7, the mystic power "Blendendes Symbol" (Blinding Symbol) is now a scripted/automated ability: casting against resolute, maintainable at adept level, blindness via the core status effect, corruption includes the symbolism benefit (adept: 1 point)
+* A7, the mystic power "Schutzrunen" (Protective Runes, APG) follows the toggled model of Tanzende Waffe: armor bonus via the combatMods protection choices (No-Armor pseudo armor included), APG tier model (+1W4 / +1W4+1W4 / +1W6+1W6), retribution damage (from adept on) is printed as final text for the GM to apply manually, the active tier rides in the flag data
+* A7, toggle powers (CASTING_NOT) ask for confirmation before activation and deactivation (Schutzrunen, Tanzende Waffe, Wiedergänger-Schlag, Hexenhammer, Berserker, Regeneration), with a corruption preview (tradition discounts included); on confirmation, corruption is applied directly
+* Drag&Drop on player and monster sheets fixed: Foundry 14.369's DragDrop.bind() assigns ondragover/ondrop as single-slot element properties, so the last DragDrop bound to the sheet root owns the drop handler - the system's attrDragM binding in PlayerSheet._onRender silently clobbered the core wiring; it now carries the drop callback itself and runs the full core chain (_onDrop, _onDropItem, _onDropActiveEffect, _onSortItem); monster sheets inherit
+* No template or data model changes, no world migration - systemMigrationVersion stays 7.0.1
+
 Version 40.0.0
 
 * Version jump: the fork's numbering now keeps clear distance from the official Symbaroum module's version numbers (the fork's 7.x line sat too close to them); the id stays "symbaroum" (world compatibility, manifest and update path unchanged); systemMigrationVersion stays 7.0.1 (no data migration needed, none included). 7.2.11 remains the last 7.x release
