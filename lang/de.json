@@ -417,6 +417,7 @@
 
   "ERROR.NO_TOKEN_SELECTED": "Wähle die handelnde Figur.",
   "ERROR.NOT_LEARNED": "{name} ist nicht erlernt.",
+  "ERROR.NO_STAFF": "{name} erfordert eine aktive Langwaffe.",
   "ERROR.MACRO_NOT_OWNED": "Du kannst nur Makros für Gegenstände und Merkmale anlegen, die dein Charakter besitzt.",
   "ERROR.MACRO_NO_OBJECT": "Der ausgewählte Token hat keinen Gegenstand und kein Merkmal mit der Bezeichnung: ",
   "ERROR.MACRO_NO_SCRIPT": " wurde nicht mit einem Skript versehen.",

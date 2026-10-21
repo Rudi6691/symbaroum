@@ -1879,11 +1879,11 @@ export class SymbaroumItem extends Item {
   getItemModifierSymbolism(combatMods, armors, weapons, abilities) {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
-    if (lvl.level > 1) {
-      for (let i = 0; i < abilities.length; i++) {
-        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_SYMBOLISM)) {
-          combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
-        }
+    // A16: per APG, symbolists pay at most one point of temporary corruption for
+    // powers of their tradition on every tradition level (novice, adept and master)
+    for (let i = 0; i < abilities.length; i++) {
+      if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_SYMBOLISM)) {
+        combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
       }
     }
     let base = this._getBaseFormat();
@@ -2070,23 +2070,6 @@ export class SymbaroumItem extends Item {
       this.system.isIntegrated = true;
       combatMods.armors[armors[i].id].damageReductions.push(base);
     }
-  }
-
-  getItemModifierTrollsinging(combatMods, armors, weapons, abilities) {
-    let lvl = this.getLevel();
-    if (lvl.level == 0) return;
-    if (lvl.level > 1) {
-      for (let i = 0; i < abilities.length; i++) {
-        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_TROLLS)) {
-          combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
-        }
-      }
-    }
-    let base = this._getBaseFormat();
-    base.value = game.symbaroum.config.TRAD_TROLLS;
-    base.level = lvl.level;
-    this.system.isIntegrated = true;
-    combatMods.traditions.push(base);
   }
 
   getItemModifierWitchcraft(combatMods, armors, weapons, abilities) {

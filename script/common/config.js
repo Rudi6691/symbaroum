@@ -429,6 +429,9 @@ SYMBAROUM.scriptedAbilities = [
   "witchhammer",
 ];
 
+// A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
+SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];
+
 SYMBAROUM.steadFastNovResistList = ["drainingglyph", "entanglingvines", "larvaeboils", "mindthrow", "earthbinding", "poisoner", "poisonous"];
 
 SYMBAROUM.steadFastAdeptResistList = [

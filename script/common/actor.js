@@ -901,6 +901,16 @@ export class SymbaroumActor extends Actor {
 				ui.notifications.error(game.i18n.localize("ERROR.NO_TOKEN_SELECTED"));
 				return;
 			}
+			// A16: staff magic powers require an active weapon of quality "Long" ("Lang") to cast
+			if (game.symbaroum.config.staffMagicPowers.includes(ability.system.reference)) {
+				// an active toggle can always be deactivated, even without the weapon
+				const toggleActive =
+					specificStuff.flagTest && (this.hasCondition(specificStuff.flagTest) || this.getFlag(game.system.id, specificStuff.flagTest));
+				if (!toggleActive && !this.items.some((it) => it.type === "weapon" && it.system.isActive && it.system.isMelee && it.system.reference === "long")) {
+					ui.notifications.warn(game.i18n.format("ERROR.NO_STAFF", { name: ability.name }));
+					return;
+				}
+			}
 			//casting attribute
 			if (specificStuff.attributes.length > 0) {
 				let castingAttribute = specificStuff.castingAttributeName;
