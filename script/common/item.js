@@ -2430,36 +2430,27 @@ export class SymbaroumItem extends Item {
     base.getTarget = true;
     base.targetMandatory = true;
     base.traditions = [game.symbaroum.config.TRAD_WITCHCRAFT];
-    // A25 stage 4 (GRW): free action, once per round; the bind is an
-    // UNOPPOSED Resolute probe on every level, the escape test
-    // [Resolute<-Strong] runs per round through the A23 maintain chain
-    base.casting = game.symbaroum.config.CASTING;
     base.maintain = game.symbaroum.config.MAINTAIN_RES;
+    // A25 stage 4 (GRW): free action, once per round; the setup mirrors
+    // the ORIGINAL Entangling Vines model exactly (F7): Novice and Adept
+    // bind with an unopposed Resolute probe, Master with an opposed
+    // [Resolute<-Strong] test and ground damage, the per-round escape
+    // test runs through the A23 maintain chain
+    base.casting = base.powerLvl.level === 3 ? game.symbaroum.config.CASTING_RES : game.symbaroum.config.CASTING;
     base.targetResistAttribute = "strong";
+    base.hasDamage = base.powerLvl.level === 3;
+    base.damageDice = "1d6";
+    base.damageType = {
+      mysticIgnArm: true,
+    };
     base.introText = game.i18n.localize("POWER_EARTHBINDING.CHAT_INTRO");
     base.introTextMaintain = game.i18n.localize("POWER_EARTHBINDING.CHAT_INTRO_M");
     base.resultTextSuccess = game.i18n.localize("POWER_EARTHBINDING.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_EARTHBINDING.CHAT_FAILURE");
     base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind"))];
-    if (base.powerLvl.level === 3) {
-      // Master: the ground clenches the target's legs - 1d6 damage per round,
-      // armor ignored (same model as the Entangling Vines thorns)
-      base.hasDamage = true;
-      base.damageDice = "1d6";
-      base.damageType = {
-        mysticIgnArm: true,
-      };
-      base.ignoreArm = true;
-      base.finalTextSucceed = game.i18n.localize("POWER_EARTHBINDING.CHAT_MASTER");
-      // A25 F4 (Rudolf's test round): the per-round damage rolls EXPLICITLY on
-      // the maintain summary for EVERY still-bound target (GRW: the damage
-      // applies in ALL rounds, not just the first) - see maintainChainResult;
-      // the legacy maintain damage path is opted out (maintainDamage) so the
-      // damage never rolls twice
-      base.maintainDamage = false;
-      base.maintainRoundDamage = "1d6";
-    }
-    // Adept+: the binding chains from target to target (GRW)
+    base.ignoreArm = true;
+    // Adept+: the binding chains from target to target (GRW); Adept
+    // follow-ups probe unopposed, Master against Strong
     if (base.powerLvl.level > 1) base.chain = game.symbaroum.config.CHAIN;
     return base;
   }
@@ -4067,8 +4058,9 @@ async function mindThrowChainResult(rollData, functionStuff) {
 }
 
 /* A25 stage 4: the Ketten-Runde package 1 chain functions. Earthbinding
-   (Adept+) binds one target after another with UNOPPOSED follow-up probes
-   (GRW), its per-round escape test [Resolute<-Strong] runs as the A23
+   (Adept+) binds one target after another (GRW) - Adept follow-ups probe
+   unopposed, Master against Strong, mirroring the Entangling Vines chain -
+   its per-round escape test [Resolute<-Strong] runs as the A23
    maintain chain; Battle Symbol (every level - the novice text already
    describes the chain) and Mark of Torment (every level) chain with opposed
    [Resolute<-Resolute] probes, stopping at the first failure - as
@@ -4076,7 +4068,10 @@ async function mindThrowChainResult(rollData, functionStuff) {
    (followUpsFree, A25 stage 3); True Form chains from Adept on, Levitate
    chains allies at Master with opposed [Resolute<-Strong] probes. */
 async function earthbindingChainResult(rollData, functionStuff) {
-  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1, unresisted: true });
+  return chainSequenceResult(rollData, functionStuff, {
+    stopAfterFails: 1,
+    unresisted: functionStuff.powerLvl.level < 3,
+  });
 }
 
 async function battlesymbolChainResult(rollData, functionStuff) {
@@ -4256,18 +4251,6 @@ async function maintainChainResult(rollData, functionStuff) {
   const rolls = [];
   const lines = [];
 
-  // A25 F4 (Rudolf's test round): Erdfessel Master deals its per-round damage
-  // EXPLICITLY on the maintain summary card - every target that stays bound
-  // takes the setup's maintainRoundDamage dice as a direct toughness change on
-  // the GM card (armor ignored), the roll shows on the summary card
-  const addRoundDamage = async (tokenId, targetname) => {
-    if (!functionStuff.maintainRoundDamage) return;
-    const roundDamageRoll = await new Roll(functionStuff.maintainRoundDamage).evaluate();
-    rolls.push(roundDamageRoll);
-    flagDataArray.push({ tokenId: tokenId, toughnessChange: -1 * roundDamageRoll.total });
-    lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_ROUND_DAMAGE", { targetname: targetname, count: roundDamageRoll.total })}</p>`);
-  };
-
   // A24-3 (test round 2): the marked target is part of the chain - its dialog
   // test shows up in the summary card like every other maintained target
   if (markedHasOwn) {
@@ -4275,8 +4258,6 @@ async function maintainChainResult(rollData, functionStuff) {
     lines.push(
       `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: markedName })}</p>`
     );
-    // bound another round: the per-round damage (Erdfessel Master) rolls here
-    if (holds) await addRoundDamage(markedTokenId, markedName);
     // failed test on the marked target: also remove add-target effects there
     // (standardPowerResult only removes actively maintained effects - the old
     // Black Bolt gap: paralysis was never removed on a failed maintain test)
@@ -4308,8 +4289,6 @@ async function maintainChainResult(rollData, functionStuff) {
     lines.push(
       `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: token.name })}</p>`
     );
-    // bound another round: the per-round damage (Erdfessel Master) rolls here
-    if (holds) await addRoundDamage(token.id, token.name);
     if (!holds) {
       flagDataArray.push({ tokenId: token.id, removeEffect: effect });
     }
