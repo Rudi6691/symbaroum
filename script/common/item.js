@@ -4146,7 +4146,10 @@ async function levitateMaintainResult(rollData, functionStuff) {
   }
 
   const lines = [];
-  const rolls = [...(rollData ?? [])];
+  // A25 F3 (test round): baseRoll returns wrapper objects - the card needs
+  // the Foundry rolls inside them, not the wrappers themselves
+  const rolls = [];
+  for (const rollDataElement of rollData ?? []) rolls.push(...(rollDataElement.rolls ?? []));
   if (holds) {
     for (const token of levitating) {
       lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_HOLDS", { targetname: token.name })}</p>`);

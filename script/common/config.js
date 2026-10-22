@@ -527,6 +527,12 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/puppet.png",
   },
   {
+    id: "bind",
+    label: "POWER_LABEL.BOUND",
+    name: "POWER_LABEL.BOUND",
+    icon: "systems/symbaroum/asset/image/powers/earthbinding.svg",
+  },
+  {
     id: "berserker",
     label: "ABILITY_LABEL.BERSERKER",
     name: "ABILITY_LABEL.BERSERKER",
