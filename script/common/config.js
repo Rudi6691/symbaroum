@@ -600,6 +600,12 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/ghost.svg",
   },
   {
+    id: "trueform",
+    label: "POWER_LABEL.TRUE_FORM",
+    name: "POWER_LABEL.TRUE_FORM",
+    icon: "icons/svg/eye.svg",
+  },
+  {
     id: "unnoticeable",
     label: "POWER_LABEL.UNNOTICEABLE",
     name: "POWER_LABEL.UNNOTICEABLE",

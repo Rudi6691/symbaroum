@@ -598,6 +598,20 @@
   "POWER_BANISHINGSEAL.CHAT_ADEPT": "Kreaturen ohne den betroffenen Typ im Siegel erleiden 1W4 Schaden (vom Spielleiter anzuwenden).",
   "POWER_BANISHINGSEAL.CHAT_MASTER": "Kreaturen ohne den betroffenen Typ im Siegel erleiden 1W8 Schaden, fliehende 1W4 (vom Spielleiter anzuwenden).",
 
+  "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} versucht, {targetname} mit dem Kampfsymbol zu erfassen.",
+  "POWER_BATTLESYMBOL.CHAT_INTRO_M": "{actorname} hält das Kampfsymbol aufrecht.",
+  "POWER_BATTLESYMBOL.CHAT_SUCCESS": "{targetname} wird von unkontrollierbarer Kampfeswut erfasst.",
+  "POWER_BATTLESYMBOL.CHAT_FAILURE": "{targetname} widersteht dem Kampfsymbol.",
+  "POWER_BATTLESYMBOL.CHAT_NOVICE": "Das Opfer greift sofort die nächste Person an, Freund oder Feind. Wirkung: eine Runde (SL entfernt das Symbol).",
+  "POWER_BATTLESYMBOL.CHAT_ADEPT": "Die Betroffenen greifen sofort die nächste Person an, Freund oder Feind (SL). Maintain-Probe: Willenskraft minus dem Schaden des Treffers, der sie auslöst (Modifikator im Würfeldialog).",
+  "POWER_BATTLESYMBOL.CHAT_MASTER": "Die Betroffenen können sich nicht verteidigen – jeder Angriff gegen sie trifft automatisch (SL).",
+
+  "POWER_BLACKBREATH.CHAT_INTRO": "{actorname} speit seine innere Dunkelheit gegen {targetname}.",
+  "POWER_BLACKBREATH.CHAT_SUCCESS": "Der schwarze Atem erfasst {targetname}.",
+  "POWER_BLACKBREATH.CHAT_HEAL": "{targetname} wird um {count} Korruptionspunkt(e) geläutert.",
+  "POWER_BLACKBREATH.CHAT_CORRUPTED": "{targetname} erleidet {count} temporäre(n) Korruptionspunkt(e).",
+  "POWER_BLACKBREATH.CHAT_CHAIN_END": "Das geheilte Ziel beendet die Kette.",
+
   "POWER_BENDWILL.CHAT_INTRO": "{actorname} versucht {targetname} zu kontrollieren.",
   "POWER_BENDWILL.CHAT_INTRO_M": "{actorname} hält Zwang aufrecht.",
   "POWER_BENDWILL.CHAT_SUCCESS": "{actorname} kontrolliert nun {targetname}.",
@@ -647,6 +661,12 @@
   "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Weiteres Ziel<br>für die Glyphe?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - die Glyphe wirkt nur auf die bereits geprüften Feinde.",
 
+  "POWER_EARTHBINDING.CHAT_INTRO": "{actorname} versucht, {targetname} im Boden versinken zu lassen. (Aktion: Frei, einmal pro Runde)",
+  "POWER_EARTHBINDING.CHAT_INTRO_M": "{targetname} versucht, sich aus der Erdfessel zu befreien.",
+  "POWER_EARTHBINDING.CHAT_SUCCESS": "{targetname} ist im Boden gefesselt und kann sich nicht bewegen.",
+  "POWER_EARTHBINDING.CHAT_FAILURE": "{targetname} entgeht der Erdfessel.",
+  "POWER_EARTHBINDING.CHAT_MASTER": "Der Boden umklammert das Ziel: 1W6 Schaden pro Runde, Rüstung wird ignoriert (wiederholende Probe je Runde; für weitere Kettenziele wendet die SL an).",
+
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} versucht sich von den Ranken loszureißen.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} ist in Ranken verstrickt.",
   "POWER_ENTANGLINGVINES.CHAT_FAILURE": "{targetname} kann sich von den Ranken befreien.",
@@ -676,6 +696,12 @@
   "POWER_LAYONHANDS.CHAT_SUCCESS": "{actorname} heilt {targetname}.",
   "POWER_LAYONHANDS.CHAT_FINAL": "Zähigkeit geheilt: ",
   "POWER_LAYONHANDS.CHAT_FAILURE": "{actorname} kann {targetname} nicht heilen.",
+
+  "POWER_MARKOFTORMENT.CHAT_INTRO": "{actorname} zeichnet {targetname} mit dem Zeichen der Pein.",
+  "POWER_MARKOFTORMENT.CHAT_SUCCESS": "{targetname} wird von stechenden Schmerzen geschüttelt.",
+  "POWER_MARKOFTORMENT.CHAT_FAILURE": "{targetname} widersteht dem Symbol.",
+  "POWER_MARKOFTORMENT.CHAT_NOVICE": "Keine aktiven Aktionen für eine Runde (SL entfernt das Symbol).",
+  "POWER_MARKOFTORMENT.CHAT_ADEPT": "Reaktive Aktionen (Verteidigung) werden doppelt gewürfelt – das schlechtere Ergebnis zählt (SL).",
 
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} fokussiert das Licht der Seele als brenennden Strahl.",
   "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} könnte das Ziel betäuben [Willenskraft <-- Willenskraft]",
@@ -710,6 +736,12 @@
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO_M": "{actorname} versucht, den Wandel der Geister aufrechtzuerhalten.",
   "POWER_TORMENTINGSPIRITS.CHAT_SUCCESS": "{actorname} sendet die Geister gegen {targetname}.",
   "POWER_TORMENTINGSPIRITS.CHAT_FAILURE": "Der Ruf von {actorname} bleibt von den Geistern unbeantwortet.",
+
+  "POWER_TRUEFORM.CHAT_INTRO": "{actorname} zwingt {targetname}, seine wahre Gestalt zu offenbaren.",
+  "POWER_TRUEFORM.CHAT_SUCCESS": "{targetname}s wahre Gestalt wird offenbart.",
+  "POWER_TRUEFORM.CHAT_FAILURE": "{targetname}s Maskerade hält.",
+  "POWER_TRUEFORM.CHAT_NOVICE": "Aufgedeckte Illusionen verschwinden; Verwandlungen bleiben, doch der Mystiker durchschaut sie (SL).",
+  "POWER_TRUEFORM.CHAT_MASTER": "Eine neue Verwandlung erfordert eine Willenskraft-Probe auf die Initiative des Ziels (SL).",
 
   "POWER_WITCHHAMMER.CHAT_ACTIVATE": "Die Waffe von {actorname} wird von heiligem Feuer umhüllt.",
   "POWER_WITCHHAMMER.CHAT_DEACTIVATE": "Die Waffe von {actorname} ist nicht länger von heiligen Flammen umhüllt.",

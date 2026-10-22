@@ -2216,6 +2216,34 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  mysticPowerSetupBattlesymbol(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
+    base.targetResistAttribute = "resolute";
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.introText = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_INTRO");
+    base.introTextMaintain = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_INTRO_M");
+    base.resultTextSuccess = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_FAILURE");
+    if (base.powerLvl.level === 1) {
+      // A25 stage 4: novice - one round of berserk rage (GM removes the symbol)
+      base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "berserker"))];
+      base.finalTextSucceed = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_NOVICE");
+    } else {
+      // adept/master: the rage holds while the symbol is maintained; the
+      // mystic's Resolute test (minus the damage of the triggering hit,
+      // entered as a dialog modifier) keeps it up (APG, Rudolf 22.10.)
+      base.maintain = game.symbaroum.config.MAINTAIN_RES;
+      base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "berserker"))];
+      base.finalTextSucceed = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_ADEPT");
+    }
+    if (base.powerLvl.level === 3) {
+      base.finalTextSucceed = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_MASTER");
+    }
+    return base;
+  }
+
   mysticPowerSetupBendwill(base) {
     base.traditions = [game.symbaroum.config.TRAD_WIZARDRY, game.symbaroum.config.TRAD_WITCHCRAFT];
     base.targetResistAttribute = "resolute";
@@ -2256,6 +2284,22 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_RES;
 
     if (base.powerLvl.level > 1) base.chain = game.symbaroum.config.CHAIN;
+    return base;
+  }
+
+  mysticPowerSetupBlackbreath(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.traditions = [game.symbaroum.config.TRAD_SORCERY];
+    // A25 stage 4 (APG): no attribute test at all - the d4/d6 rolls against
+    // the target's TOTAL corruption inside standardPowerResult (see the
+    // functionStuff.blackbreath branch); the Master chain continues only
+    // while the previous target SUFFERED corruption (blackbreathChainResult)
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.maintain = game.symbaroum.config.MAINTAIN_NOT;
+    base.blackbreath = true;
+    base.introText = game.i18n.localize("POWER_BLACKBREATH.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_BLACKBREATH.CHAT_SUCCESS");
     return base;
   }
 
@@ -2376,6 +2420,37 @@ export class SymbaroumItem extends Item {
     if (base.powerLvl.level === 3) {
       base.finalTextSucceed = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_MASTER_HEAL");
     }
+    return base;
+  }
+
+  mysticPowerSetupEarthbinding(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.traditions = [game.symbaroum.config.TRAD_WITCHCRAFT];
+    // A25 stage 4 (GRW): free action, once per round; the bind is an
+    // UNOPPOSED Resolute probe on every level, the escape test
+    // [Resolute<-Strong] runs per round through the A23 maintain chain
+    base.casting = game.symbaroum.config.CASTING;
+    base.maintain = game.symbaroum.config.MAINTAIN_RES;
+    base.targetResistAttribute = "strong";
+    base.introText = game.i18n.localize("POWER_EARTHBINDING.CHAT_INTRO");
+    base.introTextMaintain = game.i18n.localize("POWER_EARTHBINDING.CHAT_INTRO_M");
+    base.resultTextSuccess = game.i18n.localize("POWER_EARTHBINDING.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_EARTHBINDING.CHAT_FAILURE");
+    base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind"))];
+    if (base.powerLvl.level === 3) {
+      // Master: the ground clenches the target's legs - 1d6 damage per round,
+      // armor ignored (same model as the Entangling Vines thorns)
+      base.hasDamage = true;
+      base.damageDice = "1d6";
+      base.damageType = {
+        mysticIgnArm: true,
+      };
+      base.ignoreArm = true;
+      base.finalTextSucceed = game.i18n.localize("POWER_EARTHBINDING.CHAT_MASTER");
+    }
+    // Adept+: the binding chains from target to target (GRW)
+    if (base.powerLvl.level > 1) base.chain = game.symbaroum.config.CHAIN;
     return base;
   }
 
@@ -2520,6 +2595,8 @@ export class SymbaroumItem extends Item {
       base.casting = game.symbaroum.config.CASTING_RES;
       base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "fly"))];
     }
+    // A25 stage 4 (GRW): Master floats himself AND a chain of allies
+    if (base.powerLvl.level > 2) base.chain = game.symbaroum.config.CHAIN;
     return base;
   }
 
@@ -2555,6 +2632,36 @@ export class SymbaroumItem extends Item {
       base.maintain = game.symbaroum.config.MAINTAIN;
       // A25 stage 2: Master can throw a chain of enemies (GRW)
       base.chain = game.symbaroum.config.CHAIN;
+    }
+    return base;
+  }
+
+  mysticPowerSetupMarkoftorment(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
+    base.targetResistAttribute = "resolute";
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.maintain = game.symbaroum.config.MAINTAIN_NOT;
+    base.introText = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_FAILURE");
+    // one round without active actions - stun symbol, GM removes it
+    base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "stun"))];
+    base.finalTextSucceed = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_NOVICE");
+    if (base.powerLvl.level > 1) {
+      // adept+: reactive actions (defense) roll twice, the worse result
+      // counts (Rudolf 22.10.) - display + GM
+      base.finalTextSucceed = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_ADEPT");
+    }
+    if (base.powerLvl.level === 3) {
+      // master: the pain deals 1d6 damage, armor ignored
+      base.hasDamage = true;
+      base.damageDice = "1d6";
+      base.damageType = {
+        mysticIgnArm: true,
+      };
+      base.ignoreArm = true;
     }
     return base;
   }
@@ -2710,6 +2817,30 @@ export class SymbaroumItem extends Item {
         mysticIgnArm: true,
       };
     }
+    return base;
+  }
+
+  mysticPowerSetupTrueform(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.traditions = [game.symbaroum.config.TRAD_WIZARDRY, game.symbaroum.config.TRAD_THEURGY];
+    base.targetResistAttribute = "resolute";
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.maintain = game.symbaroum.config.MAINTAIN_NOT;
+    base.introText = game.i18n.localize("POWER_TRUEFORM.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_TRUEFORM.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_TRUEFORM.CHAT_FAILURE");
+    base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "trueform"))];
+    if (base.powerLvl.level === 1) {
+      // novice reaction: revealed illusions vanish (GM)
+      base.finalTextSucceed = game.i18n.localize("POWER_TRUEFORM.CHAT_NOVICE");
+    } else if (base.powerLvl.level === 3) {
+      // master: a new transformation needs a Resolute test on the target's
+      // initiative (GM)
+      base.finalTextSucceed = game.i18n.localize("POWER_TRUEFORM.CHAT_MASTER");
+    }
+    // Adept+: chains from creature to creature (GRW) - via dispatch only,
+    // no chain flag (no maintain on any level, so no maintain dropdown)
     return base;
   }
 
@@ -3494,7 +3625,12 @@ export async function buildRolls(functionStuff) {
   game.symbaroum.log("...buildRolls", ...arguments);
 
   if (functionStuff.casting === game.symbaroum.config.CASTING_NOT && !functionStuff.isMaintained) {
-    return await standardPowerResult(null, functionStuff);
+    // A25 stage 4: route no-probe powers through the dispatch as well - the
+    // default for every CASTING_NOT power remains standardPowerResult(null),
+    // only Black Breath chains on (its corruption comparison runs inside
+    // standardPowerResult, the Master chain in blackbreathChainResult)
+    const resultFunction = getPowerResultFunction(functionStuff);
+    return await resultFunction(null, functionStuff);
   }
   let isWeaponRoll = functionStuff.combat;
   let rollData = [];
@@ -3602,6 +3738,26 @@ function getPowerResultFunction(functionStuff) {
       return functionStuff.powerLvl.level > 2 && !functionStuff.isMaintained && functionStuff.targetData?.hasTarget
         ? mindThrowChainResult
         : standardPowerResult;
+    // A25 stage 4: the remaining chain powers (GRW/APG). Earth Binding
+    // (Adept+) binds a chain with unresisted follow-ups, the escape tests
+    // run as the A23 maintain chain; Battle Symbol (every level, per the
+    // novice text) and Mark of Torment (every level) chain without a chain
+    // flag via dispatch - their adept/master maintain (Battle Symbol) runs
+    // as the maintain chain; True Form chains from Adept on; Levitate
+    // (Master) floats a chain of allies; Black Breath (Master) only
+    // continues while the previous target SUFFERED corruption
+    case "earthbinding":
+      return functionStuff.isMaintained ? maintainChainResult : earthbindingChainResult;
+    case "battlesymbol":
+      return functionStuff.isMaintained ? maintainChainResult : battlesymbolChainResult;
+    case "blackbreath":
+      return blackbreathChainResult;
+    case "trueform":
+      return functionStuff.powerLvl.level > 1 ? trueformChainResult : standardPowerResult;
+    case "markoftorment":
+      return markoftormentChainResult;
+    case "levitate":
+      return functionStuff.powerLvl.level > 2 ? levitateChainResult : standardPowerResult;
     default:
       return standardPowerResult;
   }
@@ -3894,6 +4050,61 @@ async function blindingsymbolChainResult(rollData, functionStuff) {
 
 async function mindThrowChainResult(rollData, functionStuff) {
   return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+/* A25 stage 4: the remaining chain powers (GRW/APG). Earth Binding (Adept+)
+   chains with the caster's UNOPPOSED Resolute probes - the escape tests
+   [Resolute<-Strong] run per round through the A23 maintain chain, the
+   Master's ground grip adds 1d6 armor-ignoring damage per round (same model
+   as the Entangling Vines thorns). Battle Symbol and Mark of Torment chain
+   on EVERY level (their novice texts describe the chain) with opposed
+   [Resolute<-Resolute] probes, stopping at the first resist; as SYMBOLIST
+   powers both pay their corruption once per application (followUpsFree,
+   like Blinding Symbol). True Form chains from Adept on, Levitate's Master
+   floats a chain of allies with opposed [Resolute<-Strong] probes.
+   Black Breath (Master) is a custom chain without any attribute probe:
+   per target a d4/d6 rolls against its TOTAL corruption - on a low roll the
+   target's corruption heals, on a high one it suffers the roll as temporary
+   corruption (branch in standardPowerResult); the chain only continues
+   while the previous target SUFFERED corruption - a healed target breaks
+   it automatically (APG). */
+async function earthbindingChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1, unresisted: true });
+}
+
+async function battlesymbolChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1, followUpsFree: true });
+}
+
+async function markoftormentChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1, followUpsFree: true });
+}
+
+async function trueformChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+async function levitateChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+async function blackbreathChainResult(rollData, functionStuff) {
+  // primary target: the corruption comparison runs inside standardPowerResult
+  // (functionStuff.blackbreath); CASTING_NOT means rollData is null
+  await standardPowerResult(rollData, functionStuff);
+  // chain only at Master - a healed target breaks it (blackbreathHealed)
+  if (functionStuff.powerLvl.level < 3) return;
+  const handled = new Set([functionStuff.targetData.tokenId]);
+  while (!functionStuff.blackbreathHealed && (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    functionStuff.targetData = buildGlyphTargetData(nextToken, null);
+    await standardPowerResult(null, functionStuff);
+  }
 }
 
 /* A23 maintain chain: when a power whose effects live as status symbols on the
@@ -4716,6 +4927,27 @@ async function standardPowerResult(rollData, functionStuff) {
       finalText += game.i18n.format(game.i18n.localize("POWER_CONFUSION.EFFECT34"), namesForText);
     } else {
       finalText += game.i18n.format(game.i18n.localize("POWER_CONFUSION.EFFECT56"), namesForText);
+    }
+  }
+
+  if (functionStuff.blackbreath && trueActorSucceeded) {
+    // A25 stage 4 (APG): a d4/d6 rolls against the target's TOTAL
+    // corruption - a low roll heals its corruption, a high one corrupts;
+    // a healed target breaks the Master's chain (blackbreathHealed)
+    const corruptionRoll = await new Roll(functionStuff.powerLvl.level > 1 ? "1d6" : "1d4").evaluate();
+    rolls.push(corruptionRoll);
+    const targetCorruption = functionStuff.targetData.actor.system.health.corruption;
+    if (corruptionRoll.total <= targetCorruption.value) {
+      const healed = Math.min(corruptionRoll.total, targetCorruption.temporary);
+      flagDataArray.push({ tokenId: functionStuff.targetData.tokenId, corruptionChange: -1 * healed });
+      finalText = game.i18n.format("POWER_BLACKBREATH.CHAT_HEAL", { targetname: functionStuff.targetData.name, count: healed });
+      functionStuff.blackbreathHealed = true;
+    } else {
+      flagDataArray.push({ tokenId: functionStuff.targetData.tokenId, corruptionChange: corruptionRoll.total });
+      finalText = game.i18n.format("POWER_BLACKBREATH.CHAT_CORRUPTED", { targetname: functionStuff.targetData.name, count: corruptionRoll.total });
+    }
+    if (functionStuff.powerLvl.level > 2 && functionStuff.blackbreathHealed) {
+      finalText += " " + game.i18n.localize("POWER_BLACKBREATH.CHAT_CHAIN_END");
     }
   }
 

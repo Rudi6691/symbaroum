@@ -1268,18 +1268,27 @@ export class SymbaroumMacros {
 			{
 				name: game.i18n.localize("MACRO.RESET_STATUS_NAME"),
 				command: "game.symbaroum.macros.resetStatus();",
-				img: "icons/svg/forbidden.svg",
+				img: "icons/svg/aura.svg",
+				migrateIcons: ["icons/svg/forbidden.svg"],
 			},
 			{
 				name: game.i18n.localize("MACRO.RESET_TOUGHNESS_NAME"),
 				command: "game.symbaroum.macros.resetToughness();",
-				img: "icons/svg/regeneration.svg",
+				img: "icons/svg/heal.svg",
+				migrateIcons: ["icons/svg/regeneration.svg"],
 			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro
 			const existing = game.macros.find((m) => m.command === def.command);
-			if (existing) continue;
+			if (existing) {
+				// icon migration: refresh a previous system default icon to
+				// the current one - a manually chosen icon stays untouched
+				if (def.migrateIcons?.includes(existing.img) && existing.img !== def.img) {
+					await existing.update({ img: def.img });
+				}
+				continue;
+			}
 			await Macro.create({
 				name: def.name,
 				type: "script",

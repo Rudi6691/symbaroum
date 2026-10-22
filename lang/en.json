@@ -598,6 +598,20 @@
   "POWER_BANISHINGSEAL.CHAT_ADEPT": "Creatures of other types inside the seal suffer 1d4 damage (to be applied by the GM).",
   "POWER_BANISHINGSEAL.CHAT_MASTER": "Creatures of other types inside the seal suffer 1d8 damage, fleeing ones 1d4 (to be applied by the GM).",
 
+  "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} tries to engulf {targetname} with the battle symbol.",
+  "POWER_BATTLESYMBOL.CHAT_INTRO_M": "{actorname} maintains the battle symbol.",
+  "POWER_BATTLESYMBOL.CHAT_SUCCESS": "{targetname} is seized by an uncontrolled battle rage.",
+  "POWER_BATTLESYMBOL.CHAT_FAILURE": "{targetname} resists the battle symbol.",
+  "POWER_BATTLESYMBOL.CHAT_NOVICE": "The victim immediately attacks the next person, friend or foe. Effect lasts one round (GM removes the symbol).",
+  "POWER_BATTLESYMBOL.CHAT_ADEPT": "The affected immediately attack the next person, friend or foe (GM). Maintain test: Resolute minus the damage of the triggering hit (dialog modifier).",
+  "POWER_BATTLESYMBOL.CHAT_MASTER": "The affected cannot defend themselves - every attack against them hits automatically (GM).",
+
+  "POWER_BLACKBREATH.CHAT_INTRO": "{actorname} spits his inner darkness at {targetname}.",
+  "POWER_BLACKBREATH.CHAT_SUCCESS": "The black breath engulfs {targetname}.",
+  "POWER_BLACKBREATH.CHAT_HEAL": "{targetname} is cleansed of {count} point(s) of corruption.",
+  "POWER_BLACKBREATH.CHAT_CORRUPTED": "{targetname} suffers {count} point(s) of temporary corruption.",
+  "POWER_BLACKBREATH.CHAT_CHAIN_END": "The healed target breaks the chain.",
+
   "POWER_BENDWILL.CHAT_INTRO": "{actorname} try to bend the victim's will.",
   "POWER_BENDWILL.CHAT_INTRO_M": "{actorname} maintains Bend Will.",
   "POWER_BENDWILL.CHAT_SUCCESS": "{actorname} controls {targetname}.",
@@ -646,6 +660,12 @@
   "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Another target<br>for the glyph?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "No new target marked - the glyph affects only the enemies already tested.",
 
+  "POWER_EARTHBINDING.CHAT_INTRO": "{actorname} tries to sink {targetname} into the ground. (Free action, once per round)",
+  "POWER_EARTHBINDING.CHAT_INTRO_M": "{targetname} tries to break free from the earth binding.",
+  "POWER_EARTHBINDING.CHAT_SUCCESS": "{targetname} is bound to the ground and cannot move.",
+  "POWER_EARTHBINDING.CHAT_FAILURE": "{targetname} resists the earth binding.",
+  "POWER_EARTHBINDING.CHAT_MASTER": "The ground clenches around the target: 1d6 damage per round, armor ignored (repeated test each round; GM applies it to further chain targets).",
+
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} tries to break free from the vines.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} is entangled in the vines.",
   "POWER_ENTANGLINGVINES.CHAT_FAILURE": "{targetname} breaks free from the vines.",
@@ -675,6 +695,12 @@
   "POWER_LAYONHANDS.CHAT_SUCCESS": "{actorname} heals {targetname}.",
   "POWER_LAYONHANDS.CHAT_FINAL": "Toughness healed: ",
   "POWER_LAYONHANDS.CHAT_FAILURE": "{actorname} fails to heal {targetname}.",
+
+  "POWER_MARKOFTORMENT.CHAT_INTRO": "{actorname} brands {targetname} with the mark of torment.",
+  "POWER_MARKOFTORMENT.CHAT_SUCCESS": "{targetname} is racked by searing pain.",
+  "POWER_MARKOFTORMENT.CHAT_FAILURE": "{targetname} resists the symbol.",
+  "POWER_MARKOFTORMENT.CHAT_NOVICE": "No active actions for one round (GM removes the symbol).",
+  "POWER_MARKOFTORMENT.CHAT_ADEPT": "Reactive actions (defense) roll twice - the worse result counts (GM).",
 
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} tries to channel the Light of Prios at a target.",
   "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} might be stunned, test [resolute <-- resolute].",
@@ -709,6 +735,12 @@
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO_M": "{actorname} tries to maintain the tormenting spirits.",
   "POWER_TORMENTINGSPIRITS.CHAT_SUCCESS": "{actorname} invokes spirits around {targetname}.",
   "POWER_TORMENTINGSPIRITS.CHAT_FAILURE": "{actorname} fails the invokation.",
+
+  "POWER_TRUEFORM.CHAT_INTRO": "{actorname} forces {targetname} to reveal its true form.",
+  "POWER_TRUEFORM.CHAT_SUCCESS": "{targetname}'s true form is revealed.",
+  "POWER_TRUEFORM.CHAT_FAILURE": "{targetname}'s disguise holds.",
+  "POWER_TRUEFORM.CHAT_NOVICE": "Revealed illusions vanish; transformations remain, but the mystician sees through them (GM).",
+  "POWER_TRUEFORM.CHAT_MASTER": "A new transformation requires a Resolute test on the target's initiative (GM).",
 
   "POWER_WITCHHAMMER.CHAT_ACTIVATE": "{actorname}'s weapon starts glowing.",
   "POWER_WITCHHAMMER.CHAT_DEACTIVATE": "{actorname}'s weapon stops glowing.",
