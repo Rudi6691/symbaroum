@@ -5516,4 +5516,28 @@ html body .symbaroum.sheet.item input[type='checkbox']:checked {
   flex: 0 0 20px;
 }
 
+/* -------------------------------------------------------------------- */
+/* A25 (22.10.): "next target" confirmation dialog of the chain powers    */
+/* and the draining glyph (.chain-confirm, tagged by                    */
+/* glyphNextTargetConfirmation in item.js): the question renders as the  */
+/* centred dark label banner of the roll dialog (p.lblfavour inside      */
+/* .symbaroum.dialog - no extra rule needed, it inherits the banner      */
+/* styles above); the Ja/Nein buttons are ~50% smaller - content width   */
+/* instead of the flex: 1 stretching of the standard V1 button row,      */
+/* centred in the footer, halved padding and 12px font (vs. 4px/12px    */
+/* and the core 14px).                                                   */
+/* -------------------------------------------------------------------- */
+dialog.symb-dialog.chain-confirm .dialog-buttons,
+dialog.symb-dialog.chain-confirm footer {
+  justify-content: center;
+}
+
+dialog.symb-dialog.chain-confirm .window-content button,
+dialog.symb-dialog.chain-confirm .dialog-buttons button,
+dialog.symb-dialog.chain-confirm footer button {
+  flex: 0 0 auto !important;
+  padding: 2px 6px !important;
+  font-size: 12px;
+}
+
 /*# sourceMappingURL=symbaroum.css.map */

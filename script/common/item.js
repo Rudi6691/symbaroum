@@ -2287,6 +2287,11 @@ export class SymbaroumItem extends Item {
       base.finalTextSucceed = game.i18n.localize("POWER_BLINDINGSYMBOL.UNTIL_HEALED");
     }
     base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "blind"))];
+    // A25 stage 2: the runes trigger a chain of blindings on EVERY level (the
+    // APG novice text already describes the chain). Deliberately NO chain flag:
+    // the flag's only runtime effect is showing the casting/maintain dropdown,
+    // and novice/master have no maintain per APG - the chain itself is purely
+    // dispatched in getPowerResultFunction; the adept already has MAINTAIN_RES
     return base;
   }
 
@@ -2533,7 +2538,9 @@ export class SymbaroumItem extends Item {
 
   mysticPowerSetupMindthrow(base) {
     base.getTarget = true;
-    base.targetResistAttribute = "quick";
+    // A25 stage 2: the object attack (novice) probes against Quick, the
+    // enemy throw (Adept+) against Strong (GRW)
+    base.targetResistAttribute = base.powerLvl.level > 1 ? "strong" : "quick";
     base.traditions = [game.symbaroum.config.TRAD_WIZARDRY];
     base.targetPresentFSmod = {
       hasDamage: true,
@@ -2546,6 +2553,8 @@ export class SymbaroumItem extends Item {
     };
     if (base.powerLvl.level > 2) {
       base.maintain = game.symbaroum.config.MAINTAIN;
+      // A25 stage 2: Master can throw a chain of enemies (GRW)
+      base.chain = game.symbaroum.config.CHAIN;
     }
     return base;
   }
@@ -3543,9 +3552,9 @@ export async function buildRolls(functionStuff) {
    A23: while maintaining, the test runs for every target the caster still holds
    a status symbol on, found by a scene scan (see maintainChainResult below).
    A25: further chain powers join the mechanism (Entangling Vines Adept+,
-   Confusion and Maltransformation Master - see entanglingVinesChainResult
-   and its siblings below); Entangling Vines at Adept probes its follow-ups
-   unopposed (GRW). */
+   Confusion, Maltransformation, Blinding Symbol and Mind Throw Master -
+   see entanglingVinesChainResult and its siblings below); Entangling Vines
+   at Adept probes its follow-ups unopposed (GRW). */
 function getPowerResultFunction(functionStuff) {
   switch (functionStuff.ability?.reference) {
     case "staffprojectile":
@@ -3584,6 +3593,15 @@ function getPowerResultFunction(functionStuff) {
         : functionStuff.isMaintained
           ? maintainChainResult
           : standardPowerResult;
+    // A25 stage 2: Blinding Symbol chains on every level (APG novice text);
+    // Mind Throw chains at Master only with a marked target - the object
+    // attack without a target stays a local roll
+    case "blindingsymbol":
+      return functionStuff.isMaintained ? maintainChainResult : blindingsymbolChainResult;
+    case "mindthrow":
+      return functionStuff.powerLvl.level > 2 && !functionStuff.isMaintained && functionStuff.targetData?.hasTarget
+        ? mindThrowChainResult
+        : standardPowerResult;
     default:
       return standardPowerResult;
   }
@@ -3671,7 +3689,11 @@ function glyphNextTargetConfirmation(functionStuff, questionKey = "POWER_DRAININ
   return new Promise((resolve) => {
     symbDialog({
       title: functionStuff.abilityName,
-      content: `<p>${game.i18n.localize(questionKey)}</p>`,
+      // A25 (optics): the question renders as the centred dark banner label
+      // of the roll dialog (p.lblfavour inside .symbaroum.dialog), the
+      // Ja/Nein buttons shrink to ~50% (see .chain-confirm in symbaroum.css)
+      classes: ["chain-confirm"],
+      content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.localize(questionKey)}</p></div>`,
       buttons: {
         yes: {
           icon: '<i class="fas fa-check"></i>',
@@ -3846,6 +3868,23 @@ async function confusionChainResult(rollData, functionStuff) {
 }
 
 async function maltransformationChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+/* A25 stage 2: Blinding Symbol (EVERY level - the APG novice text already
+   describes the chain) blinds one enemy after another with opposed
+   [Resolute<-Resolute] probes, stopping at the first failure; the blind
+   condition lasts one round (novice/master) or is maintained per target
+   (adept, see maintainChainResult). Mind Throw (Master, GRW) throws a chain
+   of enemies with opposed [Resolute<-Strong] probes and 1d8 damage per
+   target, stopping at the first failure; the "lands on the back" rescue
+   probe against Quick stays with the GM. Both pay corruption per target
+   on the initial casting (A20). */
+async function blindingsymbolChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+async function mindThrowChainResult(rollData, functionStuff) {
   return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
 }
 

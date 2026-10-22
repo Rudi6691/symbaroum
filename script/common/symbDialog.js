@@ -65,7 +65,9 @@ export function symbDialog(options = {}) {
     // Tag every dialog created here so css/symbaroum.css can restore the
     // previous AppV1 dialog chrome (horizontal button row, window frame
     // free of native <dialog> user-agent styles) on the DialogV2 window.
-    classes: ['symb-dialog'],
+    // A25 (optics): call sites can pass further marker classes - the chain
+    // confirmation dialog adds .chain-confirm for its smaller Ja/Nein buttons
+    classes: ["symb-dialog", ...(options.classes ?? [])],
     window: { title: title ?? '' },
     content: domContent,
     buttons: v2Buttons,
