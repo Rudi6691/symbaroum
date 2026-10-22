@@ -2451,6 +2451,13 @@ export class SymbaroumItem extends Item {
       };
       base.ignoreArm = true;
       base.finalTextSucceed = game.i18n.localize("POWER_EARTHBINDING.CHAT_MASTER");
+      // A25 F4 (Rudolf's test round): the per-round damage rolls EXPLICITLY on
+      // the maintain summary for EVERY still-bound target (GRW: the damage
+      // applies in ALL rounds, not just the first) - see maintainChainResult;
+      // the legacy maintain damage path is opted out (maintainDamage) so the
+      // damage never rolls twice
+      base.maintainDamage = false;
+      base.maintainRoundDamage = "1d6";
     }
     // Adept+: the binding chains from target to target (GRW)
     if (base.powerLvl.level > 1) base.chain = game.symbaroum.config.CHAIN;
@@ -4249,6 +4256,18 @@ async function maintainChainResult(rollData, functionStuff) {
   const rolls = [];
   const lines = [];
 
+  // A25 F4 (Rudolf's test round): Erdfessel Master deals its per-round damage
+  // EXPLICITLY on the maintain summary card - every target that stays bound
+  // takes the setup's maintainRoundDamage dice as a direct toughness change on
+  // the GM card (armor ignored), the roll shows on the summary card
+  const addRoundDamage = async (tokenId, targetname) => {
+    if (!functionStuff.maintainRoundDamage) return;
+    const roundDamageRoll = await new Roll(functionStuff.maintainRoundDamage).evaluate();
+    rolls.push(roundDamageRoll);
+    flagDataArray.push({ tokenId: tokenId, toughnessChange: -1 * roundDamageRoll.total });
+    lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_ROUND_DAMAGE", { targetname: targetname, count: roundDamageRoll.total })}</p>`);
+  };
+
   // A24-3 (test round 2): the marked target is part of the chain - its dialog
   // test shows up in the summary card like every other maintained target
   if (markedHasOwn) {
@@ -4256,6 +4275,8 @@ async function maintainChainResult(rollData, functionStuff) {
     lines.push(
       `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: markedName })}</p>`
     );
+    // bound another round: the per-round damage (Erdfessel Master) rolls here
+    if (holds) await addRoundDamage(markedTokenId, markedName);
     // failed test on the marked target: also remove add-target effects there
     // (standardPowerResult only removes actively maintained effects - the old
     // Black Bolt gap: paralysis was never removed on a failed maintain test)
@@ -4287,6 +4308,8 @@ async function maintainChainResult(rollData, functionStuff) {
     lines.push(
       `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: token.name })}</p>`
     );
+    // bound another round: the per-round damage (Erdfessel Master) rolls here
+    if (holds) await addRoundDamage(token.id, token.name);
     if (!holds) {
       flagDataArray.push({ tokenId: token.id, removeEffect: effect });
     }

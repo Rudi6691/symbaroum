@@ -582,6 +582,7 @@
   "POWER.MAINTAIN_CHAIN_HOLDS": "{targetname}: effect holds.",
   "POWER.MAINTAIN_CHAIN_BREAKS": "{targetname}: effect ends.",
   "POWER.MAINTAIN_CHAIN_NO_TARGETS": "No active effects found.",
+  "POWER.MAINTAIN_CHAIN_ROUND_DAMAGE": "{targetname} takes {count} damage (armor ignored).",
 
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} tries to dissipate a power.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} cancels the power.",
