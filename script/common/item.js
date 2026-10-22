@@ -3511,11 +3511,13 @@ export async function buildRolls(functionStuff) {
    test against the primary target; the result functions below continue the
    sequence through the remaining pre-selected targets (functionStuff.chainTargets,
    populated by the power's pre-dialog), with a confirmation before each follow-up
-   and a stop at the first failed test. Chain targets cost no additional corruption
-   (one casting).
+   and a stop at the first failed test. Chain targets pay corruption per target
+   on the initial casting (A20); maintaining later costs nothing.
    A19: the Kette powers Anathema, Brimstone Cascade and Black Bolt (Adept+) use
    the same mechanism with targets marked one after another (see
-   chainSequenceResult below). */
+   chainSequenceResult below).
+   A23: while maintaining, the test runs for every target the caster still holds
+   a status symbol on, found by a scene scan (see maintainChainResult below). */
 function getPowerResultFunction(functionStuff) {
   switch (functionStuff.ability?.reference) {
     case "staffprojectile":
@@ -3523,13 +3525,17 @@ function getPowerResultFunction(functionStuff) {
     case "banishingseal":
       return banishingSealChainResult;
     case "drainingglyph":
-      return functionStuff.isMaintained ? standardPowerResult : drainingGlyphResult;
+      return functionStuff.isMaintained ? maintainChainResult : drainingGlyphResult;
     case "anathema":
       return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained ? anathemaChainResult : standardPowerResult;
     case "brimstonecascade":
       return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained ? brimstoneCascadeChainResult : standardPowerResult;
     case "blackbolt":
-      return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained ? blackboltChainResult : standardPowerResult;
+      return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained
+        ? blackboltChainResult
+        : functionStuff.isMaintained
+          ? maintainChainResult
+          : standardPowerResult;
     default:
       return standardPowerResult;
   }
@@ -3699,8 +3705,9 @@ async function drainingGlyphResult(rollData, functionStuff) {
    handled one after another through a confirmation dialog, the next token
    being read fresh from the user's targeting. Each follow-up keeps the
    power's own setup effects (Black Bolt paralysis, Brimstone Cascade damage
-   incl. its reduced fail damage), costs no additional corruption (one
-   casting) and gets no advantage (first attack only). Anathema and Black
+   incl. its reduced fail damage), pays corruption per target (A20: one
+   corruption cost per target on the initial casting; maintaining later
+   costs nothing) and gets no advantage (first attack only). Anathema and Black
    Bolt stop at the first failed probe; Brimstone Cascade stops at the first
    failed probe as Adept and only at the second failed probe as Master.
    Maintaining an earlier casting never chains. */
@@ -3711,10 +3718,8 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   functionStuff.hasAdvantage = false;
   let fails = rollData?.[0]?.trueActorSucceeded === false ? 1 : 0;
   if (fails >= opts.stopAfterFails) return;
-  const savedCorruption = functionStuff.corruption;
   const savedMaintain = functionStuff.maintain;
-  // the chain belongs to one casting: no further corruption, no maintain
-  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  // follow-ups pay corruption per target (A20); maintain stays with the primary target
   functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
   const handled = new Set([functionStuff.targetData.tokenId]);
   while (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET")) {
@@ -3742,7 +3747,6 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
       if (fails >= opts.stopAfterFails) break;
     }
   }
-  functionStuff.corruption = savedCorruption;
   functionStuff.maintain = savedMaintain;
 }
 
@@ -3757,6 +3761,118 @@ async function brimstoneCascadeChainResult(rollData, functionStuff) {
 
 async function blackboltChainResult(rollData, functionStuff) {
   return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+/* A23 maintain chain: when a power whose effects live as status symbols on the
+   targets is maintained (Black Bolt paralysis, Draining Glyph marker), the
+   repeated test runs for every target the caster still holds an effect on -
+   not only the marked one (GRW "Anhaltende Wirkung auf eine Gruppe"). Targets
+   are found by scanning the scene tokens for the power's condition; only
+   effects applied by this caster carry the flagData author marker (see the
+   casterId/abilityRef fields in standardPowerResult), so symbols of other
+   casters, legacy symbols without flagData and symbols already removed by a
+   third party (e.g. Anathema) are skipped automatically - no break-off logic
+   needed. */
+async function maintainChainResult(rollData, functionStuff) {
+  game.symbaroum.log("maintainChainResult", ...arguments);
+  // marked target: standard behaviour (chat card, damage, maintain handling)
+  await standardPowerResult(rollData, functionStuff);
+
+  const maintainEffects = [...functionStuff.addTargetEffect, ...functionStuff.activelyMaintainedTargetEffect];
+  if (maintainEffects.length === 0) return;
+
+  const casterId = functionStuff.actor.id;
+  const markedTokenId = functionStuff.targetData?.tokenId;
+
+  // scan the scene for tokens carrying this caster's symbols
+  const scanned = [];
+  let markedHasEffect = false;
+  for (const token of canvas.tokens.placeables) {
+    const actor = token.actor;
+    if (!actor) continue;
+    for (const effect of maintainEffects) {
+      const existing = actor.hasCondition(effect.id);
+      if (!existing || existing.getFlag(game.system.id, "flagData")?.caster !== casterId) continue;
+      if (token.id === markedTokenId) {
+        markedHasEffect = true;
+      } else {
+        scanned.push({ token, effect });
+      }
+      break;
+    }
+  }
+
+  if (!markedHasEffect && scanned.length === 0) {
+    // nothing left to maintain (e.g. everything removed by Anathema)
+    await postMaintainChainCard(functionStuff, `<p>${game.i18n.localize("POWER.MAINTAIN_CHAIN_NO_TARGETS")}</p>`);
+    return;
+  }
+
+  const flagDataArray = [];
+  const rolls = [];
+  const lines = [];
+
+  // failed test on the marked target: also remove add-target effects there
+  // (standardPowerResult only removes actively maintained effects - the old
+  // Black Bolt gap: paralysis was never removed on a failed maintain test)
+  if (markedHasEffect && rollData?.[0]?.trueActorSucceeded === false) {
+    for (const effect of functionStuff.addTargetEffect) {
+      const existing = functionStuff.targetData.token?.actor.hasCondition(effect.id);
+      if (existing?.getFlag(game.system.id, "flagData")?.caster === casterId) {
+        flagDataArray.push({ tokenId: markedTokenId, removeEffect: effect });
+      }
+    }
+  }
+
+  // every further scan target rolls the same opposed test with the same dialog
+  // modifiers (one maintaining action = one modifier decision)
+  for (const { token, effect } of scanned) {
+    const roll = await baseRoll(
+      functionStuff.actor,
+      functionStuff.castingAttributeName,
+      token.actor,
+      functionStuff.targetResistAttribute,
+      functionStuff.favour,
+      functionStuff.modifier,
+      false
+    );
+    rolls.push(...(roll.rolls ?? []));
+    const holds = roll.trueActorSucceeded;
+    lines.push(
+      `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: token.name })}</p>`
+    );
+    if (!holds) {
+      flagDataArray.push({ tokenId: token.id, removeEffect: effect });
+    }
+  }
+
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.localize("POWER.MAINTAIN_CHAIN_SUMMARY")}</h4>`;
+    await postMaintainChainCard(functionStuff, title + lines.join(""), rolls);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* A23 helper: simple info/summary card for the maintain chain, styled like the
+   system's chat cards, with the additional opposed tests attached as rolls. */
+async function postMaintainChainCard(functionStuff, contentHtml, rolls = []) {
+  const html = `<div class="symbaroum chat ability"><div class="foreground">${contentHtml}</div></div>`;
+  const chatData = {
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({
+      alias: game.user.name,
+      actor: functionStuff.actor.id,
+    }),
+    rollMode: game.settings.get("core", "messageMode"),
+    content: html,
+  };
+  if (rolls.length > 0) {
+    chatData.rolls = [createRollData(rolls)];
+  }
+  ChatMessage.applyMode(chatData, "public");
+  await ChatMessage.create(chatData);
 }
 
 export function checkSpecialResistanceMod(damageReductions, autoParams = "", abilityRef) {
@@ -4533,10 +4649,13 @@ async function standardPowerResult(rollData, functionStuff) {
     for (let effect of functionStuff.addTargetEffect) {
       let effectPresent = functionStuff.targetData.token?.actor.hasCondition(effect.id);
       if (!effectPresent) {
+        // A23: remember the caster so the maintain chain only maintains own symbols
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
+          casterId: functionStuff.actor.id,
+          abilityRef: functionStuff.ability?.reference,
         });
       }
     }
@@ -4570,10 +4689,13 @@ async function standardPowerResult(rollData, functionStuff) {
     for (let effect of functionStuff.activelyMaintainedTargetEffect) {
       let effectPresent = functionStuff.targetData.token?.actor.hasCondition(effect.id);
       if (!effectPresent) {
+        // A23: remember the caster so the maintain chain only maintains own symbols
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
+          casterId: functionStuff.actor.id,
+          abilityRef: functionStuff.ability?.reference,
         });
       }
     }

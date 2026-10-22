@@ -521,7 +521,8 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						continue;
 					}
 					if (flagData.addEffect) {
-						await actor.addCondition(flagData.addEffect);
+						// A23: pass the author marker so the maintain chain only maintains own symbols
+						await actor.addCondition(flagData.addEffect, flagData.casterId ? { caster: flagData.casterId, ability: flagData.abilityRef } : undefined);
 					} else if (flagData.removeEffect) {
 						await actor.removeCondition(flagData.removeEffect);
 					}

@@ -567,6 +567,10 @@
   "POWER.CHAT_SUCCESS": "{actorname} ist erfolgreich.",
   "POWER.CHAT_FAILURE": "{actorname} versagt.",
   "POWER.CHAT_CORRUPTION": "Temporäre Korruption erhalten: ",
+  "POWER.MAINTAIN_CHAIN_SUMMARY": "Aufrechterhaltene Wirkungen:",
+  "POWER.MAINTAIN_CHAIN_HOLDS": "{targetname}: Wirkung hält.",
+  "POWER.MAINTAIN_CHAIN_BREAKS": "{targetname}: Wirkung endet.",
+  "POWER.MAINTAIN_CHAIN_NO_TARGETS": "Keine aktiven Wirkungen gefunden.",
 
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} versucht eine Kraft zu zerstreuen.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} unterbricht die Kraft.",
