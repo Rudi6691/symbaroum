@@ -2299,6 +2299,9 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_RES;
     base.confusion = true;
     base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "confusion"))];
+    // A25: Master level extends the confusion to a chain of targets (GRW);
+    // the per-round 1d6 effect table stays in standardPowerResult
+    if (base.powerLvl.level > 2) base.chain = game.symbaroum.config.CHAIN;
     return base;
   }
 
@@ -2392,7 +2395,9 @@ export class SymbaroumItem extends Item {
     base.targetMandatory = true;
     base.traditions = [game.symbaroum.config.TRAD_WITCHCRAFT];
     base.maintain = game.symbaroum.config.MAINTAIN_RES;
-    base.casting = game.symbaroum.config.CASTING;
+    // A25: Novice and Adept wrap with an unopposed Resolute probe; Master
+    // wraps with an opposed [Resolute<-Strong] test and thorns damage (GRW)
+    base.casting = base.powerLvl.level === 3 ? game.symbaroum.config.CASTING_RES : game.symbaroum.config.CASTING;
     base.targetResistAttribute = "strong";
     base.hasDamage = base.powerLvl.level === 3;
     base.damageDice = "1d6";
@@ -2404,6 +2409,9 @@ export class SymbaroumItem extends Item {
     base.resultTextFail = game.i18n.localize("POWER_ENTANGLINGVINES.CHAT_FAILURE");
     base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "entanglingvines"))];
     base.ignoreArm = true;
+    // A25: from Adept on the vines can wrap a chain of creatures (GRW);
+    // Adept follow-ups probe unopposed, Master against Strong
+    if (base.powerLvl.level > 1) base.chain = game.symbaroum.config.CHAIN;
     return base;
   }
 
@@ -2518,6 +2526,8 @@ export class SymbaroumItem extends Item {
     base.maintain = game.symbaroum.config.MAINTAIN_RES;
     base.targetResistAttribute = "resolute";
     base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "maltransformation"))];
+    // A25: Master level can unleash a chain of transformations (GRW)
+    if (base.powerLvl.level > 2) base.chain = game.symbaroum.config.CHAIN;
     return base;
   }
 
@@ -3531,7 +3541,11 @@ export async function buildRolls(functionStuff) {
    the same mechanism with targets marked one after another (see
    chainSequenceResult below).
    A23: while maintaining, the test runs for every target the caster still holds
-   a status symbol on, found by a scene scan (see maintainChainResult below). */
+   a status symbol on, found by a scene scan (see maintainChainResult below).
+   A25: further chain powers join the mechanism (Entangling Vines Adept+,
+   Confusion and Maltransformation Master - see entanglingVinesChainResult
+   and its siblings below); Entangling Vines at Adept probes its follow-ups
+   unopposed (GRW). */
 function getPowerResultFunction(functionStuff) {
   switch (functionStuff.ability?.reference) {
     case "staffprojectile":
@@ -3547,6 +3561,26 @@ function getPowerResultFunction(functionStuff) {
     case "blackbolt":
       return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained
         ? blackboltChainResult
+        : functionStuff.isMaintained
+          ? maintainChainResult
+          : standardPowerResult;
+    // A25: further chain powers - first casting chains, maintaining runs as
+    // the A23 maintain chain with the per-target repeated test
+    case "entanglingvines":
+      return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained
+        ? entanglingVinesChainResult
+        : functionStuff.isMaintained
+          ? maintainChainResult
+          : standardPowerResult;
+    case "confusion":
+      return functionStuff.powerLvl.level > 2 && !functionStuff.isMaintained
+        ? confusionChainResult
+        : functionStuff.isMaintained
+          ? maintainChainResult
+          : standardPowerResult;
+    case "maltransformation":
+      return functionStuff.powerLvl.level > 2 && !functionStuff.isMaintained
+        ? maltransformationChainResult
         : functionStuff.isMaintained
           ? maintainChainResult
           : standardPowerResult;
@@ -3734,6 +3768,10 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   // chain (anathemaDispelFailed is set by standardPowerResult above); targets
   // without tagged effects fall back to the standard probe (G3)
   const isAnathema = functionStuff.ability?.reference === "anathema";
+  // A25: a power can probe its follow-ups UNOPPOSED (Entangling Vines Adept:
+  // GRW has the chain test as the caster's Resolute probe alone) - the
+  // follow-ups then roll without a resist actor
+  const unresisted = opts.unresisted === true;
   const primaryFailed = isAnathema ? functionStuff.anathemaDispelFailed === true : rollData?.[0]?.trueActorSucceeded === false;
   let fails = primaryFailed ? 1 : 0;
   if (fails >= opts.stopAfterFails) return;
@@ -3748,15 +3786,16 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
       break;
     }
     handled.add(nextToken.id);
-    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+    functionStuff.targetData = buildGlyphTargetData(nextToken, unresisted ? null : functionStuff.targetResistAttribute);
     const rollDataNext = [
       await baseRoll(
         functionStuff.actor,
         functionStuff.castingAttributeName,
+        // A25: unresisted follow-ups roll without a resist actor
         // A24-F2: Anathema follow-ups are also probed against the ORIGINATOR's
         // willpower (displayed with the originator's name, default 11)
-        isAnathema ? anathemaResistActor(nextToken.actor) : nextToken.actor,
-        isAnathema ? "resolute" : functionStuff.targetResistAttribute,
+        unresisted ? null : isAnathema ? anathemaResistActor(nextToken.actor) : nextToken.actor,
+        unresisted ? null : isAnathema ? "resolute" : functionStuff.targetResistAttribute,
         functionStuff.favour,
         functionStuff.modifier,
         false
@@ -3781,6 +3820,32 @@ async function brimstoneCascadeChainResult(rollData, functionStuff) {
 }
 
 async function blackboltChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+/* A25: further chain powers (GRW "Kette"). Entangling Vines (Adept+) wraps a
+   chain of creatures - the Adept follow-ups are the caster's UNOPPOSED
+   Resolute probes (GRW: "eine erfolgreiche Resolute-Probe... und so weiter,
+   bis ein Versuch scheitert"), while the Master probes opposed against
+   Strong (GRW) and adds the thorns damage per wrapped target. Confusion
+   (Master) and Maltransformation (Master) probe each follow-up opposed
+   against its willpower, Confusion rolling the per-target 1d6 effect table
+   via standardPowerResult. All three stop at the first failed probe, pay
+   corruption per target on the initial casting (A20) and get no advantage
+   on follow-ups; their maintain rounds run as the A23 maintain chain
+   (maintainChainResult) with the per-target repeated test. */
+async function entanglingVinesChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, {
+    stopAfterFails: 1,
+    unresisted: functionStuff.powerLvl.level < 3,
+  });
+}
+
+async function confusionChainResult(rollData, functionStuff) {
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+}
+
+async function maltransformationChainResult(rollData, functionStuff) {
   return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
 }
 
