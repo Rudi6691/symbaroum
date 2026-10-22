@@ -17,7 +17,7 @@
                         <div class="image-container">
                             <div class="image" style="background-image: url('{{item.img}}')"></div>
                         </div>
-                        <button class="item-edit ellipsis armorname">{{item.name}}</button>
+                        <button type="button" class="item-edit ellipsis armorname">{{item.name}}</button>
                     </div>
                     <div class="protection" {{#ife ../actor.type "player"}}data-tooltip="{{item.displayText}}"{{/ife}} >
                         {{item.displayTextShort}}
@@ -57,7 +57,7 @@
                         <div class="image-container">
                             <div class="image" style="background-image: url('{{item.img}}')"></div>
                         </div>
-                        <button class="item-edit ellipsis weaponname">{{item.name}}</button>
+                        <button type="button" class="item-edit ellipsis weaponname">{{item.name}}</button>
                     </div>
                     <div class="damage" {{#ife ../actor.type "player"}}data-tooltip="{{item.damage.displayText}}"{{/ife}} class="playergear damage ellipsis">{{item.damage.displayTextShort}}</div>
                     <div class="attribute" data-tooltip='{{localize "WEAPON.ATTRIBUTE"}} {{localize item.attributeLabel}}'>{{localizeabbr item.attributeLabel}}</div>
@@ -92,7 +92,7 @@
                             <div class="image-container">
                                 <div class="image" style="background-image: url('{{item.img}}')"></div>
                             </div>
-                            <button class="item-edit ellipsis artifactname">{{item.name}}</button>
+                            <button type="button" class="item-edit ellipsis artifactname">{{item.name}}</button>
                         </div>
                         <div class="action" data-tooltip="{{item.getArtifactActions}}">
                             <div class="action ellipsis">{{item.getArtifactActions}}</div>
@@ -134,7 +134,7 @@
                             <div class="image-container">
                                 <div class="image" style="background-image: url('{{item.img}}')"></div>
                             </div>                                
-                            <button class="item-edit ellipsis equipmentname">{{item.name}}</button>
+                            <button type="button" class="item-edit ellipsis equipmentname">{{item.name}}</button>
                         </div>
                         <div class="quantity">
                             {{item.system.number}}

@@ -522,7 +522,8 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 					}
 					if (flagData.addEffect) {
 						// A23: pass the author marker so the maintain chain only maintains own symbols
-						await actor.addCondition(flagData.addEffect, flagData.casterId ? { caster: flagData.casterId, ability: flagData.abilityRef } : undefined);
+						// A24: also pass the originator's snapshotted resolute and name (Anathema probes)
+						await actor.addCondition(flagData.addEffect, flagData.casterId ? { caster: flagData.casterId, ability: flagData.abilityRef, resolute: flagData.casterResolute, casterName: flagData.casterName } : undefined);
 					} else if (flagData.removeEffect) {
 						await actor.removeCondition(flagData.removeEffect);
 					}

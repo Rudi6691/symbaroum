@@ -575,6 +575,9 @@
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} versucht eine Kraft zu zerstreuen.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} unterbricht die Kraft.",
   "POWER_ANATHEMA.CHAT_FAILURE": "{actorname} versagt.",
+  "POWER_ANATHEMA.DISPEL_SUMMARY": "Aufgehobene Wirkungen:",
+  "POWER_ANATHEMA.DISPEL_BREAKS": "{originatorname}: Wirkungen auf {targetname} aufgehoben.",
+  "POWER_ANATHEMA.DISPEL_HOLDS": "{originatorname}: Wirkungen auf {targetname} halten.",
 
   "POWER_BANISHINGSEAL.CHAT_INTRO": "{actorname} versucht {targetname} zu bannen.",
   "POWER_BANISHINGSEAL.CHAT_SUCCESS": "{targetname} wird vom Bannsiegel verbannt.",

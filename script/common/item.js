@@ -2249,6 +2249,9 @@ export class SymbaroumItem extends Item {
     };
     base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "paralysis"))];
     base.ignoreArm = true;
+    // A23-F2: the 1d6 damage belongs to the initial impact only (APG) - no
+    // damage re-roll on maintain rounds
+    base.maintainDamage = false;
     base.maintain = game.symbaroum.config.MAINTAIN_RES;
     base.casting = game.symbaroum.config.CASTING_RES;
 
@@ -3716,7 +3719,12 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   await standardPowerResult(rollData, functionStuff);
   // advantage applies to the first attack only
   functionStuff.hasAdvantage = false;
-  let fails = rollData?.[0]?.trueActorSucceeded === false ? 1 : 0;
+  // A24: for Anathema the dispel probes against the originators decide the
+  // chain (anathemaDispelFailed is set by standardPowerResult above); targets
+  // without tagged effects fall back to the standard probe (G3)
+  const isAnathema = functionStuff.ability?.reference === "anathema";
+  const primaryFailed = isAnathema ? functionStuff.anathemaDispelFailed === true : rollData?.[0]?.trueActorSucceeded === false;
+  let fails = primaryFailed ? 1 : 0;
   if (fails >= opts.stopAfterFails) return;
   const savedMaintain = functionStuff.maintain;
   // follow-ups pay corruption per target (A20); maintain stays with the primary target
@@ -3742,7 +3750,7 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
       ),
     ];
     await standardPowerResult(rollDataNext, functionStuff);
-    if (!rollDataNext[0].trueActorSucceeded) {
+    if (isAnathema ? functionStuff.anathemaDispelFailed === true : !rollDataNext[0].trueActorSucceeded) {
       fails++;
       if (fails >= opts.stopAfterFails) break;
     }
@@ -3775,8 +3783,14 @@ async function blackboltChainResult(rollData, functionStuff) {
    needed. */
 async function maintainChainResult(rollData, functionStuff) {
   game.symbaroum.log("maintainChainResult", ...arguments);
+  // A23-F2: Black Bolt's damage belongs to the initial impact only (APG) - a
+  // power can opt out of re-rolling damage on maintain rounds via the setup
+  // field maintainDamage (undefined = legacy behaviour)
+  const savedHasDamage = functionStuff.hasDamage;
+  if (functionStuff.maintainDamage === false) functionStuff.hasDamage = false;
   // marked target: standard behaviour (chat card, damage, maintain handling)
   await standardPowerResult(rollData, functionStuff);
+  functionStuff.hasDamage = savedHasDamage;
 
   const maintainEffects = [...functionStuff.addTargetEffect, ...functionStuff.activelyMaintainedTargetEffect];
   if (maintainEffects.length === 0) return;
@@ -3873,6 +3887,77 @@ async function postMaintainChainCard(functionStuff, contentHtml, rolls = []) {
   }
   ChatMessage.applyMode(chatData, "public");
   await ChatMessage.create(chatData);
+}
+
+/* A24: Anathema nullifies the ongoing effects of a power on a being. Per GRW
+   the probe is rolled against the RESOLUTE OF THE ORIGINATOR ("Die Resolute
+   des Mystikers, der die Kraft entfesselt hat, wird als Widerstand bei der
+   Probe verwendet"), snapshotted in the effect's flagData at casting time
+   (casterResolute, A24-G1 - the originator actor may no longer exist). One
+   probe per originator (A24-G2): a success removes all effects tagged with
+   that originator on the target via the GM card; a failure leaves them in
+   place. Targets without tagged effects keep the standard behaviour (probe
+   against the target's own resolute, removal stays with the GM - A24-G3).
+   Returns null when nothing is tagged (G3), otherwise whether any dispel
+   probe failed (drives the Adept chain). Master level (summoned effects and
+   creatures), rituals and legacy symbols without a snapshot remain GM
+   territory, in line with the A23 K6 philosophy. */
+async function anathemaDispel(functionStuff, flagDataArray) {
+  const targetActor = functionStuff.targetData.token?.actor;
+  if (!targetActor) return null;
+
+  // collect the originator-tagged conditions on the target, grouped by caster
+  const groups = new Map();
+  for (const effect of targetActor.effects) {
+    const flagData = effect.getFlag(game.system.id, "flagData");
+    if (!flagData?.caster || flagData?.resolute == null) continue;
+    const statusId = Array.from(effect.statuses)[0];
+    const statusEffect = statusId ? CONFIG.statusEffects.find((e) => e.id === statusId) : null;
+    if (!statusEffect) continue;
+    let group = groups.get(flagData.caster);
+    if (!group) {
+      group = { resolute: flagData.resolute, name: flagData.casterName ?? flagData.caster, effects: [] };
+      groups.set(flagData.caster, group);
+    }
+    group.effects.push(statusEffect);
+  }
+  if (groups.size === 0) return null;
+
+  const rolls = [];
+  const lines = [];
+  let anyFailed = false;
+  const title = `<h4>${game.i18n.localize("POWER_ANATHEMA.DISPEL_SUMMARY")}</h4>`;
+  for (const group of groups.values()) {
+    // opposed test against the snapshotted resolute of the originator; the
+    // plain object carries the snapshot value, its label is the i18n key
+    const originator = { system: { attributes: { resolute: { total: group.resolute, label: "ATTRIBUTE.RESOLUTE" } } } };
+    const roll = await baseRoll(
+      functionStuff.actor,
+      functionStuff.castingAttributeName,
+      originator,
+      "resolute",
+      functionStuff.favour,
+      functionStuff.modifier,
+      false
+    );
+    rolls.push(...(roll.rolls ?? []));
+    const dispelled = roll.trueActorSucceeded;
+    lines.push(
+      `<p>${game.i18n.format(dispelled ? "POWER_ANATHEMA.DISPEL_BREAKS" : "POWER_ANATHEMA.DISPEL_HOLDS", {
+        originatorname: group.name,
+        targetname: functionStuff.targetData?.name ?? "",
+      })}</p>`
+    );
+    if (dispelled) {
+      for (const effect of group.effects) {
+        flagDataArray.push({ tokenId: functionStuff.targetData.tokenId, removeEffect: effect });
+      }
+    } else {
+      anyFailed = true;
+    }
+  }
+  await postMaintainChainCard(functionStuff, title + lines.join(""), rolls);
+  return anyFailed;
 }
 
 export function checkSpecialResistanceMod(damageReductions, autoParams = "", abilityRef) {
@@ -4650,12 +4735,15 @@ async function standardPowerResult(rollData, functionStuff) {
       let effectPresent = functionStuff.targetData.token?.actor.hasCondition(effect.id);
       if (!effectPresent) {
         // A23: remember the caster so the maintain chain only maintains own symbols
+        // A24: snapshot the originator's resolute (Anathema probe resistance) and name
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
+          casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+          casterName: functionStuff.actingCharName,
         });
       }
     }
@@ -4690,12 +4778,15 @@ async function standardPowerResult(rollData, functionStuff) {
       let effectPresent = functionStuff.targetData.token?.actor.hasCondition(effect.id);
       if (!effectPresent) {
         // A23: remember the caster so the maintain chain only maintains own symbols
+        // A24: snapshot the originator's resolute (Anathema probe resistance) and name
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
+          casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+          casterName: functionStuff.actingCharName,
         });
       }
     }
@@ -4733,6 +4824,15 @@ async function standardPowerResult(rollData, functionStuff) {
         });
       }
     }
+  }
+
+  // A24: Anathema dispels the originator-tagged effects on the target - one
+  // probe per originator against the snapshotted casterResolute; removals go
+  // to the same GM card as everything else. null = nothing tagged (G3), the
+  // standard probe result then decides the chain
+  if (functionStuff.ability?.reference === "anathema") {
+    const dispelFailed = await anathemaDispel(functionStuff, flagDataArray);
+    functionStuff.anathemaDispelFailed = dispelFailed ?? !trueActorSucceeded;
   }
 
   if (flagDataArray.length) {

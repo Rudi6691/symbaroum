@@ -575,6 +575,9 @@
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} tries to dissipate a power.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} cancels the power.",
   "POWER_ANATHEMA.CHAT_FAILURE": "{actorname} fails.",
+  "POWER_ANATHEMA.DISPEL_SUMMARY": "Dispelled effects:",
+  "POWER_ANATHEMA.DISPEL_BREAKS": "{originatorname}: effects on {targetname} dispelled.",
+  "POWER_ANATHEMA.DISPEL_HOLDS": "{originatorname}: effects on {targetname} hold.",
 
   "POWER_BANISHINGSEAL.CHAT_INTRO": "{actorname} tries to banish {targetname}.",
   "POWER_BANISHINGSEAL.CHAT_SUCCESS": "{targetname} is banished by the seal.",
