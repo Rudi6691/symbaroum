@@ -696,6 +696,9 @@
   "POWER_LAYONHANDS.CHAT_FINAL": "Toughness healed: ",
   "POWER_LAYONHANDS.CHAT_FAILURE": "{actorname} fails to heal {targetname}.",
 
+  "POWER_LEVITATE.CHAT_FALL": "{targetname} falls to the ground: {count} damage, armor ignored (applied via GM card).",
+  "POWER_LEVITATE.CHAT_LANDS": "{targetname} floats down unharmed.",
+
   "POWER_MARKOFTORMENT.CHAT_INTRO": "{actorname} brands {targetname} with the mark of torment.",
   "POWER_MARKOFTORMENT.CHAT_SUCCESS": "{targetname} is racked by searing pain.",
   "POWER_MARKOFTORMENT.CHAT_FAILURE": "{targetname} resists the symbol.",

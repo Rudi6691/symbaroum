@@ -2298,6 +2298,9 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.maintain = game.symbaroum.config.MAINTAIN_NOT;
     base.blackbreath = true;
+    // A25 stage 4 F2: CASTING_NOT powers ask for confirmation instead of
+    // showing the empty roll dialog (A7-2 convention)
+    base.confirmDialog = true;
     base.introText = game.i18n.localize("POWER_BLACKBREATH.CHAT_INTRO");
     base.resultTextSuccess = game.i18n.localize("POWER_BLACKBREATH.CHAT_SUCCESS");
     return base;
@@ -2613,29 +2616,6 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
-  mysticPowerSetupMindthrow(base) {
-    base.getTarget = true;
-    // A25 stage 2: the object attack (novice) probes against Quick, the
-    // enemy throw (Adept+) against Strong (GRW)
-    base.targetResistAttribute = base.powerLvl.level > 1 ? "strong" : "quick";
-    base.traditions = [game.symbaroum.config.TRAD_WIZARDRY];
-    base.targetPresentFSmod = {
-      hasDamage: true,
-      casting: game.symbaroum.config.CASTING_RES,
-      damageDice: "1d8",
-      targetImpeding: true,
-      damageType: {
-        mysticArm: true,
-      },
-    };
-    if (base.powerLvl.level > 2) {
-      base.maintain = game.symbaroum.config.MAINTAIN;
-      // A25 stage 2: Master can throw a chain of enemies (GRW)
-      base.chain = game.symbaroum.config.CHAIN;
-    }
-    return base;
-  }
-
   mysticPowerSetupMarkoftorment(base) {
     base.getTarget = true;
     base.targetMandatory = true;
@@ -2662,6 +2642,29 @@ export class SymbaroumItem extends Item {
         mysticIgnArm: true,
       };
       base.ignoreArm = true;
+    }
+    return base;
+  }
+
+  mysticPowerSetupMindthrow(base) {
+    base.getTarget = true;
+    // A25 stage 2: the object attack (novice) probes against Quick, the
+    // enemy throw (Adept+) against Strong (GRW)
+    base.targetResistAttribute = base.powerLvl.level > 1 ? "strong" : "quick";
+    base.traditions = [game.symbaroum.config.TRAD_WIZARDRY];
+    base.targetPresentFSmod = {
+      hasDamage: true,
+      casting: game.symbaroum.config.CASTING_RES,
+      damageDice: "1d8",
+      targetImpeding: true,
+      damageType: {
+        mysticArm: true,
+      },
+    };
+    if (base.powerLvl.level > 2) {
+      base.maintain = game.symbaroum.config.MAINTAIN;
+      // A25 stage 2: Master can throw a chain of enemies (GRW)
+      base.chain = game.symbaroum.config.CHAIN;
     }
     return base;
   }
@@ -3625,10 +3628,9 @@ export async function buildRolls(functionStuff) {
   game.symbaroum.log("...buildRolls", ...arguments);
 
   if (functionStuff.casting === game.symbaroum.config.CASTING_NOT && !functionStuff.isMaintained) {
-    // A25 stage 4: route no-probe powers through the dispatch as well - the
-    // default for every CASTING_NOT power remains standardPowerResult(null),
-    // only Black Breath chains on (its corruption comparison runs inside
-    // standardPowerResult, the Master chain in blackbreathChainResult)
+    // A25 stage 4: a CASTING_NOT power can define its own result function
+    // (Black Breath rolls d4/d6 against the total corruption) - every
+    // other CASTING_NOT power keeps the standard result without a roll
     const resultFunction = getPowerResultFunction(functionStuff);
     return await resultFunction(null, functionStuff);
   }
@@ -3738,14 +3740,15 @@ function getPowerResultFunction(functionStuff) {
       return functionStuff.powerLvl.level > 2 && !functionStuff.isMaintained && functionStuff.targetData?.hasTarget
         ? mindThrowChainResult
         : standardPowerResult;
-    // A25 stage 4: the remaining chain powers (GRW/APG). Earth Binding
-    // (Adept+) binds a chain with unresisted follow-ups, the escape tests
-    // run as the A23 maintain chain; Battle Symbol (every level, per the
-    // novice text) and Mark of Torment (every level) chain without a chain
-    // flag via dispatch - their adept/master maintain (Battle Symbol) runs
-    // as the maintain chain; True Form chains from Adept on; Levitate
-    // (Master) floats a chain of allies; Black Breath (Master) only
-    // continues while the previous target SUFFERED corruption
+    // A25 stage 4: the Ketten-Runde package 1 powers. Earthbinding and
+    // Battle Symbol maintain through the A23 maintain chain (the escape /
+    // rage tests repeat per bound or berserk target), their first castings
+    // chain; Mark of Torment chains on every level without any maintain;
+    // True Form chains from Adept on; Black Breath dispatches to its own
+    // corruption comparison on every level (no probe, no maintain);
+    // Levitate chains allies at Master - and maintaining NEVER chains
+    // (A25 F2, Rudolf's test round): the concentration hold runs for
+    // every levitating creature at once (levitateMaintainResult)
     case "earthbinding":
       return functionStuff.isMaintained ? maintainChainResult : earthbindingChainResult;
     case "battlesymbol":
@@ -3757,7 +3760,11 @@ function getPowerResultFunction(functionStuff) {
     case "markoftorment":
       return markoftormentChainResult;
     case "levitate":
-      return functionStuff.powerLvl.level > 2 ? levitateChainResult : standardPowerResult;
+      return functionStuff.isMaintained
+        ? levitateMaintainResult
+        : functionStuff.powerLvl.level > 2
+          ? levitateChainResult
+          : standardPowerResult;
     default:
       return standardPowerResult;
   }
@@ -4052,22 +4059,15 @@ async function mindThrowChainResult(rollData, functionStuff) {
   return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
 }
 
-/* A25 stage 4: the remaining chain powers (GRW/APG). Earth Binding (Adept+)
-   chains with the caster's UNOPPOSED Resolute probes - the escape tests
-   [Resolute<-Strong] run per round through the A23 maintain chain, the
-   Master's ground grip adds 1d6 armor-ignoring damage per round (same model
-   as the Entangling Vines thorns). Battle Symbol and Mark of Torment chain
-   on EVERY level (their novice texts describe the chain) with opposed
-   [Resolute<-Resolute] probes, stopping at the first resist; as SYMBOLIST
-   powers both pay their corruption once per application (followUpsFree,
-   like Blinding Symbol). True Form chains from Adept on, Levitate's Master
-   floats a chain of allies with opposed [Resolute<-Strong] probes.
-   Black Breath (Master) is a custom chain without any attribute probe:
-   per target a d4/d6 rolls against its TOTAL corruption - on a low roll the
-   target's corruption heals, on a high one it suffers the roll as temporary
-   corruption (branch in standardPowerResult); the chain only continues
-   while the previous target SUFFERED corruption - a healed target breaks
-   it automatically (APG). */
+/* A25 stage 4: the Ketten-Runde package 1 chain functions. Earthbinding
+   (Adept+) binds one target after another with UNOPPOSED follow-up probes
+   (GRW), its per-round escape test [Resolute<-Strong] runs as the A23
+   maintain chain; Battle Symbol (every level - the novice text already
+   describes the chain) and Mark of Torment (every level) chain with opposed
+   [Resolute<-Resolute] probes, stopping at the first failure - as
+   SYMBOLIST powers both pay their corruption once per application
+   (followUpsFree, A25 stage 3); True Form chains from Adept on, Levitate
+   chains allies at Master with opposed [Resolute<-Strong] probes. */
 async function earthbindingChainResult(rollData, functionStuff) {
   return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1, unresisted: true });
 }
@@ -4088,11 +4088,14 @@ async function levitateChainResult(rollData, functionStuff) {
   return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
 }
 
+/* A25 stage 4: Black Breath has NO attribute test (CASTING_NOT means
+   rollData is null) - the d4/d6 comparison against the target's TOTAL
+   corruption runs in the functionStuff.blackbreath branch of
+   standardPowerResult for the primary target and every follow-up. The
+   MASTER chain continues only while the previous target SUFFERED
+   corruption; a healed target breaks it automatically
+   (blackbreathHealed is set in the branch above). */
 async function blackbreathChainResult(rollData, functionStuff) {
-  // primary target: the corruption comparison runs inside standardPowerResult
-  // (functionStuff.blackbreath); CASTING_NOT means rollData is null
-  await standardPowerResult(rollData, functionStuff);
-  // chain only at Master - a healed target breaks it (blackbreathHealed)
   if (functionStuff.powerLvl.level < 3) return;
   const handled = new Set([functionStuff.targetData.tokenId]);
   while (!functionStuff.blackbreathHealed && (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
@@ -4105,6 +4108,66 @@ async function blackbreathChainResult(rollData, functionStuff) {
     functionStuff.targetData = buildGlyphTargetData(nextToken, null);
     await standardPowerResult(null, functionStuff);
   }
+}
+
+/* A25 stage 4 F2 (Rudolf's test round): maintaining levitate is a pure
+   concentration hold - GRW has no per-target probes, the dialog test
+   decides for every creature this caster sent into the air at once. A
+   failed hold breaks the flight: the fly symbols go to the GM card and
+   the fallen take 1d6 armor-ignored damage - at Master the group floats
+   down gently instead (GRW: "schweben sie alle zu Boden, ohne Schaden
+   zu nehmen"). The caster's own symbol was applied directly at cast
+   time (no flagData marker), so the caster's token is always checked;
+   the allies carry the A23 caster/ability markers from the GM card. */
+async function levitateMaintainResult(rollData, functionStuff) {
+  const holds = rollData?.[0]?.trueActorSucceeded !== false;
+  const casterId = functionStuff.actor.id;
+  const abilityRef = functionStuff.ability?.reference;
+  const master = functionStuff.powerLvl.level > 2;
+  const flyEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "fly"));
+  const levitating = [];
+  // the caster's own flight (applied without markers, found by token)
+  if (functionStuff.token?.actor?.hasCondition("fly")) levitating.push(functionStuff.token);
+  // every creature this caster levitated (marker scan, A23 flagData)
+  for (const token of canvas.tokens.placeables) {
+    if (token.id === functionStuff.tokenId) continue;
+    const actor = token.actor;
+    if (!actor) continue;
+    const existing = actor.hasCondition("fly");
+    const flagData = existing?.getFlag(game.system.id, "flagData");
+    if (existing && flagData?.caster === casterId && flagData?.ability === abilityRef) {
+      levitating.push(token);
+    }
+  }
+
+  if (levitating.length === 0) {
+    await postMaintainChainCard(functionStuff, "", [`<p>${game.i18n.localize("POWER.MAINTAIN_CHAIN_NO_TARGETS")}</p>`]);
+    return;
+  }
+
+  const lines = [];
+  const rolls = [...(rollData ?? [])];
+  if (holds) {
+    for (const token of levitating) {
+      lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_HOLDS", { targetname: token.name })}</p>`);
+    }
+  } else {
+    const flagDataArray = [];
+    for (const token of levitating) {
+      flagDataArray.push({ tokenId: token.id, removeEffect: flyEffect });
+      if (master) {
+        lines.push(`<p>${game.i18n.format("POWER_LEVITATE.CHAT_LANDS", { targetname: token.name })}</p>`);
+      } else {
+        const fallRoll = await new Roll("1d6").evaluate();
+        rolls.push(fallRoll);
+        flagDataArray.push({ tokenId: token.id, toughnessChange: -1 * fallRoll.total });
+        lines.push(`<p>${game.i18n.format("POWER_LEVITATE.CHAT_FALL", { targetname: token.name, count: fallRoll.total })}</p>`);
+      }
+    }
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  const title = `<h4>${game.i18n.format("POWER.MAINTAIN_CHAIN_SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+  await postMaintainChainCard(functionStuff, title, lines, rolls);
 }
 
 /* A23 maintain chain: when a power whose effects live as status symbols on the

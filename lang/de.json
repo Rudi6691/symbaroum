@@ -697,6 +697,9 @@
   "POWER_LAYONHANDS.CHAT_FINAL": "Zähigkeit geheilt: ",
   "POWER_LAYONHANDS.CHAT_FAILURE": "{actorname} kann {targetname} nicht heilen.",
 
+  "POWER_LEVITATE.CHAT_FALL": "{targetname} stürzt zu Boden: {count} Schaden, Rüstung ignoriert (Anwendung über GM-Karte).",
+  "POWER_LEVITATE.CHAT_LANDS": "{targetname} schwebt unversehrt zu Boden.",
+
   "POWER_MARKOFTORMENT.CHAT_INTRO": "{actorname} zeichnet {targetname} mit dem Zeichen der Pein.",
   "POWER_MARKOFTORMENT.CHAT_SUCCESS": "{targetname} wird von stechenden Schmerzen geschüttelt.",
   "POWER_MARKOFTORMENT.CHAT_FAILURE": "{targetname} widersteht dem Symbol.",
