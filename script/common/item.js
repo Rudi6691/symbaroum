@@ -3798,8 +3798,13 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   let fails = primaryFailed ? 1 : 0;
   if (fails >= opts.stopAfterFails) return;
   const savedMaintain = functionStuff.maintain;
+  const savedCorruption = functionStuff.corruption;
   // follow-ups pay corruption per target (A20); maintain stays with the primary target
   functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  // A25 stage 3: symbolist powers (Blinding Symbol) cost their corruption
+  // ONCE per application - the chain follow-ups are free (Rudolf, 22.10.);
+  // opts.followUpsFree turns that on per power, everything else keeps A20
+  if (opts.followUpsFree === true) functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
   const handled = new Set([functionStuff.targetData.tokenId]);
   while (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET")) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
@@ -3830,6 +3835,7 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
     }
   }
   functionStuff.maintain = savedMaintain;
+  functionStuff.corruption = savedCorruption;
 }
 
 async function anathemaChainResult(rollData, functionStuff) {
@@ -3878,10 +3884,12 @@ async function maltransformationChainResult(rollData, functionStuff) {
    (adept, see maintainChainResult). Mind Throw (Master, GRW) throws a chain
    of enemies with opposed [Resolute<-Strong] probes and 1d8 damage per
    target, stopping at the first failure; the "lands on the back" rescue
-   probe against Quick stays with the GM. Both pay corruption per target
-   on the initial casting (A20). */
+   probe against Quick stays with the GM.
+   A25 stage 3: as a SYMBOLIST power Blinding Symbol pays its corruption
+   ONCE per application - the chain follow-ups are free (followUpsFree),
+   unlike the A20 per-target cost of the other chain powers. */
 async function blindingsymbolChainResult(rollData, functionStuff) {
-  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1 });
+  return chainSequenceResult(rollData, functionStuff, { stopAfterFails: 1, followUpsFree: true });
 }
 
 async function mindThrowChainResult(rollData, functionStuff) {

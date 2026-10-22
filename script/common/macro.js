@@ -6,6 +6,7 @@ export class SymbaroumMacros {
 
 	macroReady() {
 		this.setupMacroFolders();
+		this.setupGMUtilityMacros();
 		Hooks.on("hotbarDrop", (bar, data, slot) => {
 			if (data.type === "attribute") {
 				this.createSymbaroumAttributeMacro(data, slot);
@@ -1249,6 +1250,147 @@ export class SymbaroumMacros {
 			});
 			actor.sheet.render(true);
 	}		
+    /**********************************************
+	 * GM utility macros (Rudolf, 22.10.): create-once macro documents
+	 * for the two GM reset helpers in the system macro folder, so they
+	 * show up in the macro directory with an icon and can be dragged to
+	 * the hotbar. The scripts enforce GM-only at runtime (both methods
+	 * check game.user.isGM first).
+	 */
+	async setupGMUtilityMacros() {
+		if (!game.user.isGM) return;
+		const folderName = game.symbaroum.config.SYSTEM_MACRO_FOLDER;
+		let folder = game.folders.filter((f) => f.type === "Macro").find((f) => f.name === folderName);
+		if (!folder) {
+			folder = await Folder.create({ name: folderName, type: "Macro", parent: null });
+		}
+		const utilities = [
+			{
+				name: game.i18n.localize("MACRO.RESET_STATUS_NAME"),
+				command: "game.symbaroum.macros.resetStatus();",
+				img: "icons/svg/forbidden.svg",
+			},
+			{
+				name: game.i18n.localize("MACRO.RESET_TOUGHNESS_NAME"),
+				command: "game.symbaroum.macros.resetToughness();",
+				img: "icons/svg/regeneration.svg",
+			},
+		];
+		for (const def of utilities) {
+			// create only once, never overwrite an edited macro
+			const existing = game.macros.find((m) => m.command === def.command);
+			if (existing) continue;
+			await Macro.create({
+				name: def.name,
+				type: "script",
+				img: def.img,
+				command: def.command,
+				flags: { "symbaroum.gmUtilityMacro": true },
+				folder: folder?.id,
+			});
+		}
+	}
+
+	/**********************************************
+	 * GM utility macro: common token selection - the currently
+	 * controlled tokens, or - with none controlled - the scope chosen in
+	 * a dialog (all tokens / all player tokens / all monster tokens of
+	 * the current scene). Resolves null when the dialog is cancelled.
+	 */
+	async selectGMUtilityTokens(titleKey) {
+		const controlled = canvas.tokens.controlled;
+		if (controlled.length > 0) return controlled;
+		return new Promise((resolve) => {
+			symbDialog({
+				width: 300,
+				title: game.i18n.localize(titleKey),
+				content: `<div class="symbaroum dialog">
+					<div class="simplebox"><label class="lblfavour"><input type="radio" name="gmResetScope" value="all" checked> ${game.i18n.localize("MACRO.SCOPE_ALL")}</label></div>
+					<div class="simplebox"><label class="lblfavour"><input type="radio" name="gmResetScope" value="players"> ${game.i18n.localize("MACRO.SCOPE_PLAYERS")}</label></div>
+					<div class="simplebox"><label class="lblfavour"><input type="radio" name="gmResetScope" value="monsters"> ${game.i18n.localize("MACRO.SCOPE_MONSTERS")}</label></div>
+				</div>`,
+				buttons: {
+					yes: {
+						icon: "<i class='fas fa-check'></i>",
+						label: game.i18n.localize("DIALOG.OK"),
+						callback: (html) => {
+							const scope = html[0].querySelector("input[name='gmResetScope']:checked")?.value ?? "all";
+							resolve(
+								canvas.tokens.placeables.filter((token) => {
+									if (!token.actor) return false;
+									if (scope === "players") return token.actor.type === "player";
+									if (scope === "monsters") return token.actor.type === "monster";
+									return true;
+								})
+							);
+						},
+					},
+					no: {
+						icon: "<i class='fas fa-times'></i>",
+						label: game.i18n.localize("DIALOG.CANCEL"),
+						callback: () => resolve(null),
+					},
+				},
+				default: "yes",
+			});
+		});
+	}
+
+	/**********************************************
+	 * GM utility macro: Reset Status - removes all status symbols
+	 * (every active effect that renders with a status icon) from the
+	 * selected tokens, or from all/player/monster tokens of the scene.
+	 * GM only.
+	 */
+	async resetStatus() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const tokens = await this.selectGMUtilityTokens("MACRO.RESET_STATUS_NAME");
+		if (!tokens) return;
+		if (tokens.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.RESET_NO_TOKENS"));
+			return;
+		}
+		let removed = 0;
+		for (const token of tokens) {
+			const actor = token.actor;
+			if (!actor) continue;
+			const statusEffectIds = actor.effects.filter((e) => e.statuses?.size > 0).map((e) => e.id);
+			if (statusEffectIds.length === 0) continue;
+			await actor.deleteEmbeddedDocuments("ActiveEffect", statusEffectIds);
+			removed += statusEffectIds.length;
+		}
+		ui.notifications.info(game.i18n.format("MACRO.RESET_STATUS_DONE", { count: removed }));
+	}
+
+	/**********************************************
+	 * GM utility macro: Reset Toughness - sets the toughness of the
+	 * selected tokens (or all/player/monster tokens of the scene) back
+	 * to its maximum. GM only.
+	 */
+	async resetToughness() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const tokens = await this.selectGMUtilityTokens("MACRO.RESET_TOUGHNESS_NAME");
+		if (!tokens) return;
+		if (tokens.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.RESET_NO_TOKENS"));
+			return;
+		}
+		let reset = 0;
+		for (const token of tokens) {
+			const actor = token.actor;
+			if (!actor?.system?.health?.toughness) continue;
+			await actor.update({ "system.health.toughness.value": actor.system.health.toughness.max });
+			reset++;
+		}
+		ui.notifications.info(game.i18n.format("MACRO.RESET_TOUGHNESS_DONE", { count: reset }));
+	}
+
     /**********************************************
      * Macro: 
      */
