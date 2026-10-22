@@ -3432,7 +3432,14 @@ export async function modifierDialog(functionStuff) {
             functionStuff.autoParams += targetResMod.autoParams;
           }
           if (hasTarget && !functionStuff.notResisted) {
-            if (functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster") {
+            // A24-F2: Anathema resists with the ORIGINATOR's snapshotted
+            // willpower - the marked target's player has nothing to roll,
+            // so no resist button; the dispeling mystic always rolls
+            if (
+              functionStuff.ability?.reference === "anathema" ||
+              functionStuff.attackFromPC ||
+              functionStuff.targetData.actor.type === "monster"
+            ) {
               functionStuff.resistRoll = false;
               buildRolls(functionStuff);
             } else {
@@ -3487,12 +3494,16 @@ export async function buildRolls(functionStuff) {
       );
     }
   } else if (functionStuff.targetData.hasTarget && !functionStuff.notResisted) {
+    // A24-F2: Anathema is probed against the ORIGINATOR's snapshotted
+    // willpower (displayed with the originator's name, default 11 for an
+    // unknown originator), not against the target's own resist attribute
+    const isAnathema = functionStuff.ability?.reference === "anathema";
     rollData.push(
       await baseRoll(
         functionStuff.actor,
         functionStuff.castingAttributeName,
-        functionStuff.targetData.actor,
-        functionStuff.targetData.resistAttributeName,
+        isAnathema ? anathemaResistActor(functionStuff.targetData.token?.actor) : functionStuff.targetData.actor,
+        isAnathema ? "resolute" : functionStuff.targetData.resistAttributeName,
         functionStuff.favour,
         functionStuff.modifier,
         functionStuff.resistRoll
@@ -3742,8 +3753,10 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
       await baseRoll(
         functionStuff.actor,
         functionStuff.castingAttributeName,
-        nextToken.actor,
-        functionStuff.targetResistAttribute,
+        // A24-F2: Anathema follow-ups are also probed against the ORIGINATOR's
+        // willpower (displayed with the originator's name, default 11)
+        isAnathema ? anathemaResistActor(nextToken.actor) : nextToken.actor,
+        isAnathema ? "resolute" : functionStuff.targetResistAttribute,
         functionStuff.favour,
         functionStuff.modifier,
         false
@@ -3783,40 +3796,55 @@ async function blackboltChainResult(rollData, functionStuff) {
    needed. */
 async function maintainChainResult(rollData, functionStuff) {
   game.symbaroum.log("maintainChainResult", ...arguments);
+  const casterId = functionStuff.actor.id;
+  const maintainEffects = [...functionStuff.addTargetEffect, ...functionStuff.activelyMaintainedTargetEffect];
+  const markedTokenId = functionStuff.targetData?.tokenId;
+  const markedName = functionStuff.targetData?.name ?? "";
+
+  // A24-3 (test round 2): does the marked target carry one of the caster's own
+  // symbols? Maintain only keeps existing symbols - a marked target without
+  // one is NOT part of the maintained group
+  const markedHasOwn = maintainEffects.some((effect) => {
+    const existing = functionStuff.targetData?.token?.actor?.hasCondition(effect.id);
+    return existing?.getFlag(game.system.id, "flagData")?.caster === casterId;
+  });
+
   // A23-F2: Black Bolt's damage belongs to the initial impact only (APG) - a
   // power can opt out of re-rolling damage on maintain rounds via the setup
   // field maintainDamage (undefined = legacy behaviour)
   const savedHasDamage = functionStuff.hasDamage;
   if (functionStuff.maintainDamage === false) functionStuff.hasDamage = false;
+  // A24-3: no fresh application and no damage on a target outside the
+  // maintained group (maintain never casts anew)
+  const savedAddTargetEffect = functionStuff.addTargetEffect;
+  if (!markedHasOwn) {
+    functionStuff.hasDamage = false;
+    functionStuff.addTargetEffect = [];
+  }
   // marked target: standard behaviour (chat card, damage, maintain handling)
   await standardPowerResult(rollData, functionStuff);
   functionStuff.hasDamage = savedHasDamage;
+  functionStuff.addTargetEffect = savedAddTargetEffect;
 
-  const maintainEffects = [...functionStuff.addTargetEffect, ...functionStuff.activelyMaintainedTargetEffect];
   if (maintainEffects.length === 0) return;
 
-  const casterId = functionStuff.actor.id;
-  const markedTokenId = functionStuff.targetData?.tokenId;
-
-  // scan the scene for tokens carrying this caster's symbols
+  // scan the scene for tokens carrying this caster's symbols (marked target
+  // is evaluated separately below)
   const scanned = [];
-  let markedHasEffect = false;
   for (const token of canvas.tokens.placeables) {
+    if (token.id === markedTokenId) continue;
     const actor = token.actor;
     if (!actor) continue;
     for (const effect of maintainEffects) {
       const existing = actor.hasCondition(effect.id);
-      if (!existing || existing.getFlag(game.system.id, "flagData")?.caster !== casterId) continue;
-      if (token.id === markedTokenId) {
-        markedHasEffect = true;
-      } else {
+      if (existing && existing.getFlag(game.system.id, "flagData")?.caster === casterId) {
         scanned.push({ token, effect });
+        break;
       }
-      break;
     }
   }
 
-  if (!markedHasEffect && scanned.length === 0) {
+  if (!markedHasOwn && scanned.length === 0) {
     // nothing left to maintain (e.g. everything removed by Anathema)
     await postMaintainChainCard(functionStuff, `<p>${game.i18n.localize("POWER.MAINTAIN_CHAIN_NO_TARGETS")}</p>`);
     return;
@@ -3826,14 +3854,22 @@ async function maintainChainResult(rollData, functionStuff) {
   const rolls = [];
   const lines = [];
 
-  // failed test on the marked target: also remove add-target effects there
-  // (standardPowerResult only removes actively maintained effects - the old
-  // Black Bolt gap: paralysis was never removed on a failed maintain test)
-  if (markedHasEffect && rollData?.[0]?.trueActorSucceeded === false) {
-    for (const effect of functionStuff.addTargetEffect) {
-      const existing = functionStuff.targetData.token?.actor.hasCondition(effect.id);
-      if (existing?.getFlag(game.system.id, "flagData")?.caster === casterId) {
-        flagDataArray.push({ tokenId: markedTokenId, removeEffect: effect });
+  // A24-3 (test round 2): the marked target is part of the chain - its dialog
+  // test shows up in the summary card like every other maintained target
+  if (markedHasOwn) {
+    const holds = rollData?.[0]?.trueActorSucceeded !== false;
+    lines.push(
+      `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: markedName })}</p>`
+    );
+    // failed test on the marked target: also remove add-target effects there
+    // (standardPowerResult only removes actively maintained effects - the old
+    // Black Bolt gap: paralysis was never removed on a failed maintain test)
+    if (!holds) {
+      for (const effect of functionStuff.addTargetEffect) {
+        const existing = functionStuff.targetData.token?.actor.hasCondition(effect.id);
+        if (existing?.getFlag(game.system.id, "flagData")?.caster === casterId) {
+          flagDataArray.push({ tokenId: markedTokenId, removeEffect: effect });
+        }
       }
     }
   }
@@ -3894,54 +3930,99 @@ async function postMaintainChainCard(functionStuff, contentHtml, rolls = []) {
    des Mystikers, der die Kraft entfesselt hat, wird als Widerstand bei der
    Probe verwendet"), snapshotted in the effect's flagData at casting time
    (casterResolute, A24-G1 - the originator actor may no longer exist). One
-   probe per originator (A24-G2): a success removes all effects tagged with
-   that originator on the target via the GM card; a failure leaves them in
-   place. Targets without tagged effects keep the standard behaviour (probe
-   against the target's own resolute, removal stays with the GM - A24-G3).
-   Returns null when nothing is tagged (G3), otherwise whether any dispel
-   probe failed (drives the Adept chain). Master level (summoned effects and
-   creatures), rituals and legacy symbols without a snapshot remain GM
-   territory, in line with the A23 K6 philosophy. */
-async function anathemaDispel(functionStuff, flagDataArray) {
-  const targetActor = functionStuff.targetData.token?.actor;
-  if (!targetActor) return null;
-
-  // collect the originator-tagged conditions on the target, grouped by caster
+   probe per originator (A24-G2): the dialog roll against the first
+   originator's willpower counts as their probe; every further originator is
+   probed separately. A success removes all effects tagged with that
+   originator on the target via the GM card, a failure leaves them in place.
+   Targets without tagged effects are probed against the default 11 of an
+   unknown originator, removal then stays with the GM (A24-G3). Returns null
+   when nothing is tagged (G3), otherwise whether any dispel probe failed
+   (drives the Adept chain). Master level (summoned effects and creatures)
+   and rituals remain GM territory, in line with the A23 K6 philosophy. */
+function anathemaGroups(targetActor) {
   const groups = new Map();
+  if (!targetActor) return groups;
   for (const effect of targetActor.effects) {
     const flagData = effect.getFlag(game.system.id, "flagData");
-    if (!flagData?.caster || flagData?.resolute == null) continue;
+    // A24-F2: legacy A23-F1 symbols ({caster, ability} without a resolute
+    // snapshot) are included at the default 11 of an unknown originator
+    if (!flagData?.caster) continue;
     const statusId = Array.from(effect.statuses)[0];
     const statusEffect = statusId ? CONFIG.statusEffects.find((e) => e.id === statusId) : null;
     if (!statusEffect) continue;
     let group = groups.get(flagData.caster);
     if (!group) {
-      group = { resolute: flagData.resolute, name: flagData.casterName ?? flagData.caster, effects: [] };
+      group = { resolute: flagData.resolute ?? 11, name: flagData.casterName ?? flagData.caster, effects: [] };
       groups.set(flagData.caster, group);
     }
     group.effects.push(statusEffect);
   }
+  return groups;
+}
+
+/* A24-F2: pseudo-actor for the Anathema rolls - the probe runs against the
+   originator's snapshotted willpower and is displayed with the originator's
+   name; a target without tagged effects is probed against the default 11 of
+   an unknown originator. getAttributeValue reads
+   system.attributes.resolute.total, getAttributeLabel localizes
+   system.attributes.resolute.label - plain strings pass through verbatim. */
+function anathemaResistActor(targetActor) {
+  const first = anathemaGroups(targetActor).values().next().value ?? null;
+  return {
+    system: {
+      attributes: {
+        resolute: {
+          total: first ? first.resolute : 11,
+          label: first
+            ? `${game.i18n.localize("ATTRIBUTE.RESOLUTE")} (${first.name})`
+            : game.i18n.localize("ATTRIBUTE.RESOLUTE_UNKNOWN_ORIGINATOR"),
+        },
+      },
+    },
+  };
+}
+
+async function anathemaDispel(functionStuff, flagDataArray, rollData) {
+  const targetActor = functionStuff.targetData.token?.actor;
+  const groups = anathemaGroups(targetActor);
   if (groups.size === 0) return null;
 
   const rolls = [];
   const lines = [];
   let anyFailed = false;
   const title = `<h4>${game.i18n.localize("POWER_ANATHEMA.DISPEL_SUMMARY")}</h4>`;
+  let index = 0;
   for (const group of groups.values()) {
-    // opposed test against the snapshotted resolute of the originator; the
-    // plain object carries the snapshot value, its label is the i18n key
-    const originator = { system: { attributes: { resolute: { total: group.resolute, label: "ATTRIBUTE.RESOLUTE" } } } };
-    const roll = await baseRoll(
-      functionStuff.actor,
-      functionStuff.castingAttributeName,
-      originator,
-      "resolute",
-      functionStuff.favour,
-      functionStuff.modifier,
-      false
-    );
-    rolls.push(...(roll.rolls ?? []));
-    const dispelled = roll.trueActorSucceeded;
+    // A24-F2: the dialog roll against the originator's willpower IS the
+    // probe for the first originator; further originators are probed here
+    // with a pseudo-actor carrying their own snapshot value (A24-G2)
+    let dispelled;
+    if (index === 0 && rollData?.[0]) {
+      dispelled = rollData[0].trueActorSucceeded;
+    } else {
+      const originator = {
+        system: {
+          attributes: {
+            resolute: {
+              total: group.resolute,
+              label: `${game.i18n.localize("ATTRIBUTE.RESOLUTE")} (${group.name})`,
+            },
+          },
+        },
+      };
+      const roll = await baseRoll(
+        functionStuff.actor,
+        functionStuff.castingAttributeName,
+        originator,
+        "resolute",
+        functionStuff.favour,
+        functionStuff.modifier,
+        false
+      );
+      rolls.push(...(roll.rolls ?? []));
+      dispelled = roll.trueActorSucceeded;
+    }
+    index++;
     lines.push(
       `<p>${game.i18n.format(dispelled ? "POWER_ANATHEMA.DISPEL_BREAKS" : "POWER_ANATHEMA.DISPEL_HOLDS", {
         originatorname: group.name,
@@ -4826,12 +4907,13 @@ async function standardPowerResult(rollData, functionStuff) {
     }
   }
 
-  // A24: Anathema dispels the originator-tagged effects on the target - one
-  // probe per originator against the snapshotted casterResolute; removals go
-  // to the same GM card as everything else. null = nothing tagged (G3), the
-  // standard probe result then decides the chain
+  // A24: Anathema dispels the originator-tagged effects on the target - the
+  // dialog roll counts as the first originator's probe (see anathemaDispel),
+  // further originators are probed there; removals go to the same GM card as
+  // everything else. null = nothing tagged (G3), the standard probe result
+  // then decides the chain
   if (functionStuff.ability?.reference === "anathema") {
-    const dispelFailed = await anathemaDispel(functionStuff, flagDataArray);
+    const dispelFailed = await anathemaDispel(functionStuff, flagDataArray, rollData);
     functionStuff.anathemaDispelFailed = dispelFailed ?? !trueActorSucceeded;
   }
 

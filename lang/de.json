@@ -183,6 +183,7 @@
   "ATTRIBUTE.PERSUASIVE": "Ausstrahlung",
   "ATTRIBUTE.QUICK": "Gewandtheit",
   "ATTRIBUTE.RESOLUTE": "Willenskraft",
+  "ATTRIBUTE.RESOLUTE_UNKNOWN_ORIGINATOR": "Willenskraft (unbekannter Urheber)",
   "ATTRIBUTE.STRONG": "Stärke",
   "ATTRIBUTE.VIGILANT": "Aufmerksamkeit",
 

@@ -183,6 +183,7 @@
   "ATTRIBUTE.PERSUASIVE": "Persuasive",
   "ATTRIBUTE.QUICK": "Quick",
   "ATTRIBUTE.RESOLUTE": "Resolute",
+  "ATTRIBUTE.RESOLUTE_UNKNOWN_ORIGINATOR": "Resolute (unknown originator)",
   "ATTRIBUTE.STRONG": "Strong",
   "ATTRIBUTE.VIGILANT": "Vigilant",
 
