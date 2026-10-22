@@ -406,7 +406,7 @@
   "DIALOG.CASTING": "Erster Zauber",
   "DIALOG.IMPEDING": "Zuzüglich Behinderungsmalus?",
   "DIALOG.MAINTAINING": "Aufrechterhalten",
-  "DIALOG.CHAIN_NEXT_TARGET": "Die Kraft wirkt auf ein Ziel nach dem anderen. Markiere das nächste Ziel und klicke auf \"Ja\", um die Kette fortzusetzen. Mit \"Nein\" endet sie.",
+  "DIALOG.CHAIN_NEXT_TARGET": "Weiteres Ziel<br>für Kette?",
   "DIALOG.CHAIN_NO_NEW_TARGET": "Kein neues Ziel markiert - die Kette endet hier.",
   "DIALOG.ROLLONTABLE": "Wurf auf Tabelle {tablename}",
 
@@ -568,7 +568,7 @@
   "POWER.CHAT_SUCCESS": "{actorname} ist erfolgreich.",
   "POWER.CHAT_FAILURE": "{actorname} versagt.",
   "POWER.CHAT_CORRUPTION": "Temporäre Korruption erhalten: ",
-  "POWER.MAINTAIN_CHAIN_SUMMARY": "Aufrechterhaltene Wirkungen:",
+  "POWER.MAINTAIN_CHAIN_SUMMARY": "Aufrechterhalten von {powername}:",
   "POWER.MAINTAIN_CHAIN_HOLDS": "{targetname}: Wirkung hält.",
   "POWER.MAINTAIN_CHAIN_BREAKS": "{targetname}: Wirkung endet.",
   "POWER.MAINTAIN_CHAIN_NO_TARGETS": "Keine aktiven Wirkungen gefunden.",
@@ -576,7 +576,7 @@
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} versucht eine Kraft zu zerstreuen.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} unterbricht die Kraft.",
   "POWER_ANATHEMA.CHAT_FAILURE": "{actorname} versagt.",
-  "POWER_ANATHEMA.DISPEL_SUMMARY": "Aufgehobene Wirkungen:",
+  "POWER_ANATHEMA.DISPEL_SUMMARY": "Anathema-Wirkung:",
   "POWER_ANATHEMA.DISPEL_BREAKS": "{originatorname}: Wirkungen auf {targetname} aufgehoben.",
   "POWER_ANATHEMA.DISPEL_HOLDS": "{originatorname}: Wirkungen auf {targetname} halten.",
 
@@ -635,7 +635,7 @@
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} wird durch die Glyphe geschwächt.",
   "POWER_DRAININGGLYPH.CHAT_FAILURE": "{targetname} widersteht der schwächenden Glyphe.",
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "{actorname} wird pro Runde um 1W4 Zähigkeit geheilt, solange die Glyphe aufrechterhalten wird (vom Spielleiter anzuwenden).",
-  "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Die Glyphe wirkt auf alle Feinde, die das Symbol sehen können und sich vor ihm befinden. Markiere das nächste Ziel und klicke auf \"Ja\", um einen weiteren Feind zu prüfen. Mit \"Nein\" endet der Zauber.",
+  "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Weiteres Ziel<br>für die Glyphe?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - die Glyphe wirkt nur auf die bereits geprüften Feinde.",
 
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} versucht sich von den Ranken loszureißen.",

@@ -3797,6 +3797,10 @@ async function blackboltChainResult(rollData, functionStuff) {
 async function maintainChainResult(rollData, functionStuff) {
   game.symbaroum.log("maintainChainResult", ...arguments);
   const casterId = functionStuff.actor.id;
+  // A24-F3 (test round 3): only the MAINTAIN POWER'S OWN symbols count - the
+  // flagData carries the ability reference since A23, so symbols of the same
+  // caster cast via a DIFFERENT power (same condition id) are not conflated
+  const abilityRef = functionStuff.ability?.reference;
   const maintainEffects = [...functionStuff.addTargetEffect, ...functionStuff.activelyMaintainedTargetEffect];
   const markedTokenId = functionStuff.targetData?.tokenId;
   const markedName = functionStuff.targetData?.name ?? "";
@@ -3806,7 +3810,8 @@ async function maintainChainResult(rollData, functionStuff) {
   // one is NOT part of the maintained group
   const markedHasOwn = maintainEffects.some((effect) => {
     const existing = functionStuff.targetData?.token?.actor?.hasCondition(effect.id);
-    return existing?.getFlag(game.system.id, "flagData")?.caster === casterId;
+    const flagData = existing?.getFlag(game.system.id, "flagData");
+    return flagData?.caster === casterId && flagData?.ability === abilityRef;
   });
 
   // A23-F2: Black Bolt's damage belongs to the initial impact only (APG) - a
@@ -3837,7 +3842,8 @@ async function maintainChainResult(rollData, functionStuff) {
     if (!actor) continue;
     for (const effect of maintainEffects) {
       const existing = actor.hasCondition(effect.id);
-      if (existing && existing.getFlag(game.system.id, "flagData")?.caster === casterId) {
+      const flagData = existing?.getFlag(game.system.id, "flagData");
+      if (existing && flagData?.caster === casterId && flagData?.ability === abilityRef) {
         scanned.push({ token, effect });
         break;
       }
@@ -3846,7 +3852,7 @@ async function maintainChainResult(rollData, functionStuff) {
 
   if (!markedHasOwn && scanned.length === 0) {
     // nothing left to maintain (e.g. everything removed by Anathema)
-    await postMaintainChainCard(functionStuff, `<p>${game.i18n.localize("POWER.MAINTAIN_CHAIN_NO_TARGETS")}</p>`);
+    await postMaintainChainCard(functionStuff, "", [`<p>${game.i18n.localize("POWER.MAINTAIN_CHAIN_NO_TARGETS")}</p>`]);
     return;
   }
 
@@ -3867,7 +3873,8 @@ async function maintainChainResult(rollData, functionStuff) {
     if (!holds) {
       for (const effect of functionStuff.addTargetEffect) {
         const existing = functionStuff.targetData.token?.actor.hasCondition(effect.id);
-        if (existing?.getFlag(game.system.id, "flagData")?.caster === casterId) {
+        const flagData = existing?.getFlag(game.system.id, "flagData");
+        if (flagData?.caster === casterId && flagData?.ability === abilityRef) {
           flagDataArray.push({ tokenId: markedTokenId, removeEffect: effect });
         }
       }
@@ -3897,17 +3904,23 @@ async function maintainChainResult(rollData, functionStuff) {
   }
 
   if (lines.length > 0) {
-    const title = `<h4>${game.i18n.localize("POWER.MAINTAIN_CHAIN_SUMMARY")}</h4>`;
-    await postMaintainChainCard(functionStuff, title + lines.join(""), rolls);
+    // A24-F3 (test round 3): title names the maintained power
+    const title = `<h4>${game.i18n.format("POWER.MAINTAIN_CHAIN_SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, rolls);
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
   }
 }
 
-/* A23 helper: simple info/summary card for the maintain chain, styled like the
-   system's chat cards, with the additional opposed tests attached as rolls. */
-async function postMaintainChainCard(functionStuff, contentHtml, rolls = []) {
+/* A23 helper: summary card for the maintain chain and the Anathema dispel
+   result, with the additional opposed tests attached as rolls.
+   A24-F3 (test round 3): the result lines are wrapped in .finalTxt divs so
+   they get the standard card typography (16px Signika, centred, via
+   css/symbaroum.css) instead of the bare 12px default text; the h4 title is
+   styled by the system's own .symbaroum.chat.ability h4 rule. */
+async function postMaintainChainCard(functionStuff, titleHtml, lines, rolls = []) {
+  const contentHtml = `${titleHtml}${lines.map((line) => `<div class="finalTxt">${line}</div>`).join("")}`;
   const html = `<div class="symbaroum chat ability"><div class="foreground">${contentHtml}</div></div>`;
   const chatData = {
     user: game.user.id,
@@ -3960,6 +3973,19 @@ function anathemaGroups(targetActor) {
   return groups;
 }
 
+/* A24-F3 (test round 3): with several originators the card shows the WEAKEST
+   one (lowest snapshotted willpower) - the dialog roll runs against that
+   value; every further originator keeps its own probe in anathemaDispel
+   (Rudolf's decision: one probe per originator, weakest displayed). Ties in
+   willpower resolve to the first group in effect order. */
+function anathemaPrimaryGroup(groups) {
+  let primary = null;
+  for (const group of groups.values()) {
+    if (!primary || group.resolute < primary.resolute) primary = group;
+  }
+  return primary;
+}
+
 /* A24-F2: pseudo-actor for the Anathema rolls - the probe runs against the
    originator's snapshotted willpower and is displayed with the originator's
    name; a target without tagged effects is probed against the default 11 of
@@ -3967,7 +3993,7 @@ function anathemaGroups(targetActor) {
    system.attributes.resolute.total, getAttributeLabel localizes
    system.attributes.resolute.label - plain strings pass through verbatim. */
 function anathemaResistActor(targetActor) {
-  const first = anathemaGroups(targetActor).values().next().value ?? null;
+  const first = anathemaPrimaryGroup(anathemaGroups(targetActor));
   return {
     system: {
       attributes: {
@@ -3991,13 +4017,15 @@ async function anathemaDispel(functionStuff, flagDataArray, rollData) {
   const lines = [];
   let anyFailed = false;
   const title = `<h4>${game.i18n.localize("POWER_ANATHEMA.DISPEL_SUMMARY")}</h4>`;
-  let index = 0;
+  // A24-F3: the dialog roll was made against the weakest originator - that
+  // group consumes it; every further originator gets its own probe (G2)
+  const primary = anathemaPrimaryGroup(groups);
   for (const group of groups.values()) {
-    // A24-F2: the dialog roll against the originator's willpower IS the
-    // probe for the first originator; further originators are probed here
-    // with a pseudo-actor carrying their own snapshot value (A24-G2)
+    // A24-F2: the dialog roll against the originator's willpower IS the probe
+    // for the primary originator; further originators are probed here with a
+    // pseudo-actor carrying their own snapshot value (A24-G2)
     let dispelled;
-    if (index === 0 && rollData?.[0]) {
+    if (group === primary && rollData?.[0]) {
       dispelled = rollData[0].trueActorSucceeded;
     } else {
       const originator = {
@@ -4022,7 +4050,6 @@ async function anathemaDispel(functionStuff, flagDataArray, rollData) {
       rolls.push(...(roll.rolls ?? []));
       dispelled = roll.trueActorSucceeded;
     }
-    index++;
     lines.push(
       `<p>${game.i18n.format(dispelled ? "POWER_ANATHEMA.DISPEL_BREAKS" : "POWER_ANATHEMA.DISPEL_HOLDS", {
         originatorname: group.name,
@@ -4037,7 +4064,7 @@ async function anathemaDispel(functionStuff, flagDataArray, rollData) {
       anyFailed = true;
     }
   }
-  await postMaintainChainCard(functionStuff, title + lines.join(""), rolls);
+  await postMaintainChainCard(functionStuff, title, lines, rolls);
   return anyFailed;
 }
 

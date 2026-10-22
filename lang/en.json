@@ -406,7 +406,7 @@
   "DIALOG.CASTING": "Initial casting",
   "DIALOG.IMPEDING": "Include impeding malus?",
   "DIALOG.MAINTAINING": "Maintaining ability",
-  "DIALOG.CHAIN_NEXT_TARGET": "The power strikes one target after another. Mark the next target token, then press \"Yes\" to continue the chain. Press \"No\" to end it.",
+  "DIALOG.CHAIN_NEXT_TARGET": "Another target<br>for the chain?",
   "DIALOG.CHAIN_NO_NEW_TARGET": "No new target marked - the chain ends here.",
   "DIALOG.ROLLONTABLE": "Roll on table {tablename}",
 
@@ -568,7 +568,7 @@
   "POWER.CHAT_SUCCESS": "{actorname} is successfull.",
   "POWER.CHAT_FAILURE": "{actorname} fails.",
   "POWER.CHAT_CORRUPTION": "Temporary corruption received: ",
-  "POWER.MAINTAIN_CHAIN_SUMMARY": "Maintained effects:",
+  "POWER.MAINTAIN_CHAIN_SUMMARY": "Maintaining {powername}:",
   "POWER.MAINTAIN_CHAIN_HOLDS": "{targetname}: effect holds.",
   "POWER.MAINTAIN_CHAIN_BREAKS": "{targetname}: effect ends.",
   "POWER.MAINTAIN_CHAIN_NO_TARGETS": "No active effects found.",
@@ -576,7 +576,7 @@
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} tries to dissipate a power.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} cancels the power.",
   "POWER_ANATHEMA.CHAT_FAILURE": "{actorname} fails.",
-  "POWER_ANATHEMA.DISPEL_SUMMARY": "Dispelled effects:",
+  "POWER_ANATHEMA.DISPEL_SUMMARY": "Anathema effect:",
   "POWER_ANATHEMA.DISPEL_BREAKS": "{originatorname}: effects on {targetname} dispelled.",
   "POWER_ANATHEMA.DISPEL_HOLDS": "{originatorname}: effects on {targetname} hold.",
 
@@ -634,7 +634,7 @@
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} is weakened by the glyph and suffers 1d4 damage.",
   "POWER_DRAININGGLYPH.CHAT_FAILURE": "{targetname} resists the draining glyph.",
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "{actorname} is healed 1d4 Toughness each round while the glyph is maintained (to be applied by the GM).",
-  "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "The glyph affects all enemies that can see the symbol and stand in front of it. Mark the next target token, then press \"Yes\" to affect another enemy. Press \"No\" to end the casting.",
+  "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Another target<br>for the glyph?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "No new target marked - the glyph affects only the enemies already tested.",
 
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} tries to break free from the vines.",
