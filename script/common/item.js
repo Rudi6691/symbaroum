@@ -662,6 +662,25 @@ export class SymbaroumItem extends Item {
         this.system.isIntegrated = true;
         combatMods.weapons[weapons[i].id].package[0].member.push(base);
       }
+      if (this.system.qualities.poison) {
+        // A28 fix (Rudolfs Testrunde): Giftbeschichtet had NO code path at all.
+        // This member makes the quality visible in the attack dialog like the
+        // other DoT qualities; the actual application deliberately does NOT
+        // happen in the damageOverTime loop - Giftbeschichtet runs through the
+        // established GRW opposed-roll poison path (cunning vs strong, see the
+        // auto light-dose select in attackResult), keeping G5 intact
+        let base = this._getBaseFormat();
+        base.label = game.i18n.localize("QUALITY.POISON");
+        base.value = game.i18n.localize("QUALITY.POISON");
+        base.type = game.symbaroum.config.STATUS_DOT;
+        base.damagePerRound = "1d4";
+        base.damagePerRoundNPC = 2;
+        base.duration = "1d4";
+        base.durationNPC = 2;
+        base.effectIcon = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison"));
+        this.system.isIntegrated = true;
+        combatMods.weapons[weapons[i].id].package[0].member.push(base);
+      }
       if (this.system.qualities.massive) {
         let base = this._getBaseFormat();
         base.label = game.i18n.localize("QUALITY.MASSIVE");
@@ -4802,6 +4821,17 @@ async function attackResult(rollData, functionStuff) {
     corruptionChatResult: corruptionChatResult,
     corruptionTooltip: corruptionTooltip,
   };
+  // A28 fix (Rudolfs Testrunde): the Giftbeschichtet weapon quality had no
+  // code path at all - a weapon with the quality auto-selects a light poison
+  // dose so the established GRW opposed-roll model applies (cunning vs strong,
+  // then 1d4/round for 1d4 rounds via the dot engine, NOTEXTEND for already
+  // poisoned targets). An explicit pick in the dialog's poison select still
+  // wins, so medium/strong doses remain available. Covers both weapon shapes:
+  // EC weapon data (.qualities) and a picked Item (.system.qualities).
+  if (!functionStuff.poison && (functionStuff.weapon?.system?.qualities ?? functionStuff.weapon?.qualities)?.poison) {
+    functionStuff.poison = 1;
+    functionStuff.autoParams += game.i18n.localize("QUALITY.POISON") + ", ";
+  }
   if (functionStuff.autoParams != "") {
     templateData.subText += ", " + functionStuff.autoParams;
   }
@@ -4918,6 +4948,9 @@ async function attackResult(rollData, functionStuff) {
         // (reroll compared with Precision) - chat hint for the GM, no automation
         templateData.acidCarrierRisk = true;
       }
+    } else if (doTime.effectIcon?.id === "poison" && hasDamage) {
+      // A28 fix (Rudolfs Testrunde): display-only member - Giftbeschichtet is
+      // NOT applied here but via the GRW opposed-roll poison path above
     }
   }
   // Here
