@@ -9,6 +9,8 @@ import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
 import { SymbaroumItem, buildRolls } from './item.js';
+// A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
+import { createRollData } from './roll.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -494,6 +496,116 @@ Hooks.on('combatStart', async (combat, ...args) => {
 	}
 });
 
+/* A28 Stufe 1 - round/DoT engine. At the START of a combatant's turn the GM
+   client collects every engine-managed condition on that combatant's actor
+   (an ActiveEffect whose flags.symbaroum.flagData carries durationRounds or a
+   dot block): each damage-over-time source rolls its per-round damage, all
+   changes are applied in ONE batched actor update and ONE aggregated chat card
+   is posted (per-source lines + total, maintain-chain card optics).
+   Afterwards the round counters are decremented and finished conditions are
+   deleted - tick first, then expiry, so a duration of N rounds produces
+   exactly N damage ticks (G1/G4).
+   The tick at the start of the victim's own turn also implements the Vault
+   timing "damage starting the round after the hit" without special cases: a
+   hit can never deal its round damage in the same instant, the first tick is
+   always the victim's next turn.
+   G6/K6 precedent: legacy conditions without durationRounds/dot data are
+   strictly ignored - they neither tick nor expire; applying them once anew
+   brings them into the engine. Outside of a combat nothing ticks (rounds only
+   exist in the combat tracker), and no render or movement path is touched
+   (A28-2 performance rules). */
+Hooks.on('updateCombat', async (combat, changed) => {
+	if (!game.user.isActiveGM) return;
+	if (!('turn' in changed) && !('round' in changed)) return;
+	const combatant = combat.combatant;
+	const actor = combatant?.actor;
+	if (!actor) return;
+	const dotEffects = actor.effects.filter((e) => {
+		const fd = e.getFlag(game.system.id, 'flagData');
+		return fd && (fd.durationRounds != null || fd.dot);
+	});
+	if (dotEffects.length === 0) return;
+
+	const rolls = [];
+	const lines = [];
+	let toughnessDamage = 0;
+	let corruptionDamage = 0;
+	for (const e of dotEffects) {
+		const fd = e.getFlag(game.system.id, 'flagData');
+		if (!fd.dot) continue; // duration-only conditions just expire below
+		const dot = fd.dot;
+		const roll = await new Roll(dot.formula).evaluate();
+		rolls.push(roll);
+		const amount = roll.total * (dot.stacks ?? 1);
+		if (dot.resource === 'corruption') corruptionDamage += amount;
+		else toughnessDamage += amount;
+		const label = dot.label ? game.i18n.localize(dot.label) : e.name;
+		let line = game.i18n.format('COMBAT.DOT_SOURCE_LINE', { label, damage: amount });
+		if (dot.separateRoll) line += game.i18n.localize('COMBAT.DOT_SEPARATE');
+		if (fd.durationRounds != null) {
+			// this very tick is running: one round of the duration is consumed
+			const remaining = Number(fd.durationRounds) - 1;
+			line += remaining > 0 ? game.i18n.format('COMBAT.DOT_ROUNDS_LEFT', { count: remaining }) : game.i18n.localize('COMBAT.DOT_EXPIRED');
+		}
+		lines.push(line);
+	}
+	if (toughnessDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL', { damage: toughnessDamage }));
+	if (corruptionDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL_CORRUPTION', { damage: corruptionDamage }));
+
+	// ONE batched actor update for all sources (A28-2 performance rule)
+	const updateData = {};
+	let oldToughness;
+	if (toughnessDamage > 0) {
+		oldToughness = actor.system.health.toughness.value;
+		updateData['system.health.toughness.value'] = Math.max(0, Math.min(actor.system.health.toughness.max, oldToughness - toughnessDamage));
+	}
+	if (corruptionDamage > 0) {
+		updateData['system.health.corruption.temporary'] = actor.system.health.corruption.temporary + corruptionDamage;
+	}
+	if (!foundry.utils.isEmpty(updateData)) {
+		await actor.update(updateData);
+	}
+
+	// A25 F9/F11: the round damage brought the actor down to 0 toughness - the
+	// same transition gate and consistent big skull overlay as on the GM apply
+	// path; an actor already at 0 does not re-trigger (no spam)
+	if (updateData['system.health.toughness.value'] === 0 && oldToughness > 0) {
+		const dyingName = combatant.token?.name ?? actor.token?.name ?? actor.name ?? '';
+		await ChatMessage.create({
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${dyingName}${game.i18n.localize('COMBAT.CHAT_DAMAGE_DYING')}</p></div></div></div>`,
+		});
+		await applyDeadOverlay(actor);
+	}
+
+	// EINE aggregated tick card per victim per turn, dice attached as rolls
+	const title = `<h4>${combatant.token?.name ?? actor.token?.name ?? actor.name}${game.i18n.localize('COMBAT.DOT_TITLE')}</h4>`;
+	const html = `<div class="symbaroum chat ability"><div class="foreground">${title}${lines.map((line) => `<div class="finalTxt">${line}</div>`).join('')}</div></div>`;
+	const chatData = {
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+		rollMode: game.settings.get('core', 'messageMode'),
+		content: html,
+	};
+	if (rolls.length > 0) chatData.rolls = [createRollData(rolls)];
+	ChatMessage.applyMode(chatData, 'public');
+	await ChatMessage.create(chatData);
+
+	// tick-then-expiry: decrement the round counters (batched) and remove
+	// finished conditions; the effect's duration display follows the counter
+	const effectUpdates = [];
+	const expireIds = [];
+	for (const e of dotEffects) {
+		const fd = e.getFlag(game.system.id, 'flagData');
+		if (fd.durationRounds == null) continue;
+		const remaining = Math.max(0, Number(fd.durationRounds) - 1);
+		if (remaining <= 0) expireIds.push(e.id);
+		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.durationRounds`]: remaining, 'duration.value': remaining });
+	}
+	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
+	if (expireIds.length > 0) await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
+});
+
 Hooks.on('preCreateChatMessage', (doc, message, options, userid) => {
 	if (message.flags !== undefined) {
 		if (foundry.utils.getProperty(message.flags, 'core.initiativeRoll') && game.settings.get('symbaroum', 'hideIniativeRolls')) {
@@ -541,7 +653,23 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						} else {
 							// A23: pass the author marker so the maintain chain only maintains own symbols
 							// A24: also pass the originator's snapshotted resolute and name (Anathema probes)
-							await actor.addCondition(flagData.addEffect, flagData.casterId ? { caster: flagData.casterId, ability: flagData.abilityRef, resolute: flagData.casterResolute, casterName: flagData.casterName } : undefined);
+							// A28 Stufe 1: a dot block opts the application into the round/DoT engine -
+							// duration (the effectDuration field that used to be discarded) and dot ride
+							// along on the condition. The dot gate is deliberate: effectDuration is also
+							// used as a plain marker on non-DoT paths (A23/A24 maintain symbols with
+							// casterId, holyShield, dead/prone), which must keep their exact current
+							// permanent behaviour - only the weapon-quality DoTs (and the inherit-wound
+							// condition transfers, which carry a dot now too) become engine-managed
+							let conditionData;
+							if (flagData.casterId) {
+								conditionData = { caster: flagData.casterId, ability: flagData.abilityRef, resolute: flagData.casterResolute, casterName: flagData.casterName };
+							}
+							if (flagData.dot) {
+								const engineData = { dot: flagData.dot };
+								if (flagData.effectDuration != null) engineData.durationRounds = flagData.effectDuration;
+								conditionData = foundry.utils.mergeObject(conditionData ?? {}, engineData);
+							}
+							await actor.addCondition(flagData.addEffect, conditionData);
 						}
 					} else if (flagData.removeEffect) {
 						await actor.removeCondition(flagData.removeEffect);

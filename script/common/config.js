@@ -515,6 +515,15 @@ SYMBAROUM.equipmentCompatibilities = [];
 
 SYMBAROUM.systemConditionEffects = [
   {
+    // A28 Stufe 1: DoT condition for the acid-coated weapon quality - the
+    // round/DoT engine (hooks.js updateCombat) ticks 1d4 acid damage at the
+    // start of the victim's turn; core icon like the other HUD conditions
+    id: "acid",
+    label: "CONDITION.ACID",
+    name: "CONDITION.ACID",
+    icon: "icons/svg/acid.svg",
+  },
+  {
     id: "banishingseal",
     label: "POWER_LABEL.BANISHING_SEAL",
     name: "POWER_LABEL.BANISHING_SEAL",

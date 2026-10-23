@@ -793,6 +793,19 @@ export class SymbaroumActor extends Actor {
 			}
 			if( flagData ) {
 				effect[`flags.${game.system.id}.flagData`] = flagData;
+				// A28 Stufe 1: engine-managed conditions carry their round duration on the
+				// ActiveEffect (UI display / Core duration bookkeeping). The tick hook in
+				// hooks.js owns the countdown and the deletion (tick-then-expiry with
+				// exactly N damage ticks - Core never deletes expired effects by default);
+				// every legacy application without durationRounds (K6 precedent: permanent
+				// conditions) keeps its exact current behaviour.
+				if (flagData.durationRounds != null) {
+					effect.duration = {
+						value: Number(flagData.durationRounds),
+						units: "rounds",
+						expiry: "turnStart",
+					};
+				}
 			}
 			// V14: statuses must be the array of status ids (a plain id string is not accepted by the
 			// data model), showIcon ALWAYS displays the icon on the token for permanent conditions
@@ -802,6 +815,21 @@ export class SymbaroumActor extends Actor {
 			effect.img ??= effect.icon;
 			delete effect.id;
 			return this.createEmbeddedDocuments("ActiveEffect", [effect]);
+		} else if (flagData?.dot?.stackable) {
+			// A28 G3 (Aderlass): another hit on an already bleeding target does not create
+			// a second condition - the existing effect's stack counter is raised by +1 and
+			// the increase is posted to the chat (damage per round = stacks, formula "1";
+			// only the round/DoT engine reads dot.stacks, all other callers are untouched)
+			const existingFlagData = existing.getFlag(game.system.id, "flagData") ?? {};
+			const dot = existingFlagData.dot ?? foundry.utils.duplicate(flagData.dot);
+			dot.stacks = (dot.stacks ?? 1) + 1;
+			const newFlagData = foundry.utils.mergeObject(existingFlagData, { dot });
+			await existing.update({ [`flags.${game.system.id}.flagData`]: newFlagData });
+			await ChatMessage.create({
+				speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: this.id }),
+				content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format("COMBAT.DOT_STACK_LINE", { name: this.name, count: dot.stacks })}</p></div></div></div>`,
+			});
+			return existing;
 		}
 	}
 

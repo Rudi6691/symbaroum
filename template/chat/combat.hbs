@@ -75,5 +75,11 @@
         {{#if printFlaming}}
         <div class="finalTxt">{{removeMarkup flamingChat}}</div>
         {{/if}}
+        {{#if printAcid}}
+        <div class="finalTxt">{{removeMarkup acidChat}}</div>
+        {{#if acidCarrierRisk}}
+        <div class="finalTxt">{{localize "COMBAT.CHAT_ACID_CARRIER_RISK"}}</div>
+        {{/if}}
+        {{/if}}
     </div>
 </div>

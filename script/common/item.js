@@ -628,6 +628,40 @@ export class SymbaroumItem extends Item {
         this.system.isIntegrated = true;
         combatMods.weapons[weapons[i].id].package[0].member.push(base);
       }
+      if (this.system.qualities.bloodLetting) {
+        // A28 G2/G3: Aderlass (Vault model) - 1 point of toughness per round,
+        // stackable +1 per further hit (handled by addCondition), permanent
+        // until the symbol is removed (First Aid / healing); the round/DoT
+        // engine in hooks.js ticks it at the victim's turn start
+        let base = this._getBaseFormat();
+        base.label = game.i18n.localize("QUALITY.BLOODLETTING");
+        base.value = game.i18n.localize("QUALITY.BLOODLETTING");
+        base.type = game.symbaroum.config.STATUS_DOT;
+        base.damagePerRound = "1";
+        base.damagePerRoundNPC = 1;
+        base.duration = "";
+        base.durationNPC = 0;
+        base.effectIcon = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bleeding"));
+        this.system.isIntegrated = true;
+        combatMods.weapons[weapons[i].id].package[0].member.push(base);
+      }
+      if (this.system.qualities.acidcoated) {
+        // A28 G2: Säurebeschichtet - 1d4 acid damage per round for 1d4 rounds,
+        // each round dealt as a SEPARATE hit (Vault); the wielder risk on a
+        // natural 20 stays a GM hint (no automation), the round/DoT engine
+        // ticks the damage at the victim's turn start
+        let base = this._getBaseFormat();
+        base.label = game.i18n.localize("QUALITY.ACIDCOATED");
+        base.value = game.i18n.localize("QUALITY.ACIDCOATED");
+        base.type = game.symbaroum.config.STATUS_DOT;
+        base.damagePerRound = "1d4";
+        base.damagePerRoundNPC = 2;
+        base.duration = "1d4";
+        base.durationNPC = 2;
+        base.effectIcon = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "acid"));
+        this.system.isIntegrated = true;
+        combatMods.weapons[weapons[i].id].package[0].member.push(base);
+      }
       if (this.system.qualities.massive) {
         let base = this._getBaseFormat();
         base.label = game.i18n.localize("QUALITY.MASSIVE");
@@ -823,8 +857,10 @@ export class SymbaroumItem extends Item {
         let baseBleed = this._getBaseFormat();
         baseBleed.value = game.i18n.localize("COMBAT.BLEED");
         baseBleed.type = game.symbaroum.config.STATUS_DOT;
-        baseBleed.damagePerRound = "1d4";
-        baseBleed.damagePerRoundNPC = 2;
+        // A28 G3: the bleeding condition follows the Vault Aderlass model - 1 point
+        // of toughness per round (stacks handled by addCondition), not 1d4
+        baseBleed.damagePerRound = "1";
+        baseBleed.damagePerRoundNPC = 1;
         baseBleed.duration = "";
         baseBleed.durationNPC = 0;
         baseBleed.effectIcon = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bleeding"));
@@ -4759,6 +4795,9 @@ async function attackResult(rollData, functionStuff) {
     bleedChat: "",
     printFlaming: false,
     flamingChat: "",
+    printAcid: false,
+    acidChat: "",
+    acidCarrierRisk: false,
     printCorruption: printCorruption,
     corruptionChatResult: corruptionChatResult,
     corruptionTooltip: corruptionTooltip,
@@ -4783,12 +4822,24 @@ async function attackResult(rollData, functionStuff) {
       templateData.printBleed = true;
       let bleedDamage = doTime.damagePerRound;
       if (!functionStuff.attackFromPC) bleedDamage = doTime.damagePerRoundNPC.toString();
-      templateData.bleedChat = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_BLEED") + bleedDamage;
-      let finalbleedDmg = await mathDamageProt(functionStuff.targetData.actor, 2, { bleeding: true });
+      // A28 G3 (Aderlass, Vault model): 1 point per round, +1 stack per further hit
+      // (addCondition), permanent until the symbol is removed; the round/DoT engine
+      // applies the damage automatically at the start of the victim's turn
+      templateData.bleedChat =
+        functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_BLEED") + bleedDamage + game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+      let finalbleedDmg = await mathDamageProt(functionStuff.targetData.actor, 1, { bleeding: true });
       templateData.bleedChat += finalbleedDmg.text;
       flagDataArray.push({
         tokenId: functionStuff.targetData.tokenId,
         addEffect: doTime.effectIcon,
+        dot: {
+          label: "QUALITY.BLOODLETTING",
+          formula: "1",
+          resource: "toughness",
+          damageType: "bleeding",
+          stackable: true,
+          separateRoll: false,
+        },
       });
     } else if (doTime.effectIcon?.id === "burning" && hasDamage) {
       let flamingRoundsRoll = 2;
@@ -4804,6 +4855,19 @@ async function attackResult(rollData, functionStuff) {
         tokenId: functionStuff.targetData.tokenId,
         addEffect: doTime.effectIcon,
         effectDuration: flamingRounds,
+        // A28 Stufe 1: the dot block opts the burning condition into the
+        // round/DoT engine - 1d4 (PC attacker / monster target, fixed 2 for NPC
+        // attackers like the chat display) fire damage per round at the start of
+        // the victim's turn, first tick on its next turn ("round after the hit"),
+        // armor is ignored per the Vault (no armor roll in the rules text)
+        dot: {
+          label: "QUALITY.FLAMING",
+          formula: functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2",
+          resource: "toughness",
+          damageType: "fire",
+          stackable: false,
+          separateRoll: false,
+        },
       });
       templateData.printFlaming = true;
       templateData.flamingChat =
@@ -4811,9 +4875,49 @@ async function attackResult(rollData, functionStuff) {
         game.i18n.localize("COMBAT.CHAT_FLAMING_SUCCESS1") +
         flamingDamage +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
-        flamingRounds.toString();
+        flamingRounds.toString() +
+        game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
       let finalburningDmg = await mathDamageProt(functionStuff.targetData.actor, 2, { elemental: true });
       templateData.flamingChat += finalburningDmg.text;
+    } else if (doTime.effectIcon?.id === "acid" && hasDamage) {
+      // A28 G2: Säurebeschichtet - 1d4 acid damage per round for 1d4 rounds,
+      // rolled as a SEPARATE hit each round (Vault); no initial damage, the
+      // wielder risk on a natural 20 is a GM hint only (no automation)
+      let acidRoundsRoll = 2;
+      let acidRounds = 2;
+      let acidDamage = " 2";
+      if (functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster") {
+        acidRoundsRoll = await new Roll("1d4").evaluate();
+        rolls.push(acidRoundsRoll);
+        acidRounds = acidRoundsRoll.total;
+        acidDamage = " 1d4";
+      }
+      flagDataArray.push({
+        tokenId: functionStuff.targetData.tokenId,
+        addEffect: doTime.effectIcon,
+        effectDuration: acidRounds,
+        dot: {
+          label: "QUALITY.ACIDCOATED",
+          formula: functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2",
+          resource: "toughness",
+          damageType: "acid",
+          stackable: false,
+          separateRoll: true,
+        },
+      });
+      templateData.printAcid = true;
+      templateData.acidChat =
+        functionStuff.targetData.name +
+        game.i18n.localize("COMBAT.CHAT_ACID_SUCCESS1") +
+        acidDamage +
+        game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
+        acidRounds.toString() +
+        game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+      if (rollData?.[0]?.diceResult === 20) {
+        // Vault: on a natural 20 on the attack roll the acid may hit the wielder
+        // (reroll compared with Precision) - chat hint for the GM, no automation
+        templateData.acidCarrierRisk = true;
+      }
     }
   }
   // Here
@@ -4914,13 +5018,26 @@ async function poisonCalc(functionStuff, poisonRoll) {
         tokenId: functionStuff.targetData.tokenId,
         addEffect: effect,
         effectDuration: NewPoisonRounds,
+        // A28 G2: the dot block opts the poisoned condition into the round/DoT
+        // engine - Vault Giftbeschichtet: 1d4 poison damage per round (fixed 2
+        // for NPC attackers, mirroring the chat display) for the rolled number
+        // of rounds, first tick on the victim's next turn, armor ignored
+        dot: {
+          label: "QUALITY.POISON",
+          formula: functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2",
+          resource: "toughness",
+          damageType: "poison",
+          stackable: false,
+          separateRoll: false,
+        },
       };
       poisonRes.poisonChatResult =
         functionStuff.targetData.name +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS1") +
         poisonDamage +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
-        NewPoisonRounds.toString();
+        NewPoisonRounds.toString() +
+        game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
     }
   }
   poisonRes.printPoison = true;
@@ -5264,11 +5381,22 @@ async function standardPowerResult(rollData, functionStuff) {
             //get the number of rounds left
             let timeLeft = 1;
             //set status to caster
+            // A28 Stufe 1: the transferred poison keeps its nature - the dot block
+            // makes the caster's condition engine-managed (1d4/round, one round as
+            // intended by the transferred timeLeft)
             flagDataArray.push(
               {
                 tokenId: functionStuff.tokenId,
                 addEffect: pEffect,
                 effectDuration: timeLeft,
+                dot: {
+                  label: "QUALITY.POISON",
+                  formula: "1d4",
+                  resource: "toughness",
+                  damageType: "poison",
+                  stackable: false,
+                  separateRoll: false,
+                },
               },
               {
                 tokenId: functionStuff.targetData.tokenId,
@@ -5282,11 +5410,21 @@ async function standardPowerResult(rollData, functionStuff) {
             //get the number of rounds left
             let timeLeft = 1;
             //set status to caster
+            // A28 Stufe 1: the transferred bleeding keeps its nature - the dot block
+            // makes the caster's condition engine-managed (1 point/round, stackable)
             flagDataArray.push(
               {
                 tokenId: functionStuff.tokenId,
                 addEffect: bEffect,
                 effectDuration: timeLeft,
+                dot: {
+                  label: "QUALITY.BLOODLETTING",
+                  formula: "1",
+                  resource: "toughness",
+                  damageType: "bleeding",
+                  stackable: true,
+                  separateRoll: false,
+                },
               },
               {
                 tokenId: functionStuff.targetData.tokenId,
