@@ -582,6 +582,7 @@
   "POWER.MAINTAIN_CHAIN_HOLDS": "{targetname}: Wirkung hält.",
   "POWER.MAINTAIN_CHAIN_BREAKS": "{targetname}: Wirkung endet.",
   "POWER.MAINTAIN_CHAIN_NO_TARGETS": "Keine aktiven Wirkungen gefunden.",
+  "POWER.MAINTAIN_CHAIN_ROUND_DAMAGE": "{targetname} erleidet {count} Schaden (Rüstung ignoriert).",
 
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} versucht eine Kraft zu zerstreuen.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} unterbricht die Kraft.",

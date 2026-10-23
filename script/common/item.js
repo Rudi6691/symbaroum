@@ -2443,6 +2443,10 @@ export class SymbaroumItem extends Item {
     base.damageType = {
       mysticIgnArm: true,
     };
+    // A25 F8: the Master-level ground damage rolls on the maintain summary
+    // card for every still-held target (maintainChainResult), identical to
+    // the Entangling Vines mechanism
+    base.chainRoundDamage = true;
     base.introText = game.i18n.localize("POWER_EARTHBINDING.CHAT_INTRO");
     base.introTextMaintain = game.i18n.localize("POWER_EARTHBINDING.CHAT_INTRO_M");
     base.resultTextSuccess = game.i18n.localize("POWER_EARTHBINDING.CHAT_SUCCESS");
@@ -2485,6 +2489,10 @@ export class SymbaroumItem extends Item {
     base.damageType = {
       mysticIgnArm: true,
     };
+    // A25 F8: the Master-level thorns damage rolls on the maintain summary
+    // card for every still-held target (maintainChainResult), identical to
+    // the Earthbinding mechanism
+    base.chainRoundDamage = true;
     base.introTextMaintain = game.i18n.localize("POWER_ENTANGLINGVINES.CHAT_INTRO_M");
     base.resultTextSuccess = game.i18n.localize("POWER_ENTANGLINGVINES.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_ENTANGLINGVINES.CHAT_FAILURE");
@@ -3740,15 +3748,24 @@ function getPowerResultFunction(functionStuff) {
         : standardPowerResult;
     // A25 stage 4: the Ketten-Runde package 1 powers. Earthbinding and
     // Battle Symbol maintain through the A23 maintain chain (the escape /
-    // rage tests repeat per bound or berserk target), their first castings
-    // chain; Mark of Torment chains on every level without any maintain;
-    // True Form chains from Adept on; Black Breath dispatches to its own
-    // corruption comparison on every level (no probe, no maintain);
+    // rage tests repeat per bound or berserk target; from Master on the
+    // still-held targets of a chainRoundDamage power also take their
+    // per-round damage there, A25 F8), their first castings chain -
+    // Earthbinding from Adept on only (A25 F8 fix: the Novice level no
+    // longer chains, mirroring the Entangling Vines gate); Battle Symbol
+    // (every level - the novice text already describes the chain) chains on
+    // every level; Mark of Torment chains on every level without any
+    // maintain; True Form chains from Adept on; Black Breath dispatches to
+    // its own corruption comparison on every level (no probe, no maintain);
     // Levitate chains allies at Master - and maintaining NEVER chains
-    // (A25 F2, Rudolf's test round): the concentration hold runs for
-    // every levitating creature at once (levitateMaintainResult)
+    // (A25 F2, Rudolf's test round): the concentration hold runs for every
+    // levitating creature at once (levitateMaintainResult)
     case "earthbinding":
-      return functionStuff.isMaintained ? maintainChainResult : earthbindingChainResult;
+      return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained
+        ? earthbindingChainResult
+        : functionStuff.isMaintained
+          ? maintainChainResult
+          : standardPowerResult;
     case "battlesymbol":
       return functionStuff.isMaintained ? maintainChainResult : battlesymbolChainResult;
     case "blackbreath":
@@ -4210,6 +4227,13 @@ async function maintainChainResult(rollData, functionStuff) {
   // field maintainDamage (undefined = legacy behaviour)
   const savedHasDamage = functionStuff.hasDamage;
   if (functionStuff.maintainDamage === false) functionStuff.hasDamage = false;
+  // A25 F8: a chainRoundDamage power (Entangling Vines / Earthbinding, Master
+  // level) deals its per-round damage on the maintain summary card for EVERY
+  // still-held target - the marked target's legacy damage roll on the
+  // standard card is switched off here to avoid the double roll (hasDamage is
+  // restored below like the maintainDamage opt-out)
+  const roundDamage = functionStuff.chainRoundDamage === true && functionStuff.hasDamage;
+  if (roundDamage) functionStuff.hasDamage = false;
   // A24-3: no fresh application and no damage on a target outside the
   // maintained group (maintain never casts anew)
   const savedAddTargetEffect = functionStuff.addTargetEffect;
@@ -4258,6 +4282,15 @@ async function maintainChainResult(rollData, functionStuff) {
     lines.push(
       `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: markedName })}</p>`
     );
+    // A25 F8: bound another round - the per-round damage rolls here on the
+    // summary card for the marked target (plain roll, armor ignored via the
+    // direct toughnessChange on the shared GM card)
+    if (holds && roundDamage) {
+      const roundDamageRoll = await new Roll(functionStuff.damageDice).evaluate();
+      rolls.push(roundDamageRoll);
+      flagDataArray.push({ tokenId: markedTokenId, toughnessChange: -1 * roundDamageRoll.total });
+      lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_ROUND_DAMAGE", { targetname: markedName, count: roundDamageRoll.total })}</p>`);
+    }
     // failed test on the marked target: also remove add-target effects there
     // (standardPowerResult only removes actively maintained effects - the old
     // Black Bolt gap: paralysis was never removed on a failed maintain test)
@@ -4291,6 +4324,13 @@ async function maintainChainResult(rollData, functionStuff) {
     );
     if (!holds) {
       flagDataArray.push({ tokenId: token.id, removeEffect: effect });
+    } else if (roundDamage) {
+      // A25 F8: still bound - the per-round damage rolls here too, one plain
+      // roll per still-held chain target on the summary card
+      const roundDamageRoll = await new Roll(functionStuff.damageDice).evaluate();
+      rolls.push(roundDamageRoll);
+      flagDataArray.push({ tokenId: token.id, toughnessChange: -1 * roundDamageRoll.total });
+      lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_ROUND_DAMAGE", { targetname: token.name, count: roundDamageRoll.total })}</p>`);
     }
   }
 
