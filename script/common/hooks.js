@@ -528,8 +528,10 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						await actor.removeCondition(flagData.removeEffect);
 					}
 					if (flagData.defeated && ui.combat.viewed && token) {
-						let effect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id == 'dead'));
-						await token.toggleEffect(effect, { overlay: true, active: true });
+						// A25 F10: Token#toggleEffect was removed in Foundry V14 - the
+						// skull overlay is an ActiveEffect with flags.core.overlay,
+						// created via Actor#toggleStatusEffect
+						await actor.toggleStatusEffect('dead', { active: true, overlay: true });
 					}
 
 					if (flagData.toughnessChange) {
@@ -553,8 +555,9 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 								content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${dyingName}${game.i18n.localize('COMBAT.CHAT_DAMAGE_DYING')}</p></div></div></div>`,
 							});
 							if (token && ui.combat.viewed && ui.combat.viewed.getCombatantByToken(token.id)) {
-								let effect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id == 'dead'));
-								await token.toggleEffect(effect, { overlay: true, active: true });
+								// A25 F10: V14 replacement for the removed Token#toggleEffect -
+								// same overlay ActiveEffect as the legacy defeated branch
+								await actor.toggleStatusEffect('dead', { active: true, overlay: true });
 							} else {
 								await actor.addCondition(foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'dead')));
 							}

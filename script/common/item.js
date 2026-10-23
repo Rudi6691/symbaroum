@@ -4290,6 +4290,20 @@ async function maintainChainResult(rollData, functionStuff) {
       rolls.push(roundDamageRoll);
       flagDataArray.push({ tokenId: markedTokenId, toughnessChange: -1 * roundDamageRoll.total });
       lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_ROUND_DAMAGE", { targetname: markedName, count: roundDamageRoll.total })}</p>`);
+      // A25 F10 (ii): the round damage killed the marked target - the power's
+      // own symbols are removed alongside the damage so the dead token is
+      // not re-tested in later maintain rounds (same dying check as the
+      // standard path: armor-ignoring damage >= current toughness)
+      const markedToughness = functionStuff.targetData?.token?.actor?.system?.health?.toughness?.value;
+      if (markedToughness !== undefined && roundDamageRoll.total >= markedToughness) {
+        for (const effect of maintainEffects) {
+          const existing = functionStuff.targetData?.token?.actor?.hasCondition(effect.id);
+          const effectFlagData = existing?.getFlag(game.system.id, "flagData");
+          if (effectFlagData?.caster === casterId && effectFlagData?.ability === abilityRef) {
+            flagDataArray.push({ tokenId: markedTokenId, removeEffect: effect });
+          }
+        }
+      }
     }
     // failed test on the marked target: also remove add-target effects there
     // (standardPowerResult only removes actively maintained effects - the old
@@ -4331,6 +4345,13 @@ async function maintainChainResult(rollData, functionStuff) {
       rolls.push(roundDamageRoll);
       flagDataArray.push({ tokenId: token.id, toughnessChange: -1 * roundDamageRoll.total });
       lines.push(`<p>${game.i18n.format("POWER.MAINTAIN_CHAIN_ROUND_DAMAGE", { targetname: token.name, count: roundDamageRoll.total })}</p>`);
+      // A25 F10 (ii): the round damage killed this chain target - the power's
+      // symbol is removed alongside the damage so the dead token is not
+      // re-tested in later maintain rounds
+      const targetToughness = token.actor?.system?.health?.toughness?.value;
+      if (targetToughness !== undefined && roundDamageRoll.total >= targetToughness) {
+        flagDataArray.push({ tokenId: token.id, removeEffect: effect });
+      }
     }
   }
 
@@ -5290,7 +5311,10 @@ async function standardPowerResult(rollData, functionStuff) {
   }
   ChatMessage.applyMode(chatData, "public");
   let NewMessage = await ChatMessage.create(chatData);
-  if (trueActorSucceeded && functionStuff.addTargetEffect.length > 0) {
+  // A25 F10 (i): a target killed by the initial cast receives no power
+  // symbols at all - a dead token must not enter the chain (the standard
+  // path's dying check already marks it defeated, this keeps the symbols off)
+  if (trueActorSucceeded && !targetDies && functionStuff.addTargetEffect.length > 0) {
     for (let effect of functionStuff.addTargetEffect) {
       let effectPresent = functionStuff.targetData.token?.actor.hasCondition(effect.id);
       if (!effectPresent) {
@@ -5333,7 +5357,9 @@ async function standardPowerResult(rollData, functionStuff) {
       await functionStuff.token?.actor.removeCondition(effect);
     }
   }
-  if (trueActorSucceeded && !functionStuff.isMaintained && functionStuff.activelyMaintainedTargetEffect.length > 0) {
+  // A25 F10 (i): a target killed by the initial cast receives no power
+  // symbols at all - a dead token must not enter the chain
+  if (trueActorSucceeded && !targetDies && !functionStuff.isMaintained && functionStuff.activelyMaintainedTargetEffect.length > 0) {
     for (let effect of functionStuff.activelyMaintainedTargetEffect) {
       let effectPresent = functionStuff.targetData.token?.actor.hasCondition(effect.id);
       if (!effectPresent) {
