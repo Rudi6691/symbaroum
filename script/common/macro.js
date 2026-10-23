@@ -1212,7 +1212,11 @@ export class SymbaroumMacros {
 			{
 				name: game.i18n.localize("MACRO.RESET_CORRUPTION_NAME"),
 				command: "game.symbaroum.macros.resetTemporaryCorruption();",
-				img: "icons/svg/poison.svg",
+				// A25 F11 (Rudolf, 23.10.): ice-aura icon for the corruption
+				// reset; migrateIcons refreshes the previous poison.svg default
+				// if the icon was never manually changed
+				img: "icons/svg/ice-aura.svg",
+				migrateIcons: ["icons/svg/poison.svg"],
 			},
 		];
 		for (const def of utilities) {

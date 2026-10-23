@@ -2420,6 +2420,11 @@ export class SymbaroumItem extends Item {
     base.resultTextSuccess = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_FAILURE");
     base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
+    // A25 F11 (Rudolf's ruling, 23.10.): the glyph deals its 1d4 round damage
+    // on the maintain summary card for EVERY still-held target starting at
+    // Novice level (the rule text is ambiguous - this is the interpretation
+    // played at this table), via the F8 chainRoundDamage mechanism
+    base.chainRoundDamage = true;
     if (base.powerLvl.level === 3) {
       base.finalTextSucceed = game.i18n.localize("POWER_DRAININGGLYPH.CHAT_MASTER_HEAL");
     }
@@ -4667,7 +4672,9 @@ async function attackResult(rollData, functionStuff) {
   } else {
     if (damageTot >= targetValue) {
       targetDies = true;
-      if (ui.combat.viewed && ui.combat.viewed.getCombatantByToken(functionStuff.targetData.tokenId)) {
+      // A25 F11: Foundry V14 API - Combat#getCombatantByToken is deprecated
+      // (V15 removes it), getCombatantsByToken returns the matching combatants
+      if (ui.combat.viewed && (ui.combat.viewed.getCombatantsByToken(functionStuff.targetData.tokenId) ?? []).length > 0) {
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           defeated: true,
@@ -5129,7 +5136,9 @@ async function standardPowerResult(rollData, functionStuff) {
       if (damageTot >= targetValue) {
         targetDies = true;
         damageFinalText = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_DAMAGE_DYING");
-        if (ui.combat.viewed && ui.combat.viewed.getCombatantByToken(functionStuff.targetData.tokenId)) {
+        // A25 F11: Foundry V14 API - Combat#getCombatantByToken is deprecated
+        // (V15 removes it), getCombatantsByToken returns the matching combatants
+        if (ui.combat.viewed && (ui.combat.viewed.getCombatantsByToken(functionStuff.targetData.tokenId) ?? []).length > 0) {
           flagDataArray.push({
             tokenId: functionStuff.targetData.tokenId,
             defeated: true,

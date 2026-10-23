@@ -502,6 +502,18 @@ Hooks.on('preCreateChatMessage', (doc, message, options, userid) => {
 	}
 });
 
+/* A25 F11: consistent death marking - every path that kills a target now
+   applies the big skull overlay (Foundry V14: an ActiveEffect with
+   flags.core.overlay, created via Actor#toggleStatusEffect). A leftover
+   non-overlay dead condition from an earlier application (the A25 F9
+   small skull, e.g. from a pre-F11 session) is removed first so the
+   overlay is really what is shown on the token. */
+async function applyDeadOverlay(actor) {
+	const existingDead = actor.effects.find((e) => e.statuses.has('dead') && e.getFlag('core', 'overlay') !== true);
+	if (existingDead) await existingDead.delete();
+	await actor.toggleStatusEffect('dead', { active: true, overlay: true });
+}
+
 /*Hook for the chatMessage that contain a button for the GM to apply status icons or damage to a token.*/
 Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 	const flagDataArray = await chatItem.getFlag(game.system.id, 'applyEffects');
@@ -521,17 +533,22 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						continue;
 					}
 					if (flagData.addEffect) {
-						// A23: pass the author marker so the maintain chain only maintains own symbols
-						// A24: also pass the originator's snapshotted resolute and name (Anathema probes)
-						await actor.addCondition(flagData.addEffect, flagData.casterId ? { caster: flagData.casterId, ability: flagData.abilityRef, resolute: flagData.casterResolute, casterName: flagData.casterName } : undefined);
+						// A25 F11: the standard paths' death entries carry the dead status
+						// with overlay:true - the big skull overlay is applied consistently
+						// instead of a small dead condition
+						if (flagData.addEffect.id === 'dead' && flagData.overlay) {
+							await applyDeadOverlay(actor);
+						} else {
+							// A23: pass the author marker so the maintain chain only maintains own symbols
+							// A24: also pass the originator's snapshotted resolute and name (Anathema probes)
+							await actor.addCondition(flagData.addEffect, flagData.casterId ? { caster: flagData.casterId, ability: flagData.abilityRef, resolute: flagData.casterResolute, casterName: flagData.casterName } : undefined);
+						}
 					} else if (flagData.removeEffect) {
 						await actor.removeCondition(flagData.removeEffect);
 					}
 					if (flagData.defeated && ui.combat.viewed && token) {
-						// A25 F10: Token#toggleEffect was removed in Foundry V14 - the
-						// skull overlay is an ActiveEffect with flags.core.overlay,
-						// created via Actor#toggleStatusEffect
-						await actor.toggleStatusEffect('dead', { active: true, overlay: true });
+						// A25 F11: consistent big skull overlay via the shared helper
+						await applyDeadOverlay(actor);
 					}
 
 					if (flagData.toughnessChange) {
@@ -554,13 +571,11 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 								speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
 								content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${dyingName}${game.i18n.localize('COMBAT.CHAT_DAMAGE_DYING')}</p></div></div></div>`,
 							});
-							if (token && ui.combat.viewed && ui.combat.viewed.getCombatantByToken(token.id)) {
-								// A25 F10: V14 replacement for the removed Token#toggleEffect -
-								// same overlay ActiveEffect as the legacy defeated branch
-								await actor.toggleStatusEffect('dead', { active: true, overlay: true });
-							} else {
-								await actor.addCondition(foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'dead')));
-							}
+							// A25 F11 (Rudolf's test round): the skull form is now consistent -
+							// ALWAYS the big overlay skull via the shared helper, no more small
+							// dead condition outside the combat tracker; this also drops the
+							// deprecated V14 Combat#getCombatantByToken call
+							await applyDeadOverlay(actor);
 						}
 					}
 					if (flagData.attributeChange) {
