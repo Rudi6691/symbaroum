@@ -131,11 +131,7 @@
   {{/if}}
   {{#if checkMaintain}}
   <div class="maintain">
-    <label>{{localize "DIALOG.ISMAINTAINED"}}</label>
-    <select id="maintain">
-        <option  value="C" selected >{{localize "DIALOG.CASTING"}}</option>
-        <option  value="M" >{{localize "DIALOG.MAINTAINING"}}</option>
-    </select>
+    <label class="lblfavour">{{radioBoxes "maintain" maintainChoices checked="C" localize=true}}</label>
   </div>
   {{/if}}
   {{#if medicus}}

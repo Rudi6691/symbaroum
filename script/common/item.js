@@ -3397,6 +3397,9 @@ export async function modifierDialog(functionStuff) {
     defaultAdvantage: "",
     defaultDamModifier: "",
     checkMaintain: checkMaintain,
+    // A25 F12: the casting/maintain choice renders as two radio buttons
+    // (analogous to the favour row) - "C" (Erster Zauber) is the default
+    maintainChoices: { C: "DIALOG.CASTING", M: "DIALOG.MAINTAINING" },
     askWeapon: functionStuff.askWeapon,
     targetImpeding: targetImpeding,
     weapons: actorWeapons,
@@ -3455,9 +3458,11 @@ export async function modifierDialog(functionStuff) {
           }
 
           //Power/Ability has already been started and is maintained or chained
-          if (html[0].querySelectorAll("#maintain").length > 0) {
-            let valueM = html[0].querySelector("#maintain").value;
-            if (valueM === "M") {
+          // A25 F12: the maintain select became radio buttons - read them
+          // like the favour radios; "C" (Erster Zauber) is the checked default
+          let maintainRadios = html[0].querySelectorAll("input[name='maintain']");
+          for (let r of maintainRadios) {
+            if (r.checked && r.value === "M") {
               functionStuff.isMaintained = true;
             }
           }
