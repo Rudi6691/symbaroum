@@ -505,6 +505,18 @@ SYMBAROUM.weaponQualities = [
 
 SYMBAROUM.weaponCompatibilities = ["staffFightingCompatibility", "swordSaintCompatibility", "knifePlayCompatibility", "staffMagicCompatibility"];
 
+// A30 (GO1, Rudolfs Wahl = Empfehlung): a bastard weapon wielded one-handed
+// rolls its damage die one step down - W12→W10→W8→W6→W4, W4 is the floor.
+// Official compendium precedent: "Bastard Sword, two-handed grip" 1W10 vs.
+// "one hand grip" 1W8 - exactly one step, validating the stepped model.
+// Odd/upgraded die sizes (DAM_DICEUPGRADE) fall back to sides-2, minimum W4.
+SYMBAROUM.bastardGripDiceSteps = { 12: 10, 10: 8, 8: 6, 6: 4, 4: 4 };
+
+// A30: the weapon qualities that are deactivated while a bastard weapon is
+// wielded one-handed (Rudolfs rule; the quality members carry a qualityRef
+// marker in item.js so the attack dialog can filter them out precisely)
+SYMBAROUM.bastardOneHandedQualities = ["deepImpact", "precise", "massive"];
+
 SYMBAROUM.armorQualities = ["flexible", "reinforced", "concealed", "cumbersome", "desecrated", "flaming", "hallowed", "mystical"];
 
 SYMBAROUM.armorCompatibilities = [];

@@ -370,6 +370,8 @@
   "COMBAT.CHAT_JOINTED_SECONDARY": "Die Verteidigung gelingt, aber der Kopf der gelenkigen Waffe trifft.",
   "COMBAT.DEFENSE_ROLL": " versucht den Angriff zu parieren.",
   "COMBAT.PARAMS_PRECISE": "Präzise Waffe, ",
+  "COMBAT.PARAMS_BASTARD_1H": "einhändig geführt",
+  "COMBAT.PARAMS_BASTARD_INACTIVE": "inaktiv",
 
   "CORRUPTION.CHAT_INTRO": " wird korrumpiert.",
   "CORRUPTION.CHAT_THRESHOLD": " wird vom Brand gezeichnet (Schwelle erreicht).",
@@ -422,6 +424,8 @@
   "DIALOG.CASTING": "Erster Zauber",
   "DIALOG.IMPEDING": "Zuzüglich Behinderungsmalus?",
   "DIALOG.MAINTAINING": "Aufrechterhalten",
+  "DIALOG.ONEHANDED": "Einhändig",
+  "DIALOG.TWOHANDED": "Zweihändig",
   "DIALOG.CHAIN_NEXT_TARGET": "Weiteres Ziel<br>für Kette?",
   "DIALOG.CHAIN_NO_NEW_TARGET": "Kein neues Ziel markiert - die Kette endet hier.",
   "DIALOG.ROLLONTABLE": "Wurf auf Tabelle {tablename}",

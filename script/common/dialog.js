@@ -53,6 +53,26 @@ export async function prepareRollDeathTest(actor, showDialogue) {
   });
 }
 
+/* A30 (GO1, Rudolfs Wahl = Empfehlung): one-handed grip on a bastard weapon -
+   the damage die goes one step down (config.bastardGripDiceSteps, W4 floor,
+   odd/upgraded sizes fall back to sides-2) and Massive loses its 2dXkh formula
+   and the damage favour; Deep Impact's +1 arrives as a quality member and is
+   filtered separately by the dialog callback */
+function a30ReducedSides(sides) {
+  const steps = game.symbaroum.config.bastardGripDiceSteps ?? {};
+  if (steps[sides]) return steps[sides];
+  return Math.max(4, sides - 2);
+}
+
+function a30OneHandedDamage(weapon) {
+  const dmg = foundry.utils.deepClone(weapon.damage);
+  const m = dmg.base?.match(/(\d+)d(\d+)/);
+  if (m) dmg.base = `1d${a30ReducedSides(parseInt(m[2]))}`;
+  if (typeof dmg.npcBase === "number") dmg.npcBase = Math.ceil(a30ReducedSides(Math.round(dmg.npcBase * 2)) / 2);
+  dmg.damageFavour = 0;
+  return dmg;
+}
+
 export async function prepareRollAttribute(actor, attributeName, armor, weapon, ecData = {targetData: {hasTarget: false, leaderTarget: false, actor: {}}}) {
   return new Promise(async (resolve, reject) => {
   let targetTokens = Array.from(game.user.targets);
@@ -95,6 +115,21 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       askAttackNb = weaponModifiers.maxAttackNb > 1;
     }
   }
+  // A30: bastard grip radio - only for melee bastard weapons in enhanced
+  // combat (the one-handed damage model needs the EC roll path); the radio
+  // default is the persisted wield state (flag on the weapon item, kept by
+  // the dialog after every attack), fresh weapons start two-handed
+  let askBastardGrip = false;
+  let defaultGrip = "two";
+  let weaponDamage2H = weaponDamage;
+  let weaponDamage1H = weaponDamage;
+  if (ecOn && weapon !== null && weapon.isMelee && weapon.qualities?.bastard) {
+    askBastardGrip = true;
+    defaultGrip = actor.items.get(weapon.id)?.getFlag(game.system.id, "grip") === "one" ? "one" : "two";
+    const oneHanded = a30OneHandedDamage(weapon);
+    weaponDamage1H = attackFromPC ? oneHanded.base : oneHanded.npcBase.toString();
+    if (defaultGrip === "one") weaponDamage = weaponDamage1H;
+  }
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
   targetAttribute_selection.defense = {
     id: "defense",
@@ -127,7 +162,10 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "roll_defaults": attri_defaults,
     "askAttackNb": askAttackNb,
     "attNbRadio": "attNbRadio",
-    "targetAttribute_selection":targetAttribute_selection
+    "targetAttribute_selection":targetAttribute_selection,
+    "askBastardGrip": askBastardGrip,
+    "gripChoices": { "two": "DIALOG.TWOHANDED", "one": "DIALOG.ONEHANDED" },
+    "defaultGrip": defaultGrip
   });
 
   const dialog = symbDialog({
@@ -211,6 +249,48 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             }
           }          
           if( weapon !== null) {
+            // A30: read the bastard grip radio BEFORE the package loop so the
+            // filtered members apply to every consumer below
+            if (askBastardGrip) {
+              let a30Grip = defaultGrip;
+              for (let g of html[0].querySelectorAll("input[name='bripType']")) {
+                if (g.checked) a30Grip = g.value;
+              }
+              if (a30Grip === "one") {
+                // one-handed: filter the quality members (Durchschlagend/
+                // Präzise/Massiv) out of the default package, clone the
+                // weapon with the reduced damage die (Massive loses 2dXkh
+                // and the damage favour)
+                const a30Suppressed = game.symbaroum.config.bastardOneHandedQualities ?? [];
+                for (let pack of weaponModifiers.package) {
+                  if (pack.type == game.symbaroum.config.PACK_DEFAULT) {
+                    pack.member = pack.member.filter((m) => !a30Suppressed.includes(m.qualityRef));
+                  }
+                }
+                ecData.weapon = foundry.utils.deepClone(weapon);
+                ecData.weapon.damage = a30OneHandedDamage(weapon);
+                const a30Qualities = weapon.qualities ?? {};
+                const a30Off = [
+                  a30Qualities.balanced && "QUALITY.BALANCED",
+                  a30Qualities.precise && "QUALITY.PRECISE",
+                  a30Qualities.deepImpact && "QUALITY.DEEPIMPACT",
+                  a30Qualities.massive && "QUALITY.MASSIVE",
+                ]
+                  .filter(Boolean)
+                  .map((k) => game.i18n.localize(k));
+                ecData.autoParams +=
+                  game.i18n.localize("COMBAT.PARAMS_BASTARD_1H") +
+                  (a30Off.length ? " (" + a30Off.join(", ") + " " + game.i18n.localize("COMBAT.PARAMS_BASTARD_INACTIVE") + ")" : "") +
+                  ", ";
+              }
+              // persist the wield state (Ausbalanciert's defense bonus and the
+              // next dialog's radio default follow through the actor
+              // preparation); no write when unchanged
+              const a30WeaponItem = actor.items.get(weapon.id);
+              if (a30WeaponItem && a30WeaponItem.getFlag(game.system.id, "grip") !== a30Grip) {
+                await a30WeaponItem.setFlag(game.system.id, "grip", a30Grip);
+              }
+            }
             for(let pack of weaponModifiers.package) {
               //add all modifiers from the default package
               if(pack.type == game.symbaroum.config.PACK_DEFAULT) {
@@ -385,6 +465,31 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     },
     default: 'roll',
   });
+
+  if (askBastardGrip) {
+    // A30: live-update the damage formula field when the grip radio changes.
+    // symbDialog already kicked off the render; re-awaiting it here attaches
+    // the listeners afterwards without a visible re-render. If the element is
+    // not reachable on this platform version the field simply keeps the
+    // default-grip formula - the roll itself always uses the selected grip
+    try {
+      Promise.resolve(dialog.render({ force: true })).then(
+        () => {
+          const a30Root = dialog.element;
+          if (!a30Root) return;
+          const a30DmgInput = a30Root.querySelector(`#weapondamage-${did}`);
+          for (let r of a30Root.querySelectorAll("input[name='bripType']")) {
+            r.addEventListener("change", (ev) => {
+              if (a30DmgInput) a30DmgInput.value = ev.target.value === "one" ? weaponDamage1H : weaponDamage2H;
+            });
+          }
+        },
+        () => {}
+      );
+    } catch (err) {
+      game.symbaroum.log("A30: grip display live-update unavailable");
+    }
+  }
 
   })
 }

@@ -596,6 +596,8 @@ export class SymbaroumItem extends Item {
         base.label = game.i18n.localize("QUALITY.DEEPIMPACT");
         base.type = game.symbaroum.config.DAM_MOD;
         base.value = "+1";
+        // A30: quality marker - the one-handed bastard grip filters this member
+        base.qualityRef = "deepImpact";
         base.alternatives = [
           {
             damageMod: "+1d1",
@@ -612,6 +614,8 @@ export class SymbaroumItem extends Item {
         base.type = game.symbaroum.config.TYPE_ROLL_MOD;
         base.modifier = 1;
         base.value = "1";
+        // A30: quality marker - the one-handed bastard grip filters this member
+        base.qualityRef = "precise";
         this.system.isIntegrated = true;
         combatMods.weapons[weapons[i].id].package[0].member.push(base);
       }
@@ -686,6 +690,8 @@ export class SymbaroumItem extends Item {
         base.label = game.i18n.localize("QUALITY.MASSIVE");
         base.value = game.i18n.localize("DIALOG.FAVOUR_FAVOUR");
         base.type = game.symbaroum.config.DAM_FAVOUR;
+        // A30: quality marker - the one-handed bastard grip drops Massive
+        base.qualityRef = "massive";
         this.system.isIntegrated = true;
         combatMods.weapons[weapons[i].id].package[0].member.push(base);
         combatMods.weapons[weapons[i].id].specialEffects.push(game.symbaroum.config.DAM_FAVOUR);
@@ -700,6 +706,12 @@ export class SymbaroumItem extends Item {
         combatMods.weapons[weapons[i].id].package[0].member.push(base);
       }
       if (this.system.isActive && this.system.qualities.balanced) {
+        // A30: Ausbalanciert is deactivated while a bastard weapon is wielded
+        // one-handed - the grip choice persists as a flag on the weapon item
+        // (written by the attack dialog radio), because this quality works on
+        // the wielder's passive defense, not on the attack flow
+        const a30GripOne = this.system.qualities.bastard && this.getFlag(game.system.id, "grip") === "one";
+        if (!a30GripOne) {
         for (let i = 0; i < armors.length; i++) {
           if (!this.system.isActive || !armors[i].system.isActive || armors[i].system.isStackableArmor) {
             continue;
@@ -709,6 +721,7 @@ export class SymbaroumItem extends Item {
           base.modifier = 1;
           this.system.isIntegrated = true;
           combatMods.armors[armors[i].id].defenseModifiers.push(base);
+        }
         }
       }
     }

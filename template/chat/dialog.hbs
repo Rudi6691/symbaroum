@@ -48,6 +48,11 @@
     <div class="damagemodifier">
       <label for="weapondamage-{{did}}">{{localize "DIALOG.WEAPON_DAMAGE"}}</label><input id="weapondamage-{{did}}" disabled type="text" value="{{weaponDamage}}" data-dtype="Text"/>
     </div>
+    {{#if askBastardGrip}}
+      <div class="favour a30-grip">
+        <label class="lblfavour">{{radioBoxes "bripType" gripChoices checked=defaultGrip localize=true}}</label>
+      </div>
+    {{/if}}
     {{#if askIgnoreArmor}}
       {{#if ignoreArm}}
         <div class="simplebox">

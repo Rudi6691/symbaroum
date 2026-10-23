@@ -370,6 +370,8 @@
   "COMBAT.CHAT_JOINTED_SECONDARY": "Defence succeeds, but the jointed weapon hits anyway (see jointed quality for evaluating damage).",
   "COMBAT.DEFENSE_ROLL": " tries to defend against the attack.",
   "COMBAT.PARAMS_PRECISE": "Precise weapon, ",
+  "COMBAT.PARAMS_BASTARD_1H": "one-handed grip",
+  "COMBAT.PARAMS_BASTARD_INACTIVE": "inactive",
 
   "CORRUPTION.CHAT_INTRO": " increases their degree of taint.",
   "CORRUPTION.CHAT_THRESHOLD": " becomes Blight-marked (threshold reached).",
@@ -422,6 +424,8 @@
   "DIALOG.CASTING": "Initial casting",
   "DIALOG.IMPEDING": "Include impeding malus?",
   "DIALOG.MAINTAINING": "Maintaining ability",
+  "DIALOG.ONEHANDED": "One-handed",
+  "DIALOG.TWOHANDED": "Two-handed",
   "DIALOG.CHAIN_NEXT_TARGET": "Another target<br>for the chain?",
   "DIALOG.CHAIN_NO_NEW_TARGET": "No new target marked - the chain ends here.",
   "DIALOG.ROLLONTABLE": "Roll on table {tablename}",
