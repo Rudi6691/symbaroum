@@ -2538,7 +2538,8 @@ export class SymbaroumItem extends Item {
     base.targetMandatory = true;
     base.targetResistAttribute = "quick";
     base.targetImpeding = true;
-    base.maintain = game.symbaroum.config.MAINTAIN_RES;
+    // A32: no maintain (GRW) - Earth Shot is a single attack action; from
+    // Adept on 1d4 rocks are thrown as separate attacks (earthshotResult)
     base.traditions = [game.symbaroum.config.TRAD_BLESSINGS];
     base.hasDamage = true;
     base.damageDice = "1d8";
@@ -2752,11 +2753,14 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING;
     base.getTarget = true;
     base.targetMandatory = true;
-    base.maintain = game.symbaroum.config.MAINTAIN;
+    // A32: no maintain (GRW) - Prios' Burning Glass is a single attack
+    // action; the corrupted dialog question stays with the Novice single
+    // target, from Adept on the bonus dice are auto-detected per target
+    // (priosBurningGlassResult)
     base.traditions = [game.symbaroum.config.TRAD_THEURGY];
     base.introText = game.i18n.localize("POWER_PRIOSBURNINGGLASS.CHAT_INTRO");
     base.hasDamage = true;
-    base.askCorruptedTarget = true;
+    base.askCorruptedTarget = base.powerLvl.level === 1;
     if (base.powerLvl.level === 1) {
       base.damageDice = "1d6";
       base.targetFullyCorruptedFSmod = {
@@ -3859,6 +3863,15 @@ function getPowerResultFunction(functionStuff) {
         : functionStuff.powerLvl.level > 2
           ? levitateChainResult
           : standardPowerResult;
+    // A32: Earth Shot (Adept+) throws its 1d4 rocks as separate attacks
+    // (one opposed test per rock), Prios' Burning Glass (Adept+) focuses
+    // every enemy in sight with ONE unopposed Resolute probe and a damage
+    // roll per target - both powers have no maintain (GRW), the Novice
+    // levels stay with the standard result
+    case "earthshot":
+      return functionStuff.powerLvl.level > 1 ? earthshotResult : standardPowerResult;
+    case "priosburningglass":
+      return functionStuff.powerLvl.level > 1 ? priosBurningGlassResult : standardPowerResult;
     default:
       return standardPowerResult;
   }
@@ -3930,6 +3943,138 @@ async function staffProjectileChainResult(rollData, functionStuff) {
 
 async function banishingSealChainResult(rollData, functionStuff) {
   return chainResult(rollData, functionStuff, null);
+}
+
+/* A32 Earth Shot (Erdschuss) Adept/Master (GRW): no maintain - one attack
+   action throws 1d4 rocks ("Brocken"), each one a separate opposed
+   [Resolute<-Quick] attack that may be distributed over one or several
+   targets (Rudolf: the player picks the target per rock, for an NPC
+   attacker the GM picks). Modelled after the A17 glyph loop: the primary
+   target takes the first rock, the 1d4 roll is shown on its result card,
+   then a confirmation dialog offers every further rock (with the number of
+   rocks remaining), the next token being read fresh from the user's
+   targeting - the same token may be marked again for a second rock.
+   Every rock rolls its own opposed test; a miss does not end the sequence
+   (the rocks are independent attacks), the sequence ends when the player
+   cancels or marks no token. One casting: the follow-up rocks cost no
+   further corruption; advantage (+1d4 damage) applies to the first rock
+   only. From Master on every rock ignores armor (setup: ignoreArm). */
+function earthshotNextBrockenConfirmation(functionStuff, remaining) {
+  return new Promise((resolve) => {
+    symbDialog({
+      title: functionStuff.abilityName,
+      // A25 optics: the question renders as the centred dark banner label
+      // of the roll dialog (see glyphNextTargetConfirmation)
+      classes: ["chain-confirm"],
+      content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format("POWER_EARTHSHOT.CHAT_NEXT_BROCKEN", { count: remaining })}</p></div>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: () => resolve(true),
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+          callback: () => resolve(false),
+        },
+      },
+      default: "yes",
+    });
+  });
+}
+
+async function earthshotResult(rollData, functionStuff) {
+  // 1d4 rocks in total, the primary target takes the first one
+  const brockenRoll = await new Roll("1d4").evaluate();
+  functionStuff.resultRolls = [brockenRoll];
+  functionStuff.finalText = game.i18n.format(game.i18n.localize("POWER_EARTHSHOT.CHAT_BROCKEN"), { count: brockenRoll.total });
+  await standardPowerResult(rollData, functionStuff);
+  // the count roll and its text belong to the first card only; advantage
+  // (+1d4 damage) applies to the first rock only
+  functionStuff.resultRolls = null;
+  functionStuff.finalText = "";
+  functionStuff.hasAdvantage = false;
+  // one casting: the follow-up rocks cost no further corruption
+  const savedCorruption = functionStuff.corruption;
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  for (let remaining = brockenRoll.total - 1; remaining > 0; remaining--) {
+    if (!(await earthshotNextBrockenConfirmation(functionStuff, remaining))) break;
+    const nextToken = Array.from(game.user.targets)[0];
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_EARTHSHOT.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+    const rollDataNext = [
+      await baseRoll(
+        functionStuff.actor,
+        functionStuff.castingAttributeName,
+        nextToken.actor,
+        functionStuff.targetResistAttribute,
+        functionStuff.favour,
+        functionStuff.modifier,
+        false
+      ),
+    ];
+    // each rock is its own attack: a miss does not end the sequence
+    await standardPowerResult(rollDataNext, functionStuff);
+  }
+  functionStuff.corruption = savedCorruption;
+}
+
+/* A32 Prios' Burning Glass Adept/Master (GRW): no maintain - one casting
+   probes the caster's Resolute ONCE (unopposed) and on success every enemy
+   in sight takes the holy damage. Modelled after the A17 glyph loop: the
+   primary target's card carries the probe and the first damage roll, then
+   a confirmation dialog offers the next enemy, whose token is read fresh
+   from the user's targeting (each enemy once). The follow-ups need no new
+   probe - one probe covers the whole casting - and cost no further
+   corruption; advantage (+1d4 damage) applies to the first damage roll
+   only. The thoroughly-corrupted bonus dice (Adept+: 1d12 instead of 1d8)
+   are auto-detected per target - no dialog question from Adept on. At
+   Master the damage card of a thoroughly corrupted target reminds of the
+   optional 1-round stun [Resolute<-Resolute], which the GM resolves
+   (probe, stun symbol, removal at the end of the round) - A34's turn-end
+   engine will wire that later. */
+async function priosBurningGlassResult(rollData, functionStuff) {
+  const baseDamageDice = functionStuff.damageDice;
+  // primary target: the one unopposed Resolute probe (GRW) + damage; the
+  // thoroughly-corrupted bonus (auto-detected) raises this first damage
+  // roll as well
+  if (functionStuff.targetData.isCorrupted) {
+    Object.assign(functionStuff, functionStuff.targetFullyCorruptedFSmod);
+    functionStuff.targetData.autoParams += game.i18n.localize("TOOLTIP.HEALTH.CORRUPTION_NA_TEXT");
+  }
+  await standardPowerResult(rollData, functionStuff);
+  // the single probe decides for every enemy: on a miss nothing hits
+  if (rollData?.[0]?.trueActorSucceeded === false) return;
+  functionStuff.hasAdvantage = false;
+  // one casting: the follow-ups cost no further corruption
+  const savedCorruption = functionStuff.corruption;
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  const handled = new Set([functionStuff.targetData.tokenId]);
+  while (await glyphNextTargetConfirmation(functionStuff, "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET")) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    functionStuff.targetData = buildGlyphTargetData(nextToken, null);
+    // per-target auto-detection of the thoroughly-corrupted bonus dice
+    if (nextToken.actor.system.isThoroughlyCorrupt) {
+      functionStuff.damageDice = functionStuff.targetFullyCorruptedFSmod.damageDice;
+      functionStuff.finalTextSucceed = functionStuff.targetFullyCorruptedFSmod.finalTextSucceed;
+      functionStuff.targetData.autoParams += game.i18n.localize("TOOLTIP.HEALTH.CORRUPTION_NA_TEXT");
+    } else {
+      functionStuff.damageDice = baseDamageDice;
+      functionStuff.finalTextSucceed = undefined;
+    }
+    // no new probe - one probe covers the whole casting
+    await standardPowerResult(null, functionStuff);
+  }
+  functionStuff.corruption = savedCorruption;
 }
 
 /* A17 draining glyph: the glyph affects every enemy that can see the symbol

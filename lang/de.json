@@ -691,6 +691,10 @@
   "POWER_EARTHBINDING.CHAT_FAILURE": "{targetname} entgeht der Erdfessel.",
   "POWER_EARTHBINDING.CHAT_MASTER": "Der Boden umklammert das Ziel: 1W6 Schaden pro Runde, Rüstung wird ignoriert (wiederholende Probe je Runde; für weitere Kettenziele wendet die SL an).",
 
+  "POWER_EARTHSHOT.CHAT_BROCKEN": "1W4 Felsbrocken: {count} Angriffe.",
+  "POWER_EARTHSHOT.CHAT_NEXT_BROCKEN": "Weiterer Brocken?<br>(noch {count})",
+  "POWER_EARTHSHOT.CHAT_NO_NEW_TARGET": "Kein Ziel markiert - die Brocken enden hier.",
+
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} versucht sich von den Ranken loszureißen.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} ist in Ranken verstrickt.",
   "POWER_ENTANGLINGVINES.CHAT_FAILURE": "{targetname} kann sich von den Ranken befreien.",
@@ -731,7 +735,9 @@
   "POWER_MARKOFTORMENT.CHAT_ADEPT": "Reaktive Aktionen (Verteidigung) werden doppelt gewürfelt – das schlechtere Ergebnis zählt (SL).",
 
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} fokussiert das Licht der Seele als brenennden Strahl.",
-  "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} könnte das Ziel betäuben [Willenskraft <-- Willenskraft]",
+  "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} kann für 1 Runde betäubt werden [Willenskraft <-- Willenskraft] (SL: Probe würfeln, Betäubt-Symbol setzen und am Rundenende entfernen).",
+  "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET": "Weiteres Ziel<br>für das Brennglas?",
+  "POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - das Brennglas endet hier.",
 
   "POWER_PROTECTIVERUNES.CHAT_ACTIVATE": "{actorname} aktiviert Schutzrunen.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE": "Der Schutz der Runen ist aktiv.",

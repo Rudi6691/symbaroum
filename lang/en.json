@@ -690,6 +690,10 @@
   "POWER_EARTHBINDING.CHAT_FAILURE": "{targetname} resists the earth binding.",
   "POWER_EARTHBINDING.CHAT_MASTER": "The ground clenches around the target: 1d6 damage per round, armor ignored (repeated test each round; GM applies it to further chain targets).",
 
+  "POWER_EARTHSHOT.CHAT_BROCKEN": "1d4 rocks: {count} attacks.",
+  "POWER_EARTHSHOT.CHAT_NEXT_BROCKEN": "Another rock?<br>({count} left)",
+  "POWER_EARTHSHOT.CHAT_NO_NEW_TARGET": "No target marked - the rocks end here.",
+
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} tries to break free from the vines.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} is entangled in the vines.",
   "POWER_ENTANGLINGVINES.CHAT_FAILURE": "{targetname} breaks free from the vines.",
@@ -730,7 +734,9 @@
   "POWER_MARKOFTORMENT.CHAT_ADEPT": "Reactive actions (defense) roll twice - the worse result counts (GM).",
 
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} tries to channel the Light of Prios at a target.",
-  "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} might be stunned, test [resolute <-- resolute].",
+  "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} can be stunned for 1 round [resolute <-- resolute] (GM: roll the probe, set the stun symbol and remove it at the end of the round).",
+  "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET": "Another target<br>for the burning glass?",
+  "POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET": "No new target marked - the burning glass ends here.",
 
   "POWER_PROTECTIVERUNES.CHAT_ACTIVATE": "{actorname} activates protective runes.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE": "The protection of the runes is active.",
