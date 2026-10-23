@@ -506,6 +506,8 @@
   "MACRO.RESET_NO_TOKENS": "No tokens found.",
   "MACRO.RESET_STATUS_DONE": "Removed {count} status symbol(s).",
   "MACRO.RESET_TOUGHNESS_DONE": "Toughness of {count} token(s) set to maximum.",
+  "MACRO.RESET_CORRUPTION_NAME": "Reset Temporary Corruption",
+  "MACRO.RESET_CORRUPTION_DONE": "Temporary corruption of {count} token(s) set to zero.",
 
   "MONEY.THALER": "Thaler",
   "MONEY.SHILLING": "Shilling",

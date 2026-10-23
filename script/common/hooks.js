@@ -533,8 +533,32 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 					}
 
 					if (flagData.toughnessChange) {
-						let newToughness = Math.max(0, Math.min(actor.system.health.toughness.max, actor.system.health.toughness.value + flagData.toughnessChange));
+						// A25 F9: capture the value BEFORE the update - every
+						// automated action that brings an actor DOWN to 0
+						// toughness now marks it heavily wounded like the
+						// standard combat damage path: chat line + skull
+						// overlay (defeated in the combat tracker, dead
+						// condition otherwise). Chain powers like the
+						// Master-level Entangling Vines / Earthbinding round
+						// damage previously just clamped the value without
+						// any feedback; an actor that already sits at 0 does
+						// not re-trigger the message on further damage
+						let oldToughness = actor.system.health.toughness.value;
+						let newToughness = Math.max(0, Math.min(actor.system.health.toughness.max, oldToughness + flagData.toughnessChange));
 						await actor.update({ 'system.health.toughness.value': newToughness });
+						if (newToughness === 0 && oldToughness > 0) {
+							let dyingName = token?.name ?? actor.name ?? '';
+							await ChatMessage.create({
+								speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+								content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${dyingName}${game.i18n.localize('COMBAT.CHAT_DAMAGE_DYING')}</p></div></div></div>`,
+							});
+							if (token && ui.combat.viewed && ui.combat.viewed.getCombatantByToken(token.id)) {
+								let effect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id == 'dead'));
+								await token.toggleEffect(effect, { overlay: true, active: true });
+							} else {
+								await actor.addCondition(foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'dead')));
+							}
+						}
 					}
 					if (flagData.attributeChange) {
 						let newMod = actor.system.attributes[flagData.attributeName].temporaryMod + flagData.attributeChange;

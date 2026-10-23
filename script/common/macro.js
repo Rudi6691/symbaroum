@@ -700,74 +700,6 @@ export class SymbaroumMacros {
 		}
 
     /**********************************************
-     * Macro: resetTemporaryCorruption
-		 * Macro can be used by either selecting tokens on-screen or, if no tokens are selected, choosing which player characters (default all)
- 		 * 
-		 */
-		async resetTemporaryCorruption()
-		{
-				let defaultCheck = "checked"; // set to unchecked
-				const actorslist = this.getPlayerList();
-				let allKeys = "";
-				actorslist.forEach(t => {
-						allKeys = allKeys.concat(`<div style="flex-basis: auto;flex-direction: row;display: flex;">
-										<div style="width:10em;min-width:10em;"><label for="${t.id}">${t.name}</label> </div>
-										<div><input id="${t.id}" type="checkbox" name="selection" value="${t.id}" ${defaultCheck}="${defaultCheck}"></div>
-								</div>`);
-				});
-
-				let dialog_content = `  
-				<div class="form-group">
-				<h2>Select player(s)</h2>
-				${allKeys}
-				<br />
-				</div>`;
-				symbDialog({
-				width: 300,
-						title: "Reset Corruption",
-						content : dialog_content,
-						buttons : 
-						{
-								Ok :{ label : `Ok`, callback : async (html) => {   
-																								let selTemp = Array.from(html[0].querySelectorAll("input[name='selection']"));
-																								let tmp = selTemp.filter(v => { if(v.checked) return true; }).map(e => { return e.value});                                            
-																								if(tmp.length == 0) {
-																										ui.notifications.error("Need a valid number of players");
-																										return;
-																								}
-																								this.resetCorruption(tmp);
-																						}
-										},
-								Cancel : {label : `Cancel`}
-						}
-				});
-				
-				
-		}
-
-		async resetCorruption(actorids)
-		{
-				let actorNames = "";
-				let updates = actorids.map(a => {
-						let aexp = game.actors.get(a);
-				
-						actorNames = actorNames + "<li>" + aexp.name;
-
-						return {
-								_id: a,
-								"system.health.corruption.temporary": 0
-						};
-				});
-				
-				Actor.updateDocuments(updates);
-				let chatOptions = {
-						rollMode: game.settings.get('core', 'messageMode'),        
-						content: `<h2>Temporary corruption was washed away</h2> 
-												The following actors:<ul> ${actorNames}</ul> is now at zero temporary corruption`
-				};
-				ChatMessage.create(chatOptions);
-		}		
-    /**********************************************
      * Macro: crbCharacterImporter
 		 * To use this macro, paste monster system.from a pdf, for the core book:
 		 * including the name of the monster, to the end of the "Tactics" section
@@ -1252,9 +1184,9 @@ export class SymbaroumMacros {
 	}		
     /**********************************************
 	 * GM utility macros (Rudolf, 22.10.): create-once macro documents
-	 * for the two GM reset helpers in the system macro folder, so they
+	 * for the three GM reset helpers in the system macro folder, so they
 	 * show up in the macro directory with an icon and can be dragged to
-	 * the hotbar. The scripts enforce GM-only at runtime (both methods
+	 * the hotbar. The scripts enforce GM-only at runtime (all methods
 	 * check game.user.isGM first).
 	 */
 	async setupGMUtilityMacros() {
@@ -1276,6 +1208,11 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.resetToughness();",
 				img: "icons/svg/heal.svg",
 				migrateIcons: ["icons/svg/regeneration.svg"],
+			},
+			{
+				name: game.i18n.localize("MACRO.RESET_CORRUPTION_NAME"),
+				command: "game.symbaroum.macros.resetTemporaryCorruption();",
+				img: "icons/svg/poison.svg",
 			},
 		];
 		for (const def of utilities) {
@@ -1398,6 +1335,32 @@ export class SymbaroumMacros {
 			reset++;
 		}
 		ui.notifications.info(game.i18n.format("MACRO.RESET_TOUGHNESS_DONE", { count: reset }));
+	}
+
+	/**********************************************
+	 * GM utility macro: Reset Temporary Corruption - sets the temporary
+	 * corruption of the selected tokens (or all/player/monster tokens of
+	 * the scene) back to zero. GM only.
+	 */
+	async resetTemporaryCorruption() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const tokens = await this.selectGMUtilityTokens("MACRO.RESET_CORRUPTION_NAME");
+		if (!tokens) return;
+		if (tokens.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.RESET_NO_TOKENS"));
+			return;
+		}
+		let reset = 0;
+		for (const token of tokens) {
+			const actor = token.actor;
+			if (!actor?.system?.health?.corruption) continue;
+			await actor.update({ "system.health.corruption.temporary": 0 });
+			reset++;
+		}
+		ui.notifications.info(game.i18n.format("MACRO.RESET_CORRUPTION_DONE", { count: reset }));
 	}
 
     /**********************************************
