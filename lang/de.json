@@ -110,7 +110,12 @@
   "ABILITY_MEDICUS.CHAT_FINAL": " Zähigkeit geheilt : ",
   "ABILITY_MEDICUS.CHAT_TARGET": "Patient:in : {targetname}",
   "ABILITY_MEDICUS.NO_TARGET": "Kein Ziel gewählt, Verarzten Wurf ohne Heilung",
-  "DIALOG.MEDICUS_EXAM": "Verarzten Wurf ohne Heilung",
+    "A29.REMINDER_TITLE": "Aufrechterhalten?",
+  "A29.REMINDER_TEXT": "{name} wird noch aufrechterhalten ({count} Ziel(e)). Kraft weiter aufrechterhalten?",
+  "A29.REMINDER_YES": "Ja",
+  "A29.REMINDER_NO": "Nein",
+  "A29.REMINDER_NO_ITEM": "Die Kraft konnte auf dem Charakter nicht mehr gefunden werden - bitte manuell würfeln.",
+"DIALOG.MEDICUS_EXAM": "Verarzten Wurf ohne Heilung",
   "DIALOG.CUSTOM_HEALING_MODIFIER": "Individueller Modifikator",
 
   "ABILITY_STRANGLER.CHAT_INTRO": "{actorname} versucht sein Ziel zu ergreifen.",

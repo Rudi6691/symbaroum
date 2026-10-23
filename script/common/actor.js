@@ -909,7 +909,7 @@ export class SymbaroumActor extends Actor {
 		return { value: null, corruptionFormula: corruptionFormula };
 	}
 
-	async usePower(ability) {
+	async usePower(ability, options = {}) {
 		const api = game.symbaroum.api;
 		if (!ability.isOwned || ability.system.reference === undefined || ability.system.reference === null) {
 			return;
@@ -1011,6 +1011,10 @@ export class SymbaroumActor extends Actor {
 				return;
 			}
 			let functionStuff = Object.assign({}, fsDefault, specificStuff);
+			// A29 (G2b): the Zug-Start maintain reminder's "Ja" opens this dialog
+			// preset to "Aufrechterhalten" (the F12 maintain radio) - everything
+			// else stays exactly as if the player had clicked the power themselves
+			if (options?.presetMaintain) functionStuff.presetMaintain = true;
 			if (functionStuff.confirmDialog) {
 				//scripted CASTING_NOT power: ask for confirmation instead of showing the empty roll dialog
 				await confirmPowerDialog(functionStuff);

@@ -11,6 +11,9 @@ import { SymbaroumActor } from './actor.js';
 import { SymbaroumItem, buildRolls } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData } from './roll.js';
+// A29: the maintain reminder is a small dialog, rendered via the system's
+// DialogV2 compatibility helper
+import { symbDialog } from './symbDialog.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -406,6 +409,9 @@ Hooks.once('ready', () => {
 	showReleaseNotes(originalVersion);
 	setupConfigOptions();
 	setupEmit();
+	// A29: maintain-reminder dialogs/answers ride the same system socket channel
+	// as the established comms (symbcomms.js ignores unknown message types)
+	game.socket.on('system.symbaroum', a29SocketHandler);
 	setup3PartySettings();
 	// enrichTextEditors();
 	tourSetup();
@@ -604,6 +610,190 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	}
 	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
 	if (expireIds.length > 0) await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
+});
+
+/* ==================================================================
+   A29 - Zug-Start-Maintain-Erinnerung (Rudolfs Idee; GO G1-G4, 23.10.)
+   At the start of a combatant's turn the GM client scans the scene tokens
+   for maintain symbols carrying this actor's author marker (A23
+   flagData.caster + flagData.ability) and asks PER POWER via a small
+   dialog (NOT a chat card):
+     - "Ja" (G2b): opens the actor's regular power roll dialog preset to
+       "Aufrechterhalten" (the F12 maintain radio) - the acting player
+       keeps full control over target/favour/modifiers exactly as before.
+     - "Nein" (K5): the power is aborted - every marker-tagged effect of
+       this caster+ability on the scene tokens is deleted (A24-Anathema
+       mechanic, erprobt) and the power's configured caster-side maintain
+       symbol (activelyMaintaninedCasterEffect) is removed.
+   G1: the dialog goes to the owning player via socket; the GM gets the
+   fallback dialog if no active player owns the actor.
+   G3 (Rudolf's stricter choice): a dialog closed or dismissed without an
+   answer counts as "Nein" and aborts the power - except when it is
+   disarmed at combat end.
+   G4: every maintain power (all actively maintained marker symbols).
+   Guards (K6): max ONE reminder per power and turn (combat:round:turn
+   key), reminders expire silently at combat end, conditions without an
+   author marker are never touched, the scan runs once per turn change
+   (O(tokens), same scale as the A23 symbol scan). */
+
+const a29ReminderGuard = new Set();
+const a29OpenReminders = new Set();
+
+function a29FindAbilityItem(actor, abilityRef) {
+	return actor.items.find((it) => it.system?.reference === abilityRef) ?? null;
+}
+
+/* every marker-tagged effect of this caster on the scene, grouped per
+   power - the A23 author markers make the scan exact: symbols of other
+   casters, of the same caster via a different power and legacy untagged
+   conditions are never touched (K6 precedent) */
+function a29ScanMaintainedPowers(actor) {
+	const groups = new Map();
+	if (!actor) return groups;
+	for (const token of canvas.tokens.placeables) {
+		const tokenActor = token.actor;
+		if (!tokenActor) continue;
+		for (const effect of tokenActor.effects) {
+			const flagData = effect.getFlag(game.system.id, 'flagData');
+			if (!flagData?.caster || flagData.caster !== actor.id || !flagData.ability) continue;
+			let group = groups.get(flagData.ability);
+			if (!group) {
+				group = { abilityRef: flagData.ability, targets: 0 };
+				groups.set(flagData.ability, group);
+			}
+			group.targets++;
+		}
+	}
+	return groups;
+}
+
+/* K5 "Nein": abort the power - delete every marker-tagged effect on the
+   scene tokens (A24-Anathema mechanic) plus the power's configured
+   caster-side maintain symbol (activelyMaintaninedCasterEffect) */
+async function a29AbortMaintainPower(actor, abilityRef) {
+	const doomed = [];
+	for (const token of canvas.tokens.placeables) {
+		const tokenActor = token.actor;
+		if (!tokenActor) continue;
+		for (const effect of tokenActor.effects) {
+			const flagData = effect.getFlag(game.system.id, 'flagData');
+			if (flagData?.caster === actor.id && flagData?.ability === abilityRef) doomed.push([tokenActor, effect]);
+		}
+	}
+	for (const [tokenActor, effect] of doomed) {
+		await tokenActor.deleteEmbeddedDocuments('ActiveEffect', [effect._id]);
+	}
+	const abilityItem = a29FindAbilityItem(actor, abilityRef);
+	const casterEffects = actor.system.combat.combatMods.abilities?.[abilityItem?.id]?.activelyMaintaninedCasterEffect ?? [];
+	for (const effect of casterEffects) {
+		await actor.removeCondition(effect);
+	}
+}
+
+/* K3: one small dialog per power (NO chat card) */
+function a29ShowReminderDialog(actor, abilityRef, targetCount) {
+	const abilityItem = a29FindAbilityItem(actor, abilityRef);
+	const abilityName = game.symbaroum.htmlEscape(abilityItem?.name ?? abilityRef);
+	const reminder = { answered: false, disarmed: false, dialog: null };
+	const answerNo = async () => {
+		if (game.user.isActiveGM) {
+			await a29AbortMaintainPower(actor, abilityRef);
+		} else {
+			// player client: the GM executes the abort (effects on foreign tokens)
+			game.socket.emit('system.symbaroum', { type: 'a29MaintainReminderAnswer', data: { actorId: actor.id, abilityRef: abilityRef, answer: 'no' } });
+		}
+	};
+	const answerYes = () => {
+		if (!abilityItem) {
+			ui.notifications.warn(game.i18n.localize('A29.REMINDER_NO_ITEM'));
+			return;
+		}
+		// G2 (b): the regular roll dialog, preset to maintaining (F12 radio)
+		actor.usePower(abilityItem, { presetMaintain: true });
+	};
+	const dialog = symbDialog({
+		title: game.i18n.localize('A29.REMINDER_TITLE'),
+		content: `<div class="symbaroum dialog"><p>${game.i18n.format('A29.REMINDER_TEXT', { name: abilityName, count: targetCount })}</p></div>`,
+		buttons: {
+			yes: {
+				icon: '<i class="fas fa-check"></i>',
+				label: game.i18n.localize('A29.REMINDER_YES'),
+				callback: () => {
+					reminder.answered = true;
+					answerYes();
+				},
+			},
+			no: {
+				icon: '<i class="fas fa-times"></i>',
+				label: game.i18n.localize('A29.REMINDER_NO'),
+				callback: () => {
+					reminder.answered = true;
+					answerNo();
+				},
+			},
+		},
+		default: 'yes',
+		width: 360,
+	});
+	reminder.dialog = dialog;
+	a29OpenReminders.add(reminder);
+	// G3 (Rudolf's choice): window closed / dismissed without an answer counts
+	// as "Nein" (abort); a dialog disarmed at combat end stays silent. If the
+	// ApplicationV2 close event is unavailable on this platform version, the
+	// dialog simply stays silent when Xed (conservative fallback)
+	try {
+		dialog.addEventListener('close', () => {
+			a29OpenReminders.delete(reminder);
+			if (!reminder.answered && !reminder.disarmed) answerNo();
+		});
+	} catch (err) {
+		game.symbaroum.log('A29: close event not available on this platform');
+	}
+}
+
+/* A29 socket: GM -> player reminder (G1) and player -> GM abort answer */
+function a29SocketHandler(message) {
+	if (!message?.type) return;
+	if (message.type === 'a29MaintainReminder' && message.data?.userId === game.user.id) {
+		const actor = game.actors.get(message.data.actorId);
+		if (actor) a29ShowReminderDialog(actor, message.data.abilityRef, message.data.targetCount);
+	} else if (message.type === 'a29MaintainReminderAnswer' && game.user.isActiveGM && message.data?.answer === 'no') {
+		const actor = game.actors.get(message.data.actorId);
+		if (actor) a29AbortMaintainPower(actor, message.data.abilityRef);
+	}
+}
+
+Hooks.on('updateCombat', async (combat, changed) => {
+	if (!game.user.isActiveGM) return;
+	if (!('turn' in changed)) return;
+	const actor = combat.combatant?.actor;
+	if (!actor) return;
+	const groups = a29ScanMaintainedPowers(actor);
+	if (groups.size === 0) return;
+	for (const group of groups.values()) {
+		const guardKey = `${combat.id}:${combat.round}:${combat.turn}:${actor.id}:${group.abilityRef}`;
+		if (a29ReminderGuard.has(guardKey)) continue;
+		a29ReminderGuard.add(guardKey);
+		// G1: the owning player decides; the GM is the fallback
+		const owner = game.users?.find((user) => user.active && !user.isGM && actor.testUserPermission(user, 'OWNER'));
+		if (owner) {
+			game.socket.emit('system.symbaroum', { type: 'a29MaintainReminder', data: { userId: owner.id, actorId: actor.id, abilityRef: group.abilityRef, targetCount: group.targets } });
+		} else {
+			a29ShowReminderDialog(actor, group.abilityRef, group.targets);
+		}
+	}
+});
+
+Hooks.on('deleteCombat', () => {
+	// K6: no zombie dialogs - open reminders expire SILENTLY at combat end
+	for (const reminder of a29OpenReminders) {
+		reminder.disarmed = true;
+		try {
+			reminder.dialog?.close();
+		} catch (err) {}
+	}
+	a29OpenReminders.clear();
+	a29ReminderGuard.clear();
 });
 
 Hooks.on('preCreateChatMessage', (doc, message, options, userid) => {

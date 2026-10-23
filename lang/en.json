@@ -110,7 +110,12 @@
   "ABILITY_MEDICUS.CHAT_FINAL": "Toughness healed : ",
   "ABILITY_MEDICUS.CHAT_TARGET": "Patient : {targetname}",
   "ABILITY_MEDICUS.NO_TARGET": "No target, medicus roll without healing",
-  "DIALOG.MEDICUS_EXAM": "Medicus roll without healing",
+    "A29.REMINDER_TITLE": "Maintain?",
+  "A29.REMINDER_TEXT": "{name} is still being maintained ({count} target(s)). Keep maintaining the power?",
+  "A29.REMINDER_YES": "Yes",
+  "A29.REMINDER_NO": "No",
+  "A29.REMINDER_NO_ITEM": "The power could no longer be found on the character - please roll manually.",
+"DIALOG.MEDICUS_EXAM": "Medicus roll without healing",
   "DIALOG.CUSTOM_HEALING_MODIFIER": "Custom healing formula",
 
   "ABILITY_STRANGLER.CHAT_INTRO": "{actorname} tries to seize its target.",

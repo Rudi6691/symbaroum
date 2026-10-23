@@ -3452,9 +3452,10 @@ export async function modifierDialog(functionStuff) {
     defaultAdvantage: "",
     defaultDamModifier: "",
     checkMaintain: checkMaintain,
-    // A25 F12: the casting/maintain choice renders as two radio buttons
-    // (analogous to the favour row) - "C" (Erster Zauber) is the default
     maintainChoices: { C: "DIALOG.CASTING", M: "DIALOG.MAINTAINING" },
+    // A29 (G2b): the Zug-Start maintain reminder can open this dialog preset
+    // to "M" ("Aufrechterhalten") - otherwise "C" (Erster Zauber) stays the default
+    defaultMaintain: functionStuff.presetMaintain ? "M" : "C",
     askWeapon: functionStuff.askWeapon,
     targetImpeding: targetImpeding,
     weapons: actorWeapons,
