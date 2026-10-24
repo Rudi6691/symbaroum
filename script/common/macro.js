@@ -1184,7 +1184,7 @@ export class SymbaroumMacros {
 	}		
     /**********************************************
 	 * GM utility macros (Rudolf, 22.10.): create-once macro documents
-	 * for the three GM reset helpers in the system macro folder, so they
+	 * for the four GM utility helpers in the system macro folder, so they
 	 * show up in the macro directory with an icon and can be dragged to
 	 * the hotbar. The scripts enforce GM-only at runtime (all methods
 	 * check game.user.isGM first).
@@ -1217,6 +1217,14 @@ export class SymbaroumMacros {
 				// if the icon was never manually changed
 				img: "icons/svg/ice-aura.svg",
 				migrateIcons: ["icons/svg/poison.svg"],
+			},
+			{
+				// A35 (Rudolf's test round, Befund 10): abort regeneration
+				// as a permanent GM utility macro; clockwork icon chosen by
+				// Rudolf
+				name: game.i18n.localize("MACRO.REGEN_ABORT_NAME"),
+				command: "game.symbaroum.macros.abortRegeneration();",
+				img: "icons/svg/clockwork.svg",
 			},
 		];
 		for (const def of utilities) {
@@ -1367,8 +1375,34 @@ export class SymbaroumMacros {
 		ui.notifications.info(game.i18n.format("MACRO.RESET_CORRUPTION_DONE", { count: reset }));
 	}
 
-    /**********************************************
-     * Macro: 
-     */
+	/**********************************************
+	 * GM utility macro (A35, Rudolf's test round, Befund 10): Abort
+	 * Regeneration - removes the regeneration active effect from the
+	 * controlled tokens, or - with none controlled - from every scene
+	 * token that carries it, and posts one chat card per token.
+	 * GM only.
+	 */
+	async abortRegeneration() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const selected = canvas.tokens.controlled;
+		const tokens = selected.length > 0 ? selected : canvas.tokens.placeables.filter((t) => t.actor?.hasCondition("regeneration"));
+		if (tokens.length === 0) {
+			ui.notifications.warn(game.i18n.localize("COMBAT.REGEN_ABORT_NONE"));
+			return;
+		}
+		for (const token of tokens) {
+			const effect = token.actor?.hasCondition("regeneration");
+			if (!effect) continue;
+			await token.actor.deleteEmbeddedDocuments("ActiveEffect", [effect._id]);
+			await ChatMessage.create({
+				user: game.user.id,
+				speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: token.actor.id }),
+				content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format("COMBAT.REGEN_ABORTED", { name: token.name })}</p></div></div></div>`,
+			});
+		}
+	}
 
 }

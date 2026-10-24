@@ -681,6 +681,23 @@ SYMBAROUM.isThoroughlyCorruptTarget = function (actor) {
 	return Number(corr.permanent ?? 0) >= max;
 };
 
+/* A33 (Rudolf's Adept redesign, 23.10.): Zeichen der Pein - Adept+ marks
+   its stun symbol with the attackerFavour flag (both push sites in
+   standardPowerResult, copied by the apply handler). While the mark lasts
+   (maintained for novice/adept, the victim's current turn for master),
+   every weapon attacker of the victim automatically attacks with favour -
+   the GRW "reactive defense rolls twice, worse counts" is rule-equivalent
+   to attacker favour (Rudolf's A31 decision). Stuns from other powers
+   carry no flag and grant nothing. */
+SYMBAROUM.markOfTormentFavour = function (actor) {
+	if (!actor) return false;
+	return (actor.effects ?? []).some((effect) => {
+		if (!effect.statuses?.has?.("stun")) return false;
+		const flagData = effect.getFlag?.(game.system.id, "flagData");
+		return flagData?.ability === "markoftorment" && flagData?.attackerFavour === true;
+	});
+};
+
 SYMBAROUM.traitManyHeaded = "many-headed";
 
 SYMBAROUM.expCosts = {

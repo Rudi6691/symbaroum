@@ -2706,26 +2706,43 @@ export class SymbaroumItem extends Item {
     base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
     base.targetResistAttribute = "resolute";
     base.casting = game.symbaroum.config.CASTING_RES;
-    base.maintain = game.symbaroum.config.MAINTAIN_NOT;
     base.introText = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_INTRO");
     base.resultTextSuccess = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_FAILURE");
-    // one round without active actions - stun symbol, GM removes it
-    base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "stun"))];
-    base.finalTextSucceed = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_NOVICE");
-    if (base.powerLvl.level > 1) {
-      // adept+: reactive actions (defense) roll twice, the worse result
-      // counts (Rudolf 22.10.) - display + GM
-      base.finalTextSucceed = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_ADEPT");
-    }
+    /* A33 (Rudolf's redesign, GO 23.10. spät): the three levels get distinct
+       time models. NOVICE/ADEPT: maintain-coupled pain (Blinding-Symbol
+       pattern) - MAINTAIN_RES + activelyMaintainedTargetEffect stun symbol;
+       while the mystic maintains, the victim may not act, stopping the
+       maintain (or a failed maintain roll) removes the symbol via the A25
+       chain. ADEPT additionally grants every attacker of the victim
+       automatic favour (dialog.js target scan, attackerFavour flag) - the
+       GRW "defense twice, worse counts" is rule-equivalent to attacker
+       favour (Rudolf's A31 decision); free-form macro rolls outside the
+       standard path deliberately get nothing. MASTER: deliberately NO
+       maintain and the effect lasts only the current round (Rudolf's
+       correction 23.10. spät, overriding the earlier entangling-vines
+       answer): one-shot stun via the A34 turn-end marker (ends with the
+       victim's turn, no GM bookkeeping), the Adept attacker favour while
+       the mark lasts, plus the immediate 1d6 pain damage with armor
+       ignored. */
     if (base.powerLvl.level === 3) {
-      // master: the pain deals 1d6 damage, armor ignored
+      base.maintain = game.symbaroum.config.MAINTAIN_NOT;
+      base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "stun"))];
+      base.targetEffectTurnEnd = true;
       base.hasDamage = true;
       base.damageDice = "1d6";
       base.damageType = {
         mysticIgnArm: true,
       };
       base.ignoreArm = true;
+      base.finalTextSucceed = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_MASTER");
+    } else {
+      base.maintain = game.symbaroum.config.MAINTAIN_RES;
+      base.introTextMaintain = game.i18n.localize("POWER_MARKOFTORMENT.CHAT_INTRO_M");
+      base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "stun"))];
+      base.finalTextSucceed = game.i18n.localize(
+        base.powerLvl.level > 1 ? "POWER_MARKOFTORMENT.CHAT_ADEPT" : "POWER_MARKOFTORMENT.CHAT_NOVICE"
+      );
     }
     return base;
   }
@@ -3861,7 +3878,11 @@ function getPowerResultFunction(functionStuff) {
     case "trueform":
       return functionStuff.powerLvl.level > 1 ? trueformChainResult : standardPowerResult;
     case "markoftorment":
-      return markoftormentChainResult;
+      // A33: novice/adept maintain rounds run the maintain chain (the stun
+      // symbols stay while maintained); the initial cast and the master
+      // one-shot chain run the sequence (master has NO maintain by
+      // Rudolf's rule)
+      return functionStuff.isMaintained ? maintainChainResult : markoftormentChainResult;
     case "levitate":
       return functionStuff.isMaintained
         ? levitateMaintainResult
@@ -5762,6 +5783,7 @@ async function standardPowerResult(rollData, functionStuff) {
           effectDuration: 1,
           ...(functionStuff.targetEffectTurnEnd === true ? { turnEnd: true } : {}),
           ...(functionStuff.maintain !== game.symbaroum.config.MAINTAIN_NOT ? { maintained: true } : {}),
+          ...(functionStuff.ability?.reference === "markoftorment" && functionStuff.powerLvl.level > 1 ? { attackerFavour: true } : {}),
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
           casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
@@ -5810,6 +5832,7 @@ async function standardPowerResult(rollData, functionStuff) {
           addEffect: effect,
           effectDuration: 1,
           maintained: true,
+          ...(functionStuff.ability?.reference === "markoftorment" && functionStuff.powerLvl.level > 1 ? { attackerFavour: true } : {}),
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
           casterResolute: getAttributeValue(functionStuff.actor, "resolute"),

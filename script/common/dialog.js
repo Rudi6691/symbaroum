@@ -394,6 +394,25 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           attri_defaults.selectedFavour = ""+fvalue;			
           const favour = fvalue;
           ecData.favour += parseInt(fvalue);
+          // A33 (Rudolf's Adept redesign, 23.10.): Zeichen der Pein -
+          // attackers against a marked victim automatically attack with
+          // favour (the GRW "defense twice, worse counts" is
+          // rule-equivalent to attacker favour - Rudolf's A31 decision).
+          // Standard weapon attack path with enhanced combat only;
+          // free-form macro rolls get nothing (documented limit). Favour
+          // never stacks past one; an active disfavour is cancelled to
+          // normal by the mark.
+          if (
+            weapon !== null &&
+            ecOn &&
+            ecData.targetData?.hasTarget &&
+            game.symbaroum.config.markOfTormentFavour(ecData.targetData.actor)
+          ) {
+            if (ecData.favour < 1) {
+              ecData.favour = ecData.favour < 0 ? 0 : 1;
+              ecData.autoParams += game.i18n.localize("COMBAT.PARAMS_MARK_OF_TORMENT") + ", ";
+            }
+          }
 
           if(askImpeding){
             if(html[0].querySelector("#impeding-"+did).checked){

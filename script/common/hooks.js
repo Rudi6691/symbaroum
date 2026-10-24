@@ -566,8 +566,17 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		}
 		lines.push(line);
 	}
-	if (toughnessDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL', { damage: toughnessDamage }));
-	if (healAmount > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL_HEAL', { damage: healAmount }));
+	// A35-Fix (Rudolf's test round, Befund 8): bleeding and healing in the
+	// SAME turn net into ONE total line - the separate "total healed" used
+	// to print the full regeneration roll even when the net result was
+	// damage; the per-source lines above stay unchanged
+	if (toughnessDamage > 0 && healAmount > 0) {
+		const net = toughnessDamage - healAmount;
+		lines.push(game.i18n.format(net > 0 ? 'COMBAT.DOT_TOTAL_NET_DAMAGE' : net === 0 ? 'COMBAT.DOT_TOTAL_NET_ZERO' : 'COMBAT.DOT_TOTAL_NET_HEAL', { damage: Math.abs(net) }));
+	} else {
+		if (toughnessDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL', { damage: toughnessDamage }));
+		if (healAmount > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL_HEAL', { damage: healAmount }));
+	}
 	if (corruptionDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL_CORRUPTION', { damage: corruptionDamage }));
 
 	// ONE batched actor update for all sources (A28-2 performance rule)
@@ -647,7 +656,12 @@ Hooks.on('createCombatant', async (combatant) => {
 	if (!actor || actor.hasCondition('regeneration')) return;
 	const traitItem = actor.items.find((item) => item.system?.reference === 'regeneration');
 	if (!traitItem) return;
-	const level = traitItem.system.level ?? 1;
+	// A35-Fix (Rudolf's test round, Befund 6): traits have NO system.level -
+	// the tier checkboxes (novice/adept/master isActive) ARE the level, read
+	// the same way as the sheet's getLevel(); an unlearned trait falls back
+	// to tier 1 so the symbol still ticks
+	const ts = traitItem.system;
+	const level = ts?.master?.isActive ? 3 : ts?.adept?.isActive ? 2 : 1;
 	const formula = level >= 3 ? '1d8' : level === 2 ? '1d6' : '1d4';
 	await actor.addCondition('regeneration', {
 		dot: { label: 'TRAIT_LABEL.REGENERATION', formula, resource: 'heal', separateRoll: false },
@@ -977,6 +991,13 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							if (flagData.maintained === true) {
 								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { maintained: true });
 							}
+							// A33 (Zeichen der Pein, Adept+): the standing attacker-favour
+							// flag rides along like turnEnd/maintained - the dialog's target
+							// scan grants every attacker of the victim automatic favour
+							// while the marked stun lasts
+							if (flagData.attackerFavour === true) {
+								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { attackerFavour: true });
+							}
 							await actor.addCondition(flagData.addEffect, conditionData);
 						}
 					} else if (flagData.removeEffect) {
@@ -1146,6 +1167,10 @@ async function setupStatusEffects() {
    conditions carry their i18n label keys and are skipped. */
 async function setupStatusEffectNames() {
 	const systemIds = new Set(game.symbaroum.config.systemConditionEffects.map((s) => s.id));
+	// A35-Fix (Rudolf's test round, Befund 1): collect every core status that
+	// still has no German name key - one console line at ready turns any
+	// remaining English palette entry into a pure de/en data addition
+	const unmapped = [];
 	for (const [id, status] of Object.entries(CONFIG.statusEffects)) {
 		if (systemIds.has(id)) continue;
 		const key = `SYMBAROUM.STATUS_${id.toUpperCase()}`;
@@ -1157,10 +1182,15 @@ async function setupStatusEffectNames() {
 				} catch (err) {
 					CONFIG.statusEffects[id] = { ...status, name: localized };
 				}
+			} else {
+				unmapped.push(id);
 			}
 		} catch (err) {
 			game.symbaroum.log(`A35: status name patch failed for '${id}'`, err);
 		}
+	}
+	if (unmapped.length > 0) {
+		game.symbaroum.log(`A35-Fix: core statuses without SYMBAROUM.STATUS_* name key (add de/en entries to translate them): ${unmapped.join(', ')}`);
 	}
 }
 
