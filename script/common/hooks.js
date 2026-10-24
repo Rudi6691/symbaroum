@@ -704,7 +704,11 @@ function a29ScanMaintainedPowers(actor) {
 		if (!tokenActor) continue;
 		for (const effect of tokenActor.effects) {
 			const flagData = effect.getFlag(game.system.id, 'flagData');
-			if (!flagData?.caster || flagData.caster !== actor.id || !flagData.ability) continue;
+			// A34-Fix (Rudolf's test round, Befunde 2+3): only genuine maintain
+			// symbols raise the reminder - the maintained marker is set at the
+			// standardPowerResult push sites for maintain-capable powers only
+			// (Dominance/Battlesymbol-Novice/Prios stun/Anfuehrer/Bannsiegel are out)
+			if (flagData?.maintained !== true || flagData.caster !== actor.id || !flagData.ability) continue;
 			let group = groups.get(flagData.ability);
 			if (!group) {
 				group = { abilityRef: flagData.ability, targets: 0 };
@@ -916,6 +920,15 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							if (flagData.turnEnd) {
 								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { turnEndRounds: flagData.effectDuration ?? 1 });
 							}
+							// A34-Fix (Rudolf's test round, Befunde 2+3): ONLY true maintain
+							// symbols may raise the A29 "maintain?" reminder - the author markers
+							// (caster/ability) alone are not enough, because Dominance fear,
+							// Battlesymbol-Novice berserker and the Prios stun carry them for
+							// the maintain CHAIN without being maintain powers. The flag rides
+							// along from the push sites in standardPowerResult like turnEnd
+							if (flagData.maintained === true) {
+								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { maintained: true });
+							}
 							await actor.addCondition(flagData.addEffect, conditionData);
 						}
 					} else if (flagData.removeEffect) {
@@ -1063,6 +1076,23 @@ async function setupStatusEffects() {
 			name: status.name ?? status.label,
 			img: status.img ?? status.icon,
 		};
+	}
+	// A34-Fix (Rudolf's test round, Befund 1): Foundry core ships its standard
+	// status names as plain English words and a German client has no core
+	// translation to fall back on - applied conditions and the token HUD palette
+	// then show "Frightened", "Stunned", ... The system now ships its own name
+	// map (SYMBAROUM.STATUS_<ID> in de.json): every CORE status whose id has an
+	// entry gets the localized name; unmapped ids keep the core default, and
+	// English clients resolve the en.json entries to the same English words.
+	// The system's own conditions above carry their i18n label keys and stay out
+	// (they already localize). Only the display name changes - ids, icons and
+	// every engine logic (hasCondition, statuses) are untouched.
+	const systemIds = new Set(game.symbaroum.config.systemConditionEffects.map((s) => s.id));
+	for (const [id, status] of Object.entries(CONFIG.statusEffects)) {
+		if (systemIds.has(id)) continue;
+		const key = `SYMBAROUM.STATUS_${id.toUpperCase()}`;
+		const localized = game.i18n.localize(key);
+		if (localized !== key) status.name = localized;
 	}
 }
 

@@ -1144,7 +1144,7 @@ export function getTargets(targetAttributeName, maxTargets = 1) {
 			resistAttributeName: targetAttributeName,
 			leaderTarget: leaderTarget,
 			autoParams: autoParams,
-			isCorrupted: target.actor.system.isThoroughlyCorrupt,
+			isCorrupted: game.symbaroum.config.isThoroughlyCorruptTarget(target.actor),
 		});
 	}
 	return targetsData;

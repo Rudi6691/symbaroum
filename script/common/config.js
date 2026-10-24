@@ -651,6 +651,27 @@ SYMBAROUM.systemConditionEffects = [
   },
 ];
 
+/* A34-Fix (Rudolf's test round, Befund 6): "durch und durch verdorben" for
+   power evaluations is NOT the sheet flag system.isThoroughlyCorrupt - that
+   flag only marks the NO_TRESHOLD monster trait "has no corruption
+   threshold" and never looks at real corruption values. The corrupt
+   evaluations (Prios' Burning Glass bonus dice + Master stun) instead
+   compare the target's PERMANENT corruption against the corruption MAXIMUM
+   (Rudolf's rule, 24.10.2026: permanent >= Absolutwert = the full Resolute,
+   sheet field "Abso."). Monsters without a threshold keep their flag
+   verdict; the max > 0 guard keeps actors without corruption data out.
+   Local to the powers' corrupt evaluation - the sheet badge and the
+   corruption-gain gate (_getCorruptionValues paths) keep their exact
+   current behaviour. */
+SYMBAROUM.isThoroughlyCorruptTarget = function (actor) {
+	if (actor?.system?.isThoroughlyCorrupt) return true;
+	const corr = actor?.system?.health?.corruption;
+	if (!corr) return false;
+	const max = Number(corr.max);
+	if (!(max > 0)) return false;
+	return Number(corr.permanent ?? 0) >= max;
+};
+
 SYMBAROUM.traitManyHeaded = "many-headed";
 
 SYMBAROUM.expCosts = {

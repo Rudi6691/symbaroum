@@ -4074,7 +4074,7 @@ async function priosBurningGlassResult(rollData, functionStuff) {
     handled.add(nextToken.id);
     functionStuff.targetData = buildGlyphTargetData(nextToken, null);
     // per-target auto-detection of the thoroughly-corrupted bonus dice
-    if (nextToken.actor.system.isThoroughlyCorrupt) {
+    if (game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
       functionStuff.damageDice = functionStuff.targetFullyCorruptedFSmod.damageDice;
       functionStuff.finalTextSucceed = functionStuff.targetFullyCorruptedFSmod.finalTextSucceed;
       functionStuff.targetData.autoParams += game.i18n.localize("TOOLTIP.HEALTH.CORRUPTION_NA_TEXT");
@@ -4210,7 +4210,7 @@ function buildGlyphTargetData(targetToken, resistAttributeName) {
     resistAttributeName: resistAttributeName,
     leaderTarget: leaderEffect,
     autoParams: leaderEffect ? game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_LEADER") : "",
-    isCorrupted: targetToken.actor.system.isThoroughlyCorrupt,
+    isCorrupted: game.symbaroum.config.isThoroughlyCorruptTarget(targetToken.actor),
   };
 }
 
@@ -5752,11 +5752,16 @@ async function standardPowerResult(rollData, functionStuff) {
         // A24: snapshot the originator's resolute (Anathema probe resistance) and name
         // A34: turn-end conditions (Dominance-Adept, Battlesymbol-Novice) mark their
         // entry - the payload of every other power stays byte-identical
+        // A34-Fix (Rudolf's test round, Befunde 2+3): ONLY a maintain-capable
+        // power marks its symbols as maintained - the author markers below alone
+        // must never raise the A29 "maintain?" reminder (Dominance fear, Battlesymbol
+        // -Novice berserker, Leader eye, Prios stun carry them for the maintain CHAIN)
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
           ...(functionStuff.targetEffectTurnEnd === true ? { turnEnd: true } : {}),
+          ...(functionStuff.maintain !== game.symbaroum.config.MAINTAIN_NOT ? { maintained: true } : {}),
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
           casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
@@ -5798,10 +5803,13 @@ async function standardPowerResult(rollData, functionStuff) {
       if (!effectPresent) {
         // A23: remember the caster so the maintain chain only maintains own symbols
         // A24: snapshot the originator's resolute (Anathema probe resistance) and name
+        // A34-Fix (Rudolf's test round, Befunde 2+3): genuine maintain symbols carry
+        // the maintained marker so ONLY they raise the A29 "maintain?" reminder
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
+          maintained: true,
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
           casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
