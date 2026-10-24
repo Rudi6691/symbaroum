@@ -1457,11 +1457,15 @@ export class SymbaroumMacros {
                     <td style="padding:2px 6px;"><input style="width:100%;" type="text" data-actor="${actor.id}" class="subtype-input" value="${foundry.utils.escapeHTML(actor.system.creatureSubtype ?? "")}" /></td>
                 </tr>`);
 		}
-		let dialog_content = `  
-        <div class="form-group">
-        <h2>${game.i18n.localize("MACRO.CATEGORY_DIALOG_TITLE")}</h2>
-        <p>${game.i18n.localize("MACRO.CATEGORY_DIALOG_HEADER")}</p>
-        <div style="max-height:60vh; overflow-y:auto;">
+		/* A36Fix: no form-group class here - Foundry core styles .form-group as
+		   a flex row (label left, field right) which squeezed the whole dialog
+		   into one narrow column (Rudolf's test round, Befund 7). Also no
+		   h2: the dialog window already carries the title. Plain column
+		   layout instead, with the scroll container at full width. */
+		let dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.CATEGORY_DIALOG_HEADER")}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
         <table style="width:100%; border-collapse:collapse;">
             <tr>
                 <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>

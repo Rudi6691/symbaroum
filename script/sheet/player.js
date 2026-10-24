@@ -173,7 +173,18 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			showNpcModifiers: game.settings.get('symbaroum', 'showNpcModifiers'),
 		};
 		context.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
-		context.creature_category_selection = game.symbaroum.config.CREATURE_CATEGORY_SELECTION;
+		/* A36Fix: selectOptions does not localize labelAttr values, so the raw
+		   config labels ("CREATURE_CATEGORY.NONE"...) leaked into the bio tab
+		   dropdown (Rudolf's test round, Befund 2). Build a localized shallow
+		   copy instead - the global config object stays untouched (same
+		   pattern as alternative_selection.none in weapon.js). Fixes both
+		   sheets: MonsterSheet extends PlayerSheet and shares this context. */
+		context.creature_category_selection = Object.fromEntries(
+			Object.entries(game.symbaroum.config.CREATURE_CATEGORY_SELECTION).map(([id, entry]) => [
+				id,
+				{ id, label: game.i18n.localize(entry.label) },
+			]),
+		);
 		return context;
 	}
 

@@ -77,6 +77,16 @@
 
 .symbaroum.sheet.actor .player .bio .appearance .wrapper-full .category select {
   flex-grow: 1;
+  /* A36Fix: the select rendered too slim to read comfortably on the V14
+     sheet (Rudolf's test round, Befund 2) - explicit height and padding.
+     The subtype input gets the same metrics so both rows align. */
+  min-height: 28px;
+  padding: 3px 5px;
+}
+
+.symbaroum.sheet.actor .player .bio .appearance .wrapper-full .subtype input {
+  min-height: 28px;
+  padding: 3px 5px;
 }
 
 .symbaroum.sheet.actor .player .bio .background,
