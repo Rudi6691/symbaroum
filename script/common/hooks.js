@@ -541,13 +541,18 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	// with nothing else on the card the whole card is skipped below; parallel
 	// damage brings the actor below max, so those heal ticks flow into the
 	// net rule as before
+	// A33Fix3 (Rudolf's rule, A33Fix2 test round): a DYING victim (toughness
+	// 0) gets NO healing tick at all, even with parallel damage - otherwise
+	// Regeneration would keep a downed character alive forever and death
+	// rolls would never apply; Regeneration only ticks again once toughness
+	// is at least 1
 	const toughValue = actor.system.health.toughness.value;
 	const toughMax = actor.system.health.toughness.max;
 	const hasToughnessDamageSource = dotEffects.some((e) => {
 		const dot = e.getFlag(game.system.id, 'flagData')?.dot;
 		return dot && dot.resource !== 'heal' && dot.resource !== 'corruption';
 	});
-	const suppressHeal = toughValue >= toughMax && !hasToughnessDamageSource;
+	const suppressHeal = toughValue <= 0 || (toughValue >= toughMax && !hasToughnessDamageSource);
 
 	const rolls = [];
 	const lines = [];
@@ -559,7 +564,8 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		const fd = e.getFlag(game.system.id, 'flagData');
 		if (!fd.dot) continue; // duration-only conditions just expire below
 		const dot = fd.dot;
-		// A33Fix2 (Befund 7): regeneration at full toughness ticks nothing
+		// A33Fix2 (Befund 7) + A33Fix3: regeneration at full toughness or
+		// while dying (toughness 0) ticks nothing
 		if (dot.resource === 'heal' && suppressHeal) continue;
 		const roll = await new Roll(dot.formula).evaluate();
 		rolls.push(roll);
@@ -624,8 +630,9 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		await applyDeadOverlay(actor);
 	}
 
-	// A33Fix2 (Befund 7): everything on this card was suppressed (regeneration
-	// at full toughness, no damage, nothing expiring) - no card at all
+	// A33Fix2 (Befund 7) + A33Fix3: everything on this card was suppressed
+	// (regeneration at full toughness or dying, no damage, nothing expiring)
+	// - no card at all
 	const anyExpiry = dotEffects.some((e) => e.getFlag(game.system.id, 'flagData')?.durationRounds != null);
 	if (lines.length === 0 && foundry.utils.isEmpty(updateData) && !anyExpiry) return;
 
