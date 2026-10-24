@@ -413,6 +413,9 @@ Hooks.once('ready', () => {
 	// as the established comms (symbcomms.js ignores unknown message types)
 	game.socket.on('system.symbaroum', a29SocketHandler);
 	setup3PartySettings();
+	// A35 (Befund 10): German core status names - at ready all system
+	// translations are loaded (the A34-Fix1 init-time patch never ran)
+	setupStatusEffectNames();
 	// enrichTextEditors();
 	tourSetup();
 
@@ -536,6 +539,8 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	const lines = [];
 	let toughnessDamage = 0;
 	let corruptionDamage = 0;
+	// A35: per-turn healing total of the heal-resource dots
+	let healAmount = 0;
 	for (const e of dotEffects) {
 		const fd = e.getFlag(game.system.id, 'flagData');
 		if (!fd.dot) continue; // duration-only conditions just expire below
@@ -544,9 +549,15 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		rolls.push(roll);
 		const amount = roll.total * (dot.stacks ?? 1);
 		if (dot.resource === 'corruption') corruptionDamage += amount;
+		// A35: the heal resource turns a dot into a healing tick (Regeneration
+		// trait) - the amount is ADDED to toughness in the batched update below
+		else if (dot.resource === 'heal') healAmount += amount;
 		else toughnessDamage += amount;
 		const label = dot.label ? game.i18n.localize(dot.label) : e.name;
-		let line = game.i18n.format('COMBAT.DOT_SOURCE_LINE', { label, damage: amount });
+		// A35: heal ticks get their own line wording (healing, not damage)
+		let line = dot.resource === 'heal'
+			? game.i18n.format('COMBAT.HEAL_SOURCE_LINE', { label, damage: amount })
+			: game.i18n.format('COMBAT.DOT_SOURCE_LINE', { label, damage: amount });
 		if (dot.separateRoll) line += game.i18n.localize('COMBAT.DOT_SEPARATE');
 		if (fd.durationRounds != null) {
 			// this very tick is running: one round of the duration is consumed
@@ -556,14 +567,18 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		lines.push(line);
 	}
 	if (toughnessDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL', { damage: toughnessDamage }));
+	if (healAmount > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL_HEAL', { damage: healAmount }));
 	if (corruptionDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL_CORRUPTION', { damage: corruptionDamage }));
 
 	// ONE batched actor update for all sources (A28-2 performance rule)
 	const updateData = {};
 	let oldToughness;
-	if (toughnessDamage > 0) {
+	// A35: heal ticks net against the same turn's damage - ONE batched update,
+	// clamped to [0, max]; a regeneration that outweighs a bleeding keeps the
+	// actor at max, and the dying check below sees the NET result
+	if (toughnessDamage > 0 || healAmount > 0) {
 		oldToughness = actor.system.health.toughness.value;
-		updateData['system.health.toughness.value'] = Math.max(0, Math.min(actor.system.health.toughness.max, oldToughness - toughnessDamage));
+		updateData['system.health.toughness.value'] = Math.max(0, Math.min(actor.system.health.toughness.max, oldToughness - toughnessDamage + healAmount));
 	}
 	if (corruptionDamage > 0) {
 		updateData['system.health.corruption.temporary'] = actor.system.health.corruption.temporary + corruptionDamage;
@@ -585,7 +600,9 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	}
 
 	// EINE aggregated tick card per victim per turn, dice attached as rolls
-	const title = `<h4>${combatant.token?.name ?? actor.token?.name ?? actor.name}${game.i18n.localize('COMBAT.DOT_TITLE')}</h4>`;
+	// A35: a card with ONLY healing (the regeneration case) gets its own title
+	const dotTitleKey = healAmount > 0 && toughnessDamage === 0 && corruptionDamage === 0 ? 'COMBAT.REGEN_TITLE' : 'COMBAT.DOT_TITLE';
+	const title = `<h4>${combatant.token?.name ?? actor.token?.name ?? actor.name}${game.i18n.localize(dotTitleKey)}</h4>`;
 	const html = `<div class="symbaroum chat ability"><div class="foreground">${title}${lines.map((line) => `<div class="finalTxt">${line}</div>`).join('')}</div></div>`;
 	const chatData = {
 		user: game.user.id,
@@ -610,6 +627,37 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	}
 	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
 	if (expireIds.length > 0) await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
+});
+
+/* A35 - Regeneration Auto-Tick (GO erteilt 23.10.). The regeneration trait
+   becomes engine-managed: when a combatant with the trait enters a combat,
+   the GM client equips them with the regeneration condition whose dot block
+   carries the new 'heal' resource - 1d4/1d6/1d8 per trait level (GRW) - and
+   NO durationRounds, so the A28 round/DoT engine ticks the healing at the
+   START of the carrier's own turn forever (outside a combat nothing ticks,
+   K6 precedent; the symbol itself is permanent like the trait). Double
+   application is guarded (hasCondition), re-entering a combat re-equips.
+   The trait's manual click stays available for ad-hoc healing OUTSIDE the
+   automation - in combat the symbol ticks, no manual rolls needed.
+   Aborting mid-fight (e.g. a troll set on fire): the GM removes the symbol
+   (drag off) or runs the A35 abort macro from the delivery doc. */
+Hooks.on('createCombatant', async (combatant) => {
+	if (!game.user.isActiveGM) return;
+	const actor = combatant.actor;
+	if (!actor || actor.hasCondition('regeneration')) return;
+	const traitItem = actor.items.find((item) => item.system?.reference === 'regeneration');
+	if (!traitItem) return;
+	const level = traitItem.system.level ?? 1;
+	const formula = level >= 3 ? '1d8' : level === 2 ? '1d6' : '1d4';
+	await actor.addCondition('regeneration', {
+		dot: { label: 'TRAIT_LABEL.REGENERATION', formula, resource: 'heal', separateRoll: false },
+	});
+	const regenName = combatant.token?.name ?? actor.token?.name ?? actor.name;
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+		content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('COMBAT.REGEN_APPLIED', { name: regenName })}</p></div></div></div>`,
+	});
 });
 
 /* A34 - turn-end expiry engine ("verlorene Runde" conditions). Conditions
@@ -1077,22 +1125,42 @@ async function setupStatusEffects() {
 			img: status.img ?? status.icon,
 		};
 	}
-	// A34-Fix (Rudolf's test round, Befund 1): Foundry core ships its standard
-	// status names as plain English words and a German client has no core
-	// translation to fall back on - applied conditions and the token HUD palette
-	// then show "Frightened", "Stunned", ... The system now ships its own name
-	// map (SYMBAROUM.STATUS_<ID> in de.json): every CORE status whose id has an
-	// entry gets the localized name; unmapped ids keep the core default, and
-	// English clients resolve the en.json entries to the same English words.
-	// The system's own conditions above carry their i18n label keys and stay out
-	// (they already localize). Only the display name changes - ids, icons and
-	// every engine logic (hasCondition, statuses) are untouched.
+	// A35 (Rudolf's test round 2, Befund 10): the core-name Germanization now
+	// lives in setupStatusEffectNames() at READY - see the comment there for
+	// why this init-time patch of A34-Fix1 could never take effect
+}
+
+/* A35 (Rudolf's test round 2, Befund 10): German display names for the CORE
+   statuses. The A34-Fix1 attempt ran inside the init hook, where the system's
+   de.json translations are NOT loaded yet - localize() returned the raw key,
+   the comparison failed and NOTHING was renamed (silently, no error). Now:
+   - runs at ready, when all system translations are guaranteed loaded
+   - replaces the whole entry object instead of mutating it (some CONFIG
+     entries may be immutable), with a per-entry guard - a failed rename
+     must never break the status palette
+   - the addCondition name belt (actor.js) additionally guarantees German
+     names on newly applied conditions even if this patch cannot run at all
+   Only the display name changes - ids, icons, hasCondition and both engines
+   are untouched; unmapped ids keep the core default, English clients resolve
+   the en.json entries to the same English words, and the system's own
+   conditions carry their i18n label keys and are skipped. */
+async function setupStatusEffectNames() {
 	const systemIds = new Set(game.symbaroum.config.systemConditionEffects.map((s) => s.id));
 	for (const [id, status] of Object.entries(CONFIG.statusEffects)) {
 		if (systemIds.has(id)) continue;
 		const key = `SYMBAROUM.STATUS_${id.toUpperCase()}`;
-		const localized = game.i18n.localize(key);
-		if (localized !== key) status.name = localized;
+		try {
+			const localized = game.i18n.localize(key);
+			if (localized && localized !== key) {
+				try {
+					status.name = localized;
+				} catch (err) {
+					CONFIG.statusEffects[id] = { ...status, name: localized };
+				}
+			}
+		} catch (err) {
+			game.symbaroum.log(`A35: status name patch failed for '${id}'`, err);
+		}
 	}
 }
 

@@ -788,6 +788,14 @@ export class SymbaroumActor extends Actor {
 			effect = foundry.utils.duplicate(effect);
 			effect.label = game.i18n.localize(effect.label)?.replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
 			effect.name = game.i18n.localize(effect.name)?.replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
+			// A35 (Rudolf's test round 2, Befund 10): belt for the German status names - the
+			// ready-time palette patch (hooks.js setupStatusEffectNames) covers the CONFIG
+			// entries; this belt makes newly applied conditions German even if that patch
+			// cannot run: a SYMBAROUM.STATUS_<ID> translation wins over the localized label.
+			// System conditions have no STATUS_ key for their id and stay untouched.
+			const statusNameKey = `SYMBAROUM.STATUS_${effect.id?.toUpperCase?.() ?? ''}`;
+			const mappedStatusName = game.i18n.localize(statusNameKey);
+			if (mappedStatusName !== statusNameKey) effect.name = mappedStatusName;
 			if (foundry.utils.isNewerVersion('11', game.version) ) {
 				effect["flags.core.statusId"] = effect.id;
 			}

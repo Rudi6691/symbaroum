@@ -644,6 +644,15 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/invisible.png",
   },
   {
+    // A35: regeneration trait condition - engine-managed heal tick (resource
+    // 'heal', no durationRounds: ticks at the carrier's turn start forever);
+    // applied automatically when a trait carrier enters a combat (hooks.js)
+    id: "regeneration",
+    label: "TRAIT_LABEL.REGENERATION",
+    name: "TRAIT_LABEL.REGENERATION",
+    icon: "systems/symbaroum/asset/image/powers/lifegiver.svg",
+  },
+  {
     id: "witchhammer",
     label: "POWER_LABEL.WITCH_HAMMER",
     name: "POWER_LABEL.WITCH_HAMMER",
