@@ -1405,4 +1405,103 @@ export class SymbaroumMacros {
 		}
 	}
 
+	/**********************************************
+	 * A36 GM utility macro: Bulk Assign Creature Category - opens a dialog
+	 * with one row per world NPC (actor type "monster"): a category dropdown
+	 * (pre-selected with the stored value, or a keyword suggestion when unset -
+	 * the suggestion map below is deliberately small and meant to be edited)
+	 * plus a free subtype input. One "Apply" click writes all changed actors in
+	 * place: no export/import round trip, no Foundry ids touched. The world
+	 * NPCs stay the master data. GM only. Run as a script macro or from the
+	 * console: game.symbaroum.macros.bulkAssignCreatureCategory()
+	 */
+	async bulkAssignCreatureCategory() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const categorySelection = game.symbaroum.config.CREATURE_CATEGORY_SELECTION;
+		/* Keyword suggestions for actors without a stored category: first
+		   matching group wins, entries are lowercase substrings of the actor
+		   name. Purely a dialog pre-selection - nothing is written silently. */
+		const keywordSuggestions = [
+			{ category: "undead", keywords: ["untot", "zombie", "skelett", "skeleton", "leiche", "ghoul", "vampir", "wraith", "nachtmahr"] },
+			{ category: "abomination", keywords: ["abscheulich", "abomination", "aberration", "gorgone", "hydra", "kraken", "verschlinger"] },
+			{ category: "beast", keywords: ["bestie", "wolf", "spinn", "bär", "bear", "schlange", "drache", "skorpion", "wurm", "räuber"] },
+			{ category: "phenomenon", keywords: ["phänomen", "geist", "schatten", "dämon", "demon", "elementar", "gespenst", "phantom"] },
+			{ category: "flora", keywords: ["flora", "pflanze", "baum", "wurzel", "dornbusch"] },
+			{ category: "civilized", keywords: ["kulturschaffend", "mensch", "zwerg", "elf", "ork", "goblin", "troll", "halbling", "bandit", "krieger", "soldat", "hexer", "priester", "schamane"] },
+		];
+		const actors = game.actors.filter((a) => a.type === "monster").sort((a, b) => a.name.localeCompare(b.name));
+		if (actors.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.CATEGORY_NO_NPC"));
+			return;
+		}
+		const suggestCategory = function (actor) {
+			const name = actor.name.toLowerCase();
+			for (const entry of keywordSuggestions) {
+				if (entry.keywords.some((kw) => name.includes(kw))) return entry.category;
+			}
+			return "";
+		};
+		let rows = "";
+		for (const actor of actors) {
+			const current = actor.system.creatureCategory ?? "";
+			const suggested = current !== "" ? current : suggestCategory(actor);
+			const options = Object.values(categorySelection)
+				.map((c) => `<option value="${c.id}" ${c.id === suggested ? "selected" : ""}>${game.i18n.localize(c.label)}</option>`)
+				.join("");
+			rows = rows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(actor.name)}</td>
+                    <td style="padding:2px 6px;"><select style="width:100%;" data-actor="${actor.id}" class="category-select">${options}</select></td>
+                    <td style="padding:2px 6px;"><input style="width:100%;" type="text" data-actor="${actor.id}" class="subtype-input" value="${foundry.utils.escapeHTML(actor.system.creatureSubtype ?? "")}" /></td>
+                </tr>`);
+		}
+		let dialog_content = `  
+        <div class="form-group">
+        <h2>${game.i18n.localize("MACRO.CATEGORY_DIALOG_TITLE")}</h2>
+        <p>${game.i18n.localize("MACRO.CATEGORY_DIALOG_HEADER")}</p>
+        <div style="max-height:60vh; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th>${game.i18n.localize("CREATURE_CATEGORY.CATEGORY")}</th>
+                <th>${game.i18n.localize("CREATURE_CATEGORY.SUBTYPE")}</th>
+            </tr>
+            ${rows}
+        </table>
+        </div>
+        </div>`;
+		symbDialog({
+			width: 600,
+			title: game.i18n.localize("MACRO.CATEGORY_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Apply: {
+					label: game.i18n.localize("MACRO.CATEGORY_APPLY"),
+					callback: async (html) => {
+						const root = html[0];
+						let updated = 0;
+						for (const actor of actors) {
+							const categorySelect = root.querySelector(`select.category-select[data-actor="${actor.id}"]`);
+							const subtypeInput = root.querySelector(`input.subtype-input[data-actor="${actor.id}"]`);
+							if (!categorySelect || !subtypeInput) continue;
+							const newCategory = categorySelect.value;
+							const newSubtype = subtypeInput.value.trim();
+							const oldCategory = actor.system.creatureCategory ?? "";
+							const oldSubtype = actor.system.creatureSubtype ?? "";
+							if (newCategory === oldCategory && newSubtype === oldSubtype) continue;
+							await actor.update({ "system.creatureCategory": newCategory, "system.creatureSubtype": newSubtype });
+							updated++;
+						}
+						ui.notifications.info(game.i18n.format("MACRO.CATEGORY_DONE", { count: updated }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("BUTTON.CANCEL"),
+				},
+			},
+			default: "Apply",
+		});
+	}
 }

@@ -681,6 +681,19 @@ SYMBAROUM.isThoroughlyCorruptTarget = function (actor) {
 	return Number(corr.permanent ?? 0) >= max;
 };
 
+/* A36 (Rudolf, 24.10.): Creature category accessors. getCreatureCategory
+   returns the stored selection id ("" = no category); isCreatureCategory is
+   the predicate for scripted powers/items that work only against a certain
+   category. Stored on system.creatureCategory / system.creatureSubtype,
+   present on BOTH actor types (player and monster). */
+SYMBAROUM.getCreatureCategory = function (actor) {
+	return actor?.system?.creatureCategory ?? "";
+};
+
+SYMBAROUM.isCreatureCategory = function (actor, categoryId) {
+	return !!categoryId && actor?.system?.creatureCategory === categoryId;
+};
+
 /* A33 (Rudolf's Adept redesign, 23.10.): Zeichen der Pein - Adept+ marks
    its stun symbol with the attackerFavour flag (both push sites in
    standardPowerResult, copied by the apply handler). While the mark lasts
@@ -1026,6 +1039,47 @@ SYMBAROUM.WEAPON_TYPE_SELECTION = {
   other: {
     id: "other",
     label: "GEAR.OTHER",
+  },
+};
+
+/* A36 (Rudolf, 24.10.): Creature categories from the GRW/Monster Codex
+   ("Monsterkategorien" - vault "3.05a"): abomination, beast, flora,
+   civilized (Kulturschaffende), phenomenon, undead. Single select plus a
+   free subtype field (vault subgroups like Geister, Wandelnde Leiche,
+   Spinnen, ...). Deliberately independent of the "undead" trait, which
+   keeps driving its own damage reduction mechanics - the category is a
+   query flag for powers/items that work only against a certain category.
+   The empty id stands for "no category". Both actor types carry the fields
+   (a PC can be an abomination or undead - vault "Als Abscheulichkeit
+   weiterspielen"). Selection list pattern: WEAPON_TYPE_SELECTION above. */
+SYMBAROUM.CREATURE_CATEGORY_SELECTION = {
+  "": {
+    id: "",
+    label: "CREATURE_CATEGORY.NONE",
+  },
+  abomination: {
+    id: "abomination",
+    label: "CREATURE_CATEGORY.ABOMINATION",
+  },
+  beast: {
+    id: "beast",
+    label: "CREATURE_CATEGORY.BEAST",
+  },
+  flora: {
+    id: "flora",
+    label: "CREATURE_CATEGORY.FLORA",
+  },
+  civilized: {
+    id: "civilized",
+    label: "CREATURE_CATEGORY.CIVILIZED",
+  },
+  phenomenon: {
+    id: "phenomenon",
+    label: "CREATURE_CATEGORY.PHENOMENON",
+  },
+  undead: {
+    id: "undead",
+    label: "CREATURE_CATEGORY.UNDEAD",
   },
 };
 

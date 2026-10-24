@@ -27,6 +27,21 @@
                 </div>
             </div>
         {{/ife}}
+        {{!-- A36: creature category (single select from CREATURE_CATEGORY_SELECTION) and
+            free subtype field, rendered for BOTH actor types (a PC can be an abomination
+            or undead - vault "Als Abscheulichkeit weiterspielen"). --}}
+        <div class="wrapper-full">
+            <div class="category">
+                <label for="{{id}}-system.creatureCategory">{{localize "CREATURE_CATEGORY.CATEGORY"}}</label>
+                <select id="{{id}}-system.creatureCategory" name="system.creatureCategory">
+                    {{selectOptions creature_category_selection selected=system.creatureCategory labelAttr="label"}}
+                </select>
+            </div>
+            <div class="subtype">
+                <label for="{{id}}-system.creatureSubtype">{{localize "CREATURE_CATEGORY.SUBTYPE"}}</label>
+                <input id="{{id}}-system.creatureSubtype" name="system.creatureSubtype" type="text" value="{{system.creatureSubtype}}" />
+            </div>
+        </div>
     </div>
     
     {{#ifNotLimited actor}}

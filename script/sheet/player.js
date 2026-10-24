@@ -173,6 +173,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			showNpcModifiers: game.settings.get('symbaroum', 'showNpcModifiers'),
 		};
 		context.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
+		context.creature_category_selection = game.symbaroum.config.CREATURE_CATEGORY_SELECTION;
 		return context;
 	}
 

@@ -64,6 +64,21 @@
   justify-content: center;
 }
 
+/* A36: creature category (dropdown) and free subtype rows in the bio tab
+   appearance box - shared by player and monster sheets. */
+.symbaroum.sheet.actor .player .bio .appearance .wrapper-full .category,
+.symbaroum.sheet.actor .player .bio .appearance .wrapper-full .subtype {
+  display: flex;
+  flex-direction: row;
+  flex-basis: 100%;
+  margin: 0 10px 10px 10px;
+  justify-content: center;
+}
+
+.symbaroum.sheet.actor .player .bio .appearance .wrapper-full .category select {
+  flex-grow: 1;
+}
+
 .symbaroum.sheet.actor .player .bio .background,
 .symbaroum.sheet.actor .player .bio .personal-goal {
   display: flex;

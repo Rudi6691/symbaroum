@@ -127,7 +127,9 @@
         "stigmas": ""
       },
       "nbrOfFailedDeathRoll": 0,
-      "notes": ""
+      "notes": "",
+      "creatureCategory": "",
+      "creatureSubtype": ""
     },
     "monster": {
       "templates": [
@@ -152,7 +154,9 @@
         "personalGoal": "",
         "tactics": "",
         "manner": ""
-      }
+      },
+      "creatureCategory": "",
+      "creatureSubtype": ""
     }
   },
   "Item": {
