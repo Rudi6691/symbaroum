@@ -20,6 +20,13 @@
 .symbaroum.sheet.actor .player .bio .appearance input {
   width: 50px;
   flex-grow: 1;
+  /* A36Fix2: uniform field height in the appearance box - Alter, Size,
+     Weight, Shadow and subtype inputs share the same 32px min-height as
+     the category select, so select and inputs are guaranteed identical
+     regardless of core form styles (Rudolf, 2nd test round: category
+     dropdown "gleiche Hoehe wie Alter"). */
+  min-height: 32px;
+  padding: 3px 5px;
 }
 
 .symbaroum.sheet.actor .player .bio .appearance .wrapper-left {
@@ -49,7 +56,10 @@
   flex-direction: row;
   flex-basis: 100%;
   margin: 10px 10px 0 10px;
-  justify-content: center;
+  /* A36Fix2: left-aligned in line with the category row, label and field
+     vertically centered against each other (Rudolf, 2nd test round). */
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .symbaroum.sheet.actor .player .bio .appearance .wrapper-left .weight {
@@ -61,7 +71,9 @@
   flex-direction: row;
   flex-basis: 100%;
   margin: 0 10px 10px 10px;
-  justify-content: center;
+  /* A36Fix2: same row alignment as the category/subtype rows. */
+  justify-content: flex-start;
+  align-items: center;
 }
 
 /* A36: creature category (dropdown) and free subtype rows in the bio tab
@@ -72,20 +84,20 @@
   flex-direction: row;
   flex-basis: 100%;
   margin: 0 10px 10px 10px;
-  justify-content: center;
+  /* A36Fix2: left-aligned like the age/height/weight rows, label and
+     field vertically centered against each other (Rudolf, 2nd test round). */
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .symbaroum.sheet.actor .player .bio .appearance .wrapper-full .category select {
   flex-grow: 1;
-  /* A36Fix: the select rendered too slim to read comfortably on the V14
-     sheet (Rudolf's test round, Befund 2) - explicit height and padding.
-     The subtype input gets the same metrics so both rows align. */
-  min-height: 28px;
-  padding: 3px 5px;
-}
-
-.symbaroum.sheet.actor .player .bio .appearance .wrapper-full .subtype input {
-  min-height: 28px;
+  /* A36Fix: explicit height and padding so the select stays readable on
+     the V14 sheet. A36Fix2: raised to the uniform appearance-box field
+     height - the same 32px min-height applies to the age/height/weight
+     and subtype inputs above, so select and inputs are guaranteed
+     identical (Rudolf, 2nd test round: "gleiche Hoehe wie Alter"). */
+  min-height: 32px;
   padding: 3px 5px;
 }
 
@@ -128,7 +140,9 @@
 .symbaroum.sheet.actor .player .bio .editor {
   margin: 10px;
   border: 1px solid var(--color-border);
-  height: 264px;
+  /* A36Fix2: slightly lower editors (background/personal goal) to offset
+     the taller appearance fields (Rudolf, 2nd test round). */
+  height: 240px;
 }
 
 .symbaroum.sheet.actor .player .bio .appearance .editor {
