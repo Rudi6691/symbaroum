@@ -535,6 +535,20 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	});
 	if (dotEffects.length === 0) return;
 
+	// A33Fix2 (Rudolf's test round, Befund 7): heal ticks (Regeneration) are
+	// suppressed when the victim's toughness is already at max and no
+	// toughness-damage source runs in the same tick - no roll, no line, and
+	// with nothing else on the card the whole card is skipped below; parallel
+	// damage brings the actor below max, so those heal ticks flow into the
+	// net rule as before
+	const toughValue = actor.system.health.toughness.value;
+	const toughMax = actor.system.health.toughness.max;
+	const hasToughnessDamageSource = dotEffects.some((e) => {
+		const dot = e.getFlag(game.system.id, 'flagData')?.dot;
+		return dot && dot.resource !== 'heal' && dot.resource !== 'corruption';
+	});
+	const suppressHeal = toughValue >= toughMax && !hasToughnessDamageSource;
+
 	const rolls = [];
 	const lines = [];
 	let toughnessDamage = 0;
@@ -545,6 +559,8 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		const fd = e.getFlag(game.system.id, 'flagData');
 		if (!fd.dot) continue; // duration-only conditions just expire below
 		const dot = fd.dot;
+		// A33Fix2 (Befund 7): regeneration at full toughness ticks nothing
+		if (dot.resource === 'heal' && suppressHeal) continue;
 		const roll = await new Roll(dot.formula).evaluate();
 		rolls.push(roll);
 		const amount = roll.total * (dot.stacks ?? 1);
@@ -607,6 +623,11 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		});
 		await applyDeadOverlay(actor);
 	}
+
+	// A33Fix2 (Befund 7): everything on this card was suppressed (regeneration
+	// at full toughness, no damage, nothing expiring) - no card at all
+	const anyExpiry = dotEffects.some((e) => e.getFlag(game.system.id, 'flagData')?.durationRounds != null);
+	if (lines.length === 0 && foundry.utils.isEmpty(updateData) && !anyExpiry) return;
 
 	// EINE aggregated tick card per victim per turn, dice attached as rolls
 	// A35: a card with ONLY healing (the regeneration case) gets its own title
