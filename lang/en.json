@@ -93,7 +93,7 @@
 
   "ABILITY_DOMINATE_ADEPT.CHAT_INTRO": "{actorname} tries to indimidate their target.",
   "ABILITY_DOMINATE_MASTER.CHAT_INTRO": "{actorname} tries to subdue their target.",
-  "ABILITY_DOMINATE_ADEPT.CHAT_SUCCESS": "{actorname} makes their target hesitate.",
+  "ABILITY_DOMINATE_ADEPT.CHAT_SUCCESS": "{actorname} makes their target hesitate — the fear symbol automatically ends with the target's turn.",
   "ABILITY_DOMINATE_MASTER.CHAT_SUCCESS": "{actorname} subdues their enemy.",
 
   "ABILITY_LEADER.CHAT_SUCCESS": "Allies gain +1d4 damage against {targetname}",
@@ -352,6 +352,8 @@
   "COMBAT.DOT_TOTAL": "Total round damage: {damage}",
   "COMBAT.DOT_TOTAL_CORRUPTION": "Additional temporary corruption: {damage}",
   "COMBAT.DOT_STACK_LINE": "{name} bleeds harder — now {count} toughness per round.",
+  "COMBAT.TURNEND_TITLE": " — effects at the end of the turn",
+  "COMBAT.TURNEND_LINE": "Expired: {names}.",
   "COMBAT.CHAT_MODIFIER": "Mod: ",
   "COMBAT.CHAT_DMG_PARAMS": "Damage modifiers: ",
   "COMBAT.CHAT_DMG_PARAMS_HUNTER": "[Hunter] ",
@@ -626,7 +628,7 @@
   "POWER_BATTLESYMBOL.CHAT_INTRO_M": "{actorname} maintains the battle symbol.",
   "POWER_BATTLESYMBOL.CHAT_SUCCESS": "{targetname} is seized by an uncontrolled battle rage.",
   "POWER_BATTLESYMBOL.CHAT_FAILURE": "{targetname} resists the battle symbol.",
-  "POWER_BATTLESYMBOL.CHAT_NOVICE": "The victim immediately attacks the next person, friend or foe. Effect lasts one round (GM removes the symbol).",
+  "POWER_BATTLESYMBOL.CHAT_NOVICE": "The victim immediately attacks the next person, friend or foe. Effect lasts one round — the berserker symbol automatically ends with the victim's turn.",
   "POWER_BATTLESYMBOL.CHAT_ADEPT": "The affected immediately attack the next person, friend or foe (GM). Maintain test: Resolute minus the damage of the triggering hit (dialog modifier).",
   "POWER_BATTLESYMBOL.CHAT_MASTER": "The affected cannot defend themselves - every attack against them hits automatically (GM).",
 
@@ -734,9 +736,12 @@
   "POWER_MARKOFTORMENT.CHAT_ADEPT": "Reactive actions (defense) roll twice - the worse result counts (GM).",
 
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} tries to channel the Light of Prios at a target.",
-  "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} can be stunned for 1 round [resolute <-- resolute] (GM: roll the probe, set the stun symbol and remove it at the end of the round).",
   "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET": "Another target<br>for the burning glass?",
   "POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET": "No new target marked - the burning glass ends here.",
+  "POWER_PRIOSBURNINGGLASS.STUN_FAIL": "{targetname} resists the stun.",
+  "POWER_PRIOSBURNINGGLASS.STUN_QUESTION": "Stun {targetname}?<br>[Resolute <-- Resolute]",
+  "POWER_PRIOSBURNINGGLASS.STUN_SUCCESS": "{targetname} is stunned for one round — the symbol automatically ends with the target's turn.",
+  "POWER_PRIOSBURNINGGLASS.STUN_TITLE": " — Stun",
 
   "POWER_PROTECTIVERUNES.CHAT_ACTIVATE": "{actorname} activates protective runes.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE": "The protection of the runes is active.",

@@ -612,6 +612,55 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	if (expireIds.length > 0) await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
 });
 
+/* A34 - turn-end expiry engine ("verlorene Runde" conditions). Conditions
+   that opt in via the turnEnd marker (Dominance-Adept fear, Battlesymbol-
+   Novice berserker, Prios' Burning-Glass-Master stun) do not run the round
+   clock of the A28 engine: their "one round" is the victim's own turn - the
+   effect stays active for the whole turn and is removed at its END. At
+   every turn change the GM client looks at the combatant whose turn has
+   just ended (combat.previous - the round wrap is included) and decrements
+   that combatant's turnEndRounds counters; finished conditions are deleted
+   in ONE batched update and ONE small chat card names them (DOT card
+   optics). Marker safety exactly as with A28: conditions without
+   turnEndRounds data are strictly ignored - hand-set stun/fear/berserker
+   symbols and every legacy condition keep their exact current (permanent)
+   behaviour. Outside of a combat nothing expires (rounds only exist in the
+   combat tracker), and no render or movement path is touched. */
+Hooks.on('updateCombat', async (combat, changed) => {
+	if (!game.user.isActiveGM) return;
+	if (!('turn' in changed) && !('round' in changed)) return;
+	const prevIndex = combat.previous?.turn;
+	if (prevIndex == null) return;
+	const prevCombatant = combat.turns[prevIndex];
+	const actor = prevCombatant?.actor;
+	if (!actor) return;
+	const turnEndEffects = actor.effects.filter((e) => {
+		const fd = e.getFlag(game.system.id, 'flagData');
+		return fd && fd.turnEndRounds != null;
+	});
+	if (turnEndEffects.length === 0) return;
+	const effectUpdates = [];
+	const expireIds = [];
+	for (const e of turnEndEffects) {
+		const fd = e.getFlag(game.system.id, 'flagData');
+		const remaining = Math.max(0, Number(fd.turnEndRounds) - 1);
+		if (remaining <= 0) expireIds.push(e.id);
+		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.turnEndRounds`]: remaining, 'duration.value': remaining });
+	}
+	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
+	if (expireIds.length > 0) {
+		const names = turnEndEffects.filter((e) => expireIds.includes(e.id)).map((e) => e.name).join(', ');
+		await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
+		const title = `<h4>${prevCombatant.token?.name ?? actor.token?.name ?? actor.name}${game.i18n.localize('COMBAT.TURNEND_TITLE')}</h4>`;
+		const html = `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${game.i18n.format('COMBAT.TURNEND_LINE', { names })}</p></div></div></div>`;
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: html,
+		});
+	}
+});
+
 /* ==================================================================
    A29 - Zug-Start-Maintain-Erinnerung (Rudolfs Idee; GO G1-G4, 23.10.)
    At the start of a combatant's turn the GM client scans the scene tokens
@@ -858,6 +907,14 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 								const engineData = { dot: flagData.dot };
 								if (flagData.effectDuration != null) engineData.durationRounds = flagData.effectDuration;
 								conditionData = foundry.utils.mergeObject(conditionData ?? {}, engineData);
+							}
+							// A34: turn-end conditions - a second, separate opt-in marker with
+							// the same marker protection as the dot gate above: effectDuration
+							// alone still never opts into an engine (A23/A24 maintain symbols,
+							// holyShield, dead/prone keep their exact current behaviour);
+							// turnEndRounds drives the A34 turn-end hook's countdown
+							if (flagData.turnEnd) {
+								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { turnEndRounds: flagData.effectDuration ?? 1 });
 							}
 							await actor.addCondition(flagData.addEffect, conditionData);
 						}

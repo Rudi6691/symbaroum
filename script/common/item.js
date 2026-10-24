@@ -2295,8 +2295,12 @@ export class SymbaroumItem extends Item {
     base.resultTextSuccess = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_FAILURE");
     if (base.powerLvl.level === 1) {
-      // A25 stage 4: novice - one round of berserk rage (GM removes the symbol)
+      // A25 stage 4: novice - one round of berserk rage; A34: the "one round"
+      // is the victim's current turn - the berserker symbol now expires
+      // automatically at the END of that turn (turn-end engine), the GM no
+      // longer removes it by hand
       base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "berserker"))];
+      base.targetEffectTurnEnd = true;
       base.finalTextSucceed = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_NOVICE");
     } else {
       // adept/master: the rage holds while the symbol is maintained; the
@@ -2776,9 +2780,6 @@ export class SymbaroumItem extends Item {
       holy: true,
       mysticArm: true,
     };
-    if (base.powerLvl.level === 3) {
-      base.targetFullyCorruptedFSmod.finalTextSucceed = game.i18n.localize("POWER_PRIOSBURNINGGLASS.CHAT_EXTRA");
-    }
     return base;
   }
 
@@ -3016,6 +3017,10 @@ export class SymbaroumItem extends Item {
       base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "fear"))];
     }
     if (base.powerLvl.level == 2) {
+      // A34: the adept's fear is a "lost round" - the fear symbol expires
+      // automatically at the END of the target's turn (turn-end engine);
+      // the master (level 3) keeps its permanent GM-managed behaviour (E0)
+      base.targetEffectTurnEnd = true;
       base.introText = game.i18n.localize("ABILITY_DOMINATE_ADEPT.CHAT_INTRO");
       base.resultTextSuccess = game.i18n.localize("ABILITY_DOMINATE_ADEPT.CHAT_SUCCESS");
     } else {
@@ -4032,11 +4037,12 @@ async function earthshotResult(rollData, functionStuff) {
    probe - one probe covers the whole casting - and cost no further
    corruption; advantage (+1d4 damage) applies to the first damage roll
    only. The thoroughly-corrupted bonus dice (Adept+: 1d12 instead of 1d8)
-   are auto-detected per target - no dialog question from Adept on. At
-   Master the damage card of a thoroughly corrupted target reminds of the
-   optional 1-round stun [Resolute<-Resolute], which the GM resolves
-   (probe, stun symbol, removal at the end of the round) - A34's turn-end
-   engine will wire that later. */
+   are auto-detected per target - no dialog question from Adept on. A34: at
+   Master each thoroughly corrupted target gets the OPTIONAL stun wired in
+   (GRW) - after its damage card a dialog asks whether to attempt the stun,
+   an automated opposed [Resolute<-Resolute] probe decides, and on success
+   the stun symbol rides on its own GM apply card and expires automatically
+   at the END of the target's turn (turn-end engine in hooks.js). */
 async function priosBurningGlassResult(rollData, functionStuff) {
   const baseDamageDice = functionStuff.damageDice;
   // primary target: the one unopposed Resolute probe (GRW) + damage; the
@@ -4049,6 +4055,11 @@ async function priosBurningGlassResult(rollData, functionStuff) {
   await standardPowerResult(rollData, functionStuff);
   // the single probe decides for every enemy: on a miss nothing hits
   if (rollData?.[0]?.trueActorSucceeded === false) return;
+  // A34: Master - the thoroughly corrupted primary target can additionally
+  // be stunned for one round (GRW, optional): opposed [Resolute<-Resolute]
+  if (functionStuff.powerLvl.level > 2 && functionStuff.targetData.isCorrupted) {
+    await priosBurningGlassMasterStun(functionStuff, functionStuff.targetData);
+  }
   functionStuff.hasAdvantage = false;
   // one casting: the follow-ups cost no further corruption
   const savedCorruption = functionStuff.corruption;
@@ -4073,8 +4084,83 @@ async function priosBurningGlassResult(rollData, functionStuff) {
     }
     // no new probe - one probe covers the whole casting
     await standardPowerResult(null, functionStuff);
+    // A34: Master - the optional stun applies to this thoroughly corrupted
+    // follow-up target as well (freshly built targetData carries the flag)
+    if (functionStuff.powerLvl.level > 2 && functionStuff.targetData.isCorrupted) {
+      await priosBurningGlassMasterStun(functionStuff, functionStuff.targetData);
+    }
   }
   functionStuff.corruption = savedCorruption;
+}
+
+/* A34 Prios' Burning Glass Master (GRW): the mystic MAY stun a thoroughly
+   corrupted (or undead) enemy for one round - opposed [Resolute<-Resolute].
+   A dialog asks per target whether to attempt it (whoever triggered the
+   casting answers - player owner of the caster, GM fallback), the probe is
+   rolled automatically and posted as its own small card (DOT card optics);
+   on success the stun symbol rides on a GM apply card and is engine-managed:
+   it expires at the END of the target's turn (turn-end engine in hooks.js),
+   the GM only confirms the apply. A target that already carries the stun
+   symbol is skipped, a failed probe just posts the resisted line. */
+async function priosBurningGlassMasterStun(functionStuff, targetData) {
+  if (targetData.actor.hasCondition("stun")) return;
+  if (!(await priosStunConfirmation(functionStuff, targetData.name))) return;
+  const probe = await baseRoll(functionStuff.actor, "resolute", targetData.actor, "resolute", 0, 0, false);
+  const stunned = probe.trueActorSucceeded === true;
+  const title = `<h4>${functionStuff.abilityName}${game.i18n.localize("POWER_PRIOSBURNINGGLASS.STUN_TITLE")}</h4>`;
+  const line = game.i18n.format(
+    game.i18n.localize(stunned ? "POWER_PRIOSBURNINGGLASS.STUN_SUCCESS" : "POWER_PRIOSBURNINGGLASS.STUN_FAIL"),
+    { targetname: targetData.name }
+  );
+  const html = `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${line}</p></div></div></div>`;
+  const chatData = {
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: functionStuff.actor.id }),
+    rollMode: game.settings.get("core", "messageMode"),
+    content: html,
+  };
+  chatData.rolls = [createRollData(probe.rolls)];
+  ChatMessage.applyMode(chatData, "public");
+  await ChatMessage.create(chatData);
+  if (!stunned) return;
+  await createModifyTokenChatButton([
+    {
+      tokenId: targetData.tokenId,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "stun")),
+      effectDuration: 1,
+      turnEnd: true,
+      casterId: functionStuff.actor.id,
+      abilityRef: functionStuff.ability?.reference,
+      casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+      casterName: functionStuff.actingCharName,
+    },
+  ]);
+}
+
+function priosStunConfirmation(functionStuff, targetname) {
+  return new Promise((resolve) => {
+    symbDialog({
+      title: functionStuff.abilityName,
+      // A25 optics: the question renders as the centred dark banner label of
+      // the roll dialog (see glyphNextTargetConfirmation); the default is NO -
+      // the stun stays the deliberate optional choice of the GRW text
+      classes: ["chain-confirm"],
+      content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format(game.i18n.localize("POWER_PRIOSBURNINGGLASS.STUN_QUESTION"), { targetname })}</p></div>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: () => resolve(true),
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+          callback: () => resolve(false),
+        },
+      },
+      default: "no",
+    });
+  });
 }
 
 /* A17 draining glyph: the glyph affects every enemy that can see the symbol
@@ -5664,10 +5750,13 @@ async function standardPowerResult(rollData, functionStuff) {
       if (!effectPresent) {
         // A23: remember the caster so the maintain chain only maintains own symbols
         // A24: snapshot the originator's resolute (Anathema probe resistance) and name
+        // A34: turn-end conditions (Dominance-Adept, Battlesymbol-Novice) mark their
+        // entry - the payload of every other power stays byte-identical
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
+          ...(functionStuff.targetEffectTurnEnd === true ? { turnEnd: true } : {}),
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
           casterResolute: getAttributeValue(functionStuff.actor, "resolute"),

@@ -93,7 +93,7 @@
 
   "ABILITY_DOMINATE_ADEPT.CHAT_INTRO": "{actorname} versucht das Ziel einzuschüchtern.",
   "ABILITY_DOMINATE_MASTER.CHAT_INTRO": "{actorname} versucht das Ziel zu unterwerfen.",
-  "ABILITY_DOMINATE_ADEPT.CHAT_SUCCESS": "{actorname} lässt das Ziel zaudern.",
+  "ABILITY_DOMINATE_ADEPT.CHAT_SUCCESS": "{actorname} lässt das Ziel zaudern — das Furcht-Symbol endet automatisch mit dem Zug des Ziels.",
   "ABILITY_DOMINATE_MASTER.CHAT_SUCCESS": "{actorname} unterwirft das Ziel.",
 
   "ABILITY_LEADER.CHAT_SUCCESS": "Verbündete verursachen +1W4 Schaden gegen {targetname}",
@@ -352,6 +352,8 @@
   "COMBAT.DOT_TOTAL": "Gesamter Folgeschaden: {damage}",
   "COMBAT.DOT_TOTAL_CORRUPTION": "Zusätzliche temporäre Korruption: {damage}",
   "COMBAT.DOT_STACK_LINE": "{name} blutet stärker — jetzt {count} Zähigkeit pro Runde.",
+  "COMBAT.TURNEND_TITLE": " — Wirkungen am Zugende",
+  "COMBAT.TURNEND_LINE": "Abgelaufen: {names}.",
   "COMBAT.CHAT_MODIFIER": "Modifikator: ",
   "COMBAT.CHAT_DMG_PARAMS": "Schadensmodifikator: ",
   "COMBAT.CHAT_DMG_PARAMS_HUNTER": "[Jagdinstinkt] ",
@@ -626,7 +628,7 @@
   "POWER_BATTLESYMBOL.CHAT_INTRO_M": "{actorname} hält das Kampfsymbol aufrecht.",
   "POWER_BATTLESYMBOL.CHAT_SUCCESS": "{targetname} wird von unkontrollierbarer Kampfeswut erfasst.",
   "POWER_BATTLESYMBOL.CHAT_FAILURE": "{targetname} widersteht dem Kampfsymbol.",
-  "POWER_BATTLESYMBOL.CHAT_NOVICE": "Das Opfer greift sofort die nächste Person an, Freund oder Feind. Wirkung: eine Runde (SL entfernt das Symbol).",
+  "POWER_BATTLESYMBOL.CHAT_NOVICE": "Das Opfer greift sofort die nächste Person an, Freund oder Feind. Wirkung: eine Runde — das Berserkersymbol endet automatisch mit dem Zug des Opfers.",
   "POWER_BATTLESYMBOL.CHAT_ADEPT": "Die Betroffenen greifen sofort die nächste Person an, Freund oder Feind (SL). Maintain-Probe: Willenskraft minus dem Schaden des Treffers, der sie auslöst (Modifikator im Würfeldialog).",
   "POWER_BATTLESYMBOL.CHAT_MASTER": "Die Betroffenen können sich nicht verteidigen – jeder Angriff gegen sie trifft automatisch (SL).",
 
@@ -735,9 +737,12 @@
   "POWER_MARKOFTORMENT.CHAT_ADEPT": "Reaktive Aktionen (Verteidigung) werden doppelt gewürfelt – das schlechtere Ergebnis zählt (SL).",
 
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} fokussiert das Licht der Seele als brenennden Strahl.",
-  "POWER_PRIOSBURNINGGLASS.CHAT_EXTRA": "{targetname} kann für 1 Runde betäubt werden [Willenskraft <-- Willenskraft] (SL: Probe würfeln, Betäubt-Symbol setzen und am Rundenende entfernen).",
   "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET": "Weiteres Ziel<br>für das Brennglas?",
   "POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - das Brennglas endet hier.",
+  "POWER_PRIOSBURNINGGLASS.STUN_FAIL": "{targetname} widersteht der Betäubung.",
+  "POWER_PRIOSBURNINGGLASS.STUN_QUESTION": "{targetname} betäuben?<br>[Willenskraft <-- Willenskraft]",
+  "POWER_PRIOSBURNINGGLASS.STUN_SUCCESS": "{targetname} ist für eine Runde betäubt — das Symbol endet automatisch mit dem Zug des Ziels.",
+  "POWER_PRIOSBURNINGGLASS.STUN_TITLE": " — Betäubung",
 
   "POWER_PROTECTIVERUNES.CHAT_ACTIVATE": "{actorname} aktiviert Schutzrunen.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE": "Der Schutz der Runen ist aktiv.",

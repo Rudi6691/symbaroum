@@ -805,6 +805,15 @@ export class SymbaroumActor extends Actor {
 						units: "rounds",
 						expiry: "turnStart",
 					};
+				} else if (flagData.turnEndRounds != null) {
+					// A34: turn-end conditions display the same round counter, but their
+					// clock runs to the END of the victim's turn - the countdown and the
+					// deletion are owned by the A34 hook in hooks.js
+					effect.duration = {
+						value: Number(flagData.turnEndRounds),
+						units: "rounds",
+						expiry: "turnEnd",
+					};
 				}
 			}
 			// V14: statuses must be the array of status ids (a plain id string is not accepted by the
