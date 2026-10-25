@@ -3980,16 +3980,19 @@ async function staffProjectileChainResult(rollData, functionStuff) {
   return chainResult(rollData, functionStuff, (index) => dice[Math.min(index, dice.length - 1)]);
 }
 
-/* A36V test round 3 (Rudolf, 25.10.): the seal dialog's category choice is
+/* A36V test round 3/4 (Rudolf, 25.10.): the seal dialog's category choice is
    re-checked against the PRIMARY target when the roll is confirmed (the
    chain already checks its own follow-up targets, see
    banishingSealChainResult). Novice: warning and NO roll - at that level the
-   seal does not affect creatures of other types. Adept/Master: the seal
-   runs anyway - creatures of other types inside the seal take the card
-   damage (1d4 / 1d8, fleeing 1d4, SL-applied, see CHAT_ADEPT /
-   CHAT_MASTER). An empty dialog selection ("no category") keeps the check
-   disabled (SL judgement, unchanged). */
+   seal does not affect creatures of other types. Adept/Master: NO
+   notification (Rudolf, round 4) - the roll runs, and on a SUCCESSFUL roll
+   the mismatched target only takes the card damage (1d4 / 1d8, SL-applied,
+   see CHAT_ADEPT / CHAT_MASTER) and is NOT banished: sealPrimaryMismatch
+   tells banishingSealChainResult to keep it off the fleeing card. An empty
+   dialog selection ("no category") keeps the check disabled (SL judgement,
+   unchanged). */
 function banishingSealPrimaryCategoryCheck(functionStuff) {
+  functionStuff.sealPrimaryMismatch = false;
   if (functionStuff.ability?.reference !== "banishingseal" || !functionStuff.sealCategoryId) return true;
   const primaryActor = functionStuff.targetData?.actor ?? functionStuff.targetData?.token?.actor;
   if (!primaryActor) return true;
@@ -3999,7 +4002,7 @@ function banishingSealPrimaryCategoryCheck(functionStuff) {
     ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE", { targetname: targetname }));
     return false;
   }
-  ui.notifications.info(game.i18n.format("POWER_BANISHINGSEAL.INFO_CATEGORY_ADEPT", { targetname: targetname }));
+  functionStuff.sealPrimaryMismatch = true;
   return true;
 }
 
@@ -4016,7 +4019,12 @@ async function banishingSealChainResult(rollData, functionStuff) {
   // fleeing combatants manually (Rudolf's choice).
   await standardPowerResult(rollData, functionStuff);
   if (!rollData?.[0]?.trueActorSucceeded) return;
-  const fleeing = [functionStuff.targetData.tokenId];
+  // A36V test round 4 (Rudolf, 25.10.): a MISMATCHED primary target at
+  // Adept/Master is NOT banished - on the successful roll it only takes the
+  // card damage (SL-applied, CHAT_ADEPT/CHAT_MASTER), so it stays off the
+  // fleeing card (banishingSealPrimaryCategoryCheck sets the flag)
+  const fleeing = [];
+  if (!functionStuff.sealPrimaryMismatch) fleeing.push(functionStuff.targetData.tokenId);
   const handled = new Set([functionStuff.targetData.tokenId]);
   const savedCorruption = functionStuff.corruption;
   functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
@@ -4027,12 +4035,16 @@ async function banishingSealChainResult(rollData, functionStuff) {
       break;
     }
     handled.add(nextToken.id);
-    // A36V test round 2 (Rudolf, 25.10.): the chain honours the category
-    // chosen in the seal dialog - a target from another category is NOT
-    // silently sealed: warning + skip (the Holy Aura pattern), the chain
-    // stays open for a fitting target. An empty dialog selection ("no
-    // category") disables the check (SL judgement).
-    if (functionStuff.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== functionStuff.sealCategoryId) {
+    // A36V test rounds 2-4 (Rudolf, 25.10.): the chain honours the category
+    // chosen in the seal dialog. Novice: warning + skip (the seal does not
+    // affect other types at that level). Adept/Master: NO notification -
+    // the follow-up target gets its own opposed test, and on success only
+    // takes the card damage (SL) WITHOUT being banished; the chain
+    // continues either way. An empty dialog selection ("no category")
+    // disables the check (SL judgement).
+    const chainCategoryMismatch =
+      functionStuff.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== functionStuff.sealCategoryId;
+    if (chainCategoryMismatch && (functionStuff.powerLvl?.level ?? 1) <= 1) {
       ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
       continue;
     }
@@ -4050,7 +4062,10 @@ async function banishingSealChainResult(rollData, functionStuff) {
     ];
     await standardPowerResult(rollDataNext, functionStuff);
     if (!rollDataNext[0].trueActorSucceeded) break;
-    fleeing.push(nextToken.id);
+    // A36V test round 4 (Rudolf, 25.10.): a mismatched follow-up at Adept/
+    // Master takes the card damage on this success (SL) but is NOT banished -
+    // no Verängstigt entry; the chain keeps going
+    if (!chainCategoryMismatch) fleeing.push(nextToken.id);
   }
   functionStuff.corruption = savedCorruption;
   if (fleeing.length > 0) {
