@@ -22,9 +22,13 @@
  *      kann sich der Charakter nur noch kurze Strecken bewegen (Anzeige).
  *  - Vermögen zählt mit: je volle 50 Thaler Gesamtwert = 1 GE (in Vielfachen,
  *    berechnet über die konfigurierten Wechselkurse aus system.currency).
- *  - Getragene (aktive) Rüstung zählt nicht - sie hat ihre Rüstungsbehinderung;
- *    nur mitgeführte Rüstung zählt. Waffen zählen immer („in der Hand" wird
- *    nicht getrackt, das bleibt SL-Ermessen).
+ *  - Item-Status entscheidet (Rudolfs Erweiterung, Testrunde 3): Nur Teile
+ *    mit Status "Aktiv" oder "Ausgerüstet" zählen - "Andere" ist weggeräumt
+ *    bzw. nicht mitgeführt und geht nie in die Last ein. Getragene Rüstung
+ *    ("Aktiv") zählt nicht - sie hat ihre Rüstungsbehinderung; die Waffe in
+ *    der Hand ("Aktiv") wird analog behandelt (RAW). "Ausgerüstet" zählt bei
+ *    allen Ausrüstungsteilen; Ausrüstung/Artefakte in "Aktiv" (am Körper
+ *    getragen bzw. in Gebrauch) ebenfalls.
  *  - Die Reisefolgen (Marschkategorien-Verschlechterung, Todesmarsch-Malus)
  *    sind bewusst NICHT automatisiert - nur Anzeige/Dokumentation.
  *
@@ -80,18 +84,37 @@ export function getWeightCategory(categoryId) {
 }
 
 /**
+ * Ob ein Ausrüstungsteil mitgeführt wird und damit grundsätzlich in die
+ * Last eingeht (Rudolfs Erweiterung aus Testrunde 3):
+ *  - Nur Status "Aktiv" oder "Ausgerüstet" zählt - "Andere" (und fehlende
+ *    Status, die das Blatt wie "Andere" anzeigt) sind nicht mitgeführt.
+ *  - Getragene Rüstung und Waffe in der Hand (Status "Aktiv") zählen
+ *    nicht (RAW, analog zur getragenen Rüstung: Behinderung bzw. Hand
+ *    sind ihr "Gewicht" bereits).
+ *  - Status "Ausgerüstet" zählt bei allen Ausrüstungsteilen; Ausrüstung
+ *    und Artefakte in "Aktiv" (am Körper getragen/in Gebrauch) ebenfalls.
+ * @param {Item} item
+ * @returns {boolean}
+ */
+export function isCarriedForLoad(item) {
+	const system = item?.system;
+	if (!system?.isGear) return false;
+	if (system.state !== "active" && system.state !== "equipped") return false;
+	if (system.isActive && (system.isArmor || system.isWeapon)) return false;
+	return true;
+}
+
+/**
  * Gewicht eines einzelnen Items in GE (x Stückzahl), oder null, wenn das
- * Item nicht in die Last eingeht ("Zu schwer" = nie tragbar; getragene
- * Rüstung - sie hat stattdessen ihre Rüstungsbehinderung).
+ * Item nicht in die Last eingeht ("Zu schwer" = nie tragbar; nicht
+ * mitgeführte Teile; getragene Rüstung und Waffe in der Hand).
  * @param {Item} item
  * @returns {number|null}
  */
 export function getItemLoadGE(item) {
-	if (!item?.system?.isGear) return null;
+	if (!isCarriedForLoad(item)) return null;
 	const category = getWeightCategory(item.system.weight);
 	if (category.id === "toolarge") return null;
-	// Getragene Rüstung zählt nicht:isActive = state "active" (protectiv getragen).
-	if (item.system.isArmor && item.system.isActive) return null;
 	const number = Math.max(1, Math.round(Number(item.system.number ?? 1) || 1));
 	return roundGE(category.value * number);
 }
@@ -176,10 +199,12 @@ export function getEncumbranceData(actor) {
 		if (!item?.system?.isGear) continue;
 		const category = getWeightCategory(item.system.weight);
 		if (category.id === "toolarge") {
-			data.tooHeavyCount++;
+			// "Zu schwer" ist nie tragbar - aber nur warnen, wenn der Teil
+			// überhaupt mitgeführt wird (Status nicht "Andere").
+			if (item.system.state !== "other") data.tooHeavyCount++;
 			continue;
 		}
-		if (item.system.isArmor && item.system.isActive) continue; // getragene Rüstung
+		if (!isCarriedForLoad(item)) continue; // Status "Andere" bzw. RAW-frei
 		const number = Math.max(1, Math.round(Number(item.system.number ?? 1) || 1));
 		load += category.value * number;
 	}
