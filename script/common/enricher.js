@@ -1,4 +1,6 @@
 import { symbDialog } from './symbDialog.js';
+// A38 Währungssystem: migrierte Akteure zeigen den neuen Gesamtbestand
+import { formatCurrency } from './currency.js';
 
 export function enrichTextEditors() {
     // With permission from @mcglintlock
@@ -301,6 +303,11 @@ function getCorruption(actor) {
 }
 
 function getMoney(actor) {
+    // A38: migrierte Akteure (system.currency als Zahl) zeigen den
+    // Gesamtbestand aus dem neuen Modell; andernfalls bleibt der Legacy-Pfad
+    if (typeof actor.system.currency === "number") {
+        return formatCurrency(actor.system.currency);
+    }
     let monies = "";
     if (actor.system.money.thaler > 0) {
         monies += `${actor.system.money.thaler} ${game.i18n.localize("MONEY.THALER")}`;

@@ -1,4 +1,6 @@
 import { baseRoll, rollAttribute } from './roll.js';
+// A38 Währungssystem: öffentliche Currency-API für externe Module (Händler-/Shop-Module)
+import { convertToBase, allocateFromBase, getActorCurrencyTotal, modifyActorCurrency, deductActorCurrency, getItemPriceBase, parseCostString } from './currency.js';
 
 export class SymbaroumAPI
 {
@@ -9,6 +11,14 @@ export class SymbaroumAPI
         // Set-up anything else
         this.baseRoll = baseRoll;
         this.rollAttribute = rollAttribute;
+        // A38: Currency-API — Beträge immer als Ganzzahl in der Basis-Einheit Orteg.
+        this.convertCurrency = convertToBase;
+        this.allocateCurrency = allocateFromBase;
+        this.getActorCurrency = getActorCurrencyTotal;
+        this.modifyActorCurrency = modifyActorCurrency;
+        this.deductActorCurrency = deductActorCurrency;
+        this.getItemPriceBase = getItemPriceBase;
+        this.parseCostString = parseCostString;
     }
 
 

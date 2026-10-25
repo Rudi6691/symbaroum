@@ -24,8 +24,16 @@
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                     <div class="cost">
-                        <label for="{{id}}-system.cost">{{localize "EQUIPMENT.COST"}}</label>
-                        <input id="{{id}}-system.cost" name="system.cost" type="text" value="{{system.cost}}"/>
+                        <label>{{localize "EQUIPMENT.COST"}}</label>
+                        {{!-- A38: Preisfeld nur bei migrierten Items (system.price vorhanden),
+                            sonst Migrationshinweis - schützt Alt-Items vor stillschweigender
+                            Vor-Migration beim Abspeichern. --}}
+                        {{#if (priceExists item)}}
+                        <input type="number" min="0" step="1" data-dtype="Number" name="system.price.value" id="{{id}}-system.price.value" value="{{item.system.price.value}}"/>
+                        <select name="system.price.denomination" id="{{id}}-system.price.denomination">{{{priceDenominations item}}}</select>
+                        {{else}}
+                        <span class="price-migration-hint">{{localize "PRICE.MIGRATION_HINT"}}</span>
+                        {{/if}}
                     </div>
                     <div class="number">
                         <label for="{{id}}-system.number">{{localize "EQUIPMENT.NUMBER"}}</label>

@@ -75,6 +75,18 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 				this._onPrepareActivateAbility(ev);
 			});
 		}
+		// A38 Währungssystem: <symbaroum-currency> ist bewusst nicht
+		// form-assoziiert (kein stilles Beschreiben von system.currency beim
+		// normalen Form-Submit). Änderungen kommen als bubbling change-Event
+		// mit detail.value und werden hier in den Aktor geschrieben.
+		const currencyElements = element.querySelectorAll('symbaroum-currency');
+		for (const el of currencyElements) {
+			el.addEventListener('change', (ev) => {
+				if (!this.isEditable || !this.actor.isOwner) return;
+				const total = Math.max(0, Math.round(Number(ev.detail?.value ?? el.getAttribute('value')) || 0));
+				this.actor.update({ 'system.currency': total });
+			});
+		}
 	}
 
 	_onItemCreate(event) {

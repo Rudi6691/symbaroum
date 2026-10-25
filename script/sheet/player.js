@@ -166,6 +166,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		context.items = items;
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;
+		// A38 Währungssystem: Basiswert (Orteg) für das <symbaroum-currency>-Element.
+		// Unmigrierte Akteure (system.currency undefined) bekommen 0 angezeigt;
+		// das Element ist bewusst nicht form-assoziiert, damit alleiniges
+		// Öffnen/Speichern den Aktor nicht stillschweigend migriert.
+		context.currency =
+			typeof this.actor.system.currency === 'number' ? Math.max(0, Math.round(this.actor.system.currency)) : 0;
 
 		context.symbaroumOptions = {
 			isGM: game.user.isGM,

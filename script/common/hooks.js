@@ -1,5 +1,7 @@
 import { initializeHandlebars } from './handlebars.js';
 import { SYMBAROUM } from './config.js';
+// A38 Währungssystem: Crucible-Modell (Ganzzahl in Orteg), Custom-Element + Migration
+import { initCurrency } from './currency.js';
 import { sendDevMessage } from './devmsg.js';
 import { SymbaroumAPI } from './api.js';
 import { SymbaroumCommsListener } from './symbcomms.js';
@@ -59,6 +61,9 @@ Hooks.once('init', () => {
 	});
 
 	initializeHandlebars();
+
+	// A38: registriert <symbaroum-currency> als Custom Element und injiziert die zugehörigen Styles
+	initCurrency();
 
 	game.symbaroum = {
 		config: SYMBAROUM,
@@ -254,6 +259,27 @@ Hooks.once('init', () => {
 		type: Boolean,
 		default: false,
 		config: true,
+	});
+
+	// A38 Währungssystem: Umrechnungskurse als Welt-Einstellungen (Rudolfs Entscheidung (4)).
+	// Default entspricht dem Setting-Kurs 1 Thaler = 10 Schilling = 100 Orteg.
+	game.settings.register('symbaroum', 'currencyShillingOrteg', {
+		name: 'SYMBAROUM.SETTING_CURRENCY_SHILLING_ORTEG',
+		hint: 'SYMBAROUM.SETTING_CURRENCY_SHILLING_ORTEG_HINT',
+		scope: 'world',
+		type: Number,
+		default: 10,
+		config: true,
+		range: { min: 1, max: 10000, step: 1 },
+	});
+	game.settings.register('symbaroum', 'currencyThalerShilling', {
+		name: 'SYMBAROUM.SETTING_CURRENCY_THALER_SHILLING',
+		hint: 'SYMBAROUM.SETTING_CURRENCY_THALER_SHILLING_HINT',
+		scope: 'world',
+		type: Number,
+		default: 10,
+		config: true,
+		range: { min: 1, max: 10000, step: 1 },
 	});
 
 	game.settings.register('symbaroum', 'charBGChoice', {

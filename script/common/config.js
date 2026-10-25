@@ -909,6 +909,30 @@ SYMBAROUM.ACTING_TOKEN = "actingtoken";
 
 SYMBAROUM.SYSTEM_MACRO_FOLDER = "Symbaroum System Macros";
 
+// A38 - Währungssystem: Denominations-Definitionen. Die Multiplikatoren
+// sind Defaults; die wirksamen Kurse kommen zur Laufzeit aus den
+// Systemeinstellungen (currencyShillingOrteg / currencyThalerShilling,
+// Default je 10 -> 1 Thaler = 10 Schilling = 100 Orteg). Namen sind fest
+// (Rudolfs Entscheidung), currencyOrder = Anzeige von groß nach klein.
+SYMBAROUM.currency = {
+  orteg: {
+    id: "orteg",
+    label: "MONEY.ORTEG",
+    abbreviation: "MONEY.ORTEG_ABBR",
+  },
+  shilling: {
+    id: "shilling",
+    label: "MONEY.SHILLING",
+    abbreviation: "MONEY.SHILLING_ABBR",
+  },
+  thaler: {
+    id: "thaler",
+    label: "MONEY.THALER",
+    abbreviation: "MONEY.THALER_ABBR",
+  },
+};
+SYMBAROUM.currencyOrder = ["thaler", "shilling", "orteg"];
+
 SYMBAROUM.HOOKS = {
   symbaroumItemModifiersSetup: "symbaroumItemModifiersSetup",
 };

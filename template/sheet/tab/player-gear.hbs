@@ -156,18 +156,12 @@
         </div>
         <div class="money foreground">
             <h1>{{localize "TITLE.MONEY"}}</h1>
-            <div class="thaler">
-                <label for="{{id}}-system.money.thaler">{{localize "MONEY.THALER"}}</label>
-                <input id="{{id}}-system.money.thaler" name="system.money.thaler" type="number" value="{{system.money.thaler}}" data-dtype="Number" />
-            </div>
-            <div class="shilling">
-                <label for="{{id}}-system.money.shilling">{{localize "MONEY.SHILLING"}}</label>
-                <input id="{{id}}-system.money.shilling" name="system.money.shilling" type="number" value="{{system.money.shilling}}" data-dtype="Number" />
-            </div>
-            <div class="orteg">
-                <label for="{{id}}-system.money.orteg">{{localize "MONEY.ORTEG"}}</label>
-                <input id="{{id}}-system.money.orteg" name="system.money.orteg" type="number" value="{{system.money.orteg}}" data-dtype="Number" />
-            </div>
+            {{!-- A38 Währungssystem: Crucible-Modell - Ganzzahl in Orteg auf dem
+                Aktor, Anzeige als Thaler/Schilling/Orteg mit Delta-Syntax.
+                Bewusst ohne name-Attribut: kein stilles Beschreiben von
+                system.currency beim normalen Form-Submit (Migrationsschutz).
+                Die alten system.money-Felder bleiben erhalten, nur ausgeblendet. --}}
+            <symbaroum-currency value="{{currency}}"{{#unless editable}} readonly{{/unless}}></symbaroum-currency>
         </div>
     </div>
 </div>

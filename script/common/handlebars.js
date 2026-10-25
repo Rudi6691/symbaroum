@@ -1,3 +1,5 @@
+import { getDenominations } from './currency.js';
+
 export const initializeHandlebars = () => {
   registerHandlebarsHelpers();
   preloadHandlebarsTemplates();
@@ -142,6 +144,26 @@ function registerHandlebarsHelpers() {
 
   Handlebars.registerHelper('loud', function (aString) {
     return aString.toUpperCase();
+  });
+
+  // A38 Währungssystem: Helper für die Item-Sheets (weapon/armor/equipment).
+  // priceExists entscheidet, ob das neue Zahl+Einheit-UI gerendert wird oder der
+  // Migrationshinweis (schützt Alt-Items vor stillschweigender Vor-Migration
+  // beim normalen Abspeichern).
+  Handlebars.registerHelper('priceExists', function (item) {
+    return !!(item?.system?.price);
+  });
+
+  // Baut die <option>-Einträge für die Preis-Denomination; Ausgabe als SafeString ({{{ }}}).
+  Handlebars.registerHelper('priceDenominations', function (item) {
+    const current = item?.system?.price?.denomination;
+    const optionsHtml = getDenominations()
+      .map(
+        (d) =>
+          `<option value="${d.id}"${d.id === current ? ' selected' : ''}>${game.i18n.localize(d.label)}</option>`
+      )
+      .join('');
+    return new Handlebars.SafeString(optionsHtml);
   });
 
 

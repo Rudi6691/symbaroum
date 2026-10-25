@@ -1,5 +1,6 @@
 import { prepareRollAttribute } from "../common/dialog.js";
 import { symbDialog } from "../common/symbDialog.js";
+import { getCurrencyRates, getDenominations, parseCostString } from "../common/currency.js";
 
 export class SymbaroumMacros {
 	constructor() {}
@@ -1226,6 +1227,13 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.abortRegeneration();",
 				img: "icons/svg/clockwork.svg",
 			},
+			{
+				// A38 Währungssystem: Einmal-Migration der alten money-Werte
+				// und cost-Freitexte in das neue Crucible-Modell
+				name: game.i18n.localize("MACRO.CURRENCY_MIGRATION_NAME"),
+				command: "game.symbaroum.macros.currencyMigration();",
+				img: "icons/svg/coins.svg",
+			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro
@@ -1506,6 +1514,162 @@ export class SymbaroumMacros {
 				},
 			},
 			default: "Apply",
+		});
+	}
+
+	/**********************************************
+	 * A38 Währungssystem: Currency Migration - opens an overview dialog with
+	 * one row per *unmigrated* world actor (player/monster, recognized by
+	 * system.currency === undefined) and one row per *unmigrated* world item
+	 * (weapon/armor/equipment, recognized by system.price === undefined).
+	 *
+	 * Actor rows: old money values as text, the suggested base total in
+	 * Orteg as an editable input (computed with the configured rates).
+	 * Item rows: old cost free-text (with a warning mark when the parser
+	 * was unsure) plus an editable value/denomination pair.
+	 *
+	 * One "Accept" button writes everything: actors get system.currency
+	 * (integer, Orteg), items get system.price {value, denomination}. The
+	 * old fields (system.money, system.cost) are kept untouched - they are
+	 * only hidden; deletion happens in a later release (Rudolf's decision 1).
+	 * Repeatable: already migrated documents no longer show up. GM only.
+	 * Run as a script macro or from the console:
+	 * game.symbaroum.macros.currencyMigration()
+	 */
+	async currencyMigration() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const rates = getCurrencyRates();
+		const denominations = getDenominations();
+		const warnMark = " &#9888;";
+
+		/* --- Actors: old system.money -> suggested system.currency --- */
+		const allActors = game.actors.filter((a) => a.type === "player" || a.type === "monster");
+		const actors = allActors.filter((a) => a.system.currency === undefined).sort((a, b) => a.name.localeCompare(b.name));
+
+		/* --- Items: old system.cost free-text -> suggested system.price --- */
+		const allItems = game.items.filter((i) => ["weapon", "armor", "equipment"].includes(i.type));
+		const items = allItems.filter((i) => i.system.price === undefined).sort((a, b) => a.name.localeCompare(b.name));
+
+		if (actors.length === 0 && items.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.CURRENCY_MIGRATION_NONE"));
+			return;
+		}
+
+		const moneyText = function (money) {
+			const t = Number(money?.thaler ?? 0);
+			const s = Number(money?.shilling ?? 0);
+			const o = Number(money?.orteg ?? 0);
+			return `${t} / ${s} / ${o}`;
+		};
+
+		let actorRows = "";
+		for (const actor of actors) {
+			const t = Number(actor.system.money?.thaler ?? 0);
+			const s = Number(actor.system.money?.shilling ?? 0);
+			const o = Number(actor.system.money?.orteg ?? 0);
+			const rawTotal = t * rates.thaler + s * rates.shilling + o;
+			const isInteger = Number.isInteger(rawTotal);
+			const suggested = Math.round(rawTotal);
+			actorRows = actorRows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(actor.name)}</td>
+                    <td style="padding:2px 6px;">${moneyText(actor.system.money)}${isInteger ? "" : warnMark}</td>
+                    <td style="padding:2px 6px;"><input style="width:100%; text-align:right;" type="number" min="0" step="1" data-actor-id="${actor.id}" class="currency-total" value="${suggested}" /></td>
+                </tr>`);
+		}
+
+		let itemRows = "";
+		for (const item of items) {
+			const parsed = parseCostString(item.system.cost);
+			const suggestedValue = parsed.value ?? 0;
+			const suggestedDenomination = parsed.denomination ?? "orteg";
+			const costText = String(item.system.cost ?? "").trim();
+			const oldCell = costText === "" ? "&mdash;" : foundry.utils.escapeHTML(costText);
+			const options = denominations
+				.map((d) => `<option value="${d.id}"${d.id === suggestedDenomination ? " selected" : ""}>${d.abbreviation}</option>`)
+				.join("");
+			itemRows = itemRows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(item.name)}</td>
+                    <td style="padding:2px 6px;">${oldCell}${parsed.certain ? "" : warnMark}</td>
+                    <td style="padding:2px 6px; white-space:nowrap;"><input style="width:5em; text-align:right;" type="number" min="0" step="1" data-item-id="${item.id}" class="price-value" value="${suggestedValue}" />&nbsp;<select data-item-id="${item.id}" class="price-denomination">${options}</select></td>
+                </tr>`);
+		}
+
+		const actorSection =
+			actors.length === 0
+				? `<p style="margin:6px 0 0 0; font-style:italic;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_ACTORS_NONE")}</p>`
+				: `<table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th>${game.i18n.localize("MACRO.CURRENCY_MIGRATION_OLD")} (T / S / O)</th>
+                <th style="text-align:right;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_NEW")}</th>
+            </tr>
+            ${actorRows}
+        </table>`;
+		const itemSection =
+			items.length === 0
+				? `<p style="margin:6px 0 0 0; font-style:italic;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_ITEMS_NONE")}</p>`
+				: `<table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th>${game.i18n.localize("MACRO.CURRENCY_MIGRATION_OLD")}</th>
+                <th style="text-align:right;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_NEW")}</th>
+            </tr>
+            ${itemRows}
+        </table>`;
+
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_HEADER")}</p>
+        <p style="margin:0 0 4px 0; font-size:0.9em; opacity:0.8;">${game.i18n.format("MACRO.CURRENCY_MIGRATION_ALREADY", {
+			actors: allActors.length - actors.length,
+			actorsTotal: allActors.length,
+			items: allItems.length - items.length,
+			itemsTotal: allItems.length,
+		})}</p>
+        <p style="margin:8px 0 2px 0; font-weight:bold;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_ACTORS")}</p>
+        <div style="width:100%; max-height:40vh; overflow-y:auto;">${actorSection}</div>
+        <p style="margin:8px 0 2px 0; font-weight:bold;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_ITEMS")}</p>
+        <div style="width:100%; max-height:40vh; overflow-y:auto;">${itemSection}</div>
+        </div>`;
+
+		symbDialog({
+			width: 700,
+			title: game.i18n.localize("MACRO.CURRENCY_MIGRATION_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Accept: {
+					label: game.i18n.localize("MACRO.CURRENCY_MIGRATION_ACCEPT"),
+					callback: async (html) => {
+						const root = html[0];
+						let actorCount = 0;
+						for (const actor of actors) {
+							const input = root.querySelector(`input.currency-total[data-actor-id="${actor.id}"]`);
+							if (!input) continue;
+							const total = Math.max(0, Math.round(Number(input.value) || 0));
+							await actor.update({ "system.currency": total });
+							actorCount++;
+						}
+						let itemCount = 0;
+						for (const item of items) {
+							const valueInput = root.querySelector(`input.price-value[data-item-id="${item.id}"]`);
+							const denomSelect = root.querySelector(`select.price-denomination[data-item-id="${item.id}"]`);
+							if (!valueInput || !denomSelect) continue;
+							const value = Math.max(0, Math.round(Number(valueInput.value) || 0));
+							const denomination = denomSelect.value;
+							await item.update({ "system.price": { value, denomination } });
+							itemCount++;
+						}
+						ui.notifications.info(game.i18n.format("MACRO.CURRENCY_MIGRATION_DONE", { actors: actorCount, items: itemCount }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("BUTTON.CANCEL"),
+				},
+			},
+			default: "Accept",
 		});
 	}
 }
