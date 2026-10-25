@@ -1,6 +1,9 @@
 import { SymbaroumActorSheet } from './actor.js';
 import { prepareRollAttribute, prepareRollDeathTest } from '../common/dialog.js';
 import { symbDialog } from '../common/symbDialog.js';
+// A39 Belastungssystem: Live-Berechnung im Blattkontext (Sicherheitsnetz gegen
+// veraltete prepareDerivedData-Daten, z. B. direkt nach Setting-Änderung).
+import { getEncumbranceData } from '../common/encumbrance.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -132,6 +135,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		context.id = this.actor.id;
 		context.actor = foundry.utils.deepClone(this.actor);
 		context.system = foundry.utils.deepClone(this.actor.system);
+		// A39 FIX Runde 1: Belastungsdaten live berechnen statt auf die beim
+		// Weltlauf/Aktor-Update vorbereiteten Daten zu vertrauen. prepareDerivedData
+		// läuft nicht bei jedem Render - der Balken fehlte nach dem Aktivieren der
+		// optionalen Regel. MonsterSheet erbt diesen Kontext.
+		context.system.encumbrance = getEncumbranceData(this.actor);
 
 		let enrichedFields = [
 			'system.bio.appearance',

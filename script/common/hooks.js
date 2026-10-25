@@ -286,6 +286,16 @@ Hooks.once('init', () => {
 	// Guide. Default: deaktiviert (Rudolfs Entscheidung). Erst mit Aktivierung
 	// werden Last berechnet, der Füllbalken im Werte-Tab angezeigt und der
 	// Verteidigungs-Malus bei Überlastung angewandt.
+	// FIX Runde 1 (fehlender Balken): prepareDerivedData läuft nach einer
+	// Setting-Änderung NICHT von selbst neu - die Blätter zeigten die beim
+	// Weltladen berechneten Daten (show false) weiter. onChange bereitet alle
+	// Welt-Akteure neu auf und rendert offene Blätter sofort neu.
+	const _refreshEncumbrance = () => {
+		for (const actor of game.actors) {
+			actor.prepareData();
+			actor.render(false);
+		}
+	};
 	game.settings.register('symbaroum', 'encumbranceEnabled', {
 		name: 'SYMBAROUM.SETTING_ENCUMBRANCE_ENABLED',
 		hint: 'SYMBAROUM.SETTING_ENCUMBRANCE_ENABLED_HINT',
@@ -293,6 +303,7 @@ Hooks.once('init', () => {
 		type: Boolean,
 		default: false,
 		config: true,
+		onChange: _refreshEncumbrance,
 	});
 	// Schwellwert der harten Grenze: Stärke x Wert (APG-Default 2). Darüber
 	// kann sich ein Charakter nur noch kurze Strecken bewegen (Anzeige).
@@ -304,6 +315,7 @@ Hooks.once('init', () => {
 		default: 2,
 		config: true,
 		range: { min: 1, max: 10, step: 0.5 },
+		onChange: _refreshEncumbrance,
 	});
 
 	game.settings.register('symbaroum', 'charBGChoice', {

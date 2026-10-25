@@ -69,16 +69,14 @@
                     </div>
                     <div class="weight">
                         <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
-                        {{!-- A39: Gewichtskategorie nur bei Items mit Feld (Neuanlage hat es ab
-                            Geburt), sonst Migrationshinweis - schützt Alt-Items vor stillschweigender
-                            Vor-Migration beim Abspeichern (gleiches Muster wie der A38-Preis).
+                        {{!-- A39 (Runde-1-Wunsch): Gewicht-Zeile IMMER anzeigen und
+                            direkt wählbar - auch bei deaktivierten Belastungsregeln
+                            (Rudolfs Testrunde 1). Alt-Items ohne Gewichtsangabe
+                            starten auf "Keine Angabe" (Nullwert); die Auswahl wird
+                            erst beim Speichern geschrieben.
                             Mitgeführte Rüstung zählt entsprechend ihrer Behinderung, getragene
                             (aktive) Rüstung zählt nicht. --}}
-                        {{#if (weightExists item)}}
                         <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize "WEIGHT.TOOLTIP_ARMOR"}}">{{{weightOptions item}}}</select>
-                        {{else}}
-                        <span class="price-migration-hint">{{localize "WEIGHT.MIGRATION_HINT"}}</span>
-                        {{/if}}
                     </div>
                     <div class="quality">
                         <label for="{{id}}-system.quality">{{localize "ARMOR.QUALITY"}}</label>

@@ -25,14 +25,12 @@
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                     <div class="weight">
                         <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
-                        {{!-- A39: Artefakte sind getragene Gegenstände und zählen zur Last;
-                            gleiche Kategorie-Auswahl wie Waffe/Rüstung/Ausrüstung (Neuanlage
-                            hat das Feld ab Geburt, Alt-Items zeigen den Migrationshinweis). --}}
-                        {{#if (weightExists item)}}
+                        {{!-- A39 (Runde-1-Wunsch): Artefakte sind getragene Gegenstände und
+                            zählen zur Last; Gewicht-Zeile IMMER anzeigen und direkt wählbar -
+                            auch bei deaktivierten Belastungsregeln (Rudolfs Testrunde 1).
+                            Alt-Items ohne Gewichtsangabe starten auf "Keine Angabe" (Nullwert);
+                            die Auswahl wird erst beim Speichern geschrieben. --}}
                         <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize "WEIGHT.TOOLTIP"}}">{{{weightOptions item}}}</select>
-                        {{else}}
-                        <span class="price-migration-hint">{{localize "WEIGHT.MIGRATION_HINT"}}</span>
-                        {{/if}}
                     </div>
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>

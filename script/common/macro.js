@@ -1569,18 +1569,34 @@ export class SymbaroumMacros {
 		});
 		const actors = [...unmigratedActors, ...suspectActors].sort((a, b) => a.name.localeCompare(b.name));
 
-		/* --- Items: old system.cost free-text -> suggested system.price --- */
-		const allItems = game.items.filter((i) => ["weapon", "armor", "equipment"].includes(i.type));
-		const unmigratedItems = allItems.filter((i) => i.system.price === undefined);
+		/* --- Items: old system.cost free-text -> suggested system.price ---
+		   Runde-1-Erweiterung (Rudolfs Fund): auch Inventar-Items (embedded)
+		   erfassen - Welt-Items allein migrieren keine Aktor-Inventare.
+		   Besitzer-Label für die Anzeige; Welt-Items haben owner null. */
+		const itemEntries = [];
+		for (const item of game.items) {
+			if (["weapon", "armor", "equipment"].includes(item.type)) itemEntries.push({ item, owner: null });
+		}
+		for (const actor of game.actors) {
+			for (const item of actor.items) {
+				if (["weapon", "armor", "equipment"].includes(item.type)) itemEntries.push({ item, owner: actor.name });
+			}
+		}
+		const allItems = itemEntries.map((e) => e.item);
+		const unmigratedItems = itemEntries.filter((e) => e.item.system.price === undefined);
 		/* v1-Schadensbegrenzung: migriertes Preisfeld 0, obwohl der alte
 		   cost-Text einen positiven Betrag nennt -> Verdachtszeile. */
-		const suspectItems = allItems.filter((i) => {
-			if (i.system.price === undefined) return false;
-			if (getItemPriceBase(i) !== 0) return false;
-			const parsed = parseCostString(i.system.cost);
+		const suspectItems = itemEntries.filter((e) => {
+			if (e.item.system.price === undefined) return false;
+			if (getItemPriceBase(e.item) !== 0) return false;
+			const parsed = parseCostString(e.item.system.cost);
 			return (parsed.value ?? 0) > 0;
 		});
-		const items = [...unmigratedItems, ...suspectItems].sort((a, b) => a.name.localeCompare(b.name));
+		const items = [...unmigratedItems, ...suspectItems].sort(
+			(a, b) =>
+				(a.owner ?? "").localeCompare(b.owner ?? "") ||
+				a.item.name.localeCompare(b.item.name)
+		);
 
 		if (actors.length === 0 && items.length === 0) {
 			ui.notifications.info(game.i18n.localize("MACRO.CURRENCY_MIGRATION_NONE"));
@@ -1611,21 +1627,25 @@ export class SymbaroumMacros {
 		}
 
 		let itemRows = "";
-		for (const item of items) {
+		let itemIdx = 0;
+		for (const entry of items) {
+			const item = entry.item;
 			const isSuspect = item.system.price !== undefined;
 			const parsed = parseCostString(item.system.cost);
 			const suggestedValue = isSuspect ? Math.max(0, Math.round(Number(item.system.price.value) || 0)) : (parsed.value ?? 0);
 			const suggestedDenomination = isSuspect ? (item.system.price.denomination ?? "orteg") : (parsed.denomination ?? "orteg");
 			const costText = String(item.system.cost ?? "").trim();
 			const oldCell = costText === "" ? "&mdash;" : foundry.utils.escapeHTML(costText);
+			const displayName = entry.owner ? `${item.name} (${entry.owner})` : item.name;
 			const options = denominations
 				.map((d) => `<option value="${d.id}"${d.id === suggestedDenomination ? " selected" : ""}>${d.abbreviation}</option>`)
 				.join("");
 			itemRows = itemRows.concat(`<tr>
-                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(item.name)}</td>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
                     <td style="padding:2px 6px;">${oldCell}${isSuspect || !parsed.certain ? warnMark : ""}</td>
-                    <td style="padding:2px 6px; white-space:nowrap;"><input style="width:5em; text-align:right;" type="number" min="0" step="1" data-item-id="${item.id}" class="price-value" value="${suggestedValue}" />&nbsp;<select data-item-id="${item.id}" class="price-denomination">${options}</select></td>
+                    <td style="padding:2px 6px; white-space:nowrap;"><input style="width:5em; text-align:right;" type="number" min="0" step="1" data-entry-idx="${itemIdx}" class="price-value" value="${suggestedValue}" />&nbsp;<select data-entry-idx="${itemIdx}" class="price-denomination">${options}</select></td>
                 </tr>`);
+			itemIdx++;
 		}
 
 		const actorSection =
@@ -1684,13 +1704,13 @@ export class SymbaroumMacros {
 							actorCount++;
 						}
 						let itemCount = 0;
-						for (const item of items) {
-							const valueInput = root.querySelector(`input.price-value[data-item-id="${item.id}"]`);
-							const denomSelect = root.querySelector(`select.price-denomination[data-item-id="${item.id}"]`);
+						for (let i = 0; i < items.length; i++) {
+							const valueInput = root.querySelector(`input.price-value[data-entry-idx="${i}"]`);
+							const denomSelect = root.querySelector(`select.price-denomination[data-entry-idx="${i}"]`);
 							if (!valueInput || !denomSelect) continue;
 							const value = Math.max(0, Math.round(Number(valueInput.value) || 0));
 							const denomination = denomSelect.value;
-							await item.update({ "system.price": { value, denomination } });
+							await items[i].item.update({ "system.price": { value, denomination } });
 							itemCount++;
 						}
 						ui.notifications.info(game.i18n.format("MACRO.CURRENCY_MIGRATION_DONE", { actors: actorCount, items: itemCount }));
@@ -1706,9 +1726,12 @@ export class SymbaroumMacros {
 
 	/**********************************************
 	 * A39 Belastungssystem: Weight Migration - opens an overview dialog with
-	 * one row per *unmigrated* world item (weapon/armor/equipment/artifact,
+	 * one row per *unmigrated* item (weapon/armor/equipment/artifact,
 	 * recognized by system.weight === undefined) and a category dropdown with
-	 * an editable suggestion:
+	 * an editable suggestion. Runde-1-Erweiterung: erfasst seit Testrunde 1
+	 * sowohl Welt-Items als auch Inventar-Items aller Welt-Akteure (embedded,
+	 * mit Besitzer-Label) - die Last eines Akteurs wird aus seinen eigenen
+	 * Items berechnet:
 	 *   weapon:  Massive -> Schwer, Kurz -> Leicht, sonst Normal
 	 *   armor:   nach Rüstungsbehinderung (Laufzeitwert): 0 -> Keine Angabe,
 	 *            2 -> Schwer, 3 und 4 -> Sehr schwer (4 wird bewusst auf
@@ -1727,10 +1750,27 @@ export class SymbaroumMacros {
 		}
 		const warnMark = " &#9888;";
 		const gearTypes = ["weapon", "armor", "equipment", "artifact"];
-		const allItems = game.items.filter((i) => gearTypes.includes(i.type));
-		const items = allItems
-			.filter((i) => i.system.weight === undefined)
-			.sort((a, b) => a.name.localeCompare(b.name));
+		/* Runde-1-Erweiterung (Rudolfs Fund): auch Inventar-Items (embedded)
+		   erfassen - die Last eines Akteurs wird aus SEINEN Items berechnet,
+		   Welt-Items allein reichen nicht. Besitzer-Label für die Anzeige;
+		   Welt-Items haben owner null. */
+		const entries = [];
+		for (const item of game.items) {
+			if (gearTypes.includes(item.type)) entries.push({ item, owner: null });
+		}
+		for (const actor of game.actors) {
+			for (const item of actor.items) {
+				if (gearTypes.includes(item.type)) entries.push({ item, owner: actor.name });
+			}
+		}
+		const total = entries.length;
+		const items = entries
+			.filter((e) => e.item.system.weight === undefined)
+			.sort(
+				(a, b) =>
+					(a.owner ?? "").localeCompare(b.owner ?? "") ||
+					a.item.name.localeCompare(b.item.name)
+			);
 		if (items.length === 0) {
 			ui.notifications.info(game.i18n.localize("MACRO.WEIGHT_MIGRATION_NONE"));
 			return;
@@ -1751,37 +1791,46 @@ export class SymbaroumMacros {
 			}
 			return "normal";
 		};
-		let itemRows = "";
-		for (const item of items) {
+		let worldRows = "";
+		let ownedRows = "";
+		let idx = 0;
+		for (const entry of items) {
+			const item = entry.item;
 			const suggested = suggestWeightCategory(item);
 			/* Warnmarke, wenn die Kategorie bewusst abgerundet wird:
 			   Rüstungsbehinderung 4 (1d8-Panzer) -> Sehr schwer = 3 GE */
 			const isAbridged = item.type === "armor" && (item.impeding ?? 0) >= 4;
+			const displayName = entry.owner ? `${item.name} (${entry.owner})` : item.name;
 			const options = weightOrder
 				.map((id) => `<option value="${id}"${id === suggested ? " selected" : ""}>${game.i18n.localize(weightConfig[id].label)}</option>`)
 				.join("");
-			itemRows = itemRows.concat(`<tr>
-                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(item.name)}</td>
+			const row = `<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
                     <td style="padding:2px 6px; white-space:nowrap;">${foundry.utils.escapeHTML(game.i18n.localize("ITEM.Type" + item.type.capitalize()))}${isAbridged ? warnMark : ""}</td>
-                    <td style="padding:2px 6px;"><select style="width:100%;" data-item-id="${item.id}" class="weight-select">${options}</select></td>
-                </tr>`);
+                    <td style="padding:2px 6px;"><select style="width:100%;" data-entry-idx="${idx}" class="weight-select">${options}</select></td>
+                </tr>`;
+			if (entry.owner) ownedRows = ownedRows.concat(row);
+			else worldRows = worldRows.concat(row);
+			idx++;
 		}
-		const dialog_content = `
-        <div style="display:flex; flex-direction:column;">
-        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.WEIGHT_MIGRATION_HEADER")}</p>
-        <p style="margin:0 0 4px 0; font-size:0.9em; opacity:0.8;">${game.i18n.format("MACRO.WEIGHT_MIGRATION_ALREADY", {
-			items: allItems.length - items.length,
-			total: allItems.length,
-		})}</p>
-        <div style="width:100%; max-height:60vh; overflow-y:auto;">
-        <table style="width:100%; border-collapse:collapse;">
+		const entryTable = (rows) => `<table style="width:100%; border-collapse:collapse;">
             <tr>
                 <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
                 <th style="text-align:left;">${game.i18n.localize("MACRO.WEIGHT_MIGRATION_TYPE")}</th>
                 <th style="text-align:right;">${game.i18n.localize("WEIGHT.LABEL")}</th>
             </tr>
-            ${itemRows}
-        </table>
+            ${rows}
+        </table>`;
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.WEIGHT_MIGRATION_HEADER")}</p>
+        <p style="margin:0 0 4px 0; font-size:0.9em; opacity:0.8;">${game.i18n.format("MACRO.WEIGHT_MIGRATION_ALREADY", {
+			items: total - items.length,
+			total: total,
+		})}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
+        ${worldRows ? `<p style="margin:8px 0 2px 0; font-weight:bold;">${game.i18n.localize("MACRO.WEIGHT_MIGRATION_WORLD")}</p>${entryTable(worldRows)}` : ""}
+        ${ownedRows ? `<p style="margin:8px 0 2px 0; font-weight:bold;">${game.i18n.localize("MACRO.WEIGHT_MIGRATION_OWNED")}</p>${entryTable(ownedRows)}` : ""}
         </div>
         </div>`;
 		symbDialog({
@@ -1794,10 +1843,10 @@ export class SymbaroumMacros {
 					callback: async (html) => {
 						const root = html[0];
 						let count = 0;
-						for (const item of items) {
-							const select = root.querySelector(`select.weight-select[data-item-id="${item.id}"]`);
+						for (let i = 0; i < items.length; i++) {
+							const select = root.querySelector(`select.weight-select[data-entry-idx="${i}"]`);
 							if (!select) continue;
-							await item.update({ "system.weight": select.value });
+							await items[i].item.update({ "system.weight": select.value });
 							count++;
 						}
 						ui.notifications.info(game.i18n.format("MACRO.WEIGHT_MIGRATION_DONE", { count }));

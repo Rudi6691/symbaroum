@@ -5618,11 +5618,13 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /* ============================================================
-   A39 — Belastungssystem (optionale APG-Regeln, 25.10.2026):
-   (1) Gewichtskategorie-Zeile auf den Item-Blättern
+   A39 — Belastungssystem (optionale APG-Regeln, 25.10.2026,
+   Runde-1-Pflege): Gewichtskategorie-Zeile auf den Item-Blättern
    (Waffe/Rüstung/Ausrüstung/Artefakt): gleiche Geometrie wie die
    A38-Kostenzeile - Label halbe Zeilenbreite, Auswahl die rechte
-   Hälfte; der Migrationshinweis füllt ebenfalls die rechte Hälfte.
+   Hälfte. Die Zeile ist seit Testrunde 1 IMMER sichtbar und
+   wählbar (auch bei deaktivierter Regel), der frühere
+   Migrationshinweis entfällt damit.
    ============================================================ */
 .symbaroum.sheet.item .weapon .tab .stats .weight,
 .symbaroum.sheet.item .armor .tab .weight,
@@ -5652,19 +5654,6 @@ dialog.symb-dialog.chain-confirm footer button {
   min-width: 0;
 }
 
-.symbaroum.sheet.item .weapon .tab .stats .weight .price-migration-hint,
-.symbaroum.sheet.item .armor .tab .weight .price-migration-hint,
-.symbaroum.sheet.item .equipment .tab .weight .price-migration-hint,
-.symbaroum.sheet.item .artifact .tab .weight .price-migration-hint {
-  flex: 0 0 50%;
-  width: 50%;
-  min-width: 0;
-  padding: 5px;
-  text-align: center;
-  font-family: var(--font-text);
-  font-size: 14px;
-}
-
 /* ============================================================
    A39 — Belastungssystem: Last-Füllbalken (value/max) im Werte-Tab,
    unter der Waffenliste des Kampf-Panels. Der Balken füllt bis zur
@@ -5675,7 +5664,15 @@ dialog.symb-dialog.chain-confirm footer button {
    Strecken). Nur sichtbar bei aktivierter optionaler Regel.
    ============================================================ */
 .symbaroum.sheet.actor .combat .encumbrance {
+  /* Runde-1-Fix: .combat ist ein flex-row/wrap-Container - ohne volle
+     flex-basis wäre das Widget nur so breit wie sein Inhalt und würde
+     schmal neben statt unter der Waffenliste erscheinen. */
+  flex-basis: 100%;
+  flex-grow: 0;
+  flex-shrink: 0;
   margin-top: 4px;
+  margin-left: 5px;
+  margin-right: 5px;
   padding: 0 4px 4px 4px;
 }
 
