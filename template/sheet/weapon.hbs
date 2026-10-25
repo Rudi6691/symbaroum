@@ -85,6 +85,17 @@
                         <label for="{{id}}-system.number">{{localize "WEAPON.NUMBER"}}</label>
                         <input id="{{id}}-system.number" name="system.number" type="number" value="{{system.number}}"/>
                     </div>
+                    <div class="weight">
+                        <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
+                        {{!-- A39: Gewichtskategorie nur bei Items mit Feld (Neuanlage hat es ab
+                            Geburt), sonst Migrationshinweis - schützt Alt-Items vor stillschweigender
+                            Vor-Migration beim Abspeichern (gleiches Muster wie der A38-Preis). --}}
+                        {{#if (weightExists item)}}
+                        <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize "WEIGHT.TOOLTIP"}}">{{{weightOptions item}}}</select>
+                        {{else}}
+                        <span class="price-migration-hint">{{localize "WEIGHT.MIGRATION_HINT"}}</span>
+                        {{/if}}
+                    </div>
                     <div class="number">
                         <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>

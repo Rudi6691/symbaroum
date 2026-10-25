@@ -1,4 +1,5 @@
 import { getDenominations } from './currency.js';
+import { SYMBAROUM } from './config.js';
 
 export const initializeHandlebars = () => {
   registerHandlebarsHelpers();
@@ -163,6 +164,25 @@ function registerHandlebarsHelpers() {
           `<option value="${d.id}"${d.id === current ? ' selected' : ''}>${game.i18n.localize(d.label)}</option>`
       )
       .join('');
+    return new Handlebars.SafeString(optionsHtml);
+  });
+
+  // A39 Belastungssystem: weightExists entscheidet, ob die Gewichtskategorie-
+  // Auswahl gerendert wird oder der Migrationshinweis (gleicher Schutz wie
+  // beim A38-Preis - Alt-Items mit system.weight === undefined werden nicht
+  // stillschweigend beim Abspeichern vor-migriert).
+  Handlebars.registerHelper('weightExists', function (item) {
+    return typeof item?.system?.weight === 'string';
+  });
+
+  // Baut die <option>-Einträge für die Gewichtskategorie-Auswahl (Reihenfolge
+  // aus der Config, Labels aus den Sprachdateien); Ausgabe als SafeString.
+  Handlebars.registerHelper('weightOptions', function (item) {
+    const current = typeof item?.system?.weight === 'string' ? item.system.weight : 'none';
+    const optionsHtml = SYMBAROUM.weightOrder.map(
+      (id) =>
+        `<option value="${id}"${id === current ? ' selected' : ''}>${game.i18n.localize(SYMBAROUM.weight[id].label)}</option>`
+    ).join('');
     return new Handlebars.SafeString(optionsHtml);
   });
 

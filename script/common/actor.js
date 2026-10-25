@@ -1,6 +1,8 @@
 import { modifierDialog, confirmPowerDialog } from "./item.js";
 import { prepareRollAttribute } from "../common/dialog.js";
 import { baseRoll } from "./roll.js";
+// A39 Belastungssystem: Last-Berechnung (optionale APG-Regeln)
+import { getEncumbranceData } from "./encumbrance.js";
 
 export class SymbaroumActor extends Actor {
 	prepareBaseData() {
@@ -92,6 +94,13 @@ export class SymbaroumActor extends Actor {
 
 		system.experience.spent = system.bonus.experience.cost - system.bonus.experience.value;
 		system.experience.available = system.experience.total - system.experience.artifactrr - system.experience.spent;
+
+		// A39 Belastungssystem: Last, Grenzen und Malus berechnen (vor
+		// _evaluateArmors - der Verteidigungs-Malus wird dort je Rüstung
+		// abgezogen, analog zur Rüstungsbehinderung). Bei deaktivierter
+		// optionaler Regel bleibt system.encumbrance.show false und es
+		// greift weder Balken noch Malus.
+		system.encumbrance = getEncumbranceData(this);
 
 		const combatMods = {
 			initiative: [],
@@ -354,6 +363,16 @@ export class SymbaroumActor extends Actor {
 				}
 			}
 			totDefense -= impedingMov;
+
+			// A39 Belastungssystem: automatischer Verteidigungs-Malus bei
+			// Überlastung (optional, nur bei aktivierter Regel) - genau wie
+			// die Rüstungsbehinderung ein Abzug auf die Verteidigung; der
+			// Hinweis erscheint in der Rüstungs-Tooltip-Meldung.
+			const encumbranceMalus = this.system.encumbrance?.defenseMalus ?? 0;
+			if (encumbranceMalus > 0) {
+				totDefense -= encumbranceMalus;
+				defense.defMsg += `${game.i18n.localize("WEIGHT.DEFENSE_MALUS_LABEL")} (-${encumbranceMalus})<br/>`;
+			}
 
 			for (let i = 0; i < armorModifiers.damageReductions.length; i++) {
 				// Multiplciable at the moment? or should we just do lowest? no one knows

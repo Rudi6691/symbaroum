@@ -933,6 +933,23 @@ SYMBAROUM.currency = {
 };
 SYMBAROUM.currencyOrder = ["thaler", "shilling", "orteg"];
 
+// A39 Belastungssystem (optionale APG-Regeln, Rudolfs Entscheidung 25.10.2026):
+// grobe Gewichtskategorien statt kg - value = Gewichtseinheiten (GE) pro
+// Gegenstand. "toolarge" ist nie tragbar (Belagerungsgerät, Reittiere) und
+// geht nicht in die Lastsumme ein. Halbe GE sind erlaubt; die Stückzahl
+// (system.number) multipliziert. 25 Winzige = Leicht, 50 Winzige = Normal
+// (RAW: kleine Gegenstände zählen als ein Gegenstand pro 50 Stück).
+SYMBAROUM.weight = {
+  none: { id: "none", label: "WEIGHT.NONE", value: 0 },
+  tiny: { id: "tiny", label: "WEIGHT.TINY", value: 0.02 },
+  light: { id: "light", label: "WEIGHT.LIGHT", value: 0.5 },
+  normal: { id: "normal", label: "WEIGHT.NORMAL", value: 1 },
+  heavy: { id: "heavy", label: "WEIGHT.HEAVY", value: 2 },
+  veryheavy: { id: "veryheavy", label: "WEIGHT.VERYHEAVY", value: 3 },
+  toolarge: { id: "toolarge", label: "WEIGHT.TOOLARGE", value: null },
+};
+SYMBAROUM.weightOrder = ["none", "tiny", "light", "normal", "heavy", "veryheavy", "toolarge"];
+
 SYMBAROUM.HOOKS = {
   symbaroumItemModifiersSetup: "symbaroumItemModifiersSetup",
 };

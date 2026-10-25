@@ -282,6 +282,30 @@ Hooks.once('init', () => {
 		range: { min: 1, max: 10000, step: 1 },
 	});
 
+	// A39 Belastungssystem: optionaler Regelblock aus dem Advanced Player's
+	// Guide. Default: deaktiviert (Rudolfs Entscheidung). Erst mit Aktivierung
+	// werden Last berechnet, der Füllbalken im Werte-Tab angezeigt und der
+	// Verteidigungs-Malus bei Überlastung angewandt.
+	game.settings.register('symbaroum', 'encumbranceEnabled', {
+		name: 'SYMBAROUM.SETTING_ENCUMBRANCE_ENABLED',
+		hint: 'SYMBAROUM.SETTING_ENCUMBRANCE_ENABLED_HINT',
+		scope: 'world',
+		type: Boolean,
+		default: false,
+		config: true,
+	});
+	// Schwellwert der harten Grenze: Stärke x Wert (APG-Default 2). Darüber
+	// kann sich ein Charakter nur noch kurze Strecken bewegen (Anzeige).
+	game.settings.register('symbaroum', 'encumbranceHardLimitMultiplier', {
+		name: 'SYMBAROUM.SETTING_ENCUMBRANCE_HARD_LIMIT',
+		hint: 'SYMBAROUM.SETTING_ENCUMBRANCE_HARD_LIMIT_HINT',
+		scope: 'world',
+		type: Number,
+		default: 2,
+		config: true,
+		range: { min: 1, max: 10, step: 0.5 },
+	});
+
 	game.settings.register('symbaroum', 'charBGChoice', {
 		restricted: false,
 		type: String,
@@ -506,10 +530,30 @@ Hooks.on('preCreateActor', (doc, createData, options, userid) => {
 // Importe von Alt-Items nicht stillschweigend vor-migriert werden
 // (Duplikate bringen ihr migriertes price bereits mit).
 Hooks.on('preCreateItem', (doc, createData, options, userid) => {
-	if (!['weapon', 'armor', 'equipment'].includes(doc.type)) return;
-	if (doc.system.price !== undefined) return;
-	if (String(doc.system.cost ?? '').trim() !== '') return;
-	doc.updateSource({ 'system.price': { value: 0, denomination: 'orteg' } });
+	// A38 Währungssystem: Preisfeld bei NEUANLAGE von weapon/armor/equipment
+	// setzen - gleicher Schutz wie beim Aktor: nicht per template.json
+	// (Laufzeit-Mischung), und nur wenn price fehlt UND cost leer ist, damit
+	// Importe von Alt-Items nicht stillschweigend vor-migriert werden
+	// (Duplikate bringen ihr migriertes price bereits mit).
+	if (['weapon', 'armor', 'equipment'].includes(doc.type)) {
+		if (doc.system.price === undefined && String(doc.system.cost ?? '').trim() === '') {
+			doc.updateSource({ 'system.price': { value: 0, denomination: 'orteg' } });
+		}
+	}
+	// A39 Belastungssystem: Gewichtskategorie "Keine Angabe" (= Nullwert) bei
+	// NEUANLAGE von weapon/armor/equipment/artifact setzen - gleicher Schutz
+	// wie beim A38-Preis: NICHT per template.json (Laufzeit-Mischung in alle
+	// Bestände). Alt-Items (system.weight === undefined) bleiben unberührt
+	// und werden vom GM-Makro encumbranceMigration() mit Vorschlägen versehen.
+	// Bewusst ohne Guard gegen Importe: es gibt kein Alt-Feld mit echten
+	// Gewichtsdaten, "Keine Angabe" ist der ehrliche Zustand - importierte
+	// Alt-Items lassen sich nachträglich manuell oder per Blatt kategorisieren
+	// (im Auslieferungs-Doc dokumentiert).
+	if (['weapon', 'armor', 'equipment', 'artifact'].includes(doc.type)) {
+		if (doc.system.weight === undefined) {
+			doc.updateSource({ 'system.weight': 'none' });
+		}
+	}
 });
 
 // Hooks.on('createOwnedItem', (actor, item) => {});

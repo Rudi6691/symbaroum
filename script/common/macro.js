@@ -1234,6 +1234,13 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.currencyMigration();",
 				img: "icons/svg/coins.svg",
 			},
+			{
+				// A39 Belastungssystem: Einmal-Migration der Gewichtskategorien
+				// (Vorschläge aus Waffen-Qualitäten bzw. Rüstungsbehinderung)
+				name: game.i18n.localize("MACRO.WEIGHT_MIGRATION_NAME"),
+				command: "game.symbaroum.macros.encumbranceMigration();",
+				img: "systems/symbaroum/asset/image/biceps.svg",
+			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro
@@ -1687,6 +1694,113 @@ export class SymbaroumMacros {
 							itemCount++;
 						}
 						ui.notifications.info(game.i18n.format("MACRO.CURRENCY_MIGRATION_DONE", { actors: actorCount, items: itemCount }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("BUTTON.CANCEL"),
+				},
+			},
+			default: "Accept",
+		});
+	}
+
+	/**********************************************
+	 * A39 Belastungssystem: Weight Migration - opens an overview dialog with
+	 * one row per *unmigrated* world item (weapon/armor/equipment/artifact,
+	 * recognized by system.weight === undefined) and a category dropdown with
+	 * an editable suggestion:
+	 *   weapon:  Massive -> Schwer, Kurz -> Leicht, sonst Normal
+	 *   armor:   nach Rüstungsbehinderung (Laufzeitwert): 0 -> Keine Angabe,
+	 *            2 -> Schwer, 3 und 4 -> Sehr schwer (4 wird bewusst auf
+	 *            3 GE abgerundet - grobe Kategorisierung, Rudolfs Entscheidung;
+	 *            Abrundung mit Warnmarke)
+	 *   equipment/artifact: Normal als neutraler Vorschlag
+	 * One "Accept" click writes all categories; old fields stay untouched.
+	 * Repeatable: already migrated items no longer show up. GM only.
+	 * Run as a script macro or from the console:
+	 * game.symbaroum.macros.encumbranceMigration()
+	 */
+	async encumbranceMigration() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const warnMark = " &#9888;";
+		const gearTypes = ["weapon", "armor", "equipment", "artifact"];
+		const allItems = game.items.filter((i) => gearTypes.includes(i.type));
+		const items = allItems
+			.filter((i) => i.system.weight === undefined)
+			.sort((a, b) => a.name.localeCompare(b.name));
+		if (items.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.WEIGHT_MIGRATION_NONE"));
+			return;
+		}
+		const weightConfig = game.symbaroum.config.weight;
+		const weightOrder = game.symbaroum.config.weightOrder;
+		const suggestWeightCategory = function (item) {
+			if (item.type === "weapon") {
+				if (item.system.qualities?.massive) return "heavy";
+				if (item.system.qualities?.short) return "light";
+				return "normal";
+			}
+			if (item.type === "armor") {
+				const impeding = item.impeding ?? 0;
+				if (impeding <= 0) return "none";
+				if (impeding === 2) return "heavy";
+				return "veryheavy";
+			}
+			return "normal";
+		};
+		let itemRows = "";
+		for (const item of items) {
+			const suggested = suggestWeightCategory(item);
+			/* Warnmarke, wenn die Kategorie bewusst abgerundet wird:
+			   Rüstungsbehinderung 4 (1d8-Panzer) -> Sehr schwer = 3 GE */
+			const isAbridged = item.type === "armor" && (item.impeding ?? 0) >= 4;
+			const options = weightOrder
+				.map((id) => `<option value="${id}"${id === suggested ? " selected" : ""}>${game.i18n.localize(weightConfig[id].label)}</option>`)
+				.join("");
+			itemRows = itemRows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(item.name)}</td>
+                    <td style="padding:2px 6px; white-space:nowrap;">${foundry.utils.escapeHTML(game.i18n.localize("ITEM.Type" + item.type.capitalize()))}${isAbridged ? warnMark : ""}</td>
+                    <td style="padding:2px 6px;"><select style="width:100%;" data-item-id="${item.id}" class="weight-select">${options}</select></td>
+                </tr>`);
+		}
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.WEIGHT_MIGRATION_HEADER")}</p>
+        <p style="margin:0 0 4px 0; font-size:0.9em; opacity:0.8;">${game.i18n.format("MACRO.WEIGHT_MIGRATION_ALREADY", {
+			items: allItems.length - items.length,
+			total: allItems.length,
+		})}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th style="text-align:left;">${game.i18n.localize("MACRO.WEIGHT_MIGRATION_TYPE")}</th>
+                <th style="text-align:right;">${game.i18n.localize("WEIGHT.LABEL")}</th>
+            </tr>
+            ${itemRows}
+        </table>
+        </div>
+        </div>`;
+		symbDialog({
+			width: 600,
+			title: game.i18n.localize("MACRO.WEIGHT_MIGRATION_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Accept: {
+					label: game.i18n.localize("MACRO.WEIGHT_MIGRATION_ACCEPT"),
+					callback: async (html) => {
+						const root = html[0];
+						let count = 0;
+						for (const item of items) {
+							const select = root.querySelector(`select.weight-select[data-item-id="${item.id}"]`);
+							if (!select) continue;
+							await item.update({ "system.weight": select.value });
+							count++;
+						}
+						ui.notifications.info(game.i18n.format("MACRO.WEIGHT_MIGRATION_DONE", { count }));
 					},
 				},
 				Cancel: {

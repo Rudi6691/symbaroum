@@ -1,6 +1,8 @@
 import { baseRoll, rollAttribute } from './roll.js';
 // A38 Währungssystem: öffentliche Currency-API für externe Module (Händler-/Shop-Module)
 import { convertToBase, allocateFromBase, getActorCurrencyTotal, modifyActorCurrency, deductActorCurrency, getItemPriceBase, parseCostString } from './currency.js';
+// A39 Belastungssystem: öffentliche Encumbrance-API für externe Module
+import { getEncumbranceData, getItemLoadGE, isEncumbranceEnabled } from './encumbrance.js';
 
 export class SymbaroumAPI
 {
@@ -19,6 +21,10 @@ export class SymbaroumAPI
         this.deductActorCurrency = deductActorCurrency;
         this.getItemPriceBase = getItemPriceBase;
         this.parseCostString = parseCostString;
+        // A39: Encumbrance-API — Last in Gewichtseinheiten (GE), siehe encumbrance.js.
+        this.getActorEncumbrance = getEncumbranceData;
+        this.getItemLoadWeight = getItemLoadGE;
+        this.isEncumbranceEnabled = isEncumbranceEnabled;
     }
 
 

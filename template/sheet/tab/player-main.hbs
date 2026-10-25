@@ -189,6 +189,28 @@
                         </div>
                     </div>
                 </div>
+
+                {{!-- A39 Belastungssystem: Last-Füllbalken (value/max) im Werte-Tab,
+                    nur bei aktivierter optionaler Regel (Systemeinstellungen).
+                    Balken füllt bis zur harten Grenze (Stärke x Schwellwert), die
+                    weiße Marke zeigt die Belastungsgrenze (Stärke) - darüber gibt
+                    jeder angefangene GE -1 Verteidigung (automatisch). --}}
+                {{#if system.encumbrance.show}}
+                <div class="encumbrance" data-tooltip="{{{system.encumbrance.tooltip}}}">
+                    <div class="encumbrance-header">
+                        <label class="encumbrance-title">{{localize "WEIGHT.TITLE"}}</label>
+                        <span class="encumbrance-state encumbrance-state-{{system.encumbrance.state}}">{{system.encumbrance.stateLabel}}</span>
+                    </div>
+                    <div class="encumbrance-bar">
+                        <div class="encumbrance-fill encumbrance-fill-{{system.encumbrance.state}}" style="width: {{system.encumbrance.pct}}%;"></div>
+                        <div class="encumbrance-limit-marker" style="left: {{system.encumbrance.basePct}}%;" data-tooltip="{{localize "WEIGHT.MARKER_TOOLTIP"}}"></div>
+                        <span class="encumbrance-value">{{system.encumbrance.loadDisplay}} / {{system.encumbrance.hardLimitDisplay}} {{localize "WEIGHT.GE_ABBR"}}</span>
+                    </div>
+                    {{#if system.encumbrance.malusLine}}
+                    <div class="encumbrance-malus">{{system.encumbrance.malusLine}}</div>
+                    {{/if}}
+                </div>
+                {{/if}}
             </div> <!-- end combat -->
         </div> <!-- End of non-attributes -->
     </div> <!-- end of section 1 -->
