@@ -1,0 +1,58 @@
+{{!-- A6 Blatt-Überarbeitung: GM-Dialog für die Designeinstellungen der
+    alternativen Spieler- und Monsterblätter (registerMenu "Designeinstellungen…").
+    Submit-Handler: ModernSheetConfig in script/common/modernSheetConfig.js
+    (schreibt in das Welt-Setting modernSheetDesign und rendert offene Blätter neu). --}}
+<div class="modern-sheet-settings">
+    <p class="hint">{{localize "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_HINT"}}</p>
+
+    <div class="form-group">
+        <label>{{localize "MODERN.DESIGN_THEME"}}</label>
+        <div class="form-fields radio">
+            <label class="checkbox"><input type="radio" name="theme" value="dark" {{#ife theme 'dark'}}checked{{/ife}} /> {{localize "MODERN.DESIGN_THEME_DARK"}}</label>
+            <label class="checkbox"><input type="radio" name="theme" value="classic" {{#ife theme 'classic'}}checked{{/ife}} /> {{localize "MODERN.DESIGN_THEME_CLASSIC"}}</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>{{localize "MODERN.DESIGN_GAUGE"}}</label>
+        <div class="form-fields radio">
+            <label class="checkbox"><input type="radio" name="gauge" value="half" {{#ife gauge 'half'}}checked{{/ife}} /> {{localize "MODERN.DESIGN_GAUGE_HALF"}}</label>
+            <label class="checkbox"><input type="radio" name="gauge" value="ring" {{#ife gauge 'ring'}}checked{{/ife}} /> {{localize "MODERN.DESIGN_GAUGE_RING"}}</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>{{localize "MODERN.DESIGN_DEFAULT_STYLE"}}</label>
+        <div class="form-fields radio">
+            <label class="checkbox"><input type="radio" name="defaultStyle" value="classic" {{#ife defaultStyle 'classic'}}checked{{/ife}} /> {{localize "MODERN.DESIGN_STYLE_CLASSIC"}}</label>
+            <label class="checkbox"><input type="radio" name="defaultStyle" value="modern" {{#ife defaultStyle 'modern'}}checked{{/ife}} /> {{localize "MODERN.DESIGN_STYLE_MODERN"}}</label>
+        </div>
+    </div>
+
+    <hr />
+
+    <div class="form-group">
+        <label>{{localize "MODERN.DESIGN_ICONS"}}</label>
+        <div class="form-fields icon-grid">
+            <label class="icon-field"><span class="icon-preview"><i class="{{icons.combat}}"></i></span><input type="text" name="icons.combat" value="{{icons.combat}}" data-dtype="String" /></label>
+            <label class="icon-field"><span class="icon-preview"><i class="{{icons.powers}}"></i></span><input type="text" name="icons.powers" value="{{icons.powers}}" data-dtype="String" /></label>
+            <label class="icon-field"><span class="icon-preview"><i class="{{icons.gear}}"></i></span><input type="text" name="icons.gear" value="{{icons.gear}}" data-dtype="String" /></label>
+            <label class="icon-field"><span class="icon-preview"><i class="{{icons.bio}}"></i></span><input type="text" name="icons.bio" value="{{icons.bio}}" data-dtype="String" /></label>
+            <label class="icon-field"><span class="icon-preview"><i class="{{icons.notes}}"></i></span><input type="text" name="icons.notes" value="{{icons.notes}}" data-dtype="String" /></label>
+        </div>
+        <p class="notes">{{localize "MODERN.DESIGN_ICONS_HINT"}}</p>
+        <ul class="notes">
+            <li>{{localize "MODERN.DESIGN_ICON_COMBAT"}}: <code>{{icons.combat}}</code></li>
+            <li>{{localize "MODERN.DESIGN_ICON_POWERS"}}: <code>{{icons.powers}}</code></li>
+            <li>{{localize "MODERN.DESIGN_ICON_GEAR"}}: <code>{{icons.gear}}</code></li>
+            <li>{{localize "MODERN.DESIGN_ICON_BIO"}}: <code>{{icons.bio}}</code></li>
+            <li>{{localize "MODERN.DESIGN_ICON_NOTES"}}: <code>{{icons.notes}}</code></li>
+        </ul>
+    </div>
+
+    <hr />
+    <div class="form-group buttons-save">
+        <button type="submit" data-action="submit"><b>{{localize "SYMBAROUM.OPTIONAL_SUBMIT_BUTTON"}}</b></button>
+        <button type="button" data-action="resetDefaults"><b>{{localize "MODERN.DESIGN_RESET"}}</b></button>
+    </div>
+</div>

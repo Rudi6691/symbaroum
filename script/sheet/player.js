@@ -3,7 +3,12 @@ import { prepareRollAttribute, prepareRollDeathTest } from '../common/dialog.js'
 import { symbDialog } from '../common/symbDialog.js';
 // A39 Belastungssystem: Live-Berechnung im Blattkontext (Sicherheitsnetz gegen
 // veraltete prepareDerivedData-Daten, z. B. direkt nach Setting-Änderung).
-import { getEncumbranceData } from '../common/encumbrance.js';
+import { getEncumbranceData, formatGE } from '../common/encumbrance.js';
+// A6 Blatt-Überarbeitung: alternative (modernisierte) Ansicht - Design-Settings
+// (GM-Dialog) und die individuelle Nutzer-Präferenz (User-Flag, welt-weit).
+import { getModernSheetDesign, getModernSheetUserStyle } from '../common/modernSheetConfig.js';
+// A38 Währungssystem: Anzeige-Aufteilung des Orteg-Basiswerts für die Stammleiste
+import { allocateFromBase, getDenominations, getItemPriceBase, formatCurrency } from '../common/currency.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -95,6 +100,14 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				event.preventDefault();
 				await this.actor.update({ 'system.nbrOfFailedDeathRoll': 0 });
 			},
+			// A6: Umschalten zwischen klassischer und modernisierter Ansicht
+			// (Icon-Button im Blattkopf, nur sichtbar, wenn die Alternative in
+			// den Welt-Settings aktiviert ist). Schreibt das User-Flag
+			// 'modernSheetStyle' - welt-weit gespeichert, browser-unabhängig.
+			toggleModern: async function (event) {
+				event.preventDefault();
+				await this._toggleModernView();
+			},
 		},
 	};
 
@@ -122,7 +135,23 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				{ action: 'recover', icon: 'fas fa-heart', label: 'BUTTON.RECOVER' }
 			);
 		}
+		// A6: Ansichts-Umschalter für alle Betrachter (Spieler und GM), sobald
+		// die modernisierte Ansicht in den Welt-Settings aktiviert ist.
+		if ( game.settings.get('symbaroum', 'modernSheetEnabled') ) {
+			buttons.push({ action: 'toggleModern', icon: 'fas fa-table-columns', label: 'BUTTON.TOGGLE_MODERN' });
+		}
 		return buttons;
+	}
+
+	/**
+	 * A6: Individuelle Ansicht (klassisch/modern) des aktuellen Nutzers
+	 * umschalten. Gespeichert als User-Flag (welt-weit persistent, pro Nutzer
+	 * schreibbar), danach wird das Blatt neu gerendert.
+	 */
+	async _toggleModernView() {
+		const next = getModernSheetUserStyle() === 'modern' ? 'classic' : 'modern';
+		await game.user.setFlag('symbaroum', 'modernSheetStyle', next);
+		this.render(true);
 	}
 
 	/**
@@ -199,7 +228,304 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				{ id, label: game.i18n.localize(entry.label) },
 			]),
 		);
+
+		/* A6 Blatt-Überarbeitung: renderModern schaltet im Wurzel-Template
+		   (player.hbs) zwischen klassischem und modernisiertem Zweig um.
+		   - Aktivierungs-Checkbox (Welt-Setting, nur GM, Default aus),
+		   - individuelle Präferenz des Nutzers (User-Flag, Fallback: Design-Default),
+		   - Limited-Betrachter sehen IMMER den klassischen Zweig (Sicherheit).
+		   Die modernen Kontextdaten werden nur im modernen Zweig aufgebaut
+		   (Kosten nur zahlen, wenn die Ansicht aktiv ist). MonsterSheet erbt. */
+		const userLevel = this.actor.getUserLevel(game.user);
+		const isLimitedView = !(userLevel > CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED || game.user.isGM);
+		const modernEnabled = !!game.settings.get('symbaroum', 'modernSheetEnabled');
+		context.renderModern = !!(modernEnabled && !isLimitedView && getModernSheetUserStyle() === 'modern');
+		if (context.renderModern) {
+			context.modern = this._prepareModernContext(context, getModernSheetDesign());
+		}
 		return context;
+	}
+
+	/**
+	 * A6: Kontextdaten der modernisierten Ansicht. Alles wird hier in JS
+	 * vorberechnet (A39-Lernweis: der Blattkontext ist ein deepClone - Methoden
+	 * wie item.getLevel() sind nur an den LIVE-Items aufrufbar; Handlebars
+	 * hat keinen generischen and-Helper, deshalb Booleans direkt fertig
+	 * berechnen). LIVE-Daten kommen von this.actor.system, gesendete
+	 * Anzeigen aus dem bereits angereicherten Kontext-Klon.
+	 */
+	_prepareModernContext(context, design) {
+		const live = this.actor.system;
+		const opts = context.symbaroumOptions;
+		const isNPC = !!opts.isNPC;
+		const showMods = !!opts.showNpcModifiers;
+		const localize = (key) => game.i18n.localize(key);
+
+		/* --- Identität: Volk/Beruf bzw. Monster-Kategorie --- */
+		const idParts = [];
+		if (live.bio?.race) idParts.push(live.bio.race);
+		if (live.bio?.occupation) idParts.push(live.bio.occupation);
+		const categoryLabel = context.creature_category_selection[live.creatureCategory]?.label ?? '';
+		const categoryParts = [categoryLabel, live.creatureSubtype].filter((p) => !!p);
+
+		/* --- Vitalwerte --- */
+		const tough = live.health.toughness;
+		const toughness = {
+			pct: tough.max > 0 ? Math.min(100, Math.round((tough.value / tough.max) * 100)) : 0,
+			tooltip: `${localize('HEALTH.TOUGHNESS')}: ${tough.value} / ${tough.max}<br>${localize('HEALTH.TOUGHNESS_THRESHOLD')}: ${tough.threshold}${tough.max_msg ?? ''}`,
+		};
+
+		const cor = live.health.corruption;
+		const thoroughlyCorrupt = !!live.isThoroughlyCorrupt;
+		const corMax = Math.max(0, cor.max ?? 0);
+		const tempSum = (cor.temporary ?? 0) + (cor.longterm ?? 0);
+		const perm = cor.permanent ?? 0;
+		const tempPct = corMax > 0 ? Math.min(100, Math.round((tempSum / corMax) * 1000) / 10) : 0;
+		const permPct = corMax > 0 ? Math.min(100 - tempPct, Math.round((perm / corMax) * 1000) / 10) : 0;
+		const thresholdPct = corMax > 0 ? Math.min(100, Math.round(((cor.threshold ?? 0) / corMax) * 1000) / 10) : 0;
+		const corruption = {
+			value: cor.value ?? 0,
+			max: corMax,
+			threshold: cor.threshold ?? 0,
+			thoroughlyCorrupt,
+			tempPct,
+			permPct,
+			thresholdPct,
+			tooltip:
+				`${localize('HEALTH.CORRUPTION')}: ${thoroughlyCorrupt ? localize('HEALTH.CORRUPTION_NA') : `${cor.value} / ${corMax}`}<br>` +
+				`${localize('HEALTH.CORRUPTION_TEMPORARY')}: ${cor.temporary ?? 0} · ${localize('HEALTH.CORRUPTION_LONGTERM')}: ${cor.longterm ?? 0} · ${localize('HEALTH.CORRUPTION_PERMANENT')}: ${perm}<br>` +
+				`${localize('HEALTH.CORRUPTION_THRESHOLD')}: ${cor.threshold ?? 0} · ${localize('HEALTH.CORRUPTION_MAX')}: ${corMax}`,
+		};
+
+		/* --- Erfahrung (wie das klassische Blatt: 4 Felder, Dialog bei Klick) --- */
+		const exp = { ...live.experience };
+		exp.spent = live.experience.spent ?? 0;
+		exp.available = live.experience.available ?? 0;
+		exp.tooltip =
+			`${localize('MODERN.EXP_TOTAL')}: ${exp.total}<br>` +
+			`${localize('MODERN.EXP_ARTIFACTRR')}: ${exp.artifactrr}<br>` +
+			`${localize('MODERN.EXP_SPENT')}: ${exp.spent}<br>` +
+			`${localize('MODERN.EXP_AVAILABLE')}: ${exp.available}`;
+
+		/* --- Geld (kompakte Anzeige, Klick = Währungsdialog) --- */
+		const amounts = allocateFromBase(context.currency ?? 0);
+		const denoms = getDenominations();
+		const money = {
+			thaler: amounts.thaler ?? 0,
+			shilling: amounts.shilling ?? 0,
+			orteg: amounts.orteg ?? 0,
+			abbrThaler: denoms[0].abbreviation,
+			abbrShilling: denoms[1].abbreviation,
+			abbrOrteg: denoms[2].abbreviation,
+		};
+
+		/* --- Eigenschaften-Chips (2x4; Klick = Eigenschaften-Dialog) --- */
+		const attributes = [];
+		for (const [key, a] of Object.entries(live.attributes)) {
+			if (!a?.label) continue;
+			attributes.push({
+				key,
+				abbr: localize(`${a.label}ABBR`),
+				label: localize(a.label),
+				total: a.total,
+				modifier: a.modifier,
+				display: isNPC && showMods ? `${a.modifier > 0 ? '+' : ''}${a.modifier}` : String(a.total),
+				tooltip: a.msg ?? `${localize(a.label)}: ${a.total}`,
+			});
+		}
+
+		/* --- Belastungs-Gauge (Halbrund/Segmentring, nur bei aktiver Regel) --- */
+		const enc = context.system.encumbrance ?? {};
+		const basePct = Number(enc.basePct) || 0;
+		const gaugePct = Number(enc.pct) || 0;
+		// Halbrund: Bogen M12 62 A48 48 ... 108 62, Bogenlänge 150.8 - Marker auf
+		// der Belastungsgrenze (basePct) als weiße Linie radial durch den Band.
+		const theta = (180 - Math.min(100, basePct) * 1.8) * (Math.PI / 180);
+		const mark = (r) => ({
+			x: +(60 + r * Math.cos(theta)).toFixed(1),
+			y: +(62 - r * Math.sin(theta)).toFixed(1),
+		});
+		const mo = mark(55);
+		const mi = mark(41);
+		const thetaRing = (Math.min(100, basePct) * 3.6 - 90) * (Math.PI / 180);
+		const ringMark = (r) => ({
+			x: +(50 + r * Math.cos(thetaRing)).toFixed(1),
+			y: +(50 + r * Math.sin(thetaRing)).toFixed(1),
+		});
+		const ro = ringMark(46);
+		const ri = ringMark(34);
+		const gauge = {
+			show: !!enc.show,
+			variant: design.gauge === 'ring' ? 'ring' : 'half',
+			state: enc.state ?? 'ok',
+			stateLabel: enc.stateLabel ?? '',
+			pct: gaugePct,
+			arc: +((gaugePct / 100) * 150.8).toFixed(1),
+			loadDisplay: enc.loadDisplay ?? '0',
+			baseLimitDisplay: enc.baseLimitDisplay ?? '0',
+			hardLimitDisplay: enc.hardLimitDisplay ?? '0',
+			malusLine: enc.malusLine ?? null,
+			tooltip: enc.tooltip ?? '',
+			markerX1: mo.x, markerY1: mo.y, markerX2: mi.x, markerY2: mi.y,
+			ringMarkerX1: ro.x, ringMarkerY1: ro.y, ringMarkerX2: ri.x, ringMarkerY2: ri.y,
+		};
+
+		/* --- Fähigkeiten & Kräfte: 6 sauber getrennte Gruppen --- */
+		const TYPE_GROUP = { ability: 'abilities', mysticalPower: 'powers', ritual: 'rituals', trait: 'traits', boon: 'boons', burden: 'burdens' };
+		const groupLabels = {
+			abilities: localize('MODERN.GROUP_ABILITIES'),
+			powers: localize('MODERN.GROUP_POWERS'),
+			rituals: localize('MODERN.GROUP_RITUALS'),
+			traits: localize('MODERN.GROUP_TRAITS'),
+			boons: localize('MODERN.GROUP_BOONS'),
+			burdens: localize('MODERN.GROUP_BURDENS'),
+		};
+		const powerGroups = Object.keys(groupLabels).map((id) => ({ id, label: groupLabels[id], hasItems: false, items: [], count: 0 }));
+		const groupById = Object.fromEntries(powerGroups.map((g) => [g.id, g]));
+		const powerEntryById = {};
+		for (const item of context.items) {
+			const s = item.system;
+			if (!s?.isPower) continue;
+			const entry = {
+				id: item.id,
+				name: item.name,
+				img: item.img,
+				hasScript: !!s.hasScript,
+				isIntegrated: !!s.isIntegrated,
+				favorite: !!item.flags?.symbaroum?.favorite,
+				level: 0,
+				pipsOff: 0,
+				sub: '',
+			};
+			if (s.hasLevels) {
+				const lvl = item.getLevel();
+				entry.level = lvl.level;
+				entry.pipsOff = Math.max(0, 3 - lvl.level);
+				entry.sub = lvl.lvlName ?? '';
+			} else if (s.isRitual) entry.sub = localize('ITEM.TypeRitual');
+			else if (s.isBoon) entry.sub = localize('ITEM.TypeBoon');
+			else if (s.isBurden) entry.sub = localize('ITEM.TypeBurden');
+			const groupId = TYPE_GROUP[item.type];
+			const group = groupById[groupId] ?? groupById.abilities;
+			group.items.push(entry);
+			group.hasItems = true;
+			group.count = group.items.length;
+			powerEntryById[item.id] = entry;
+		}
+
+		/* --- Ausrüstung: Zeilen mit Gewicht/Preis, Status, Favorit --- */
+		const stateInfo = (state) => {
+			if (state === 'active') return { state, icon: 'fas fa-tshirt', tooltip: localize('GEAR.ACTIVE') };
+			if (state === 'equipped') return { state, icon: 'fas fa-suitcase', tooltip: localize('GEAR.EQUIPPED') };
+			return { state: 'other', icon: 'fas fa-warehouse', tooltip: localize('GEAR.OTHER') };
+		};
+		const itemsById = new Map(context.items.map((it) => [it.id, it]));
+		const weightInfo = (rawItem) => {
+			const cat = game.symbaroum.config.weight[rawItem?.system?.weight] ?? game.symbaroum.config.weight.none;
+			if (cat.id === 'none') return { display: '—', tooltip: localize('WEIGHT.LABEL') + ': ' + localize(cat.label) };
+			if (cat.value === null) return { display: '∞', tooltip: localize('WEIGHT.LABEL') + ': ' + localize(cat.label) };
+			const number = Math.max(1, Math.round(Number(rawItem.system.number ?? 1) || 1));
+			return {
+				display: `${formatGE(cat.value * number)} ${localize('WEIGHT.GE_ABBR')}`,
+				tooltip: `${localize(cat.label)} × ${number}`,
+			};
+		};
+		const priceInfo = (rawItem) => {
+			const base = getItemPriceBase(rawItem);
+			return base === null ? '' : formatCurrency(base);
+		};
+		const gearRow = (id, name, img, sub, rawItem, extra = {}) => {
+			const info = stateInfo(rawItem?.system?.state ?? 'other');
+			const w = weightInfo(rawItem);
+			const price = priceInfo(rawItem);
+			return {
+				id, name, img, sub,
+				favorite: !!rawItem?.flags?.symbaroum?.favorite,
+				weightDisplay: price ? `${w.display} · ${price}` : w.display,
+				weightTooltip: w.tooltip,
+				state: info.state, stateIcon: info.icon, stateTooltip: info.tooltip,
+				...extra,
+			};
+		};
+		const gear = { armors: [], weapons: [], equipments: [], artifacts: [] };
+		for (const a of live.armors ?? []) {
+			if (a.isNoArmor) {
+				gear.armors.push(gearRow(a.id, a.name, a.img, `${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id), { isNoArmor: true }));
+				continue;
+			}
+			gear.armors.push(gearRow(a.id, a.name, a.img, `${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id)));
+		}
+		for (const w of live.weapons ?? []) {
+			gear.weapons.push(gearRow(w.id, w.name, w.img, `${w.damage?.displayTextShort ?? ''} · ${localize(`${w.attributeLabel}ABBR`)}`, itemsById.get(w.id)));
+		}
+		for (const item of context.items) {
+			const s = item.system;
+			if (s.isEquipment) gear.equipments.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
+			else if (s.isArtifact) {
+				const subs = [item.getArtifactActions?.(), item.getArtifactCorruptions?.()].filter((t) => t && String(t).trim());
+				gear.artifacts.push(gearRow(item.id, item.name, item.img, subs.join(' · '), item));
+			}
+		}
+
+		/* --- Favoriten für den Kampf-Tab (Hybrid-Regel) --- */
+		const favorites = [];
+		for (const item of context.items) {
+			if (!item.flags?.symbaroum?.favorite) continue;
+			const s = item.system;
+			if (s.isPower) {
+				const entry = powerEntryById[item.id];
+				if (entry) favorites.push({ id: item.id, name: item.name, img: item.img, kind: 'power', hasScript: entry.hasScript, sub: entry.sub });
+			} else if (s.isGear) {
+				// Aktive Waffen/Rüstungen erscheinen ohnehin immer im Kampf-Tab
+				if ((s.isWeapon || s.isArmor) && s.isActive) continue;
+				let sub = '';
+				if (s.isWeapon) {
+					const w = (live.weapons ?? []).find((x) => x.id === item.id);
+					sub = w?.damage?.displayTextShort ?? '';
+				} else if (s.isArmor) {
+					const a = (live.armors ?? []).find((x) => x.id === item.id);
+					sub = a?.displayTextShort ?? '';
+				} else if (s.isEquipment) {
+					sub = `× ${s.number ?? 1}`;
+				} else if (s.isArtifact) {
+					sub = item.getArtifactActions?.() ?? '';
+				}
+				favorites.push({
+					id: item.id, name: item.name, img: item.img,
+					kind: s.isWeapon ? 'weapon' : s.isArmor ? 'armor' : 'gear',
+					hasScript: false, sub,
+				});
+			}
+		}
+
+		/* --- Kampf-Chips --- */
+		const combatData = live.combat ?? {};
+		const impeding = Number(combatData.impeding) || 0;
+		const combat = {
+			defenseDisplay: isNPC && showMods ? `${combatData.defmod > 0 ? '+' : ''}${combatData.defmod}` : String(combatData.defense ?? 0),
+			defenseTooltip: combatData.msg ?? '',
+			impedingDisplay: impeding > 0 ? `−${impeding}` : '0',
+		};
+
+		return {
+			theme: design.theme === 'classic' ? 'classic' : 'dark',
+			tabIcons: { ...design.icons },
+			showShadow: !!(game.user.isGM || this.actor.isOwner),
+			idLine: idParts.join(' · '),
+			categoryLabel,
+			categoryLine: categoryParts.join(' · '),
+			toughness,
+			corruption,
+			exp,
+			money,
+			attributes,
+			gauge,
+			powerGroups,
+			gear,
+			favorites,
+			hasFavorites: favorites.length > 0,
+			combat,
+		};
 	}
 
 	/**
@@ -258,6 +584,51 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				initial: 'main',
 			});
 			this.tabs.bind(element);
+		}
+
+		// A6: Reiterleiste der modernisierten Ansicht (vertikale Icon-Buttons am
+		// rechten Rand, Tabs-Gruppe 'modern'). Separate Tabs-Instanz - die
+		// klassische Navigation bleibt unberührt.
+		if (element.querySelector('.modern-rail')) {
+			this.modernTabs ??= new foundry.applications.ux.Tabs({
+				navSelector: '.modern-rail',
+				contentSelector: '.modern-body',
+				initial: 'combat',
+			});
+			this.modernTabs.bind(element);
+		}
+
+		// A6: Eigenschaften-Chip (Stammleiste) -> Basis/Modifikator/Bonus-Dialog
+		const attrChips = element.querySelectorAll('.modern-attr-chip');
+		for (const s of attrChips) {
+			s.addEventListener('click', (ev) => {
+				ev.preventDefault();
+				this._openAttributesDialog(true);
+			});
+		}
+		// A6: Erfahrungs-Chip/-Kachel -> Erfahrungs-Dialog (nur Gesamt und
+		// Würfelwiederholungen sind editierbar)
+		const expChips = element.querySelectorAll('.modern-exp');
+		for (const s of expChips) {
+			s.addEventListener('click', (ev) => {
+				ev.preventDefault();
+				this._openExperienceDialog();
+			});
+		}
+		// A6: Geld (Stammleiste) -> Währungsdialog (Delta-Syntax wie im Gear-Tab)
+		const moneyBtns = element.querySelectorAll('.m-money-btn');
+		for (const s of moneyBtns) {
+			s.addEventListener('click', (ev) => {
+				ev.preventDefault();
+				this._openMoneyDialog();
+			});
+		}
+		// A6: Favoriten-Stern (pro Charakter, Item-Flag flags.symbaroum.favorite)
+		const favToggles = element.querySelectorAll('.favorite-toggle');
+		for (const s of favToggles) {
+			s.addEventListener('click', (ev) => {
+				this._onFavoriteToggle(ev);
+			});
 		}
 
 		// Attribute drag support; this binding also carries the sheet's drop handling.
@@ -409,16 +780,28 @@ export class PlayerSheet extends SymbaroumActorSheet {
 
 	async _modifyAttributes(event) {
 		event.preventDefault();
+		await this._openAttributesDialog(false);
+	}
+
+	/**
+	 * A6: Öffnet den Eigenschaften-Dialog - klassisches Layout (attributes.hbs)
+	 * oder das neue Design (modern/attributes-dialog.hbs). Beide Templates
+	 * nutzen dieselben Feld-IDs, die Übernahme-Logik ist identisch.
+	 * @param {boolean} modernDesign neues (modernes) Layout verwenden
+	 */
+	async _openAttributesDialog(modernDesign) {
 		let system = foundry.utils.deepClone(this.actor.system);
 		system.id = this.actor.id;
 
-		const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/sheet/attributes.hbs', {
+		const template = modernDesign
+			? 'systems/symbaroum/template/sheet/modern/attributes-dialog.hbs'
+			: 'systems/symbaroum/template/sheet/attributes.hbs';
+		const html = await foundry.applications.handlebars.renderTemplate(template, {
 			id: this.actor.id,
 			system: system,
 		});
 		let title = game.i18n.localize('TITLE.ATTRIBUTES');
 		let dialog = symbDialog({
-			//              label: "toto",
 			title: title,
 			content: html,
 			buttons: {
@@ -426,33 +809,136 @@ export class PlayerSheet extends SymbaroumActorSheet {
 					icon: '<i class="fas fa-check"></i>',
 					label: game.i18n.localize('BUTTON.CONFIRM'),
 					callback: async (html) => {
-						for (var aKey in system.attributes) {
-							var base = '#attr-' + system.id + '-' + [aKey] + '-value';
-							const stringValue = html[0].querySelector(base).value;
-
-							let newValue = parseInt(stringValue, 10);
-							if (!isNaN(newValue)) {
-								let link = 'system.attributes.' + [aKey] + '.value';
-								var mod = '#attr-' + [aKey] + '-mod';
-								const stringMod = html[0].querySelector(mod).value;
-								let newModValue = parseInt(stringMod, 10);
-								if (!isNaN(newModValue)) {
-									let linkMod = 'system.attributes.' + [aKey] + '.temporaryMod';
-									await this.actor.update({
-										[link]: newValue,
-										[linkMod]: newModValue,
-									});
-								}
-							}
-						}
+						await this._applyAttributeUpdates(html, system);
 					},
 				},
 				cancel: {
-					icon: '<i class="fas fa-check"></i>',
+					icon: '<i class="fas fa-times"></i>',
 					label: game.i18n.localize('BUTTON.CANCEL'),
 					callback: async (html) => {},
 				},
 			},
 		});
+	}
+
+	/** Übernahme-Logik des Eigenschaften-Dialogs (beide Designs, unverändert). */
+	async _applyAttributeUpdates(html, system) {
+		for (var aKey in system.attributes) {
+			var base = '#attr-' + system.id + '-' + [aKey] + '-value';
+			const stringValue = html[0].querySelector(base).value;
+
+			let newValue = parseInt(stringValue, 10);
+			if (!isNaN(newValue)) {
+				let link = 'system.attributes.' + [aKey] + '.value';
+				var mod = '#attr-' + [aKey] + '-mod';
+				const stringMod = html[0].querySelector(mod).value;
+				let newModValue = parseInt(stringMod, 10);
+				if (!isNaN(newModValue)) {
+					let linkMod = 'system.attributes.' + [aKey] + '.temporaryMod';
+					await this.actor.update({
+						[link]: newValue,
+						[linkMod]: newModValue,
+					});
+				}
+			}
+		}
+	}
+
+	/**
+	 * A6: Erfahrungs-Dialog - die vier Felder des klassischen Blatts; nur
+	 * Gesamt-XP und die für Würfelwurf-Wiederholungen ausgegebenen Punkte
+	 * sind editierbar (für Fähigkeiten etc. ausgegeben und verfügbar sind
+	 * berechnet aus den Items bzw. available = total - artifactrr - spent).
+	 */
+	async _openExperienceDialog() {
+		const localize = (key) => game.i18n.localize(key);
+		const exp = this.actor.system.experience ?? {};
+		const fields = [
+			{ id: 'total', label: localize('MODERN.EXP_TOTAL'), tooltip: localize('TOOLTIP.EXPERIENCE_TOTAL'), value: exp.total ?? 0, editable: this.isEditable && this.actor.isOwner },
+			{ id: 'artifactrr', label: localize('MODERN.EXP_ARTIFACTRR'), tooltip: localize('TOOLTIP.EXPERIENCE_ARTIFACTRR'), value: exp.artifactrr ?? 0, editable: this.isEditable && this.actor.isOwner },
+			{ id: 'spent', label: localize('MODERN.EXP_SPENT'), tooltip: localize('TOOLTIP.EXPERIENCE_SPENT'), value: exp.spent ?? 0, editable: false },
+			{ id: 'available', label: localize('MODERN.EXP_AVAILABLE'), tooltip: localize('TOOLTIP.EXPERIENCE_AVAILABLE'), value: exp.available ?? 0, editable: false },
+		];
+		const html = await foundry.applications.handlebars.renderTemplate(
+			'systems/symbaroum/template/sheet/modern/experience-dialog.hbs',
+			{ fields }
+		);
+		symbDialog({
+			title: localize('BIO.EXPERIENCE'),
+			content: html,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('BUTTON.CONFIRM'),
+					callback: async (html) => {
+						if (!this.isEditable || !this.actor.isOwner) return;
+						const update = {};
+						const total = parseInt(html[0].querySelector('#mexp-total')?.value, 10);
+						const artifactrr = parseInt(html[0].querySelector('#mexp-artifactrr')?.value, 10);
+						if (!isNaN(total)) update['system.experience.total'] = total;
+						if (!isNaN(artifactrr)) update['system.experience.artifactrr'] = artifactrr;
+						if (Object.keys(update).length) await this.actor.update(update);
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async (html) => {},
+				},
+			},
+		});
+	}
+
+	/**
+	 * A6: Währungs-Dialog für die kompakte Geldanzeige der Stammleiste.
+	 * Nutzt das <symbaroum-currency>-Element (Delta-Syntax, A38); das Element
+	 * hält den aktuellen Basiswert im value-Attribut.
+	 */
+	async _openMoneyDialog() {
+		if (!this.isEditable || !this.actor.isOwner) return;
+		const localize = (key) => game.i18n.localize(key);
+		const currency =
+			typeof this.actor.system.currency === 'number' ? Math.max(0, Math.round(this.actor.system.currency)) : 0;
+		const content = `<div class="symbaroum modern-money-dialog"><symbaroum-currency value="${currency}"></symbaroum-currency></div>`;
+		symbDialog({
+			title: localize('TITLE.MONEY'),
+			content: content,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('BUTTON.CONFIRM'),
+					callback: async (html) => {
+						const el = html[0].querySelector('symbaroum-currency');
+						if (!el) return;
+						const total = Math.max(0, Math.round(Number(el.getAttribute('value')) || 0));
+						await this.actor.update({ 'system.currency': total });
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async (html) => {},
+				},
+			},
+		});
+	}
+
+	/**
+	 * A6: Favoriten-Stern umschalten (Item-Flag flags.symbaroum.favorite -
+	 * pro Charakter, da Items eingebettet sind). Re-render des Blatts
+	 * erfolgt über die Item-Aktualisierung automatisch.
+	 */
+	async _onFavoriteToggle(event) {
+		event.preventDefault();
+		if (!this.actor.isOwner) return;
+		const div = event.target.closest('.item');
+		if (!div?.dataset.itemId) return;
+		const item = this.actor.items.get(div.dataset.itemId);
+		if (!item) return;
+		if (item.flags?.symbaroum?.favorite) {
+			await item.unsetFlag('symbaroum', 'favorite');
+		} else {
+			await item.setFlag('symbaroum', 'favorite', true);
+		}
 	}
 }

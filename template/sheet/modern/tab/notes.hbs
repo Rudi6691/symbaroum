@@ -1,0 +1,10 @@
+{{!-- A6: Notizen-Tab - zunächst unverändert übernommen (prose-mirror auf
+    system.notes, gleiche Felder/Rechte wie das klassische Blatt). --}}
+<div class="m-notes">
+    <div class="m-box">
+        <div class="m-box-h"><span>{{localize "TITLE.NOTES"}}</span></div>
+        <div class="m-box-b m-prose">
+            <prose-mirror toggled name="system.notes" {{ifThen editable '' 'disabled'}} value="{{rawBio.notes}}">{{{system.notes}}}</prose-mirror>
+        </div>
+    </div>
+</div>

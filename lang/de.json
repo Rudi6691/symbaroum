@@ -5,12 +5,10 @@
   "ABILITY.ACTIVE": "Erlernt",
   "ABILITY.ACTION": "Aktion",
   "ABILITY.DESCRIPTION": "Beschreibung",
-
   "ABILITY.CHAT_TARGET_VICTIM": "Ziel: {targetname}",
   "ABILITY.RESIST_ROLL": " versucht zu widerstehen:",
   "ABILITYREF.DIALOG_TITLE": "Wähle die integrierte Fähigkeit",
   "ABILITYREF.DIALOG": "Auf diese Weise kannst du integrierte Würfe für diese spezielle Fähigkeit verwenden. Wenn es sich um eine Homebrew-Fähigkeit handelt oder wenn Sie die Skripte nicht verwenden möchten, wählen Sie \"Keine Referenz\". Warnung: Danach können Sie nicht mehr referenzieren. Wenn du dies später möchtest, muss die Fähigkeit neu erstellt werden.",
-
   "ABILITY_LABEL.DEFAULT": "Andere",
   "ABILITY_LABEL.ACROBATICS": "Akrobatik",
   "ABILITY_LABEL.ALCHEMY": "Alchemie",
@@ -81,26 +79,21 @@
   "ABILITY_LABEL.WITCHSIGHT": "Hexensicht",
   "ABILITY_LABEL.WIZARDRY": "Magierwissen",
   "ABILITY_LABEL.WRESTLING": "Ringen",
-
   "ABILITY_ERROR.TARGET": "Du musst ein Ziel auswählen.",
-
   "ABILITY_BERSERKER.CHAT_ACTIVATE": "{actorname} wird von der Berserkerwut erfasst.",
   "ABILITY_BERSERKER.CHAT_DEACTIVATE": "{actorname} beruhigt sich und die Berserkerwut verfliegt .",
   "ABILITY_BERSERKER.CHAT_RESULT_DEACTIVATE": "Die im Kampf verwendeten Eigenschaften werden zurückgesetzt.",
   "ABILITY_BERSERKER.CHAT_RESULT_LVL1": "Der Schaden im Nahkampf ist erhöht, die Basis-Verteidigung beträgt 5.",
   "ABILITY_BERSERKER.CHAT_RESULT_LVL2": "Der Schaden im Nahkampf ist erhöht und ein Rüstungs-Bonus wird gewährt, die Basis-Verteidigung beträgt 5.",
   "ABILITY_BERSERKER.CHAT_RESULT_LVL3": "Der Schaden im Nahkampf ist erhöht und ein Rüstungs-Bonus wird gewährt.",
-
   "ABILITY_DOMINATE_ADEPT.CHAT_INTRO": "{actorname} versucht das Ziel einzuschüchtern.",
   "ABILITY_DOMINATE_MASTER.CHAT_INTRO": "{actorname} versucht das Ziel zu unterwerfen.",
   "ABILITY_DOMINATE_ADEPT.CHAT_SUCCESS": "{actorname} lässt das Ziel zaudern — das Furcht-Symbol endet automatisch mit dem Zug des Ziels.",
   "ABILITY_DOMINATE_MASTER.CHAT_SUCCESS": "{actorname} unterwirft das Ziel.",
-
   "ABILITY_LEADER.CHAT_SUCCESS": "Verbündete verursachen +1W4 Schaden gegen {targetname}",
   "ABILITY_LOREMASTER.CHAT_INTRO": "{actorname} weiß vielleicht etwas darüber.",
   "ABILITY_LOREMASTER.CHAT_SUCCESS": "{actorname} weiß etwas darüber.",
   "ABILITY_LOREMASTER.CHAT_FAILURE": "{actorname} fällt nichts dazu ein.",
-
   "ABILITY_MEDICUS.CHAT_INTRO": "{actorname} behandelt die Verletzungen.",
   "ABILITY_MEDICUS.CHAT_SUCCESS": "{actorname} heilt die Wunde erfolgreich.",
   "ABILITY_MEDICUS.CHAT_FAILURE": "Ein Fehlschlag. Aua! Das schmerzt!",
@@ -110,31 +103,27 @@
   "ABILITY_MEDICUS.CHAT_FINAL": " Zähigkeit geheilt : ",
   "ABILITY_MEDICUS.CHAT_TARGET": "Patient:in : {targetname}",
   "ABILITY_MEDICUS.NO_TARGET": "Kein Ziel gewählt, Verarzten Wurf ohne Heilung",
-    "A29.REMINDER_TITLE": "Aufrechterhalten?",
+  "A29.REMINDER_TITLE": "Aufrechterhalten?",
   "A29.REMINDER_TEXT": "{name} wird noch aufrechterhalten ({count} Ziel(e)). Kraft weiter aufrechterhalten?",
   "A29.REMINDER_YES": "Ja",
   "A29.REMINDER_NO": "Nein",
   "A29.REMINDER_NO_ITEM": "Die Kraft konnte auf dem Charakter nicht mehr gefunden werden - bitte manuell würfeln.",
-"DIALOG.MEDICUS_EXAM": "Verarzten Wurf ohne Heilung",
+  "DIALOG.MEDICUS_EXAM": "Verarzten Wurf ohne Heilung",
   "DIALOG.CUSTOM_HEALING_MODIFIER": "Individueller Modifikator",
-
   "ABILITY_STRANGLER.CHAT_INTRO": "{actorname} versucht sein Ziel zu ergreifen.",
   "ABILITY_STRANGLER.CHAT_INTRO_M": "{actorname} versucht den Würgegriff aufrechtzuerhalten.",
   "ABILITY_STRANGLER.CHAT_SUCCESS": "{actorname} würgt sein Opfer.",
   "ABILITY_STRANGLER.CHAT_FAILURE": "{targetname} entkommt dem Würgegriff.",
-
   "ABILITY_WITCHSIGHT.CHAT_INTRO": "{actorname} versucht die Welt der Schatten wahrzunehmen.",
   "ABILITY_WITCHSIGHT.CHAT_SUCCESS": "{actorname} durchschaut den Schleier der Schatten.",
   "ABILITY_WITCHSIGHT.CHAT_FAILURE": "{actorname} verliert den Fokus im Schleier.",
   "ABILITY_WITCHSIGHT.CHAT_FINAL": " Die Farbe des Schattens von {targetname} ist: {targetshadow}",
-
   "ABILITY.NOVICE": "Novize",
   "ABILITY.ADEPT": "Adept",
   "ABILITY.MASTER": "Meister",
   "ABILITY.NOT_LEARNED": "nicht erlernt",
   "ABILITY.ROLL_RESULT": "Würfelergebnis: ",
   "ABILITY.SECOND_ROLL_RESULT": "Würfelergebnis eines kritischen Erfolgs oder Patzers : ",
-
   "ACTION.ACTIVE": "Aktiv",
   "ACTION.FREE": "Frei",
   "ACTION.PASSIVE": "Passiv",
@@ -142,12 +131,10 @@
   "ACTION.SPECIAL": "Speziell",
   "ACTION.MOVEMENT": "Bewegung",
   "ACTION.FULL_TURN": "Volle Runde",
-
   "ACTOR.TypePlayer": "Spielercharakter",
   "TYPES.Actor.player": "Spielercharakter",
   "ACTOR.TypeMonster": "Nicht-Spieler-Charakter | Monster",
   "TYPES.Actor.monster": "Nicht-Spieler-Charakter | Monster",
-
   "ARMOR.NAME": "Name",
   "ARMOR.NOARMOR_NAME": "keine Rüstung",
   "ARMOR.SKIN": "Haut, Fell, Schuppen",
@@ -170,7 +157,6 @@
   "ARMOR.DEFENCE_ATTRIBUTE": "verteidigt sich mit",
   "ARMOR.ADDBUTTON": "Rüstung hinzufügen",
   "ARMOR.DELETEBUTTON": "Rüstung entfernen",
-
   "ARTIFACT.NAME": "Name",
   "ARTIFACT.ACTION": "Aktion",
   "ARTIFACT.CORRUPTION": "Korruption",
@@ -181,7 +167,6 @@
   "ARTIFACT.DELETEBUTTON": "Artefakt löschen",
   "ARTIFACT.POWER_ADDBUTTON": "Artefakt Merkmal hinzufügen",
   "ARTIFACT.POWER_DELETEBUTTON": "Artefakt Merkmal löschen",
-
   "ATTRIBUTE.ACCURATE": "Präzision",
   "ATTRIBUTE.CUNNING": "Scharfsinn",
   "ATTRIBUTE.DISCREET": "Heimlichkeit",
@@ -191,7 +176,6 @@
   "ATTRIBUTE.RESOLUTE_UNKNOWN_ORIGINATOR": "Willenskraft (unbekannter Urheber)",
   "ATTRIBUTE.STRONG": "Stärke",
   "ATTRIBUTE.VIGILANT": "Aufmerksamkeit",
-
   "ATTRIBUTE.ACCURATEABBR": "PRÄ",
   "ATTRIBUTE.CUNNINGABBR": "SCH",
   "ATTRIBUTE.DISCREETABBR": "HEI",
@@ -200,13 +184,11 @@
   "ATTRIBUTE.RESOLUTEABBR": "WIL",
   "ATTRIBUTE.STRONGABBR": "STÄ",
   "ATTRIBUTE.VIGILANTABBR": "AUF",
-
   "ATTRIBUTE.CUSTOM": "Variabel",
   "ATTRIBUTE.BASE": "Basis",
   "ATTRIBUTE.MODIFIER": "Mod.",
   "ATTRIBUTE.BONUS": "Bonus",
   "ATTRIBUTE.MODIFY": "Modifizieren",
-
   "BIO.NAME": "Name",
   "BIO.RACE": "Volk",
   "BIO.OCCUPATION": "Beruf",
@@ -222,13 +204,10 @@
   "BIO.STIGMAS": "Stigmata",
   "BIO.TACTICS": "Taktik",
   "BIO.MANNER": "Verhalten",
-
-  "BONUS.IMPEDING_REDUCTION":"Abzug Behinderung",
-
+  "BONUS.IMPEDING_REDUCTION": "Abzug Behinderung",
   "BOON.NAME": "Name",
   "BOON.DESCRIPTION": "Beschreibung",
   "BOON.LEVEL": "Stufe",
-
   "BOON_LABEL.ABSOLUTE_MEMORY": "Perfektes Gedächtnis",
   "BOON_LABEL.ARCHIVIST": "Archivar",
   "BOON_LABEL.AUGUR": "Augur",
@@ -274,11 +253,9 @@
   "BOON_LABEL.STORYTELLER": "Geschichtenerzähler",
   "BOON_LABEL.TELLTALE": "Gerüchtekoch",
   "BOON_LABEL.TOUGH": "Zäh",
-
   "BURDEN.NAME": "Name",
   "BURDEN.DESCRIPTION": "Beschreibung",
   "BURDEN.LEVEL": "Stufe",
-
   "BURDEN_LABEL.ADDICTION": "Sucht",
   "BURDEN_LABEL.ARCHENEMY": "Erzfeind",
   "BURDEN_LABEL.BESTIAL": "Bestialisch",
@@ -296,7 +273,6 @@
   "BURDEN_LABEL.SICKLY": "Kränklich",
   "BURDEN_LABEL.SLOW": "Langsam",
   "BURDEN_LABEL.WANTED": "Gesucht",
-
   "BUTTON.DEATH": "Tod",
   "BUTTON.RECOVER": "Erholung",
   "BUTTON.POST_ITEM": "Sende Eintrag",
@@ -305,7 +281,6 @@
   "BUTTON.CONFIRM": "Bestätigen",
   "BUTTON.YES": "Ja",
   "BUTTON.NO": "Nein",
-
   "CHAT.GMTEXT_BUTTON": "Diese Schaltfläche ist nur für die Spielleitung und fügt dem Token den Effekt hinzu.",
   "CHAT.APPLY_BUTTON": "Wende die Ergebnisse auf den Token an",
   "CHAT.RESIST_TEXT_BUTTON": " kann dem Angriff widerstehen mit der Nutzung von ",
@@ -326,7 +301,6 @@
   "CHAT.STAY_ALIVE": "Du bleibst vorerst am Leben!",
   "CHAT.NEAR_DEATH": "Der Tod ist nahe :",
   "CHAT.DEAD": "{name} tut den letzten Atemzug.",
-
   "COMBAT.DAMAGE": "Verursachter Schaden: ",
   "COMBAT.BLEED": "Blutung",
   "COMBAT.CHAT_INTRO": " greift an mit ",
@@ -387,12 +361,10 @@
   "COMBAT.PARAMS_PRECISE": "Präzise Waffe, ",
   "COMBAT.PARAMS_BASTARD_1H": "einhändig geführt",
   "COMBAT.PARAMS_BASTARD_INACTIVE": "inaktiv",
-
   "CORRUPTION.CHAT_INTRO": " wird korrumpiert.",
   "CORRUPTION.CHAT_THRESHOLD": " wird vom Brand gezeichnet (Schwelle erreicht).",
   "CORRUPTION.CHAT_MAX": " wird zu einer Abscheulichkeit (Korruption erreicht Willenskraft).",
   "CORRUPTION.CHAT_WARNING": " nähert sich der Korruptionsschwelle.",
-
   "DIALOG.SYSTEM_MESSAGE": "Symbaroum Systembenachrichtigung",
   "DIALOG.OK": "Ok",
   "DIALOG.CANCEL": "Abbrechen",
@@ -422,10 +394,8 @@
   "DIALOG.3ATTACKS": "Dreifach angreifen?",
   "DIALOG.FEAT_STRENGTH_DAMAGE": "Kraftakt",
   "DIALOG.ROBUST_DMG": "Robust Schadensbonus?",
-
   "DIALOG.CASTING_ATTRIBUTE": "Mystische Eigenschaft",
   "DIALOG.RESIST_ATTRIBUTE": "Gegnerische Eigenschaft",
-
   "DIALOG.CONFIRM_ACTIVATE": "Willst du {ability} anwenden? Das kostet dich {cost} Punkte temporäre Korruption.",
   "DIALOG.CONFIRM_ACTIVATE_ONE": "Willst du {ability} anwenden? Das kostet dich 1 Punkt temporäre Korruption.",
   "DIALOG.CONFIRM_ACTIVATE_NOCOST": "Willst du {ability} anwenden?",
@@ -433,7 +403,6 @@
   "DIALOG.CONFIRM_DEACTIVATE_COST": "Willst du {ability} deaktivieren? Das kostet dich {cost} Punkte temporäre Korruption.",
   "DIALOG.CORRUPTION_COST_1D4": "1W4",
   "DIALOG.CORRUPTION_COST_2D4KL": "2W4 (der niedrigere Wurf zählt)",
-
   "DIALOG.VERSUS": "Versus",
   "DIALOG.ASK_CORRUPTION": "Ziel vollständig korrumpiert?",
   "DIALOG.ATTRIBUTE": "Eigenschaft",
@@ -453,7 +422,6 @@
   "DIALOG.CHAIN_NEXT_TARGET": "Weiteres Ziel<br>für Kette?",
   "DIALOG.CHAIN_NO_NEW_TARGET": "Kein neues Ziel markiert - die Kette endet hier.",
   "DIALOG.ROLLONTABLE": "Wurf auf Tabelle {tablename}",
-
   "EQUIPMENT.NAME": "Name",
   "EQUIPMENT.COST": "Kosten",
   "EQUIPMENT.NUMBER": "Anzahl",
@@ -461,21 +429,17 @@
   "EQUIPMENT.QUANTITY_SHORT": "Verf.",
   "EQUIPMENT.ADDBUTTON": "Ausrüstung hinzufügen",
   "EQUIPMENT.DELETEBUTTON": "Ausrüstung entfernen",
-
   "ERROR.NO_TOKEN_SELECTED": "Wähle die handelnde Figur.",
   "ERROR.NOT_LEARNED": "{name} ist nicht erlernt.",
   "ERROR.NO_STAFF": "{name} erfordert eine aktive Langwaffe.",
   "ERROR.MACRO_NOT_OWNED": "Du kannst nur Makros für Gegenstände und Merkmale anlegen, die dein Charakter besitzt.",
   "ERROR.MACRO_NO_OBJECT": "Der ausgewählte Token hat keinen Gegenstand und kein Merkmal mit der Bezeichnung: ",
   "ERROR.MACRO_NO_SCRIPT": " wurde nicht mit einem Skript versehen.",
-
   "EXPERIENCE": "Erfahrung",
-
   "GEAR.ACTIVE": "Aktiv",
   "GEAR.EQUIPPED": "Ausgerüstet",
   "GEAR.OTHER": "Andere",
   "GEAR.STATE": "Status",
-
   "HEALTH.TOUGHNESS": "Zähigkeit",
   "HEALTH.TOUGHNESS_MAX": "Zäh. Max",
   "HEALTH.TOUGHNESS_CURRENT": "Aktuell",
@@ -494,12 +458,9 @@
   "HEALTH.CORRUPTION_THRESHOLD_MAX": "Kor. Schwelle",
   "HEALTH.CORRUPTION_MAX": "Abso.",
   "HEALTH.CORRUPTION_THROUGHLY": "vollständig korrumpiert",
-
   "INITIATIVE.TITLE": "Initiative",
   "INITIATIVE.EXPLANATION": "Initiative angezeigt als [initiative attribute.vigilant]",
-
   "ENRICHER.INTEGRATED_HEADER": "integriert",
-
   "ITEM.TRAIT": "Merkmale",
   "ITEM.ABILITY": "Fähigkeit",
   "ITEM.ARMOR": "Rüstung",
@@ -510,7 +471,6 @@
   "ITEM.WEAPON": "Waffen",
   "ITEM.BOON": "Segen",
   "ITEM.BURDEN": "Last",
-
   "ITEM.TypeTrait": "Merkmale",
   "ITEM.TypeAbility": "Fähigkeit",
   "ITEM.TypeArmor": "Rüstung",
@@ -531,7 +491,6 @@
   "TYPES.Item.weapon": "Waffen",
   "TYPES.Item.boon": "Segen",
   "TYPES.Item.burden": "Last",
-
   "MACRO.ATTRIBUTE": "Attribut",
   "MACRO.MAKETEST": "Wurf auf {testtype}",
   "MACRO.SELECTPLAYERS": "Wähle Spieler:innen",
@@ -581,7 +540,6 @@
   "MACRO.WEIGHT_MIGRATION_NONE": "Nichts zu migrieren – alle Items haben bereits eine Gewichtsangabe.",
   "MACRO.WEIGHT_MIGRATION_ACCEPT": "Annehmen",
   "MACRO.WEIGHT_MIGRATION_DONE": "{count} Item(s) übernommen.",
-
   "MONEY.THALER": "Thaler",
   "MONEY.SHILLING": "Schilling",
   "MONEY.ORTEG": "Orteg",
@@ -591,9 +549,7 @@
   "MONEY.TOTAL_VALUE": "Gesamt: {value} Orteg",
   "MONEY.WARN_INSUFFICIENT": "Der Bestand reicht dafür nicht aus.",
   "MONEY.WARN_INVALID": "Ungültige Eingabe im Währungsfeld.",
-
   "PRICE.MIGRATION_HINT": "Preis über das Makro „Währungsmigration“ übernehmen.",
-
   "WEIGHT.LABEL": "Gewicht",
   "WEIGHT.NONE": "Keine Angabe",
   "WEIGHT.TINY": "Winzig",
@@ -619,13 +575,11 @@
   "WEIGHT.TOOLTIP_MALUS": "Verteidigungs-Malus: −{malus}",
   "WEIGHT.TOOLTIP_HINT_OVER": "Über der harten Grenze sind nur noch kurze Strecken möglich.",
   "WEIGHT.TOOLTIP_HINT_TRAVEL": "Belastet: −1 Verteidigung pro angefangener GE über der Grenze; Reisestufen bitte manuell anpassen.",
-
   "MYSTICAL_POWER.NAME": "Name",
   "MYSTICAL_POWER.ACTIVE": "Erlernt",
   "MYSTICAL_POWER.ACTION": "Aktion",
   "MYSTICAL_POWER.MATERIAL": "Komponente",
   "MYSTICAL_POWER.DESCRIPTION": "Beschreibung",
-
   "POWER_LABEL.ANATHEMA": "Anathema",
   "POWER_LABEL.BANISHING_SEAL": "Bannsiegel",
   "POWER_LABEL.BATTLE_SYMBOL": "Kampfsymbol",
@@ -681,7 +635,6 @@
   "POWER_LABEL.WEAKENING_HYMN": "Schwächende Hymne",
   "POWER_LABEL.WILD_HUNT": "Wilde Jagd",
   "POWER_LABEL.WITCH_HAMMER": "Hexenhammer",
-
   "POWER.CHAT_INTRO": "{actorname} versucht zu benutzen ",
   "POWER.CHAT_INTRO_M": "{actorname} versucht aufrecht zu erhalten ",
   "POWER.CHAT_SUCCESS": "{actorname} ist erfolgreich.",
@@ -692,14 +645,12 @@
   "POWER.MAINTAIN_CHAIN_BREAKS": "{targetname}: Wirkung endet.",
   "POWER.MAINTAIN_CHAIN_NO_TARGETS": "Keine aktiven Wirkungen gefunden.",
   "POWER.MAINTAIN_CHAIN_ROUND_DAMAGE": "{targetname} erleidet {count} Schaden (Rüstung ignoriert).",
-
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} versucht eine Kraft zu zerstreuen.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} unterbricht die Kraft.",
   "POWER_ANATHEMA.CHAT_FAILURE": "{actorname} versagt.",
   "POWER_ANATHEMA.DISPEL_SUMMARY": "Anathema-Wirkung:",
   "POWER_ANATHEMA.DISPEL_BREAKS": "{originatorname}: Wirkungen auf {targetname} aufgehoben.",
   "POWER_ANATHEMA.DISPEL_HOLDS": "{originatorname}: Wirkungen auf {targetname} halten.",
-
   "POWER_BANISHINGSEAL.CHAT_INTRO": "{actorname} versucht {targetname} zu bannen.",
   "POWER_BANISHINGSEAL.CHAT_SUCCESS": "{targetname} wird vom Bannsiegel verbannt.",
   "POWER_BANISHINGSEAL.CHAT_FAILURE": "{targetname} widersteht dem Bannsiegel.",
@@ -714,7 +665,6 @@
   "POWER_BANISHINGSEAL.BUTTON_APPLY": "Übernehmen",
   "POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE": "{targetname} entspricht nicht der im Siegel-Dialog gewählten Kategorie — das Bannsiegel wird nicht gewirkt (Novize: kein Wurf).",
   "POWER_BANISHINGSEAL.CHAT_FLEEING_INFO": "Verängstigt-Symbole gesetzt — fliehende Kreaturen ggf. manuell aus dem Kampftracker entfernen.",
-
   "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} versucht, {targetname} mit dem Kampfsymbol zu erfassen.",
   "POWER_BATTLESYMBOL.CHAT_INTRO_M": "{actorname} hält das Kampfsymbol aufrecht.",
   "POWER_BATTLESYMBOL.CHAT_SUCCESS": "{targetname} wird von unkontrollierbarer Kampfeswut erfasst.",
@@ -722,41 +672,33 @@
   "POWER_BATTLESYMBOL.CHAT_NOVICE": "Das Opfer greift sofort die nächste Person an, Freund oder Feind. Wirkung: eine Runde — das Berserkersymbol endet automatisch mit dem Zug des Opfers.",
   "POWER_BATTLESYMBOL.CHAT_ADEPT": "Die Betroffenen greifen sofort die nächste Person an, Freund oder Feind (SL). Maintain-Probe: Willenskraft minus dem Schaden des Treffers, der sie auslöst (Modifikator im Würfeldialog).",
   "POWER_BATTLESYMBOL.CHAT_MASTER": "Die Betroffenen können sich nicht verteidigen – jeder Angriff gegen sie trifft automatisch (SL).",
-
   "POWER_BLACKBREATH.CHAT_INTRO": "{actorname} speit seine innere Dunkelheit gegen {targetname}.",
   "POWER_BLACKBREATH.CHAT_SUCCESS": "Der schwarze Atem erfasst {targetname}.",
   "POWER_BLACKBREATH.CHAT_HEAL": "{targetname} wird um {count} Korruptionspunkt(e) geläutert.",
   "POWER_BLACKBREATH.CHAT_CORRUPTED": "{targetname} erleidet {count} temporäre(n) Korruptionspunkt(e).",
   "POWER_BLACKBREATH.CHAT_CHAIN_END": "Das geheilte Ziel beendet die Kette.",
-
   "POWER_BENDWILL.CHAT_INTRO": "{actorname} versucht {targetname} zu kontrollieren.",
   "POWER_BENDWILL.CHAT_INTRO_M": "{actorname} hält Zwang aufrecht.",
   "POWER_BENDWILL.CHAT_SUCCESS": "{actorname} kontrolliert nun {targetname}.",
   "POWER_BENDWILL.CHAT_FAILURE": "{targetname} wiedersteht dem Zwang.",
-
   "POWER_BLACKBOLT.CHAT_INTRO": "{actorname} schleudert Bänder aus schwarzen Flammen.",
   "POWER_BLACKBOLT.CHAT_SUCCESS": "{targetname} ist von einer Seelengeissel getroffen und festgesetzt.",
   "POWER_BLACKBOLT.CHAT_FAILURE": "{targetname} weicht der Seelengeissel aus.",
-
   "POWER_BLESSEDSHIELD.CHAT_INTRO": "{actorname} erbittet Prios' Schutz.",
   "POWER_BLESSEDSHIELD.CHAT_SUCCESS": "{actorname} ist von einem heiligen Schild umgeben.",
   "POWER_BLESSEDSHIELD.CHAT_FAILURE": "{actorname} verbleibt in der Dunkelheit.",
   "POWER_BLESSEDSHIELD.PROTECTED": "{actorname} ist geschützt.",
-
   "POWER_BLINDINGSYMBOL.CHAT_INTRO_M": "{targetname} versucht, das blendende Symbol abzuschütteln.",
   "POWER_BLINDINGSYMBOL.CHAT_SUCCESS": "{targetname} wird vom Symbol geblendet.",
   "POWER_BLINDINGSYMBOL.CHAT_FAILURE": "{targetname} widersteht dem blendenden Symbol.",
   "POWER_BLINDINGSYMBOL.UNTIL_HEALED": "{targetname} bleibt geblendet, bis Heilung erfolgt.",
-
   "POWER_BRIMSTONECASC.CHAT_INTRO": "{actorname} entfesselt eine tobende Flammenwelle.",
   "POWER_BRIMSTONECASC.CHAT_SUCCESS": "{targetname} fängt Feuer.",
   "POWER_BRIMSTONECASC.CHAT_FAILURE": "{targetname} vermeidet einen Teil des Schadens.",
   "POWER_BRIMSTONECASC.CHAT_FAILURE_RR": "{targetname} vermeidet die Flammenwelle vollständig.",
-
   "POWER_CONFUSION.EFFECT12": "{targetname} steht verwirrt in der Gegend herum.",
   "POWER_CONFUSION.EFFECT34": "{targetname} greift den nächsten Verbündeten an.",
   "POWER_CONFUSION.EFFECT56": "{targetname}  greift den nächsten Feind an.",
-
   "POWER_CURSE.CHAT_INTRO": " wirkt einen Fluch.",
   "POWER_CURSE.CHAT_INTRO_M": "{actorname} hält den Fluch aufrecht.",
   "POWER_CURSE.CHAT_SUCCESS_N": "{targetname} ist verflucht (Hat Missgunst gegen {actorname}).",
@@ -764,12 +706,10 @@
   "POWER_CURSE.CHAT_SUCCESS_M": "{targetname} ist schwer verflucht und erleidet 1W6 Schaden für jede Aktion.",
   "POWER_CURSE.CHAT_FAILURE": "{actorname} kann den Fluch nicht aufrecht erhalten.",
   "POWER_CURSE.CHAT_FAIL_FINAL": "Der Fluch hat keinen Effekt mehr auf {targetname}.",
-
   "POWER_DANCINGWEAPON.CHAT_ACTIVATE": "{actorname} wirkt Tanzende Waffe.",
   "POWER_DANCINGWEAPON.CHAT_DEACTIVATE": "{actorname} beendet Tanzende Waffe.",
   "POWER_DANCINGWEAPON.CHAT_RESULT_ACTIVATE": "Präzision (Angr.) und Gewandheit (Vert.) werden im Kampf durch Willenskraft ersetzt.",
   "POWER_DANCINGWEAPON.CHAT_RESULT_DEACTIVATE": "Die üblichen Eigenschaften werden wieder für den Kampf verwendet.",
-
   "POWER_DRAININGGLYPH.CHAT_INTRO": "{actorname} zeichnet eine schwächende Glyphe auf {targetname}.",
   "POWER_DRAININGGLYPH.CHAT_INTRO_M": "{actorname} hält die schwächende Glyphe aufrecht.",
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} wird durch die Glyphe geschwächt.",
@@ -777,21 +717,17 @@
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "{actorname} wird pro Runde um 1W4 Zähigkeit geheilt, solange die Glyphe aufrechterhalten wird (vom Spielleiter anzuwenden).",
   "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Weiteres Ziel<br>für die Glyphe?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - die Glyphe wirkt nur auf die bereits geprüften Feinde.",
-
   "POWER_EARTHBINDING.CHAT_INTRO": "{actorname} versucht, {targetname} im Boden versinken zu lassen. (Aktion: Frei, einmal pro Runde)",
   "POWER_EARTHBINDING.CHAT_INTRO_M": "{targetname} versucht, sich aus der Erdfessel zu befreien.",
   "POWER_EARTHBINDING.CHAT_SUCCESS": "{targetname} ist im Boden gefesselt und kann sich nicht bewegen.",
   "POWER_EARTHBINDING.CHAT_FAILURE": "{targetname} entgeht der Erdfessel.",
   "POWER_EARTHBINDING.CHAT_MASTER": "Der Boden umklammert das Ziel: 1W6 Schaden pro Runde, Rüstung wird ignoriert (wiederholende Probe je Runde; für weitere Kettenziele wendet die SL an).",
-
   "POWER_EARTHSHOT.CHAT_BROCKEN": "1W4 Felsbrocken: {count} Angriffe.",
   "POWER_EARTHSHOT.CHAT_NEXT_BROCKEN": "Weiterer Brocken?<br>(noch {count})",
   "POWER_EARTHSHOT.CHAT_NO_NEW_TARGET": "Kein Ziel markiert - die Brocken enden hier.",
-
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} versucht sich von den Ranken loszureißen.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} ist in Ranken verstrickt.",
   "POWER_ENTANGLINGVINES.CHAT_FAILURE": "{targetname} kann sich von den Ranken befreien.",
-
   "POWER_HOLYAURA.CHAT_INTRO": "{actorname} versucht das Licht Prios zu kanalisieren.",
   "POWER_HOLYAURA.CHAT_SUCCESS": "{actorname} strahlt ein heiliges Licht aus.",
   "POWER_HOLYAURA.CHAT_FAILURE": "{actorname} kann das Licht Prios nicht kanalisieren.",
@@ -810,19 +746,16 @@
   "POWER_HOLYAURA.ALLY_TOO_FAR": "Hinweis: {targetname} ist weiter als kurze Distanz (Nah) vom Wirker entfernt — SL prüft.",
   "POWER_HOLYAURA.SCENE_BLOCKED": "Die Heilige Aura ist in dieser Szene nicht mehr einsetzbar (gescheitertes erstes Wirken — SL-Verwaltung).",
   "POWER_HOLYAURA.SUMMARY": "{powername}: Wirkung der Aura",
-
   "POWER_INHERITWOUND.CHAT_INTRO": "{actorname} versucht die Wunden zu übernehmen.",
   "POWER_INHERITWOUND.CHAT_SUCCESS": "{actorname} transferiert einen Teil der Wunden",
   "POWER_INHERITWOUND.CHAT_FAILURE": "{actorname} kann die Wunden nicht transferieren.",
   "POWER_INHERITWOUND.CHAT_HEALED": "{targetname} erhält Zähigkeitsheilung in Höhe von: ",
   "POWER_INHERITWOUND.CHAT_DAMAGE": "{actorname} erhält Schaden in Höhe von: ",
   "POWER_INHERITWOUND.CHAT_REDIRECT": "; auch Vergiftung und Blutung werden übernommen.",
-
   "POWER_LARVAEBOILS.CHAT_INTRO": "{actorname} beschwört Larven.",
   "POWER_LARVAEBOILS.CHAT_INTRO_M": "{actorname} hält den Larvenfrass aufrecht.",
   "POWER_LARVAEBOILS.CHAT_SUCCESS": "{targetname} wird von innen von den Larven gefressen.",
   "POWER_LARVAEBOILS.CHAT_FAILURE": "{targetname} widersteht dem Larvenfrass.",
-
   "POWER_LAYONHANDS.DIALOG": "Wie nah ist dein Ziel?",
   "POWER_LAYONHANDS.TOUCH": "Berührung",
   "POWER_LAYONHANDS.REMOTE": "Sichtlinie",
@@ -830,10 +763,8 @@
   "POWER_LAYONHANDS.CHAT_SUCCESS": "{actorname} heilt {targetname}.",
   "POWER_LAYONHANDS.CHAT_FINAL": "Zähigkeit geheilt: ",
   "POWER_LAYONHANDS.CHAT_FAILURE": "{actorname} kann {targetname} nicht heilen.",
-
   "POWER_LEVITATE.CHAT_FALL": "{targetname} stürzt zu Boden: {count} Schaden, Rüstung ignoriert (Anwendung über GM-Karte).",
   "POWER_LEVITATE.CHAT_LANDS": "{targetname} schwebt unversehrt zu Boden.",
-
   "POWER_MARKOFTORMENT.CHAT_INTRO": "{actorname} zeichnet {targetname} mit dem Zeichen der Pein.",
   "POWER_MARKOFTORMENT.CHAT_INTRO_M": "{targetname} versucht, das Zeichen der Pein abzuschütteln.",
   "POWER_MARKOFTORMENT.CHAT_SUCCESS": "{targetname} wird von stechenden Schmerzen geschüttelt.",
@@ -841,7 +772,6 @@
   "POWER_MARKOFTORMENT.CHAT_NOVICE": "Keine aktiven Aktionen, solange der Mystiker das Zeichen aufrechterhält — Abbruch oder misslungene Aufrechterhaltung entfernt das Symbol.",
   "POWER_MARKOFTORMENT.CHAT_ADEPT": "Wie Novize — zusätzlich würfeln alle Angreifer ihre Waffenangriffe automatisch mit Gunst.",
   "POWER_MARKOFTORMENT.CHAT_MASTER": "Angreifer würfeln ihre Waffenangriffe automatisch mit Gunst.",
-
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} fokussiert das Licht der Seele als brenennden Strahl.",
   "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET": "Weiteres Ziel<br>für das Brennglas?",
   "POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - das Brennglas endet hier.",
@@ -849,49 +779,41 @@
   "POWER_PRIOSBURNINGGLASS.STUN_QUESTION": "{targetname} betäuben?<br>[Willenskraft <-- Willenskraft]",
   "POWER_PRIOSBURNINGGLASS.STUN_SUCCESS": "{targetname} ist für eine Runde betäubt — das Symbol endet automatisch mit dem Zug des Ziels.",
   "POWER_PRIOSBURNINGGLASS.STUN_TITLE": " — Betäubung",
-
   "POWER_PROTECTIVERUNES.CHAT_ACTIVATE": "{actorname} aktiviert Schutzrunen.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE": "Der Schutz der Runen ist aktiv.",
   "POWER_PROTECTIVERUNES.CHAT_DEACTIVATE": "{actorname} deaktiviert Schutzrunen.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_DEACTIVATE": "Der Schutz der Runen endet.",
   "POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_ADEPT": "Vergeltung: 1W4 Schaden an jedem Angreifer (Rüstung ignoriert), vom SL anzuwenden.",
   "POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_MASTER": "Vergeltung: 1W6 Schaden an jedem Angreifer (Rüstung ignoriert), vom SL anzuwenden.",
-
   "POWER_REVENANTSTRIKE.CHAT_ACTIVATE": "Waffe von {actorname} wird dunkler.",
   "POWER_REVENANTSTRIKE.CHAT_DEACTIVATE": "Waffe von {actorname} glüht nicht mehr.",
   "POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE": "Waffenwerte werden wieder normal.",
   "POWER_REVENANTSTRIKE.CHAT_RESULT": "Der Bonus für Wiedergänger-Schlag wird angewendet.",
-
   "POWER_SPHERE.CHAT_ACTIVATE": "{actorname} aktiviert die Sphäre.",
   "POWER_SPHERE.CHAT_RESULT_ACTIVATE": "Die Sphäre ist aktiv – die Verteidigung nutzt Willenskraft, solange sie höher ist.",
   "POWER_SPHERE.CHAT_DEACTIVATE": "{actorname} deaktiviert die Sphäre.",
   "POWER_SPHERE.CHAT_RESULT_DEACTIVATE": "Die Sphäre endet.",
   "POWER_SPHERE.CHAT_ADEPT": "Adept: Die Sphäre verteidigt automatisch.",
   "POWER_SPHERE.CHAT_MASTER": "Meister: Die Sphäre kann einen Verbündeten schützen, die Hände bleiben frei.",
-
   "POWER_STAFFPROJECTILE.CHAT_INTRO": "{actorname} schleudert ein Stabgeschoss auf {targetname}.",
   "POWER_STAFFPROJECTILE.CHAT_SUCCESS": "{targetname} wird vom Stabgeschoss getroffen.",
   "POWER_STAFFPROJECTILE.CHAT_FAILURE": "{targetname} weicht dem Stabgeschoss aus.",
   "POWER_STAFFPROJECTILE.CHAT_NO_TARGET": "Wähle mindestens ein Ziel-Token für das Stabgeschoss.",
   "POWER_STAFFPROJECTILE.CHAIN_CONFIRM": "Stabgeschoss auf {targetname} fortsetzen ({dice} Schaden)?",
   "POWER_STAFFPROJECTILE.CHAT_ADEPT": "Adept: Keine Sichtlinie nötig; eine aktivierte Elementarrune addiert ihren Schaden (im Schadensmodifikator-Feld eintragen).",
-
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO": "{actorname} versucht, die Geister zu erwecken.",
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO_M": "{actorname} versucht, den Wandel der Geister aufrechtzuerhalten.",
   "POWER_TORMENTINGSPIRITS.CHAT_SUCCESS": "{actorname} sendet die Geister gegen {targetname}.",
   "POWER_TORMENTINGSPIRITS.CHAT_FAILURE": "Der Ruf von {actorname} bleibt von den Geistern unbeantwortet.",
-
   "POWER_TRUEFORM.CHAT_INTRO": "{actorname} zwingt {targetname}, seine wahre Gestalt zu offenbaren.",
   "POWER_TRUEFORM.CHAT_SUCCESS": "{targetname}s wahre Gestalt wird offenbart.",
   "POWER_TRUEFORM.CHAT_FAILURE": "{targetname}s Maskerade hält.",
   "POWER_TRUEFORM.CHAT_NOVICE": "Aufgedeckte Illusionen verschwinden; Verwandlungen bleiben, doch der Mystiker durchschaut sie (SL).",
   "POWER_TRUEFORM.CHAT_MASTER": "Eine neue Verwandlung erfordert eine Willenskraft-Probe auf die Initiative des Ziels (SL).",
-
   "POWER_WITCHHAMMER.CHAT_ACTIVATE": "Die Waffe von {actorname} wird von heiligem Feuer umhüllt.",
   "POWER_WITCHHAMMER.CHAT_DEACTIVATE": "Die Waffe von {actorname} ist nicht länger von heiligen Flammen umhüllt.",
   "POWER_WITCHHAMMER.CHAT_RESULT_DEACTIVATE": "Die zusätzlichen Waffenmerkmale wurden deaktiviert.",
   "POWER_WITCHHAMMER.CHAT_RESULT": "Der Schaden durch die hervorgerufenen Flammen wird im Kampf über zusätzliche Schaltflächen abgewickelt.",
-
   "QUALITY.AREAMELEERADIUS": "Bereichseffekt – Nahkampf-Reichweite",
   "QUALITY.AREASHORTRADIUS": "Bereichseffekt – Kurze Reichweite",
   "QUALITY.AREACONE": "Bereichseffekt - Umgebung",
@@ -930,13 +852,10 @@
   "QUALITY.STAFFFIGHTINGCOMPATIBILITY": "geeignet für Stabwaffenkampf",
   "QUALITY.STAFFMAGICCOMPATIBILITY": "geeignet für Stabmagie",
   "QUALITY.SWORDSAINTCOMPATIBILITY": "geeignet für Schwertheiliger",
-
   "RITUAL.TRADITION": "Tradition",
   "RITUAL.DESCRIPTION": "Beschreibung",
-
   "ROLL.CRITSHORT": "Krit.",
   "ROLL.ADVANTAGESHORT": "Vorteil",
-
   "TAB.MAIN": "Werte",
   "TAB.GEAR": "Ausrüstung",
   "TAB.BIO": "BIO",
@@ -949,7 +868,6 @@
   "TAB.POWER": "Kräfte",
   "TAB.BONUS": "Bonus",
   "TAB.QUALITIES": "Qualitäten",
-
   "TITLE.ABILITIES_POWERS": "Fähigkeiten & Kräfte",
   "TITLE.HEALTH": "Zustand",
   "TITLE.ATTRIBUTES": "Eigenschaften",
@@ -968,16 +886,13 @@
   "TITLE.MONEY": "Geld",
   "TITLE.QUALITIES": "Qualitäten",
   "TITLE.SPECIALQUALITIES": "Fähigkeiten-Kompatibilität",
-
   "TOOLTIP.BONUS_TOTAL": "Total",
-
   "TOOLTIP.DEATH_SKULLS": "Der Tod des Charakters tritt beim 3. Schädel ein.",
   "TOOLTIP.EXPERIENCE_CURRENT": "Deine verfügbaren (nicht ausgegebenen) Erfahrungspunkte",
   "TOOLTIP.EXPERIENCE_TOTAL": "Deine ingesamt erworbenen Erfahrungspunkte",
   "TOOLTIP.EXPERIENCE_ARTIFACTRR": "Für Artefakte und Würfelwürfe ausgegebenen Erfahrungspunkte",
   "TOOLTIP.EXPERIENCE_SPENT": "Deine für Fähigkeiten, Kräfte und Vorteile ausgegebenen Erfahrungspunkte",
   "TOOLTIP.EXPERIENCE_AVAILABLE": "Deine verfügbaren (nicht ausgegebenen) Erfahrungspunkte",
-
   "TOOLTIP.HEALTH.CORRUPTION_NA_TEXT": "vollständig korrumpiert",
   "TOOLTIP.HEALTH.CORRUPTION_CURRENT": "Deine aktuelle Gesamtkorruption",
   "TOOLTIP.HEALTH.CORRUPTION_TEMPORARY": "Deine Korruption, die am Ende der Szene vergeht",
@@ -985,49 +900,37 @@
   "TOOLTIP.HEALTH.CORRUPTION_PERMANENT": "Deine Korruption, die auf unbestimmte Zeit anhält",
   "TOOLTIP.HEALTH.CORRUPTION_THRESHOLD": "Deine Korruptionsschwelle",
   "TOOLTIP.HEALTH.CORRUPTION_MAX": "Deine Willenskraft versagt ab diesem Wert und du wirst zur Abscheulichkeit",
-
   "TOOLTIP.HEALTH.TOUGHNESS_CURRENT": "Deine aktuelle Zähigkeit",
   "TOOLTIP.HEALTH.TOUGHNESS_TOTAL": "Die Menge an Schaden, die dich umbringen wird",
   "TOOLTIP.HEALTH.TOUGHNESS_THRESHOLD": "Deine Schmerzgrenze",
-
   "TOOLTIP.COMBAT.INITIATIVE": "Die Eigenschaft, auf der deine Initiative basiert",
   "TOOLTIP.COMBAT.DEFENSE": "Die Eigenschaft, auf der deine Verteidigung basiert",
-
   "TOOLTIP.POWER_ACTIONS": "Art der Aktivierung (A - Aktiv, P - Passiv, S - Speziell, usw.)",
-
   "TOOLTIP.DELETE_ITEM": "löschen",
-  "TOOLTIP.VIEW_ITEM":"ansehen|ändern",
-
+  "TOOLTIP.VIEW_ITEM": "ansehen|ändern",
   "TOOLTIP.USE_ABILITY": "benutzen",
-
   "TOOLTIP.USE_WEAPON": "Angreifen",
-  "TOOLTIP.UNACTIVATE_WEAPON":"Waffe inaktiv setzen",
-  "TOOLTIP.ACTIVATE_WEAPON":"Waffe aktiv setzen",
-
+  "TOOLTIP.UNACTIVATE_WEAPON": "Waffe inaktiv setzen",
+  "TOOLTIP.ACTIVATE_WEAPON": "Waffe aktiv setzen",
   "TOOLTIP.USE_ARMOR": "Verteidigen",
-  "TOOLTIP.UNACTIVATE_ARMOR":"Rüstung inaktiv setzen",
-  "TOOLTIP.ACTIVATE_ARMOR":"Rüstung aktiv setzen",
-
+  "TOOLTIP.UNACTIVATE_ARMOR": "Rüstung inaktiv setzen",
+  "TOOLTIP.ACTIVATE_ARMOR": "Rüstung aktiv setzen",
   "TOOLTIP.INCREASE_COUNT_DEFAULT": "Füge [{sign}{quantity}] hinzu",
   "TOOLTIP.INCREASE_COUNT": "Füge ... hinzu",
   "TOOLTIP.DECREASE_COUNT_DEFAULT": "Entferne [{sign}{quantity}]",
   "TOOLTIP.DECREASE_COUNT": "Ziehe ... ab",
   "TOOLTIP.INCREASE_COUNT_TITLE": "Füge eine Anzahl hinzu",
-  "TOOLTIP.DECREASE_COUNT_TITLE": "Entferne eine Anzahl",  
+  "TOOLTIP.DECREASE_COUNT_TITLE": "Entferne eine Anzahl",
   "TOOLTIP.QUANTITY_SETDEFAULT": "Setze als Standard Veränderung",
-  
   "TOOLTIP.DIALOG.ROLLONTABLE": "Strg&Linksklick, um den Modifikator hinzuzufügen",
-
   "TOOLTIP.DIALOG.HASSCRIPT": "Mit einem Linksklick auf das Icon oder über das Kontextmenü nach einem Rechtsklick kann eine vorkonfigurierte Probe abgelegt werden.",
   "TOOLTIP.DIALOG.ISINTERGRATED": "Bei Verwendung werden assoziierte Effekte automatisch auf den Charakter angewandt.",
-
   "TRAIT.HEADER": "Merkmal",
   "TRAIT.NAME": "Name",
   "TRAIT.ACTIVE": "erworben",
   "TRAIT.ACTION": "Aktion",
   "TRAIT.DESCRIPTION": "Beschreibung",
   "TRAIT.MARKERTRAIT": "Merkmal hat keine Abstufungen",
-
   "TRAIT_LABEL.ACIDICATTACK": "Säure-Angriff",
   "TRAIT_LABEL.ACIDICBLOOD": "Säureblut",
   "TRAIT_LABEL.ALTERNATIVEDAMAGE": "Alternativer Schaden",
@@ -1089,9 +992,7 @@
   "TRAIT_LABEL.WINGS": "Flügel",
   "TRAIT_LABEL.WISDOM_AGES": "Weisheit der Jahrhunderte",
   "TRAIT_LABEL.WRECKER": "Zerstörer",
-
   "TRAIT_REGENERATION.CHAT_ACTION": "{actorname} regeneriert sich. ",
-
   "WEAPON.HEADER": "Waffe",
   "WEAPON.NAME": "Name",
   "WEAPON.DAMAGE": "Schaden",
@@ -1111,7 +1012,6 @@
   "WEAPON.ATTACK_ATTRIBUTE": "Angriffsprobe mit",
   "WEAPON.ADDBUTTON": "Waffe hinzufügen",
   "WEAPON.DELETEBUTTON": "Waffe löschen",
-
   "WEAPON_CLASS.LABEL": "Waffenart",
   "WEAPON_CLASS.1HANDED": "Einhandwaffe",
   "WEAPON_CLASS.SHORT": "Kurzwaffe",
@@ -1121,7 +1021,6 @@
   "WEAPON_CLASS.RANGED": "Schusswaffe",
   "WEAPON_CLASS.SHIELD": "Schild",
   "WEAPON_CLASS.THROWN": "Wurfwaffe",
-
   "SYMBAROUM.OPTIONAL_CRIT": "Optional Kritischer Wurf",
   "SYMBAROUM.OPTIONAL_CRIT_HINT": "Aktiviere Angrifsboni und Verteidigungspatzer bei Würfen von 1 und 20 wie sie im Grundregelwerk auf Seite 195 beschrieben werden.",
   "SYMBAROUM.OPTIONAL_ALWAYSSUCCEDONONE": "Es ist immer möglich, erfolgreich zu scheitern",
@@ -1202,7 +1101,6 @@
   "SYMBAROUM.OPTIONAL_HIDEENGLISHMACROS": "Blende das Makro&System-Kompendium aus",
   "SYMBAROUM.OPTIONAL_HIDEENGLISHMACROS_HINT": "Blende das englischsprachige Makro&System-Kompendium aus.",
   "SYMBAROUM.OPTIONAL_CUSTOMSHEETJOURNAL": "Symbaroum Wide Journal",
-
   "SYMBAROUM.STATUS_BLEEDING": "Blutend",
   "SYMBAROUM.STATUS_BLESS": "Gesegnet",
   "SYMBAROUM.STATUS_BLIND": "Blind",
@@ -1265,7 +1163,6 @@
   "SYMBAROUM.TOUR_ADVENTURECOMPENDIUM_CONTENT": "The Symbaroum adventure compendium contains all that you need to get started",
   "SYMBAROUM.TOUR_ADVENTURECOMPENDIUM_HIGHLIGHT": "Language specific Adventures",
   "SYMBAROUM.TOUR_ADVENTURECOMPENDIUM_HIGHLIGHT_CONTENT": "Clicking on an adventure will allow you to import content into your world",
-
   "SYMBAROUM.TOUR_ACTOR_ERROR": "For a player to complete this, the GM needs to run through the GM tour and not delete 'Beremo' in the actor catalogue",
   "SYMBAROUM.TOUR_ACTOR_TITLE": "Character sheet introduction (GM)",
   "SYMBAROUM.TOUR_CHARACTER_ACTORTAB": "All actors (players/npc)",
@@ -1308,9 +1205,7 @@
   "SYMBAROUM.TOUR_CHARACTER_NOTES_FIELD_CONTENT": "This is where the character can write details - to activate click on the top right icon that appears when moving the mouse here. <br>This wraps up this tour, we will leave the character so that players can run through this tour",
   "SYMBAROUM.TOUR_CHARACTER_OVERVIEW": "Back to the actor list",
   "SYMBAROUM.TOUR_CHARACTER_OVERVIEW_CONTENT": "Good luck, and please check the System guide for more information",
-
   "SYMBAROUM.TOUR_ACTOR_TITLE_PLAYER": "Character sheet introduction (Player)",
-
   "SYMBAROUM.TOUR_ACOMPENDIUM": "Compendium tour (items for Symbaroum system)",
   "SYMBAROUM.TOUR_ACOMPENDIUM_GOTO": "Go to compendiums",
   "SYMBAROUM.TOUR_ACOMPENDIUM_GOTOCONTENT": "You will find the Symbaroum system adventure compendium under the compendium tab",
@@ -1323,5 +1218,62 @@
   "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_CONTENTS": "Compendium Contents",
   "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_CONTENTS_CONTENT": "This is items that this compendium contains and will move into your world",
   "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_IMPORT": "Import button",
-  "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_IMPORT_CONTENT": "You click here to start the import - be patient and allow it to complete before running another one"
+  "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_IMPORT_CONTENT": "You click here to start the import - be patient and allow it to complete before running another one",
+  "MODERN.TAB_COMBAT": "Kampf",
+  "MODERN.TAB_POWERS": "Fähigkeiten & Kräfte",
+  "MODERN.TAB_GEAR": "Ausrüstung",
+  "MODERN.TAB_BIO": "Biographie",
+  "MODERN.TAB_NOTES": "Notizen",
+  "MODERN.VITALS": "Vitalwerte",
+  "MODERN.SHADOW_HINT": "Schatten: nur für die SL und den Charakterbesitzer sichtbar",
+  "MODERN.MONEY_HINT": "Klicken zum Bearbeiten – Thaler/Schilling/Orteg mit Delta-Syntax (z. B. +3 oder -2)",
+  "MODERN.CHIP_DEFENSE": "Verteidigung",
+  "MODERN.CHIP_PROTECTION": "Rüstungsschutz",
+  "MODERN.CHIP_IMPEDING": "Behinderung",
+  "MODERN.CHIP_EXPERIENCE": "Erfahrung",
+  "MODERN.ACTIVE_ARMOR": "Aktive Rüstung",
+  "MODERN.ACTIVE_WEAPONS": "Aktive Waffen",
+  "MODERN.ALWAYS_SHOWN": "erscheint immer",
+  "MODERN.FAVORITES": "Favoriten",
+  "MODERN.FAVORITES_HINT": "Fähigkeiten/Kräfte ausschließlich per Favorit, andere Ausrüstung nur per Favorit",
+  "MODERN.FAVORITES_EMPTY": "Noch keine Favoriten – Stern auf einem Item setzen (gilt pro Charakter).",
+  "MODERN.FAVORITE_TOGGLE": "Favorit für den Kampf-Tab",
+  "MODERN.GROUP_ABILITIES": "Fähigkeiten",
+  "MODERN.GROUP_POWERS": "Mystische Kräfte",
+  "MODERN.GROUP_RITUALS": "Rituale",
+  "MODERN.GROUP_TRAITS": "Merkmale",
+  "MODERN.GROUP_BOONS": "Segen",
+  "MODERN.GROUP_BURDENS": "Lasten",
+  "MODERN.EXP_TOTAL": "Gesamt-XP",
+  "MODERN.EXP_ARTIFACTRR": "Für Würfelwiederholungen ausgegeben",
+  "MODERN.EXP_SPENT": "Für Fähigkeiten etc. ausgegeben",
+  "MODERN.EXP_AVAILABLE": "Verfügbar",
+  "MODERN.EXP_HINT": "Nur Gesamt-XP und die Würfelwiederholungen sind editierbar; die ausgegebenen Punkte ergeben sich aus den erlernten Fähigkeiten.",
+  "MODERN.GAUGE_HARD": "hartes Limit: {limit} GE",
+  "MODERN.GAUGE_NOTE": "weiße Marke = Belastungsgrenze · nur bei aktiver Regel",
+  "MODERN.MOVE_DENIED": "Keine Berechtigung: Dir gehört weder der Quell- noch der Ziel-Akteur.",
+  "MODERN.DESIGN_TITLE": "Designeinstellungen – Alternative Spieler- und Monsterblätter",
+  "MODERN.DESIGN_THEME": "Farbwelt",
+  "MODERN.DESIGN_THEME_DARK": "Symbaroum (dunkel)",
+  "MODERN.DESIGN_THEME_CLASSIC": "Klassisch (Papier)",
+  "MODERN.DESIGN_GAUGE": "Belastungsanzeige",
+  "MODERN.DESIGN_GAUGE_HALF": "Halbrund-Gauge",
+  "MODERN.DESIGN_GAUGE_RING": "Segmentring",
+  "MODERN.DESIGN_DEFAULT_STYLE": "Standard-Ansicht für alle Nutzer",
+  "MODERN.DESIGN_STYLE_CLASSIC": "Klassische Ansicht",
+  "MODERN.DESIGN_STYLE_MODERN": "Modernisierte Ansicht",
+  "MODERN.DESIGN_ICONS": "Tab-Icons (Foundry Font Awesome)",
+  "MODERN.DESIGN_ICONS_HINT": "Font-Awesome-Klassen (free/solid), z. B. „fas fa-hand-fist“.",
+  "MODERN.DESIGN_ICON_COMBAT": "Icon: Kampf",
+  "MODERN.DESIGN_ICON_POWERS": "Icon: Fähigkeiten & Kräfte",
+  "MODERN.DESIGN_ICON_GEAR": "Icon: Ausrüstung",
+  "MODERN.DESIGN_ICON_BIO": "Icon: Biographie",
+  "MODERN.DESIGN_ICON_NOTES": "Icon: Notizen",
+  "MODERN.DESIGN_RESET": "Auf Standardwerte zurücksetzen",
+  "SYMBAROUM.SETTING_MODERNSHEET_ENABLED": "Alternative Spieler- und Monsterblätter",
+  "SYMBAROUM.SETTING_MODERNSHEET_ENABLED_HINT": "Aktiviert die modernisierte Blattansicht (Stammleiste, Reiter mit Symbolen für Kampf, Fähigkeiten & Kräfte, Ausrüstung, Biographie, Notizen). Jeder Nutzer kann im Blattkopf zwischen klassischer und modernisierter Ansicht umschalten. Standard: aus (klassische Ansicht).",
+  "SYMBAROUM.SETTING_MODERNSHEET_DESIGN": "Designeinstellungen…",
+  "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_HINT": "Farbwelt, Belastungsvariante, Tab-Icons und Standard-Ansicht der alternativen Blätter (nur SL).",
+  "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_TITLE": "Designeinstellungen – Alternative Spieler- und Monsterblätter",
+  "BUTTON.TOGGLE_MODERN": "Ansicht wechseln (klassisch/modern)"
 }

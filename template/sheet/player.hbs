@@ -1,4 +1,11 @@
 <div class="{{cssClass}}">
+    {{!-- A6 Blatt-Überarbeitung: modernisierte Ansicht (Stammleiste + Icon-Reiter)
+        als eigenständiger Template-Zweig. Die klassische Ansicht bleibt UNVERÄNDERT,
+        Limited-Betrachter sehen weiterhin den klassischen Zweig (renderModern wird
+        in _prepareContext für limitierte Rechte nie gesetzt). --}}
+    {{#if renderModern}}
+        {{> systems/symbaroum/template/sheet/modern/player-modern.hbs}}
+    {{else}}
     <div class="player">
         <div class="sheet-header foreground border">
             <div class="avatar" style="position:relative">
@@ -88,6 +95,7 @@
 				{{> systems/symbaroum/template/sheet/tab/player-bio.hbs}}
 			</div>
 		{{/ifNotLimited}}
-       
+
     </div>
+    {{/if}}
 </div>

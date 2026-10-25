@@ -1,0 +1,34 @@
+{{!-- A6 Blatt-Überarbeitung: Wurzel-Wrapper der modernisierten Ansicht.
+    Layout (Rudolfs Freigabe): linke Stammleiste (Fixbereich, immer sichtbar),
+    Tab-Bereich in der Mitte, vertikale Icon-Reiterleiste am rechten Rand
+    (nur Symbole, Hovertext = Tabtitel). Farbwelt über Theme-Klasse
+    (modern-theme-dark / modern-theme-classic), kein zweites Template. --}}
+<div class="modern-root modern-theme-{{modern.theme}}{{#unless editable}} modern-locked{{/unless}}">
+    {{> systems/symbaroum/template/sheet/modern/sidebar.hbs}}
+
+    <div class="modern-body">
+        <div class="tab" data-group="modern" data-tab="combat">
+            {{> systems/symbaroum/template/sheet/modern/tab/combat.hbs}}
+        </div>
+        <div class="tab" data-group="modern" data-tab="powers">
+            {{> systems/symbaroum/template/sheet/modern/tab/powers.hbs}}
+        </div>
+        <div class="tab" data-group="modern" data-tab="gear">
+            {{> systems/symbaroum/template/sheet/modern/tab/gear.hbs}}
+        </div>
+        <div class="tab" data-group="modern" data-tab="bio">
+            {{> systems/symbaroum/template/sheet/modern/tab/bio.hbs}}
+        </div>
+        <div class="tab" data-group="modern" data-tab="notes">
+            {{> systems/symbaroum/template/sheet/modern/tab/notes.hbs}}
+        </div>
+    </div>
+
+    <nav class="modern-rail tabs" data-group="modern" data-tooltip-direction="LEFT">
+        <button type="button" class="modern-rail-btn" data-tab="combat" data-tooltip="{{localize 'MODERN.TAB_COMBAT'}}"><i class="{{modern.tabIcons.combat}}"></i></button>
+        <button type="button" class="modern-rail-btn" data-tab="powers" data-tooltip="{{localize 'MODERN.TAB_POWERS'}}"><i class="{{modern.tabIcons.powers}}"></i></button>
+        <button type="button" class="modern-rail-btn" data-tab="gear" data-tooltip="{{localize 'MODERN.TAB_GEAR'}}"><i class="{{modern.tabIcons.gear}}"></i></button>
+        <button type="button" class="modern-rail-btn" data-tab="bio" data-tooltip="{{localize 'MODERN.TAB_BIO'}}"><i class="{{modern.tabIcons.bio}}"></i></button>
+        <button type="button" class="modern-rail-btn" data-tab="notes" data-tooltip="{{localize 'MODERN.TAB_NOTES'}}"><i class="{{modern.tabIcons.notes}}"></i></button>
+    </nav>
+</div>

@@ -7,6 +7,8 @@ import { SymbaroumAPI } from './api.js';
 import { SymbaroumCommsListener } from './symbcomms.js';
 import { SymbaroumMacros } from './macro.js';
 import { SymbaroumConfig } from './symbaroumConfig.js';
+// A6 Blatt-Überarbeitung: alternative (modernisierte) Blätter + Designeinstellungen
+import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, renderAllActorSheets } from './modernSheetConfig.js';
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
@@ -316,6 +318,43 @@ Hooks.once('init', () => {
 		config: true,
 		range: { min: 1, max: 10, step: 0.5 },
 		onChange: _refreshEncumbrance,
+	});
+
+	// A6 Blatt-Überarbeitung: alternativer (modernisierter) Blatt-Look für Spieler-
+	// und Monsterblätter. Rudolfs Struktur (25.10.): ein eigener Welt-Settings-Block
+	// "Alternative Spieler- und Monsterblätter" (nur GM) mit einer
+	// Aktivierungs-Checkbox (Default AUS - die klassische Ansicht bleibt Standard)
+	// und darunter der Taste "Designeinstellungen…" (registerMenu-Dialog).
+	// Die individuelle Präferenz pro Nutzer (klassisch/modern) liegt als User-Flag
+	// vor (welt-weit gespeichert, browser-unabhängig; Nicht-GM dürfen keine
+	// Welt-Settings schreiben, User-Flags schon - siehe modernSheetConfig.js).
+	game.settings.register('symbaroum', 'modernSheetEnabled', {
+		name: 'SYMBAROUM.SETTING_MODERNSHEET_ENABLED',
+		hint: 'SYMBAROUM.SETTING_MODERNSHEET_ENABLED_HINT',
+		scope: 'world',
+		type: Boolean,
+		default: false,
+		config: true,
+		restricted: true,
+		// Blätter lesen das Setting LIVE im Blattkontext (A39-Lernweis: Kontext-Klon
+		// friert Derived-Daten ein) - nach der Änderung offene Blätter neu rendern.
+		onChange: () => renderAllActorSheets(),
+	});
+	game.settings.register('symbaroum', 'modernSheetDesign', {
+		name: 'Modern sheet design',
+		hint: 'Design of the alternative player and monster sheets (theme, gauge, icons, default style).',
+		scope: 'world',
+		type: Object,
+		default: MODERN_SHEET_DEFAULT_DESIGN,
+		config: false,
+	});
+	game.settings.registerMenu('symbaroum', 'modernSheetDesignMenu', {
+		name: 'SYMBAROUM.SETTING_MODERNSHEET_DESIGN',
+		label: 'SYMBAROUM.SETTING_MODERNSHEET_DESIGN',
+		hint: 'SYMBAROUM.SETTING_MODERNSHEET_DESIGN_HINT',
+		icon: 'fas fa-desktop',
+		type: ModernSheetConfig,
+		restricted: true,
 	});
 
 	game.settings.register('symbaroum', 'charBGChoice', {

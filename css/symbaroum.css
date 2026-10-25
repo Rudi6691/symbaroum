@@ -5775,3 +5775,974 @@ dialog.symb-dialog.chain-confirm footer button {
   color: #c0554a;
   text-align: center;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A6 BLATT-ÜBERARBEITUNG: ALTERNATIVE (MODERNISIERTE) SPIELER- UND MONSTERBLÄTTER
+   ═══════════════════════════════════════════════════════════════════════════
+   Komplett eigener Block, gescoped unter .symbaroum.sheet.actor .modern-root.
+   Die klassische Ansicht bleibt unangetastet. Alles in rem, damit das Blatt
+   über die Foundry-Core-Einstellung der Schriftgröße skaliert (auch kleiner
+   als das klassische Blatt, ohne dass Informationen verloren gehen).
+   Farbwelt per Theme-Klasse: .modern-theme-dark (Symbaroum) oder
+   .modern-theme-classic (klassik-orientiert, Papier) - kein zweites Template.
+   Monsterblätter erben automatisch (gleiche Klassenstruktur). */
+
+/* ---------- Grundlayout: Stammleiste | Tab-Bereich | Icon-Reiterleiste ---- */
+.symbaroum.sheet.actor .modern-root {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  font-size: 0.8rem;
+  --m-bg: #0f1412;
+  --m-panel: #182019;
+  --m-panel2: #212c23;
+  --m-line: #37443a;
+  --m-ink: #dfe6df;
+  --m-muted: #8fa192;
+  --m-accent: #c9a227;
+  --m-hp: #6f9e7c;
+  --m-corrupt: #8f6bb0;
+  --m-good: #6f9e7c;
+  --m-warn: #c98a2b;
+  --m-bad: #c0554a;
+  --m-input-bg: rgba(255, 255, 255, 0.06);
+  --m-input-ink: #dfe6df;
+  background: var(--m-bg);
+  color: var(--m-ink);
+}
+
+.symbaroum.sheet.actor .modern-root.modern-theme-classic {
+  --m-bg: #efe6cf;
+  --m-panel: #f5eeda;
+  --m-panel2: #ece2c8;
+  --m-line: #c4b48d;
+  --m-ink: #2c2317;
+  --m-muted: #6c5c40;
+  --m-accent: #8a6d1c;
+  --m-hp: #4d7a52;
+  --m-corrupt: #6e4f8c;
+  --m-good: #4d7a52;
+  --m-warn: #b07c1e;
+  --m-bad: #a3402f;
+  --m-input-bg: rgba(255, 255, 255, 0.55);
+  --m-input-ink: #2c2317;
+}
+
+/* ---------- Stammleiste (Fixbereich, links) ------------------------------ */
+.symbaroum.sheet.actor .modern-root .m-sidebar {
+  flex: 0 0 15rem;
+  min-width: 12.5rem;
+  max-width: 17rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem 0.6rem;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: var(--m-panel);
+  border-right: 0.0625rem solid var(--m-line);
+}
+
+.symbaroum.sheet.actor .modern-root .m-avatar {
+  position: relative;
+}
+
+.symbaroum.sheet.actor .modern-root .m-avatar img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  border: 0.0625rem solid var(--m-line);
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-skulls {
+  position: absolute;
+  bottom: 0.2rem;
+  left: 0.25rem;
+  display: flex;
+  gap: 0.1rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-skulls i {
+  color: #ffffff;
+  text-shadow: 0 0 0.125rem #000000;
+  font-size: 0.8rem;
+}
+
+.symbaroum.sheet.actor .modern-root input.m-name {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.symbaroum.sheet.actor .modern-root .m-subline {
+  font-size: 0.7rem;
+  color: var(--m-muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.symbaroum.sheet.actor .modern-root .m-inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-inline-field label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--m-muted);
+  margin: 0;
+}
+
+.symbaroum.sheet.actor .modern-root .m-shadow-field input {
+  border-left: 0.15rem solid var(--m-corrupt);
+}
+
+.symbaroum.sheet.actor .modern-root .m-sec-label {
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--m-muted);
+}
+
+/* ---------- Vitalwerte ---------------------------------------------------- */
+.symbaroum.sheet.actor .modern-root .m-vital {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-vital-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-vital-row .lab {
+  color: var(--m-muted);
+}
+
+.symbaroum.sheet.actor .modern-root .m-vital-row .val {
+  font-weight: 600;
+}
+
+.symbaroum.sheet.actor .modern-root .m-bar {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 0.3rem;
+  background: var(--m-input-bg);
+  border: 0.0625rem solid var(--m-line);
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .modern-root .m-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.symbaroum.sheet.actor .modern-root .m-fill.m-hp {
+  background: var(--m-hp);
+}
+
+.symbaroum.sheet.actor .modern-root .m-fill.m-co-temp {
+  background: var(--m-corrupt);
+  opacity: 0.55;
+}
+
+.symbaroum.sheet.actor .modern-root .m-fill.m-co-perm {
+  background: var(--m-corrupt);
+  opacity: 0.95;
+}
+
+.symbaroum.sheet.actor .modern-root .m-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.125rem;
+  background: #ffffff;
+  opacity: 0.85;
+}
+
+/* ---------- Eigenschaften (2x4-Chips) ------------------------------------- */
+.symbaroum.sheet.actor .modern-root .m-attrs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-attr-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 0.25rem 0.15rem;
+  border-radius: 0.35rem;
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  color: var(--m-ink);
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-attr-chip:hover {
+  border-color: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .m-attr-chip .v {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.symbaroum.sheet.actor .modern-root .m-attr-chip .l {
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  color: var(--m-muted);
+}
+
+/* ---------- Geld (kompakt, Klick = Währungsdialog) ------------------------ */
+.symbaroum.sheet.actor .modern-root .m-money-btn {
+  display: flex;
+  gap: 0.3rem;
+  justify-content: center;
+  padding: 0.3rem 0.2rem;
+  border-radius: 0.35rem;
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  color: var(--m-ink);
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-money-btn.m-readonly {
+  cursor: default;
+}
+
+.symbaroum.sheet.actor .modern-root .m-money-btn:hover {
+  border-color: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .m-money-btn .mfield {
+  display: flex;
+  align-items: baseline;
+  gap: 0.15rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-money-btn .mfield b {
+  font-size: 0.85rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-money-btn .mfield span {
+  font-size: 0.62rem;
+  color: var(--m-muted);
+}
+
+/* ---------- Belastungs-Gauge (unten in der Stammleiste) -------------------- */
+.symbaroum.sheet.actor .modern-root .m-gauge-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.15rem;
+  padding: 0.3rem 0.2rem 0.35rem;
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.45rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.64rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-cap {
+  letter-spacing: 0.06em;
+  color: var(--m-muted);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-state {
+  font-size: 0.6rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.3rem;
+  border: 0.0625rem solid var(--m-line);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-state.m-gs-ok {
+  color: var(--m-good);
+  border-color: var(--m-good);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-state.m-gs-loaded {
+  color: var(--m-warn);
+  border-color: var(--m-warn);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-state.m-gs-over {
+  color: var(--m-bad);
+  border-color: var(--m-bad);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gz {
+  fill: none;
+  stroke-width: 11;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gz-good {
+  stroke: var(--m-good);
+  opacity: 0.16;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gz-warn {
+  stroke: var(--m-warn);
+  opacity: 0.18;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gz-bad {
+  stroke: var(--m-bad);
+  opacity: 0.2;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load.m-gs-ok {
+  stroke: var(--m-good);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load.m-gs-loaded {
+  stroke: var(--m-warn);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load.m-gs-over {
+  stroke: var(--m-bad);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-marker {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-text {
+  font-size: 0.6rem;
+  fill: var(--m-muted);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-ring-bg {
+  fill: none;
+  stroke: var(--m-input-bg);
+  stroke-width: 8;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg.m-gauge-ring .m-gauge-load {
+  stroke-width: 8;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-ring-value {
+  font-size: 1rem;
+  font-weight: 700;
+  fill: var(--m-ink);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-ring-sub {
+  font-size: 0.55rem;
+  fill: var(--m-muted);
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-malus {
+  font-size: 0.68rem;
+  color: var(--m-bad);
+  text-align: center;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gauge-note {
+  font-size: 0.6rem;
+  color: var(--m-muted);
+  text-align: center;
+}
+
+/* ---------- Tab-Bereich (Mitte) -------------------------------------------- */
+.symbaroum.sheet.actor .modern-root .modern-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 0.55rem 0.7rem;
+  box-sizing: border-box;
+}
+
+.symbaroum.sheet.actor .modern-root .modern-body > .tab {
+  display: none;
+}
+
+.symbaroum.sheet.actor .modern-root .modern-body > .tab.active {
+  display: block;
+}
+
+/* ---------- Vertikale Icon-Reiterleiste (rechter Rand) --------------------- */
+.symbaroum.sheet.actor .modern-root .modern-rail {
+  flex: 0 0 2.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.25rem;
+  box-sizing: border-box;
+  background: var(--m-panel);
+  border-left: 0.0625rem solid var(--m-line);
+}
+
+.symbaroum.sheet.actor .modern-root .modern-rail-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  color: var(--m-muted);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .modern-rail-btn:hover {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .modern-rail-btn.active {
+  color: var(--m-bg);
+  background: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+/* ---------- Chips (Kampf/Bio) ---------------------------------------------- */
+.symbaroum.sheet.actor .modern-root .m-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-chip {
+  min-width: 4.5rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.4rem;
+  background: var(--m-panel);
+  border: 0.0625rem solid var(--m-line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  color: var(--m-ink);
+}
+
+.symbaroum.sheet.actor .modern-root button.m-chip {
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root button.m-chip:hover {
+  border-color: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .m-chip .v {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.symbaroum.sheet.actor .modern-root .m-chip .l {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: var(--m-muted);
+}
+
+/* ---------- Boxen (Kampfabschnitte, Gruppen, Bio-Blöcke) ------------------- */
+.symbaroum.sheet.actor .modern-root .m-box {
+  margin-bottom: 0.55rem;
+  background: var(--m-panel);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.45rem;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .modern-root .m-box-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--m-muted);
+  border-bottom: 0.0625rem solid var(--m-line);
+  background: var(--m-panel2);
+}
+
+.symbaroum.sheet.actor .modern-root .m-hint {
+  font-size: 0.62rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--m-muted);
+  margin: 0.25rem 0 0;
+}
+
+.symbaroum.sheet.actor .modern-root .m-box-b {
+  padding: 0.35rem 0.5rem 0.45rem;
+}
+
+/* ---------- Inventarzeilen (kompakt) --------------------------------------- */
+.symbaroum.sheet.actor .modern-root .m-inv-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+  border-bottom: 0.0625rem solid var(--m-line);
+}
+
+.symbaroum.sheet.actor .modern-root .m-inv-row:last-child {
+  border-bottom: none;
+}
+
+.symbaroum.sheet.actor .modern-root .m-item-img {
+  flex: 0 0 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  background-size: cover;
+  background-position: center;
+  border: 0.0625rem solid var(--m-line);
+}
+
+.symbaroum.sheet.actor .modern-root .m-inv-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--m-ink);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .modern-root .m-inv-name:hover {
+  color: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .m-inv-name small {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--m-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.symbaroum.sheet.actor .modern-root .m-attr-abbr {
+  font-size: 0.68rem;
+  color: var(--m-muted);
+  white-space: nowrap;
+}
+
+.symbaroum.sheet.actor .modern-root .m-num {
+  font-size: 0.66rem;
+  color: var(--m-muted);
+  white-space: nowrap;
+}
+
+/* ---------- Status-Chips (Aktiv/Ausgerüstet/Andere, Klick schaltet um) ----- */
+.symbaroum.sheet.actor .modern-root .m-st {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.3rem;
+  border: 0.0625rem solid var(--m-line);
+  background: var(--m-panel2);
+  color: var(--m-muted);
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-st.m-st-none {
+  cursor: default;
+}
+
+.symbaroum.sheet.actor .modern-root .m-st.m-st-active {
+  color: var(--m-good);
+  border-color: var(--m-good);
+}
+
+.symbaroum.sheet.actor .modern-root .m-st.m-st-equipped {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+/* ---------- Favoriten-Stern ------------------------------------------------ */
+.symbaroum.sheet.actor .modern-root .favorite-toggle {
+  flex: 0 0 auto;
+  padding: 0 0.15rem;
+  border: none;
+  background: none;
+  color: var(--m-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0.45;
+}
+
+.symbaroum.sheet.actor .modern-root .favorite-toggle:hover {
+  opacity: 1;
+}
+
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active {
+  color: var(--m-accent);
+  opacity: 1;
+}
+
+/* ---------- Kacheln (Fähigkeiten & Kräfte, Favoriten) ------------------------
+   auto-fill-Raster: passt die Spaltenzahl der Breite an - bis auf 1 Kachel
+   pro Reihe bleibt alles sichtbar, ohne Information zu verlieren. */
+.symbaroum.sheet.actor .modern-root .m-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.4rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-imgwrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-img {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.3rem;
+  background-size: cover;
+  background-position: center;
+  border: 0.0625rem solid var(--m-line);
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-imgwrap .automatic,
+.symbaroum.sheet.actor .modern-root .m-tile-imgwrap .automatic1 {
+  position: absolute;
+  right: -0.2rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  border: 0.0625rem solid var(--m-bg);
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-imgwrap .automatic {
+  top: -0.2rem;
+  background: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-imgwrap .automatic1 {
+  bottom: -0.2rem;
+  background: var(--m-good);
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--m-ink);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-name:hover {
+  color: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .m-tile-name small {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--m-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.symbaroum.sheet.actor .modern-root .m-pips {
+  display: flex;
+  gap: 0.1rem;
+  font-size: 0.55rem;
+  color: var(--m-accent);
+  letter-spacing: 0.1em;
+}
+
+.symbaroum.sheet.actor .modern-root .m-pips .off {
+  opacity: 0.25;
+}
+
+.symbaroum.sheet.actor .modern-root .m-add {
+  padding: 0 0.3rem;
+  border: none;
+  background: none;
+  color: var(--m-muted);
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-add:hover {
+  color: var(--m-accent);
+}
+
+/* ---------- Biographie ------------------------------------------------------ */
+.symbaroum.sheet.actor .modern-root .m-bio-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem 0.7rem;
+  align-items: end;
+  margin-bottom: 0.6rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-bio-triple {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem 0.7rem;
+  margin-bottom: 0.6rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-bio-cats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem 0.7rem;
+  margin-bottom: 0.6rem;
+}
+
+.symbaroum.sheet.actor .modern-root .m-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.symbaroum.sheet.actor .modern-root .m-field label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--m-muted);
+  margin: 0;
+}
+
+.symbaroum.sheet.actor .modern-root .m-bio-top .m-chip {
+  align-self: end;
+}
+
+.symbaroum.sheet.actor .modern-root .m-prose prose-mirror {
+  display: block;
+}
+
+.symbaroum.sheet.actor .modern-root .m-prose .editor {
+  min-height: 4.5rem;
+}
+
+/* ---------- Eingabeelemente (modern) ---------------------------------------- */
+.symbaroum.sheet.actor .modern-root input,
+.symbaroum.sheet.actor .modern-root select {
+  background: var(--m-input-bg);
+  color: var(--m-input-ink);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.symbaroum.sheet.actor .modern-root input:disabled {
+  opacity: 0.55;
+}
+
+.symbaroum.sheet.actor .modern-root.modern-locked input,
+.symbaroum.sheet.actor .modern-root.modern-locked select {
+  opacity: 0.8;
+}
+
+/* ---------- Dialoge (neues Design, klassik-unabhängig) ---------------------- */
+.symbaroum.modern-attr-dialog .m-attr-grid {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, minmax(0, 1fr));
+  gap: 0.25rem 0.35rem;
+  align-items: center;
+}
+
+.symbaroum.modern-attr-dialog .m-attr-colhead {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+  opacity: 0.8;
+}
+
+.symbaroum.modern-attr-dialog .m-attr-label {
+  font-weight: 600;
+  margin: 0;
+}
+
+.symbaroum.modern-attr-dialog input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.symbaroum.modern-exp-dialog .m-exp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.symbaroum.modern-exp-dialog .m-exp-row label {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.symbaroum.modern-exp-dialog .m-exp-row input {
+  flex: 0 0 5.5rem;
+  text-align: right;
+}
+
+.symbaroum.modern-exp-dialog .hint,
+.symbaroum.modern-attr-dialog .hint {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.symbaroum.modern-money-dialog symbaroum-currency {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* ---------- Modernes Design bei sehr schmalen Fenstern ---------------------
+   Container-Abfrage auf dem Tab-Bereich: Kacheln und Bio-Zeilen schrumpfen
+   mit (auto-fill/auto-fit), die Chips umbrechen flexibel - so bleibt das
+   Blatt auch unter der klassischen Mindestbreite von 844px nutzbar. */
+.symbaroum.sheet.actor .modern-root .modern-body {
+  container-type: inline-size;
+}
+
+@container (max-width: 28rem) {
+  .m-tiles {
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  }
+  .m-chips {
+    gap: 0.25rem;
+  }
+  .m-chip {
+    min-width: 3.75rem;
+    padding: 0.2rem 0.35rem;
+  }
+}
+
+@container (max-width: 18rem) {
+  .m-tiles {
+    grid-template-columns: 1fr;
+  }
+  .m-bio-top {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   A6: Designeinstellungs-Dialog (GM, registerMenu)
+   ============================================================ */
+.symbaroum.modern-sheet-settings,
+.application.form .modern-sheet-settings {
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.35rem;
+  }
+
+  .icon-field {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+  }
+
+  .icon-preview {
+    flex: 0 0 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.25rem;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .icon-preview i {
+    font-size: 1rem;
+  }
+
+  .icon-field input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+  }
+
+  .buttons-save {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+}

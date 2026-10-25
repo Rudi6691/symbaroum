@@ -1,0 +1,97 @@
+{{!-- A6: Kampf-Tab - möglichst alle Werte, die im Kampf gebraucht werden.
+    Chips: Verteidigung, Rüstungsschutz, Behinderung, Initiative, Erfahrung
+    (Klick = Erfahrungs-Dialog). Darunter aktive Rüstung (immer) und aktive
+    Waffen (immer), dann Favoriten (Fähigkeiten/Kräfte ausschließlich per
+    Favorit, andere Ausrüstung nur per Favorit; Stern pro Charakter/Item-Flag). --}}
+<div class="m-combat">
+    <div class="m-chips">
+        <div class="m-chip" data-tooltip="{{{modern.combat.defenseTooltip}}}">
+            <div class="v">{{modern.combat.defenseDisplay}}</div>
+            <div class="l">{{localize "MODERN.CHIP_DEFENSE"}}</div>
+        </div>
+        <div class="m-chip" data-tooltip="{{system.combat.tooltipProt}}">
+            <div class="v">{{system.combat.displayTextShort}}</div>
+            <div class="l">{{localize "MODERN.CHIP_PROTECTION"}}</div>
+        </div>
+        <div class="m-chip" data-tooltip="{{localize "ARMOR.IMPEDING"}} ({{localize system.combat.defenseAttribute.label}})">
+            <div class="v">{{modern.combat.impedingDisplay}}</div>
+            <div class="l">{{localize "MODERN.CHIP_IMPEDING"}}</div>
+        </div>
+        <div class="m-chip" data-tooltip="{{localize "INITIATIVE.EXPLANATION"}} {{localizeabbr system.initiative.label}}">
+            <div class="v">{{toFixed system.initiative.value 2}}</div>
+            <div class="l">{{localize "INITIATIVE.TITLE"}}</div>
+        </div>
+        <button type="button" class="m-chip m-chip-click modern-exp" data-tooltip="{{{modern.exp.tooltip}}}">
+            <div class="v">{{modern.exp.available}}</div>
+            <div class="l">{{localize "MODERN.CHIP_EXPERIENCE"}}</div>
+        </button>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "MODERN.ACTIVE_ARMOR"}}</span>
+            <span class="m-hint">{{localize "MODERN.ALWAYS_SHOWN"}}</span>
+        </div>
+        <div class="m-box-b">
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{system.combat.id}}">
+                <div class="m-item-img" style="background-image: url('{{system.combat.img}}');"></div>
+                <button type="button" class="roll-armor m-inv-name">{{system.combat.name}}<small>{{system.combat.displayTextShort}}</small></button>
+                <span class="m-st m-st-active">{{localize "GEAR.ACTIVE"}}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "MODERN.ACTIVE_WEAPONS"}}</span>
+            <span class="m-hint">{{localize "MODERN.ALWAYS_SHOWN"}}</span>
+        </div>
+        <div class="m-box-b">
+            {{#each system.weapons as |item|}}
+            {{#if item.isActive}}
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{item.id}}">
+                <div class="m-item-img" style="background-image: url('{{item.img}}');"></div>
+                <button type="button" class="roll-weapon m-inv-name">{{item.name}}<small>{{item.damage.displayTextShort}}</small></button>
+                <span class="m-attr-abbr" data-tooltip="{{localize "WEAPON.ATTACK_ATTRIBUTE"}} {{localize item.attributeLabel}}">{{localizeabbr item.attributeLabel}}</span>
+                <span class="m-st m-st-active">{{localize "GEAR.ACTIVE"}}</span>
+            </div>
+            {{/if}}
+            {{/each}}
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "MODERN.FAVORITES"}}</span>
+            <span class="m-hint">{{localize "MODERN.FAVORITES_HINT"}}</span>
+        </div>
+        <div class="m-box-b">
+            {{#if modern.hasFavorites}}
+            <div class="m-tiles">
+                {{#each modern.favorites as |fav|}}
+                <div class="symbaroum-contextmenu item m-tile draggable" data-item-id="{{fav.id}}">
+                    <div class="m-tile-head">
+                        {{#ife fav.kind 'power'}}
+                        <button type="button" class="activate-ability {{#if fav.hasScript}}isScripted{{else}}notScripted{{/if}} m-tile-img" style="background-image: url('{{fav.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ABILITY"}}"></button>
+                        {{/ife}}
+                        {{#ife fav.kind 'weapon'}}
+                        <button type="button" class="roll-weapon m-tile-img" style="background-image: url('{{fav.img}}');" data-tooltip="{{localize "TOOLTIP.USE_WEAPON"}}"></button>
+                        {{/ife}}
+                        {{#ife fav.kind 'armor'}}
+                        <button type="button" class="roll-armor m-tile-img" style="background-image: url('{{fav.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ARMOR"}}"></button>
+                        {{/ife}}
+                        {{#ife fav.kind 'gear'}}
+                        <button type="button" class="item-edit m-tile-img" style="background-image: url('{{fav.img}}');" data-tooltip="{{localize "TOOLTIP.VIEW_ITEM"}}"></button>
+                        {{/ife}}
+                        <button type="button" class="item-edit m-tile-name">{{fav.name}}<small>{{fav.sub}}</small></button>
+                        <button type="button" class="favorite-toggle active" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                    </div>
+                </div>
+                {{/each}}
+            </div>
+            {{else}}
+            <p class="m-hint">{{localize "MODERN.FAVORITES_EMPTY"}}</p>
+            {{/if}}
+        </div>
+    </div>
+</div>

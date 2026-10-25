@@ -5,12 +5,10 @@
   "ABILITY.ACTIVE": "Learned",
   "ABILITY.ACTION": "Action",
   "ABILITY.DESCRIPTION": "Description",
-
   "ABILITY.CHAT_TARGET_VICTIM": "Victim: {targetname}",
   "ABILITY.RESIST_ROLL": " tries to resist:",
   "ABILITYREF.DIALOG_TITLE": "Choose corresponding integrated ability",
   "ABILITYREF.DIALOG": "This will allow you to use integrated rolls for this specific ability. If it's a homebrew ability or if you do not want to use the scripts, select \"No reference\". Warning : you won't be able to reference after that, if you want to you'll have to create a new ability.",
-
   "ABILITY_LABEL.DEFAULT": "Other",
   "ABILITY_LABEL.ACROBATICS": "Acrobatics",
   "ABILITY_LABEL.ALCHEMY": "Alchemy",
@@ -81,26 +79,21 @@
   "ABILITY_LABEL.WITCHSIGHT": "Witchsight",
   "ABILITY_LABEL.WIZARDRY": "Wizardry",
   "ABILITY_LABEL.WRESTLING": "Wrestling",
-
   "ABILITY_ERROR.TARGET": "Choose one target",
-
   "ABILITY_BERSERKER.CHAT_ACTIVATE": "{actorname} enters Berserker rage.",
   "ABILITY_BERSERKER.CHAT_DEACTIVATE": "{actorname} calms down and quits berserker rage.",
   "ABILITY_BERSERKER.CHAT_RESULT_DEACTIVATE": "Combat stats revert to normal.",
   "ABILITY_BERSERKER.CHAT_RESULT_LVL1": "Melee damage increased, base defense set to 5.",
   "ABILITY_BERSERKER.CHAT_RESULT_LVL2": "Melee damage increased, armor bonus, base defense set to 5.",
   "ABILITY_BERSERKER.CHAT_RESULT_LVL3": "Melee damage increased, armor bonus.",
-
   "ABILITY_DOMINATE_ADEPT.CHAT_INTRO": "{actorname} tries to indimidate their target.",
   "ABILITY_DOMINATE_MASTER.CHAT_INTRO": "{actorname} tries to subdue their target.",
   "ABILITY_DOMINATE_ADEPT.CHAT_SUCCESS": "{actorname} makes their target hesitate — the fear symbol automatically ends with the target's turn.",
   "ABILITY_DOMINATE_MASTER.CHAT_SUCCESS": "{actorname} subdues their enemy.",
-
   "ABILITY_LEADER.CHAT_SUCCESS": "Allies gain +1d4 damage against {targetname}",
   "ABILITY_LOREMASTER.CHAT_INTRO": "{actorname} spouts some lore.",
   "ABILITY_LOREMASTER.CHAT_SUCCESS": "{actorname} knows something about this.",
   "ABILITY_LOREMASTER.CHAT_FAILURE": "{actorname} doesn't have a clue.",
-
   "ABILITY_MEDICUS.CHAT_INTRO": "{actorname} heals wounds",
   "ABILITY_MEDICUS.CHAT_SUCCESS": "{actorname} tends the wounds successfully.",
   "ABILITY_MEDICUS.CHAT_FAILURE": "Failure. Ouch! That hurts!",
@@ -110,31 +103,27 @@
   "ABILITY_MEDICUS.CHAT_FINAL": "Toughness healed : ",
   "ABILITY_MEDICUS.CHAT_TARGET": "Patient : {targetname}",
   "ABILITY_MEDICUS.NO_TARGET": "No target, medicus roll without healing",
-    "A29.REMINDER_TITLE": "Maintain?",
+  "A29.REMINDER_TITLE": "Maintain?",
   "A29.REMINDER_TEXT": "{name} is still being maintained ({count} target(s)). Keep maintaining the power?",
   "A29.REMINDER_YES": "Yes",
   "A29.REMINDER_NO": "No",
   "A29.REMINDER_NO_ITEM": "The power could no longer be found on the character - please roll manually.",
-"DIALOG.MEDICUS_EXAM": "Medicus roll without healing",
+  "DIALOG.MEDICUS_EXAM": "Medicus roll without healing",
   "DIALOG.CUSTOM_HEALING_MODIFIER": "Custom healing formula",
-
   "ABILITY_STRANGLER.CHAT_INTRO": "{actorname} tries to seize its target.",
   "ABILITY_STRANGLER.CHAT_INTRO_M": "{actorname} tries to maintain the stranglehold.",
   "ABILITY_STRANGLER.CHAT_SUCCESS": "{actorname} strangles its victim.",
   "ABILITY_STRANGLER.CHAT_FAILURE": "{targetname} escapes the stranglehold.",
-
   "ABILITY_WITCHSIGHT.CHAT_INTRO": "{actorname} tries to perceive the shadows.",
   "ABILITY_WITCHSIGHT.CHAT_SUCCESS": "{actorname} pierces the veil of shadows.",
   "ABILITY_WITCHSIGHT.CHAT_FAILURE": "{actorname} can't discern the shadows.",
   "ABILITY_WITCHSIGHT.CHAT_FINAL": "The color of the shadow of {targetname} is: {targetshadow}",
-
   "ABILITY.NOVICE": "Novice",
   "ABILITY.ADEPT": "Adept",
   "ABILITY.MASTER": "Master",
   "ABILITY.NOT_LEARNED": "Not Learned",
   "ABILITY.ROLL_RESULT": "Dice roll result : ",
   "ABILITY.SECOND_ROLL_RESULT": "Rare critical dice roll result : ",
-
   "ACTION.ACTIVE": "Active",
   "ACTION.FREE": "Free",
   "ACTION.PASSIVE": "Passive",
@@ -142,12 +131,10 @@
   "ACTION.SPECIAL": "Special",
   "ACTION.MOVEMENT": "Movement",
   "ACTION.FULL_TURN": "Full Turn",
-
   "ACTOR.TypePlayer": "Player character",
   "TYPES.Actor.player": "Player character",
   "ACTOR.TypeMonster": "Non-player/monster character",
   "TYPES.Actor.monster": "Non-player/monster character",
-
   "ARMOR.NAME": "Name",
   "ARMOR.NOARMOR_NAME": "No Armor",
   "ARMOR.SKIN": "Skin/Hide (No base protection)",
@@ -170,7 +157,6 @@
   "ARMOR.DEFENCE_ATTRIBUTE": "Defend using",
   "ARMOR.ADDBUTTON": "Add Armor",
   "ARMOR.DELETEBUTTON": "Delete Armor",
-
   "ARTIFACT.NAME": "Name",
   "ARTIFACT.ACTION": "Action",
   "ARTIFACT.CORRUPTION": "Corruption",
@@ -181,7 +167,6 @@
   "ARTIFACT.DELETEBUTTON": "Delete Artifact",
   "ARTIFACT.POWER_ADDBUTTON": "Add artifact power",
   "ARTIFACT.POWER_DELETEBUTTON": "Delete artifact power",
-
   "ATTRIBUTE.ACCURATE": "Accurate",
   "ATTRIBUTE.CUNNING": "Cunning",
   "ATTRIBUTE.DISCREET": "Discreet",
@@ -191,7 +176,6 @@
   "ATTRIBUTE.RESOLUTE_UNKNOWN_ORIGINATOR": "Resolute (unknown originator)",
   "ATTRIBUTE.STRONG": "Strong",
   "ATTRIBUTE.VIGILANT": "Vigilant",
-
   "ATTRIBUTE.ACCURATEABBR": "ACC",
   "ATTRIBUTE.CUNNINGABBR": "CUN",
   "ATTRIBUTE.DISCREETABBR": "DIS",
@@ -200,13 +184,11 @@
   "ATTRIBUTE.RESOLUTEABBR": "RES",
   "ATTRIBUTE.STRONGABBR": "STR",
   "ATTRIBUTE.VIGILANTABBR": "VIG",
-
   "ATTRIBUTE.CUSTOM": "Custom",
   "ATTRIBUTE.BASE": "Base",
   "ATTRIBUTE.MODIFIER": "Mod.",
   "ATTRIBUTE.BONUS": "Bonus",
   "ATTRIBUTE.MODIFY": "Modify",
-
   "BIO.NAME": "Name",
   "BIO.RACE": "Race",
   "BIO.OCCUPATION": "Occupation",
@@ -222,13 +204,10 @@
   "BIO.STIGMAS": "Stigmas",
   "BIO.TACTICS": "Tactics",
   "BIO.MANNER": "Manner",
-
-  "BONUS.IMPEDING_REDUCTION":"Impeding reduction",
-
+  "BONUS.IMPEDING_REDUCTION": "Impeding reduction",
   "BOON.NAME": "Name",
   "BOON.DESCRIPTION": "Description",
   "BOON.LEVEL": "Level",
-
   "BOON_LABEL.ABSOLUTE_MEMORY": "Absolute Memory",
   "BOON_LABEL.ARCHIVIST": "Archivist",
   "BOON_LABEL.AUGUR": "Augur",
@@ -274,11 +253,9 @@
   "BOON_LABEL.STORYTELLER": "Storyteller",
   "BOON_LABEL.TELLTALE": "Telltale",
   "BOON_LABEL.TOUGH": "Tough",
-
   "BURDEN.NAME": "Name",
   "BURDEN.DESCRIPTION": "Description",
   "BURDEN.LEVEL": "Level",
-
   "BURDEN_LABEL.ADDICTION": "Addiction",
   "BURDEN_LABEL.ARCHENEMY": "Arch Enemy",
   "BURDEN_LABEL.BESTIAL": "Bestial",
@@ -296,7 +273,6 @@
   "BURDEN_LABEL.SICKLY": "Sickly",
   "BURDEN_LABEL.SLOW": "Slow",
   "BURDEN_LABEL.WANTED": "Wanted",
-
   "BUTTON.DEATH": "Death",
   "BUTTON.RECOVER": "Recover",
   "BUTTON.POST_ITEM": "Post Item",
@@ -305,7 +281,6 @@
   "BUTTON.CONFIRM": "Confirm",
   "BUTTON.YES": "Yes",
   "BUTTON.NO": "No",
-
   "CHAT.GMTEXT_BUTTON": "This button is for GM use only. It will apply the results on the characters.",
   "CHAT.APPLY_BUTTON": "Apply results",
   "CHAT.RESIST_TEXT_BUTTON": " can resist the attack using ",
@@ -326,7 +301,6 @@
   "CHAT.STAY_ALIVE": "{name} may stay alive for now",
   "CHAT.NEAR_DEATH": "The end is near for {name}:",
   "CHAT.DEAD": "{name} draws their final breath",
-
   "COMBAT.DAMAGE": "Inflicted damage: ",
   "COMBAT.BLEED": "Bleed",
   "COMBAT.CHAT_INTRO": " attacks with ",
@@ -387,12 +361,10 @@
   "COMBAT.PARAMS_PRECISE": "Precise weapon, ",
   "COMBAT.PARAMS_BASTARD_1H": "one-handed grip",
   "COMBAT.PARAMS_BASTARD_INACTIVE": "inactive",
-
   "CORRUPTION.CHAT_INTRO": " increases their degree of taint.",
   "CORRUPTION.CHAT_THRESHOLD": " becomes Blight-marked (threshold reached).",
   "CORRUPTION.CHAT_MAX": " turns into an abomination (max reached).",
   "CORRUPTION.CHAT_WARNING": " is close to a corruption treshold.",
-
   "DIALOG.SYSTEM_MESSAGE": "Symbaroum system message",
   "DIALOG.OK": "Ok",
   "DIALOG.CANCEL": "Cancel",
@@ -422,10 +394,8 @@
   "DIALOG.3ATTACKS": "Attack three times?",
   "DIALOG.FEAT_STRENGTH_DAMAGE": "Bonus damage from Feat of Strength",
   "DIALOG.ROBUST_DMG": "Add damage from Robust?",
-
   "DIALOG.CASTING_ATTRIBUTE": "Casting attribute",
   "DIALOG.RESIST_ATTRIBUTE": "Opposition attribute",
-
   "DIALOG.CONFIRM_ACTIVATE": "Do you want to activate {ability}? This costs you {cost} points of temporary corruption.",
   "DIALOG.CONFIRM_ACTIVATE_ONE": "Do you want to activate {ability}? This costs you 1 point of temporary corruption.",
   "DIALOG.CONFIRM_ACTIVATE_NOCOST": "Do you want to activate {ability}?",
@@ -433,7 +403,6 @@
   "DIALOG.CONFIRM_DEACTIVATE_COST": "Do you want to deactivate {ability}? This costs you {cost} points of temporary corruption.",
   "DIALOG.CORRUPTION_COST_1D4": "1d4",
   "DIALOG.CORRUPTION_COST_2D4KL": "2d4 (lowest result counts)",
-
   "DIALOG.VERSUS": "Versus",
   "DIALOG.ASK_CORRUPTION": "Target fully corrupted?",
   "DIALOG.ATTRIBUTE": "Attribute",
@@ -453,7 +422,6 @@
   "DIALOG.CHAIN_NEXT_TARGET": "Another target<br>for the chain?",
   "DIALOG.CHAIN_NO_NEW_TARGET": "No new target marked - the chain ends here.",
   "DIALOG.ROLLONTABLE": "Roll on table {tablename}",
-
   "EQUIPMENT.NAME": "Name",
   "EQUIPMENT.COST": "Cost",
   "EQUIPMENT.NUMBER": "Number",
@@ -461,21 +429,17 @@
   "EQUIPMENT.QUANTITY_SHORT": "Qty.",
   "EQUIPMENT.ADDBUTTON": "Add Equipment",
   "EQUIPMENT.DELETEBUTTON": "Delete Equipment",
-
   "ERROR.NO_TOKEN_SELECTED": "Select the acting token.",
   "ERROR.NOT_LEARNED": "{name} is not learned.",
   "ERROR.NO_STAFF": "{name} requires an active long weapon.",
   "ERROR.MACRO_NOT_OWNED": "You can only create macro buttons for owned Items.",
   "ERROR.MACRO_NO_OBJECT": "The selected token character does not have an item named : ",
   "ERROR.MACRO_NO_SCRIPT": " isn't scripted.",
-
   "EXPERIENCE": "Experience",
-
   "GEAR.ACTIVE": "Active",
   "GEAR.EQUIPPED": "Equipped",
   "GEAR.OTHER": "Other",
   "GEAR.STATE": "State",
-
   "HEALTH.TOUGHNESS": "Toughness",
   "HEALTH.TOUGHNESS_MAX": "Tgh. Max",
   "HEALTH.TOUGHNESS_CURRENT": "Current",
@@ -494,12 +458,9 @@
   "HEALTH.CORRUPTION_THRESHOLD_MAX": "Cor. Threshold",
   "HEALTH.CORRUPTION_MAX": "Abom.",
   "HEALTH.CORRUPTION_THROUGHLY": "thoroughly corrupt",
-
   "INITIATIVE.TITLE": "Initiative",
   "INITIATIVE.EXPLANATION": "Initiative shown as [initiative attribute.vigilant]",
-
   "ENRICHER.INTEGRATED_HEADER": "Integrated",
-
   "ITEM.TRAIT": "Trait",
   "ITEM.ABILITY": "Ability",
   "ITEM.ARMOR": "Armor",
@@ -510,7 +471,6 @@
   "ITEM.WEAPON": "Weapon",
   "ITEM.BOON": "Boon",
   "ITEM.BURDEN": "Burden",
-
   "ITEM.TypeTrait": "Trait",
   "ITEM.TypeAbility": "Ability",
   "ITEM.TypeArmor": "Armor",
@@ -531,7 +491,6 @@
   "TYPES.Item.weapon": "Weapon",
   "TYPES.Item.boon": "Boon",
   "TYPES.Item.burden": "Burden",
-
   "MACRO.ATTRIBUTE": "Attribute",
   "MACRO.MAKETEST": "Test {testtype}",
   "MACRO.SELECTPLAYERS": "Select player(s)",
@@ -581,7 +540,6 @@
   "MACRO.WEIGHT_MIGRATION_NONE": "Nothing to migrate – all items already have a weight.",
   "MACRO.WEIGHT_MIGRATION_ACCEPT": "Accept",
   "MACRO.WEIGHT_MIGRATION_DONE": "{count} item(s) migrated.",
-
   "MONEY.THALER": "Thaler",
   "MONEY.SHILLING": "Shilling",
   "MONEY.ORTEG": "Orteg",
@@ -591,9 +549,7 @@
   "MONEY.TOTAL_VALUE": "Total: {value} Orteg",
   "MONEY.WARN_INSUFFICIENT": "Not enough currency.",
   "MONEY.WARN_INVALID": "Invalid input in a currency field.",
-
   "PRICE.MIGRATION_HINT": "Use the \"Currency Migration\" macro to migrate this price.",
-
   "WEIGHT.LABEL": "Weight",
   "WEIGHT.NONE": "Unspecified",
   "WEIGHT.TINY": "Tiny",
@@ -619,13 +575,11 @@
   "WEIGHT.TOOLTIP_MALUS": "Defense penalty: −{malus}",
   "WEIGHT.TOOLTIP_HINT_OVER": "Beyond the hard limit, only short distances are possible.",
   "WEIGHT.TOOLTIP_HINT_TRAVEL": "Encumbered: −1 Defense per started LU above the limit; adjust travel pace manually.",
-
   "MYSTICAL_POWER.NAME": "Name",
   "MYSTICAL_POWER.ACTIVE": "Learned",
   "MYSTICAL_POWER.ACTION": "Action",
   "MYSTICAL_POWER.MATERIAL": "Material",
   "MYSTICAL_POWER.DESCRIPTION": "Description",
-
   "POWER_LABEL.ANATHEMA": "Anathema",
   "POWER_LABEL.BANISHING_SEAL": "Banishing Seal",
   "POWER_LABEL.BATTLE_SYMBOL": "Battle Symbol",
@@ -681,7 +635,6 @@
   "POWER_LABEL.WEAKENING_HYMN": "Weakening Hymn",
   "POWER_LABEL.WILD_HUNT": "Wild Hunt",
   "POWER_LABEL.WITCH_HAMMER": "Witch Hammer",
-
   "POWER.CHAT_INTRO": "{actorname} tries to use \" ",
   "POWER.CHAT_INTRO_M": "{actorname} tries to maintain \" ",
   "POWER.CHAT_SUCCESS": "{actorname} is successfull.",
@@ -692,14 +645,12 @@
   "POWER.MAINTAIN_CHAIN_BREAKS": "{targetname}: effect ends.",
   "POWER.MAINTAIN_CHAIN_NO_TARGETS": "No active effects found.",
   "POWER.MAINTAIN_CHAIN_ROUND_DAMAGE": "{targetname} takes {count} damage (armor ignored).",
-
   "POWER_ANATHEMA.CHAT_INTRO": "{actorname} tries to dissipate a power.",
   "POWER_ANATHEMA.CHAT_SUCCESS": "{actorname} cancels the power.",
   "POWER_ANATHEMA.CHAT_FAILURE": "{actorname} fails.",
   "POWER_ANATHEMA.DISPEL_SUMMARY": "Anathema effect:",
   "POWER_ANATHEMA.DISPEL_BREAKS": "{originatorname}: effects on {targetname} dispelled.",
   "POWER_ANATHEMA.DISPEL_HOLDS": "{originatorname}: effects on {targetname} hold.",
-
   "POWER_BANISHINGSEAL.CHAT_INTRO": "{actorname} tries to banish {targetname}.",
   "POWER_BANISHINGSEAL.CHAT_SUCCESS": "{targetname} is banished by the seal.",
   "POWER_BANISHINGSEAL.CHAT_FAILURE": "{targetname} resists the banishing seal.",
@@ -714,7 +665,6 @@
   "POWER_BANISHINGSEAL.BUTTON_APPLY": "Apply",
   "POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE": "{targetname} does not match the category chosen in the seal dialog - the banishing seal is not cast (Novice: no roll).",
   "POWER_BANISHINGSEAL.CHAT_FLEEING_INFO": "Frightened symbols applied - remove fleeing creatures from the combat tracker manually.",
-
   "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} tries to engulf {targetname} with the battle symbol.",
   "POWER_BATTLESYMBOL.CHAT_INTRO_M": "{actorname} maintains the battle symbol.",
   "POWER_BATTLESYMBOL.CHAT_SUCCESS": "{targetname} is seized by an uncontrolled battle rage.",
@@ -722,22 +672,18 @@
   "POWER_BATTLESYMBOL.CHAT_NOVICE": "The victim immediately attacks the next person, friend or foe. Effect lasts one round — the berserker symbol automatically ends with the victim's turn.",
   "POWER_BATTLESYMBOL.CHAT_ADEPT": "The affected immediately attack the next person, friend or foe (GM). Maintain test: Resolute minus the damage of the triggering hit (dialog modifier).",
   "POWER_BATTLESYMBOL.CHAT_MASTER": "The affected cannot defend themselves - every attack against them hits automatically (GM).",
-
   "POWER_BLACKBREATH.CHAT_INTRO": "{actorname} spits his inner darkness at {targetname}.",
   "POWER_BLACKBREATH.CHAT_SUCCESS": "The black breath engulfs {targetname}.",
   "POWER_BLACKBREATH.CHAT_HEAL": "{targetname} is cleansed of {count} point(s) of corruption.",
   "POWER_BLACKBREATH.CHAT_CORRUPTED": "{targetname} suffers {count} point(s) of temporary corruption.",
   "POWER_BLACKBREATH.CHAT_CHAIN_END": "The healed target breaks the chain.",
-
   "POWER_BENDWILL.CHAT_INTRO": "{actorname} try to bend the victim's will.",
   "POWER_BENDWILL.CHAT_INTRO_M": "{actorname} maintains Bend Will.",
   "POWER_BENDWILL.CHAT_SUCCESS": "{actorname} controls {targetname}.",
   "POWER_BENDWILL.CHAT_FAILURE": "{targetname} resists the attempt.",
-
   "POWER_BLACKBOLT.CHAT_INTRO": "{actorname} traps its target in black fire.",
   "POWER_BLACKBOLT.CHAT_SUCCESS": "{targetname} is burned and paralyzed.",
   "POWER_BLACKBOLT.CHAT_FAILURE": "{targetname} avoids the black bolt.",
-
   "POWER_BLESSEDSHIELD.CHAT_INTRO": "{actorname} tries to invoke Prios' protection.",
   "POWER_BLESSEDSHIELD.CHAT_SUCCESS": "{actorname} is surrounded by a shield of light.",
   "POWER_BLESSEDSHIELD.CHAT_FAILURE": "{actorname} stays in darkness.",
@@ -746,16 +692,13 @@
   "POWER_BLINDINGSYMBOL.CHAT_SUCCESS": "{targetname} is blinded by the symbol.",
   "POWER_BLINDINGSYMBOL.CHAT_FAILURE": "{targetname} resists the blinding symbol.",
   "POWER_BLINDINGSYMBOL.UNTIL_HEALED": "{targetname} is blinded until healed.",
-
   "POWER_BRIMSTONECASC.CHAT_INTRO": "{actorname} throws fire at its target.",
   "POWER_BRIMSTONECASC.CHAT_SUCCESS": "{targetname} gets burned.",
   "POWER_BRIMSTONECASC.CHAT_FAILURE": "{targetname} avoids part of the damage.",
   "POWER_BRIMSTONECASC.CHAT_FAILURE_RR": "{targetname} avoids all of the damage.",
-
   "POWER_CONFUSION.EFFECT12": "{targetname} stands still, blinking stupidly.",
   "POWER_CONFUSION.EFFECT34": "{targetname} attacks whichever of its allies is closest.",
   "POWER_CONFUSION.EFFECT56": "{targetname} attacks whichever of its enemies is closest.",
-
   "POWER_CURSE.CHAT_INTRO": "{actorname} casts a curse.",
   "POWER_CURSE.CHAT_INTRO_M": "{actorname} maintains a curse.",
   "POWER_CURSE.CHAT_SUCCESS_N": "{targetname} is cursed (has disfavour against mystic).",
@@ -763,12 +706,10 @@
   "POWER_CURSE.CHAT_SUCCESS_M": "{targetname} is heavily cursed (1d6 damage for each action).",
   "POWER_CURSE.CHAT_FAILURE": "{actorname} can't maintain the curse.",
   "POWER_CURSE.CHAT_FAIL_FINAL": "The curse has no more effect on {targetname}.",
-
   "POWER_DANCINGWEAPON.CHAT_ACTIVATE": "{actorname} is using their dancing weapon.",
   "POWER_DANCINGWEAPON.CHAT_DEACTIVATE": "{actorname} isn't using dancing weapon anymore.",
   "POWER_DANCINGWEAPON.CHAT_RESULT_ACTIVATE": "Combat stats are replaced by Resolute.",
   "POWER_DANCINGWEAPON.CHAT_RESULT_DEACTIVATE": "Combat stats revert to normal.",
-
   "POWER_DRAININGGLYPH.CHAT_INTRO": "{actorname} inscribes a draining glyph on {targetname}.",
   "POWER_DRAININGGLYPH.CHAT_INTRO_M": "{actorname} maintains the draining glyph.",
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} is weakened by the glyph and suffers 1d4 damage.",
@@ -776,21 +717,17 @@
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "{actorname} is healed 1d4 Toughness each round while the glyph is maintained (to be applied by the GM).",
   "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Another target<br>for the glyph?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "No new target marked - the glyph affects only the enemies already tested.",
-
   "POWER_EARTHBINDING.CHAT_INTRO": "{actorname} tries to sink {targetname} into the ground. (Free action, once per round)",
   "POWER_EARTHBINDING.CHAT_INTRO_M": "{targetname} tries to break free from the earth binding.",
   "POWER_EARTHBINDING.CHAT_SUCCESS": "{targetname} is bound to the ground and cannot move.",
   "POWER_EARTHBINDING.CHAT_FAILURE": "{targetname} resists the earth binding.",
   "POWER_EARTHBINDING.CHAT_MASTER": "The ground clenches around the target: 1d6 damage per round, armor ignored (repeated test each round; GM applies it to further chain targets).",
-
   "POWER_EARTHSHOT.CHAT_BROCKEN": "1d4 rocks: {count} attacks.",
   "POWER_EARTHSHOT.CHAT_NEXT_BROCKEN": "Another rock?<br>({count} left)",
   "POWER_EARTHSHOT.CHAT_NO_NEW_TARGET": "No target marked - the rocks end here.",
-
   "POWER_ENTANGLINGVINES.CHAT_INTRO_M": "{targetname} tries to break free from the vines.",
   "POWER_ENTANGLINGVINES.CHAT_SUCCESS": "{targetname} is entangled in the vines.",
   "POWER_ENTANGLINGVINES.CHAT_FAILURE": "{targetname} breaks free from the vines.",
-
   "POWER_HOLYAURA.CHAT_INTRO": "{actorname} tries to channel the Light of Prios.",
   "POWER_HOLYAURA.CHAT_SUCCESS": "{actorname} emits a holy light.",
   "POWER_HOLYAURA.CHAT_FAILURE": "{actorname} can't channel the light of Prios.",
@@ -809,19 +746,16 @@
   "POWER_HOLYAURA.ALLY_TOO_FAR": "Note: {targetname} is farther than short range (Near) from the caster - GM checks.",
   "POWER_HOLYAURA.SCENE_BLOCKED": "Holy Aura cannot be used again in this scene (failed first casting - GM administration).",
   "POWER_HOLYAURA.SUMMARY": "{powername}: aura effects",
-
   "POWER_INHERITWOUND.CHAT_INTRO": "{actorname} tries to inherit the wounds.",
   "POWER_INHERITWOUND.CHAT_SUCCESS": "{actorname} transfers part of the wounds.",
   "POWER_INHERITWOUND.CHAT_FAILURE": "{actorname} can't transfer the wounds.",
   "POWER_INHERITWOUND.CHAT_HEALED": "{targetname} receives toughness healing for: ",
   "POWER_INHERITWOUND.CHAT_DAMAGE": "{actorname} recieved damage: ",
   "POWER_INHERITWOUND.CHAT_REDIRECT": "; poison and bleeding are also transfered.",
-
   "POWER_LARVAEBOILS.CHAT_INTRO": "{actorname} throws larvaes.",
   "POWER_LARVAEBOILS.CHAT_INTRO_M": "{actorname} maintains the larvaes surge.",
   "POWER_LARVAEBOILS.CHAT_SUCCESS": "{targetname} is eaten from the inside by the larvaes.",
   "POWER_LARVAEBOILS.CHAT_FAILURE": "{targetname} resists to the larvaes.",
-
   "POWER_LAYONHANDS.DIALOG": "How close is your target?",
   "POWER_LAYONHANDS.TOUCH": "Touch",
   "POWER_LAYONHANDS.REMOTE": "Line of sight",
@@ -829,10 +763,8 @@
   "POWER_LAYONHANDS.CHAT_SUCCESS": "{actorname} heals {targetname}.",
   "POWER_LAYONHANDS.CHAT_FINAL": "Toughness healed: ",
   "POWER_LAYONHANDS.CHAT_FAILURE": "{actorname} fails to heal {targetname}.",
-
   "POWER_LEVITATE.CHAT_FALL": "{targetname} falls to the ground: {count} damage, armor ignored (applied via GM card).",
   "POWER_LEVITATE.CHAT_LANDS": "{targetname} floats down unharmed.",
-
   "POWER_MARKOFTORMENT.CHAT_INTRO": "{actorname} brands {targetname} with the mark of torment.",
   "POWER_MARKOFTORMENT.CHAT_INTRO_M": "{targetname} tries to shake off the mark of torment.",
   "POWER_MARKOFTORMENT.CHAT_SUCCESS": "{targetname} is racked by searing pain.",
@@ -840,7 +772,6 @@
   "POWER_MARKOFTORMENT.CHAT_NOVICE": "No active actions while the mystic maintains the mark - aborting or a failed maintain roll removes the symbol.",
   "POWER_MARKOFTORMENT.CHAT_ADEPT": "As novice - additionally all attackers roll their weapon attacks with automatic favour.",
   "POWER_MARKOFTORMENT.CHAT_MASTER": "Attackers roll their weapon attacks with automatic favour.",
-
   "POWER_PRIOSBURNINGGLASS.CHAT_INTRO": "{actorname} tries to channel the Light of Prios at a target.",
   "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET": "Another target<br>for the burning glass?",
   "POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET": "No new target marked - the burning glass ends here.",
@@ -848,49 +779,41 @@
   "POWER_PRIOSBURNINGGLASS.STUN_QUESTION": "Stun {targetname}?<br>[Resolute <-- Resolute]",
   "POWER_PRIOSBURNINGGLASS.STUN_SUCCESS": "{targetname} is stunned for one round — the symbol automatically ends with the target's turn.",
   "POWER_PRIOSBURNINGGLASS.STUN_TITLE": " — Stun",
-
   "POWER_PROTECTIVERUNES.CHAT_ACTIVATE": "{actorname} activates protective runes.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_ACTIVATE": "The protection of the runes is active.",
   "POWER_PROTECTIVERUNES.CHAT_DEACTIVATE": "{actorname} deactivates protective runes.",
   "POWER_PROTECTIVERUNES.CHAT_RESULT_DEACTIVATE": "The protection of the runes ends.",
   "POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_ADEPT": "Retribution: 1d4 damage to every attacker (ignoring armor), to be applied by the GM.",
   "POWER_PROTECTIVERUNES.CHAT_RETRIBUTION_MASTER": "Retribution: 1d6 damage to every attacker (ignoring armor), to be applied by the GM.",
-
   "POWER_REVENANTSTRIKE.CHAT_ACTIVATE": "{actorname}'s weapon gets darker.",
   "POWER_REVENANTSTRIKE.CHAT_DEACTIVATE": "{actorname}'s weapon stops glowing.",
   "POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE": "Weapon stats revert to normal.",
   "POWER_REVENANTSTRIKE.CHAT_RESULT": "Revenant strike bonus damage will be apply.",
-
   "POWER_SPHERE.CHAT_ACTIVATE": "{actorname} activates the sphere.",
   "POWER_SPHERE.CHAT_RESULT_ACTIVATE": "The sphere is active - defense uses Resolute while it is the higher attribute.",
   "POWER_SPHERE.CHAT_DEACTIVATE": "{actorname} deactivates the sphere.",
   "POWER_SPHERE.CHAT_RESULT_DEACTIVATE": "The sphere ends.",
   "POWER_SPHERE.CHAT_ADEPT": "Adept: the sphere defends automatically.",
   "POWER_SPHERE.CHAT_MASTER": "Master: the sphere can protect an ally and both hands stay free.",
-
   "POWER_STAFFPROJECTILE.CHAT_INTRO": "{actorname} launches a staff projectile at {targetname}.",
   "POWER_STAFFPROJECTILE.CHAT_SUCCESS": "{targetname} is struck by the staff projectile.",
   "POWER_STAFFPROJECTILE.CHAT_FAILURE": "{targetname} evades the staff projectile.",
   "POWER_STAFFPROJECTILE.CHAT_NO_TARGET": "Select at least one target token for Staff Projectile.",
   "POWER_STAFFPROJECTILE.CHAIN_CONFIRM": "Chain the staff projectile on to {targetname} ({dice} damage)?",
   "POWER_STAFFPROJECTILE.CHAT_ADEPT": "Adept: no line of sight required; an activated elemental rune adds its damage (enter it in the damage modifier field).",
-
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO": "{actorname} tries to invoke tormenting spirits.",
   "POWER_TORMENTINGSPIRITS.CHAT_INTRO_M": "{actorname} tries to maintain the tormenting spirits.",
   "POWER_TORMENTINGSPIRITS.CHAT_SUCCESS": "{actorname} invokes spirits around {targetname}.",
   "POWER_TORMENTINGSPIRITS.CHAT_FAILURE": "{actorname} fails the invokation.",
-
   "POWER_TRUEFORM.CHAT_INTRO": "{actorname} forces {targetname} to reveal its true form.",
   "POWER_TRUEFORM.CHAT_SUCCESS": "{targetname}'s true form is revealed.",
   "POWER_TRUEFORM.CHAT_FAILURE": "{targetname}'s disguise holds.",
   "POWER_TRUEFORM.CHAT_NOVICE": "Revealed illusions vanish; transformations remain, but the mystician sees through them (GM).",
   "POWER_TRUEFORM.CHAT_MASTER": "A new transformation requires a Resolute test on the target's initiative (GM).",
-
   "POWER_WITCHHAMMER.CHAT_ACTIVATE": "{actorname}'s weapon starts glowing.",
   "POWER_WITCHHAMMER.CHAT_DEACTIVATE": "{actorname}'s weapon stops glowing.",
   "POWER_WITCHHAMMER.CHAT_RESULT_DEACTIVATE": "Weapon stats revert to normal.",
   "POWER_WITCHHAMMER.CHAT_RESULT": "Witch hammer bonus damage will be available in combat dialog window.",
-
   "QUALITY.AREAMELEERADIUS": "Area Effect - melee range radius",
   "QUALITY.AREASHORTRADIUS": "Area Effect - short range radius",
   "QUALITY.AREACONE": "Area Effect - cone",
@@ -929,13 +852,10 @@
   "QUALITY.STAFFFIGHTINGCOMPATIBILITY": "Staff Fighting compatible",
   "QUALITY.STAFFMAGICCOMPATIBILITY": "Staff Magic compatible",
   "QUALITY.SWORDSAINTCOMPATIBILITY": "Sword saint compatible",
-
   "RITUAL.TRADITION": "Tradition",
   "RITUAL.DESCRIPTION": "Description",
-
   "ROLL.CRITSHORT": "crit",
   "ROLL.ADVANTAGESHORT": "adv",
-
   "TAB.MAIN": "MAIN",
   "TAB.GEAR": "GEAR",
   "TAB.BIO": "BIO",
@@ -948,7 +868,6 @@
   "TAB.POWER": "POWER",
   "TAB.BONUS": "BONUS",
   "TAB.QUALITIES": "QUALITIES",
-
   "TITLE.ABILITIES_POWERS": "Abilities & Powers",
   "TITLE.HEALTH": "Health",
   "TITLE.ATTRIBUTES": "Attributes",
@@ -967,16 +886,13 @@
   "TITLE.MONEY": "Money",
   "TITLE.QUALITIES": "Qualities",
   "TITLE.SPECIALQUALITIES": "ABILITIES COMPATIBILITY",
-
   "TOOLTIP.BONUS_TOTAL": "Total",
-
   "TOOLTIP.DEATH_SKULLS": "Death is reached at 3 skulls",
   "TOOLTIP.EXPERIENCE_CURRENT": "Your current available (unspent) experience points",
   "TOOLTIP.EXPERIENCE_TOTAL": "The total amount of experience that you earnt",
   "TOOLTIP.EXPERIENCE_ARTIFACTRR": "Experience spent on artifacts and/or re-rolls",
   "TOOLTIP.EXPERIENCE_SPENT": "Total experience spent on abilities, traits, boons and burdens",
   "TOOLTIP.EXPERIENCE_AVAILABLE": "Your current available (unspent) experience points",
-
   "TOOLTIP.HEALTH.CORRUPTION_NA_TEXT": "This is thoroughly corrupt",
   "TOOLTIP.HEALTH.CORRUPTION_CURRENT": "Your current total corruption",
   "TOOLTIP.HEALTH.CORRUPTION_TEMPORARY": "Your temporary (scene) corruption",
@@ -984,49 +900,37 @@
   "TOOLTIP.HEALTH.CORRUPTION_PERMANENT": "Permanent corruption gained",
   "TOOLTIP.HEALTH.CORRUPTION_THRESHOLD": "Your corruption threshold",
   "TOOLTIP.HEALTH.CORRUPTION_MAX": "Your abomination threshold",
-
   "TOOLTIP.HEALTH.TOUGHNESS_CURRENT": "Your current toughness",
   "TOOLTIP.HEALTH.TOUGHNESS_TOTAL": "The amount of toughness damage that will cause you to die",
   "TOOLTIP.HEALTH.TOUGHNESS_THRESHOLD": "Your pain threshold",
-
   "TOOLTIP.COMBAT.INITIATIVE": "The attribute that your initiative is based on",
   "TOOLTIP.COMBAT.DEFENSE": "The attribute that your defense is based on",
-
   "TOOLTIP.POWER_ACTIONS": "Type of activation (A - active, P - passive, S - special, etc)",
-
   "TOOLTIP.DELETE_ITEM": "Delete",
-  "TOOLTIP.VIEW_ITEM":"View/edit",
-
+  "TOOLTIP.VIEW_ITEM": "View/edit",
   "TOOLTIP.USE_ABILITY": "Use",
-  
   "TOOLTIP.USE_WEAPON": "Attack",
-  "TOOLTIP.UNACTIVATE_WEAPON":"Make weapon non-active (other)",
-  "TOOLTIP.ACTIVATE_WEAPON":"Make weapon active",
-
+  "TOOLTIP.UNACTIVATE_WEAPON": "Make weapon non-active (other)",
+  "TOOLTIP.ACTIVATE_WEAPON": "Make weapon active",
   "TOOLTIP.USE_ARMOR": "Defend",
-  "TOOLTIP.UNACTIVATE_ARMOR":"Make armor non-active (other)",
-  "TOOLTIP.ACTIVATE_ARMOR":"Make armor active",
-
+  "TOOLTIP.UNACTIVATE_ARMOR": "Make armor non-active (other)",
+  "TOOLTIP.ACTIVATE_ARMOR": "Make armor active",
   "TOOLTIP.INCREASE_COUNT_DEFAULT": "Add [{sign}{quantity}] quantity",
   "TOOLTIP.INCREASE_COUNT": "Add ... quantity",
   "TOOLTIP.DECREASE_COUNT_DEFAULT": "Remove [{sign}{quantity}] quantity",
   "TOOLTIP.DECREASE_COUNT": "Remove ... quantity",
   "TOOLTIP.INCREASE_COUNT_TITLE": "Add quantity",
-  "TOOLTIP.DECREASE_COUNT_TITLE": "Remove quantity",  
+  "TOOLTIP.DECREASE_COUNT_TITLE": "Remove quantity",
   "TOOLTIP.QUANTITY_SETDEFAULT": "Set as default quantity change",
-
   "TOOLTIP.DIALOG.ROLLONTABLE": "ctrl+click to add modifier",
-
   "TOOLTIP.DIALOG.HASSCRIPT": "Can be clicked on the icon or right click and select USE to roll",
   "TOOLTIP.DIALOG.ISINTERGRATED": "Effects automatically applied to character",
-
   "TRAIT.HEADER": "Traits",
   "TRAIT.NAME": "Name",
   "TRAIT.ACTIVE": "Acquired",
   "TRAIT.ACTION": "Action",
   "TRAIT.DESCRIPTION": "Description",
   "TRAIT.MARKERTRAIT": "Trait has no levels",
-
   "TRAIT_LABEL.ACIDICATTACK": "Acidic Attack",
   "TRAIT_LABEL.ACIDICBLOOD": "Acidic Blood",
   "TRAIT_LABEL.ALTERNATIVEDAMAGE": "Alternative Damage",
@@ -1088,9 +992,7 @@
   "TRAIT_LABEL.WINGS": "Wings",
   "TRAIT_LABEL.WISDOM_AGES": "Wisdom of the ages",
   "TRAIT_LABEL.WRECKER": "Wrecker",
-
   "TRAIT_REGENERATION.CHAT_ACTION": "{actorname} regenerates ",
-
   "WEAPON.HEADER": "Weapon",
   "WEAPON.NAME": "Name",
   "WEAPON.DAMAGE": "Damage",
@@ -1110,7 +1012,6 @@
   "WEAPON.ATTACK_ATTRIBUTE": "Attack using",
   "WEAPON.ADDBUTTON": "Add Weapon",
   "WEAPON.DELETEBUTTON": "Delete Weapon",
-
   "WEAPON_CLASS.LABEL": "Weapon type",
   "WEAPON_CLASS.1HANDED": "Single-handed",
   "WEAPON_CLASS.SHORT": "Short",
@@ -1120,7 +1021,6 @@
   "WEAPON_CLASS.RANGED": "Ranged",
   "WEAPON_CLASS.SHIELD": "Shield",
   "WEAPON_CLASS.THROWN": "Thrown",
-
   "SYMBAROUM.OPTIONAL_CRIT": "Optional Critical Rolls",
   "SYMBAROUM.OPTIONAL_CRIT_HINT": "Check to enable Hit bonus and Defense fumbles on dice rolls of 1 and 20 as detailed Core Book p. 179",
   "SYMBAROUM.OPTIONAL_ALWAYSSUCCEDONONE": "Always able to succeed of fail",
@@ -1201,7 +1101,6 @@
   "SYMBAROUM.OPTIONAL_HIDEENGLISHMACROS": "Exclude English macro and system compendium",
   "SYMBAROUM.OPTIONAL_HIDEENGLISHMACROS_HINT": "Exclude the English system and macro compendiums, which are shown otherwise",
   "SYMBAROUM.OPTIONAL_CUSTOMSHEETJOURNAL": "Symbaroum Wide Journal",
-
   "SYMBAROUM.STATUS_BLEEDING": "Bleeding",
   "SYMBAROUM.STATUS_BLESS": "Blessed",
   "SYMBAROUM.STATUS_BLIND": "Blind",
@@ -1264,7 +1163,6 @@
   "SYMBAROUM.TOUR_ADVENTURECOMPENDIUM_CONTENT": "The Symbaroum adventure compendium contains all that you need to get started",
   "SYMBAROUM.TOUR_ADVENTURECOMPENDIUM_HIGHLIGHT": "Language specific Adventures",
   "SYMBAROUM.TOUR_ADVENTURECOMPENDIUM_HIGHLIGHT_CONTENT": "Clicking on an adventure will allow you to import content into your world",
-
   "SYMBAROUM.TOUR_ACTOR_ERROR": "For a player to complete this, the GM needs to run through the GM tour and not delete 'Beremo' in the actor catalogue",
   "SYMBAROUM.TOUR_ACTOR_TITLE": "Character sheet introduction (GM)",
   "SYMBAROUM.TOUR_CHARACTER_ACTORTAB": "All actors (players/npc)",
@@ -1307,9 +1205,7 @@
   "SYMBAROUM.TOUR_CHARACTER_NOTES_FIELD_CONTENT": "This is where the character can write details - to activate click on the top right icon that appears when moving the mouse here. <br>This wraps up this tour, we will leave the character so that players can run through this tour",
   "SYMBAROUM.TOUR_CHARACTER_OVERVIEW": "Back to the actor list",
   "SYMBAROUM.TOUR_CHARACTER_OVERVIEW_CONTENT": "Good luck, and please check the System guide for more information",
-
   "SYMBAROUM.TOUR_ACTOR_TITLE_PLAYER": "Character sheet introduction (Player)",
-
   "SYMBAROUM.TOUR_ACOMPENDIUM": "Compendium tour (items for Symbaroum system)",
   "SYMBAROUM.TOUR_ACOMPENDIUM_GOTO": "Go to compendiums",
   "SYMBAROUM.TOUR_ACOMPENDIUM_GOTOCONTENT": "You will find the Symbaroum system adventure compendium under the compendium tab",
@@ -1322,5 +1218,62 @@
   "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_CONTENTS": "Compendium Contents",
   "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_CONTENTS_CONTENT": "This is items that this compendium contains and will move into your world",
   "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_IMPORT": "Import button",
-  "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_IMPORT_CONTENT": "You click here to start the import - be patient and allow it to complete before running another one"
+  "SYMBAROUM.TOUR_ACOMPENDIUM_SYSTEM_ENGLISH_IMPORT_CONTENT": "You click here to start the import - be patient and allow it to complete before running another one",
+  "MODERN.TAB_COMBAT": "Combat",
+  "MODERN.TAB_POWERS": "Abilities & Powers",
+  "MODERN.TAB_GEAR": "Gear",
+  "MODERN.TAB_BIO": "Biography",
+  "MODERN.TAB_NOTES": "Notes",
+  "MODERN.VITALS": "Vitals",
+  "MODERN.SHADOW_HINT": "Shadow: visible to the GM and the character owner only",
+  "MODERN.MONEY_HINT": "Click to edit – thaler/shilling/orteg with delta syntax (e.g. +3 or -2)",
+  "MODERN.CHIP_DEFENSE": "Defense",
+  "MODERN.CHIP_PROTECTION": "Armor Protection",
+  "MODERN.CHIP_IMPEDING": "Impeding",
+  "MODERN.CHIP_EXPERIENCE": "Experience",
+  "MODERN.ACTIVE_ARMOR": "Active Armor",
+  "MODERN.ACTIVE_WEAPONS": "Active Weapons",
+  "MODERN.ALWAYS_SHOWN": "always shown",
+  "MODERN.FAVORITES": "Favorites",
+  "MODERN.FAVORITES_HINT": "abilities/powers only via favorite, other gear only via favorite",
+  "MODERN.FAVORITES_EMPTY": "No favorites yet – click the star on an item (per character).",
+  "MODERN.FAVORITE_TOGGLE": "Favorite for the combat tab",
+  "MODERN.GROUP_ABILITIES": "Abilities",
+  "MODERN.GROUP_POWERS": "Mystical Powers",
+  "MODERN.GROUP_RITUALS": "Rituals",
+  "MODERN.GROUP_TRAITS": "Traits",
+  "MODERN.GROUP_BOONS": "Boons",
+  "MODERN.GROUP_BURDENS": "Burdens",
+  "MODERN.EXP_TOTAL": "Total XP",
+  "MODERN.EXP_ARTIFACTRR": "Spent on dice rerolls",
+  "MODERN.EXP_SPENT": "Spent on abilities etc.",
+  "MODERN.EXP_AVAILABLE": "Available",
+  "MODERN.EXP_HINT": "Only total XP and reroll points are editable; the points spent on abilities derive from the learned items.",
+  "MODERN.GAUGE_HARD": "hard limit: {limit} LU",
+  "MODERN.GAUGE_NOTE": "white marker = load limit · only with the optional rule active",
+  "MODERN.MOVE_DENIED": "Not allowed: you own neither the source nor the target actor.",
+  "MODERN.DESIGN_TITLE": "Design Settings – Alternative Player and Monster Sheets",
+  "MODERN.DESIGN_THEME": "Color scheme",
+  "MODERN.DESIGN_THEME_DARK": "Symbaroum (dark)",
+  "MODERN.DESIGN_THEME_CLASSIC": "Classic (parchment)",
+  "MODERN.DESIGN_GAUGE": "Load display",
+  "MODERN.DESIGN_GAUGE_HALF": "Half-round gauge",
+  "MODERN.DESIGN_GAUGE_RING": "Segmented ring",
+  "MODERN.DESIGN_DEFAULT_STYLE": "Default view for all users",
+  "MODERN.DESIGN_STYLE_CLASSIC": "Classic view",
+  "MODERN.DESIGN_STYLE_MODERN": "Modernized view",
+  "MODERN.DESIGN_ICONS": "Tab icons (Foundry Font Awesome)",
+  "MODERN.DESIGN_ICONS_HINT": "Font Awesome classes (free/solid), e.g. \"fas fa-hand-fist\".",
+  "MODERN.DESIGN_ICON_COMBAT": "Icon: Combat",
+  "MODERN.DESIGN_ICON_POWERS": "Icon: Abilities & Powers",
+  "MODERN.DESIGN_ICON_GEAR": "Icon: Gear",
+  "MODERN.DESIGN_ICON_BIO": "Icon: Biography",
+  "MODERN.DESIGN_ICON_NOTES": "Icon: Notes",
+  "MODERN.DESIGN_RESET": "Reset to defaults",
+  "SYMBAROUM.SETTING_MODERNSHEET_ENABLED": "Alternative player and monster sheets",
+  "SYMBAROUM.SETTING_MODERNSHEET_ENABLED_HINT": "Enables the modernized sheet view (sidebar, icon tabs for combat, abilities & powers, gear, biography and notes). Every user can toggle between the classic and modernized view from the sheet header. Default: off (classic view).",
+  "SYMBAROUM.SETTING_MODERNSHEET_DESIGN": "Design Settings…",
+  "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_HINT": "Color scheme, load gauge variant, tab icons and default view of the alternative sheets (GM only).",
+  "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_TITLE": "Design Settings – Alternative Player and Monster Sheets",
+  "BUTTON.TOGGLE_MODERN": "Toggle sheet view (classic/modern)"
 }

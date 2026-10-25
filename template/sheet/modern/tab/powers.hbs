@@ -1,0 +1,37 @@
+{{!-- A6: Fähigkeiten & Kräfte - die Arten sauber getrennt (Fähigkeiten,
+    Mystische Kräfte, Rituale, Merkmale, Segen, Lasten), einheitliche Kacheln
+    (auto-fill-Raster bis auf 1 Kachel pro Reihe), Item-Bild = Klickfläche für
+    den Würfelwurf, Stern = Favorit für den Kampf-Tab. Leere Gruppen werden
+    nicht angezeigt. Detaildarstellung bleibt im Item-Blatt (item-edit). --}}
+<div class="m-powers">
+    {{#each modern.powerGroups as |group|}}
+    {{#if group.hasItems}}
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{group.label}}</span>
+            <span class="m-hint">{{group.count}}</span>
+        </div>
+        <div class="m-box-b">
+            <div class="m-tiles">
+                {{#each group.items as |p|}}
+                <div class="symbaroum-contextmenu item m-tile draggable" data-item-id="{{p.id}}">
+                    <div class="m-tile-head">
+                        <div class="m-tile-imgwrap">
+                            <button type="button" class="activate-ability {{#if p.hasScript}}isScripted{{else}}notScripted{{/if}} m-tile-img" style="background-image: url('{{p.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ABILITY"}}"></button>
+                            {{#if p.hasScript}}<span class="automatic" data-tooltip="{{localize "TOOLTIP.DIALOG.HASSCRIPT"}}"></span>{{/if}}
+                            {{#if p.isIntegrated}}<span class="automatic1" data-tooltip="{{localize "TOOLTIP.DIALOG.ISINTERGRATED"}}"></span>{{/if}}
+                        </div>
+                        <button type="button" class="item-edit m-tile-name">{{p.name}}<small>{{p.sub}}</small></button>
+                        <button type="button" class="favorite-toggle{{#if p.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                    </div>
+                    {{#if p.level}}
+                    <div class="m-pips">{{#times p.level}}<span>●</span>{{/times}}{{#times p.pipsOff}}<span class="off">●</span>{{/times}}</div>
+                    {{/if}}
+                </div>
+                {{/each}}
+            </div>
+        </div>
+    </div>
+    {{/if}}
+    {{/each}}
+</div>

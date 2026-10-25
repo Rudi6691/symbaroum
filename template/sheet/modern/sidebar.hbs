@@ -1,0 +1,108 @@
+{{!-- A6: Stammleiste (Fixbereich) - auf allen Tabs sichtbar.
+    Avatar, Name, Volk/Beruf (bzw. Verhalten + Kategorie/Untertyp bei Monstern),
+    Schatten (NUR mit Rechten: SL oder Charakterbesitzer), Vitalwerte
+    (Zähigkeit; Korruption mit temporär/permanent-Aufteilung im Balken),
+    8 Eigenschaften als 2x4-Chips (Klick = Basis/Modifikator/Bonus-Dialog),
+    Geld kompakt (Klick = Währungsdialog), Belastungs-Gauge ganz unten
+    (Halbrund oder Segmentring, nur bei aktivierter optionaler Regel). --}}
+<aside class="m-sidebar">
+    <div class="m-avatar" style="position:relative">
+        <img class="profile-img" src="{{actor.img}}" data-edit="img" data-action="editImage" data-tooltip="{{actor.name}}" />
+        {{#ifgt system.nbrOfFailedDeathRoll 0}}
+        <div class="m-skulls" data-tooltip="{{localize "TOOLTIP.DEATH_SKULLS"}}">{{#times system.nbrOfFailedDeathRoll}}<i class="fas fa-skull"></i>{{/times}}</div>
+        {{/ifgt}}
+    </div>
+
+    <input class="m-name" name="name" type="text" value="{{actor.name}}" placeholder="{{localize "BIO.NAME"}}" />
+
+    {{#ife actor.type 'monster'}}
+        <div class="m-subline">{{modern.categoryLine}}</div>
+    {{else}}
+        <div class="m-subline">{{modern.idLine}}</div>
+    {{/ife}}
+
+    {{#ife actor.type 'monster'}}
+    <div class="m-inline-field">
+        <label for="{{id}}-system.bio.manner">{{localize "BIO.MANNER"}}</label>
+        <input id="{{id}}-system.bio.manner" name="system.bio.manner" type="text" value="{{system.bio.manner}}" />
+    </div>
+    {{/ife}}
+
+    {{#if modern.showShadow}}
+    <div class="m-inline-field m-shadow-field">
+        <label for="{{id}}-system.bio.shadow">{{localize "BIO.SHADOW"}}</label>
+        <input id="{{id}}-system.bio.shadow" name="system.bio.shadow" type="text" value="{{system.bio.shadow}}" data-tooltip="{{localize "MODERN.SHADOW_HINT"}}" />
+    </div>
+    {{/if}}
+
+    <div class="m-sec-label">{{localize "MODERN.VITALS"}}</div>
+    <div class="m-vital">
+        <div class="m-vital-row" data-tooltip="{{{modern.toughness.tooltip}}}">
+            <span class="lab">{{localize "HEALTH.TOUGHNESS"}}</span><span class="val">{{system.health.toughness.value}} / {{system.health.toughness.max}}</span>
+        </div>
+        <div class="m-bar">
+            <div class="m-fill m-hp" style="width: {{modern.toughness.pct}}%;"></div>
+        </div>
+        <div class="m-vital-row" data-tooltip="{{{modern.corruption.tooltip}}}">
+            <span class="lab">{{localize "HEALTH.CORRUPTION"}}</span><span class="val">{{#if modern.corruption.thoroughlyCorrupt}}{{localize "HEALTH.CORRUPTION_NA"}}{{else}}{{modern.corruption.value}} / {{modern.corruption.max}}{{/if}}</span>
+        </div>
+        <div class="m-bar">
+            {{#unless modern.corruption.thoroughlyCorrupt}}
+            <div class="m-fill m-co-temp" style="width: {{modern.corruption.tempPct}}%;"></div>
+            <div class="m-fill m-co-perm" style="width: {{modern.corruption.permPct}}%; left: {{modern.corruption.tempPct}}%;"></div>
+            <div class="m-mark" style="left: {{modern.corruption.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.CORRUPTION_THRESHOLD"}}: {{modern.corruption.threshold}}"></div>
+            {{/unless}}
+        </div>
+    </div>
+
+    <div class="m-sec-label">{{localize "TITLE.ATTRIBUTES"}}</div>
+    <div class="m-attrs">
+        {{#each modern.attributes as |a|}}
+        <button type="button" class="m-attr-chip attrDragM" data-attribute="{{a.key}}" data-tooltip="{{{a.tooltip}}}">
+            <span class="v">{{a.display}}</span>
+            <span class="l">{{a.abbr}}</span>
+        </button>
+        {{/each}}
+    </div>
+
+    <div class="m-sec-label">{{localize "TITLE.MONEY"}}</div>
+    <button type="button" class="m-money-btn{{#unless editable}} m-readonly{{/unless}}" data-tooltip="{{localize "MODERN.MONEY_HINT"}}">
+        <span class="mfield"><b>{{modern.money.thaler}}</b><span>{{modern.money.abbrThaler}}</span></span>
+        <span class="mfield"><b>{{modern.money.shilling}}</b><span>{{modern.money.abbrShilling}}</span></span>
+        <span class="mfield"><b>{{modern.money.orteg}}</b><span>{{modern.money.abbrOrteg}}</span></span>
+    </button>
+
+    {{#if modern.gauge.show}}
+    <div class="m-gauge-bottom">
+        <div class="m-sec-label">{{localize "WEIGHT.TITLE"}}</div>
+        <div class="m-gauge-wrap" data-tooltip="{{{modern.gauge.tooltip}}}">
+            <div class="m-gauge-head">
+                <span class="m-gauge-cap">{{modern.gauge.loadDisplay}} / {{modern.gauge.baseLimitDisplay}} {{localize "WEIGHT.GE_ABBR"}}</span>
+                <span class="m-gauge-state m-gs-{{modern.gauge.state}}">{{modern.gauge.stateLabel}}</span>
+            </div>
+            {{#ife modern.gauge.variant 'half'}}
+            <svg class="m-gauge-svg" viewBox="0 0 120 70">
+                <path class="m-gz m-gz-good" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="75.4 150.8"></path>
+                <path class="m-gz m-gz-warn" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="37.7 150.8" stroke-dashoffset="-75.4"></path>
+                <path class="m-gz m-gz-bad" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="37.7 150.8" stroke-dashoffset="-113.1"></path>
+                <path class="m-gauge-load m-gs-{{modern.gauge.state}}" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="{{modern.gauge.arc}} 150.8"></path>
+                <line class="m-gauge-marker" x1="{{modern.gauge.markerX1}}" y1="{{modern.gauge.markerY1}}" x2="{{modern.gauge.markerX2}}" y2="{{modern.gauge.markerY2}}"></line>
+                <text class="m-gauge-text" x="60" y="48" text-anchor="middle">{{localize "MODERN.GAUGE_HARD" limit=modern.gauge.hardLimitDisplay}}</text>
+            </svg>
+            {{else}}
+            <svg class="m-gauge-svg m-gauge-ring" viewBox="0 0 100 100">
+                <circle class="m-gauge-ring-bg" cx="50" cy="50" r="40" pathLength="100"></circle>
+                <circle class="m-gauge-load m-gs-{{modern.gauge.state}}" cx="50" cy="50" r="40" pathLength="100" transform="rotate(-90 50 50)" stroke-dasharray="{{modern.gauge.pct}} 100"></circle>
+                <line class="m-gauge-marker" x1="{{modern.gauge.ringMarkerX1}}" y1="{{modern.gauge.ringMarkerY1}}" x2="{{modern.gauge.ringMarkerX2}}" y2="{{modern.gauge.ringMarkerY2}}"></line>
+                <text class="m-gauge-ring-value" x="50" y="47" text-anchor="middle">{{modern.gauge.loadDisplay}}</text>
+                <text class="m-gauge-ring-sub" x="50" y="59" text-anchor="middle">{{localize "MODERN.GAUGE_HARD" limit=modern.gauge.hardLimitDisplay}}</text>
+            </svg>
+            {{/ife}}
+            {{#if modern.gauge.malusLine}}
+            <div class="m-gauge-malus">{{modern.gauge.malusLine}}</div>
+            {{/if}}
+            <div class="m-gauge-note">{{localize "MODERN.GAUGE_NOTE"}}</div>
+        </div>
+    </div>
+    {{/if}}
+</aside>

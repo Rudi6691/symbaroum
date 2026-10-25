@@ -1,0 +1,22 @@
+{{!-- A6: Eigenschaften-Dialog im neuen Design (Rudolfs Runde 3: Klick auf den
+    Eigenschafts-Chip der Stammleiste öffnet Basis/Modifikator/Bonus/Gesamt).
+    Gleiche Feld-IDs und Update-Logik wie der klassische Dialog
+    (PlayerSheet._applyAttributeUpdates) - nur das Layout ist neu. --}}
+<div class="symbaroum modern-attr-dialog">
+    <div class="m-attr-grid">
+        <div class="m-attr-corner"></div>
+        <div class="m-attr-colhead">{{localize "ATTRIBUTE.BASE"}}</div>
+        <div class="m-attr-colhead">{{localize "ATTRIBUTE.MODIFIER"}}</div>
+        <div class="m-attr-colhead">{{localize "ATTRIBUTE.BONUS"}}</div>
+        <div class="m-attr-colhead">{{localize "HEALTH.TOUGHNESS_TOTAL"}}</div>
+        {{#each system.attributes as |attribute key|}}
+        {{#if attribute.label}}
+        <label class="m-attr-label" for="attr-{{../id}}-{{key}}-value" data-tooltip="{{{attribute.msg}}}">{{localize attribute.label}}</label>
+        <input id="attr-{{../id}}-{{key}}-value" type="number" value="{{attribute.value}}" data-dtype="Number" />
+        <input id="attr-{{key}}-mod" type="number" value="{{attribute.temporaryMod}}" data-dtype="Number" />
+        <input id="attr-{{key}}-bonus" type="number" value="{{attribute.bonus}}" disabled data-dtype="Number" />
+        <input id="attr-{{key}}-total" type="number" value="{{attribute.total}}" disabled data-dtype="Number" />
+        {{/if}}
+        {{/each}}
+    </div>
+</div>

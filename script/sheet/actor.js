@@ -89,6 +89,52 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 		}
 	}
 
+	/**
+	 * A15: Drag & Drop von Items zwischen zwei Akteuren verschiebt das Item
+	 * (Move: im Ziel anlegen + im Quell-Akteur löschen) statt es zu kopieren.
+	 * Drags innerhalb desselben Akteurs (Sortierung), von der Seitenleiste und
+	 * aus Kompendien behalten das Foundry-Standardverhalten (Kopie bzw.
+	 * Core-Handling) - alles andere wird an die Basisklasse durchgereicht.
+	 */
+	async _onDrop(event) {
+		let dragData = null;
+		try {
+			dragData = JSON.parse(event.dataTransfer?.getData('text/plain') ?? 'null');
+		} catch {
+			dragData = null;
+		}
+		if (dragData?.type === 'Item' && dragData.uuid) {
+			let sourceItem = null;
+			try {
+				sourceItem = await Item.fromDropData(dragData);
+			} catch {
+				sourceItem = null;
+			}
+			const sourceActor = sourceItem?.parent;
+			if (sourceItem && sourceActor instanceof Actor && sourceActor !== this.actor) {
+				return this._moveItemBetweenActors(sourceItem, sourceActor);
+			}
+		}
+		return super._onDrop(event);
+	}
+
+	/**
+	 * A15: Item von einem anderen Akteur übernehmen und im Quell-Akteur
+	 * entfernen. Erlaubt für GM sowie für Nutzer, die BEIDE Akteure besitzen.
+	 * Die Item-Flags (u. a. der A6-Favoriten-Stern) wandern mit.
+	 */
+	async _moveItemBetweenActors(sourceItem, sourceActor) {
+		const allowed = game.user.isGM || (this.actor?.isOwner && sourceActor.isOwner);
+		if (!allowed) {
+			ui.notifications.warn(game.i18n.localize('MODERN.MOVE_DENIED'));
+			return;
+		}
+		const itemData = sourceItem.toObject();
+		delete itemData._id; // neue ID im Ziel - das Original wird gelöscht
+		await this.actor.createEmbeddedDocuments('Item', [itemData]);
+		await sourceActor.deleteEmbeddedDocuments('Item', [sourceItem.id]);
+	}
+
 	_onItemCreate(event) {
 		event.preventDefault();
 		let header = event.currentTarget;

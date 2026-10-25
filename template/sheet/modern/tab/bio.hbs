@@ -1,0 +1,89 @@
+{{!-- A6: Biographie-Tab (Rudolfs finaler Aufbau): Zeile 1 = Volk, Beruf,
+    Erfahrung (Klick = Erfahrungs-Dialog); Zeile 2 = Alter, Größe, Gewicht
+    zusammen in einer Zeile; darunter Monsterkategorie/Untertyp (A36) und die
+    Textblöcke Aussehen, Hintergrund, Persönliche Ziele, Stigmata (Spieler)
+    bzw. Taktik (Monster). Der Schatten liegt in der Stammleiste
+    (rechtabhängig) und wird hier nicht doppelt geführt. --}}
+<div class="m-bio">
+    <div class="m-bio-top">
+        <div class="m-field">
+            <label for="{{id}}-system.bio.race">{{localize "BIO.RACE"}}</label>
+            <input id="{{id}}-system.bio.race" name="system.bio.race" type="text" value="{{system.bio.race}}" />
+        </div>
+        <div class="m-field">
+            <label for="{{id}}-system.bio.occupation">{{localize "BIO.OCCUPATION"}}</label>
+            <input id="{{id}}-system.bio.occupation" name="system.bio.occupation" type="text" value="{{system.bio.occupation}}" />
+        </div>
+        <button type="button" class="m-chip m-chip-click modern-exp" data-tooltip="{{{modern.exp.tooltip}}}">
+            <span class="v">{{modern.exp.available}}</span>
+            <span class="l">{{localize "EXPERIENCE"}}</span>
+        </button>
+    </div>
+
+    <div class="m-bio-triple">
+        <div class="m-field">
+            <label for="{{id}}-system.bio.age">{{localize "BIO.AGE"}}</label>
+            <input id="{{id}}-system.bio.age" name="system.bio.age" type="text" value="{{system.bio.age}}" />
+        </div>
+        <div class="m-field">
+            <label for="{{id}}-system.bio.height">{{localize "BIO.HEIGHT"}}</label>
+            <input id="{{id}}-system.bio.height" name="system.bio.height" type="text" value="{{system.bio.height}}" />
+        </div>
+        <div class="m-field">
+            <label for="{{id}}-system.bio.weight">{{localize "BIO.WEIGHT"}}</label>
+            <input id="{{id}}-system.bio.weight" name="system.bio.weight" type="text" value="{{system.bio.weight}}" />
+        </div>
+    </div>
+
+    <div class="m-bio-cats">
+        <div class="m-field">
+            <label for="{{id}}-system.creatureCategory">{{localize "CREATURE_CATEGORY.CATEGORY"}}</label>
+            <select id="{{id}}-system.creatureCategory" name="system.creatureCategory">
+                {{selectOptions creature_category_selection selected=system.creatureCategory labelAttr="label"}}
+            </select>
+        </div>
+        <div class="m-field">
+            <label for="{{id}}-system.creatureSubtype">{{localize "CREATURE_CATEGORY.SUBTYPE"}}</label>
+            <input id="{{id}}-system.creatureSubtype" name="system.creatureSubtype" type="text" value="{{system.creatureSubtype}}" />
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h"><span>{{localize "BIO.APPEARANCE"}}</span></div>
+        <div class="m-box-b m-prose">
+            <prose-mirror toggled name="system.bio.appearance" {{ifThen editable '' 'disabled'}} value="{{rawBio.appearance}}">{{{system.bio.appearance}}}</prose-mirror>
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h"><span>{{localize "BIO.BACKGROUND"}}</span></div>
+        <div class="m-box-b m-prose">
+            <prose-mirror toggled name="system.bio.background" {{ifThen editable '' 'disabled'}} value="{{rawBio.background}}">{{{system.bio.background}}}</prose-mirror>
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h"><span>{{localize "BIO.GOAL"}}</span></div>
+        <div class="m-box-b m-prose">
+            <prose-mirror toggled name="system.bio.personalGoal" {{ifThen editable '' 'disabled'}} value="{{rawBio.personalGoal}}">{{{system.bio.personalGoal}}}</prose-mirror>
+        </div>
+    </div>
+
+    {{#ife actor.type 'player'}}
+    <div class="m-box">
+        <div class="m-box-h"><span>{{localize "BIO.STIGMAS"}}</span></div>
+        <div class="m-box-b m-prose">
+            <prose-mirror toggled name="system.bio.stigmas" {{ifThen editable '' 'disabled'}} value="{{rawBio.stigmas}}">{{{system.bio.stigmas}}}</prose-mirror>
+        </div>
+    </div>
+    {{/ife}}
+
+    {{#ife actor.type 'monster'}}
+    <div class="m-box">
+        <div class="m-box-h"><span>{{localize "BIO.TACTICS"}}</span></div>
+        <div class="m-box-b m-prose">
+            <prose-mirror toggled name="system.bio.tactics" {{ifThen editable '' 'disabled'}} value="{{rawBio.tactics}}">{{{system.bio.tactics}}}</prose-mirror>
+        </div>
+    </div>
+    {{/ife}}
+</div>

@@ -1,0 +1,13 @@
+{{!-- A6: Erfahrungs-Dialog (Rudolfs Runde 3): die vier Felder des klassischen
+    Blatts, aber nur Gesamt-XP und die für Würfelwurf-Wiederholungen ausgegebenen
+    Punkte sind editierbar; für Fähigkeiten etc. ausgegeben und verfügbar sind
+    berechnet (available = total - artifactrr - spent, siehe actor.js). --}}
+<div class="symbaroum modern-exp-dialog">
+    {{#each fields as |f|}}
+    <div class="m-exp-row">
+        <label for="mexp-{{f.id}}" data-tooltip="{{{f.tooltip}}}">{{f.label}}</label>
+        <input id="mexp-{{f.id}}" type="number" value="{{f.value}}" data-dtype="Number" {{#unless f.editable}}disabled{{/unless}} />
+    </div>
+    {{/each}}
+    <p class="hint">{{localize "MODERN.EXP_HINT"}}</p>
+</div>

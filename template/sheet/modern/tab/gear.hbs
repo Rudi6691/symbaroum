@@ -1,0 +1,80 @@
+{{!-- A6: Ausrüstungs-Tab - kompakte Zeilen (Bild, Name, Gewicht/Preis, Favorit,
+    Status-Chip mit Umschalten per Klick: Aktiv -> Ausgerüstet -> Andere).
+    Kontextmenü und Drag&Drop bleiben über die bestehenden Klassen aktiv.
+    Geld liegt kompakt in der Stammleiste (Klick öffnet den Währungsdialog). --}}
+<div class="m-gear">
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "TITLE.ARMORS"}}</span>
+            <button type="button" class="item-create m-add" data-type="armor" data-tooltip="{{localize "ARMOR.ADDBUTTON"}}"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="m-box-b">
+            {{#each modern.gear.armors as |g|}}
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
+                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
+                <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
+                {{#unless g.isNoArmor}}
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
+                {{else}}
+                <span class="m-st m-st-none"><i class="fas fa-tshirt"></i></span>
+                {{/unless}}
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "TITLE.WEAPONS"}}</span>
+            <button type="button" class="item-create m-add" data-type="weapon" data-tooltip="{{localize "WEAPON.ADDBUTTON"}}"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="m-box-b">
+            {{#each modern.gear.weapons as |g|}}
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
+                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
+                <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "TITLE.EQUIPMENTS"}}</span>
+            <button type="button" class="item-create m-add" data-type="equipment" data-tooltip="{{localize "EQUIPMENT.ADDBUTTON"}}"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="m-box-b">
+            {{#each modern.gear.equipments as |g|}}
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
+                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
+                <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "TITLE.ARTIFACTS"}}</span>
+        </div>
+        <div class="m-box-b">
+            {{#each modern.gear.artifacts as |g|}}
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
+                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
+                <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+</div>
