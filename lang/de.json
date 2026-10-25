@@ -654,6 +654,9 @@
   "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET": "Ein weiteres Ziel wird vom Bannsiegel erfasst? Ziel anvisieren und bestätigen.",
   "POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET": "Kein neues Ziel anvisiert — die Siegelwirkung endet hier.",
   "POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY": "{targetname} entspricht nicht der im Siegel-Dialog gewählten Kategorie — Ziel übersprungen.",
+  "POWER_BANISHINGSEAL.BUTTON_APPLY": "Übernehmen",
+  "POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE": "{targetname} entspricht nicht der im Siegel-Dialog gewählten Kategorie — das Bannsiegel wird nicht gewirkt (Novize: kein Wurf).",
+  "POWER_BANISHINGSEAL.INFO_CATEGORY_ADEPT": "{targetname} entspricht nicht der gewählten Kategorie — das Siegel läuft trotzdem (Adept/Meister: Schaden laut Karte, vom SL anzuwenden).",
   "POWER_BANISHINGSEAL.CHAT_FLEEING_INFO": "Verängstigt-Symbole gesetzt — fliehende Kreaturen ggf. manuell aus dem Kampftracker entfernen.",
 
   "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} versucht, {targetname} mit dem Kampfsymbol zu erfassen.",

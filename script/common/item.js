@@ -3519,6 +3519,11 @@ export async function modifierDialog(functionStuff) {
         icon: '<i class="fas fa-check"></i>',
         label: game.i18n.localize("BUTTON.ROLL"),
         callback: async (html) => {
+          // A36V test round 3 (Rudolf, 25.10.): banishing seal - on "Würfeln"
+          // the PRIMARY target is re-checked against the category chosen in
+          // the seal dialog. Novice + mismatch: warning, no roll. Adept/
+          // Master: the seal runs anyway (see banishingSealPrimaryCategoryCheck)
+          if (!banishingSealPrimaryCategoryCheck(functionStuff)) return;
           if (functionStuff.askWeapon) {
             let wepID = html[0].querySelector("#weapon")[0].value;
             functionStuff.weapon = functionStuff.actor.items.find((item) => item.id == wepID);
@@ -3973,6 +3978,29 @@ async function chainResult(rollData, functionStuff, chainDamageDice) {
 async function staffProjectileChainResult(rollData, functionStuff) {
   const dice = ["1d10", "1d8", "1d6", "1d4"];
   return chainResult(rollData, functionStuff, (index) => dice[Math.min(index, dice.length - 1)]);
+}
+
+/* A36V test round 3 (Rudolf, 25.10.): the seal dialog's category choice is
+   re-checked against the PRIMARY target when the roll is confirmed (the
+   chain already checks its own follow-up targets, see
+   banishingSealChainResult). Novice: warning and NO roll - at that level the
+   seal does not affect creatures of other types. Adept/Master: the seal
+   runs anyway - creatures of other types inside the seal take the card
+   damage (1d4 / 1d8, fleeing 1d4, SL-applied, see CHAT_ADEPT /
+   CHAT_MASTER). An empty dialog selection ("no category") keeps the check
+   disabled (SL judgement, unchanged). */
+function banishingSealPrimaryCategoryCheck(functionStuff) {
+  if (functionStuff.ability?.reference !== "banishingseal" || !functionStuff.sealCategoryId) return true;
+  const primaryActor = functionStuff.targetData?.actor ?? functionStuff.targetData?.token?.actor;
+  if (!primaryActor) return true;
+  if (game.symbaroum.config.getCreatureCategory(primaryActor) === functionStuff.sealCategoryId) return true;
+  const targetname = functionStuff.targetData?.name ?? primaryActor.name ?? "";
+  if ((functionStuff.powerLvl?.level ?? 1) <= 1) {
+    ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE", { targetname: targetname }));
+    return false;
+  }
+  ui.notifications.info(game.i18n.format("POWER_BANISHINGSEAL.INFO_CATEGORY_ADEPT", { targetname: targetname }));
+  return true;
 }
 
 async function banishingSealChainResult(rollData, functionStuff) {
@@ -6258,8 +6286,11 @@ async function preDialogBanishingSeal(functionStuff) {
   // a category dropdown (CREATURE_CATEGORY_SELECTION) plus a free subtype
   // field, both pre-filled from the primary target's stored A36 flags - a
   // target already categorised on its sheet needs no extra typing. The
-  // selection is display-only (autoParams), the seal's effect stays
-  // SL-managed, and one dialog covers the whole chain (like the old text).
+  // choice feeds BOTH checks (primary on roll, chain per follow-up target);
+  // the seal's damage effect stays SL-managed, and one dialog covers the
+  // whole chain. A36V test round 3 (Rudolf, 25.10.): the confirm button no
+  // longer pretends to roll - it adopts the category choice and hands over
+  // to the roll dialog ("Übernehmen" instead of "Würfeln").
   const primaryActor = functionStuff.targetData?.token?.actor ?? functionStuff.targetData?.actor;
   const presetCategory = game.symbaroum.config.getCreatureCategory(primaryActor);
   const presetSubtype = primaryActor?.system?.creatureSubtype ?? "";
@@ -6277,7 +6308,7 @@ async function preDialogBanishingSeal(functionStuff) {
     buttons: {
       cast: {
         icon: '<i class="fas fa-check"></i>',
-        label: game.i18n.localize("BUTTON.ROLL"),
+        label: game.i18n.localize("POWER_BANISHINGSEAL.BUTTON_APPLY"),
         callback: (html) => {
           const categoryId = html[0].querySelector("#creatureCategory").value;
           const subtype = html[0].querySelector("#creatureSubtype").value.trim();

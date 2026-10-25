@@ -654,6 +654,9 @@
   "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET": "Should the banishing seal affect another target? Target it and confirm.",
   "POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET": "No new target marked - the seal's effect ends here.",
   "POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY": "{targetname} does not match the category chosen in the seal dialog - target skipped.",
+  "POWER_BANISHINGSEAL.BUTTON_APPLY": "Apply",
+  "POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE": "{targetname} does not match the category chosen in the seal dialog - the banishing seal is not cast (Novice: no roll).",
+  "POWER_BANISHINGSEAL.INFO_CATEGORY_ADEPT": "{targetname} does not match the chosen category - the seal runs anyway (Adept/Master: damage per the card, to be applied by the GM).",
   "POWER_BANISHINGSEAL.CHAT_FLEEING_INFO": "Frightened symbols applied - remove fleeing creatures from the combat tracker manually.",
 
   "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} tries to engulf {targetname} with the battle symbol.",
