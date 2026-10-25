@@ -5572,3 +5572,47 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /*# sourceMappingURL=symbaroum.css.map */
+
+/* ============================================================
+   A38v3 — Kostenzeile auf Item-Blättern (Waffe/Rüstung/Ausrüstung):
+   Label halbe Zeilenbreite, Wert- und Währungsfeld je ein Viertel
+   (Rudolfs Wunsch, 25.10.2026). Zeile insgesamt exakt so breit wie
+   die Zeilen darüber — keine flex-Überlauf mehr durch die drei
+   nebeneinanderliegenden Felder.
+   ============================================================ */
+.symbaroum.sheet.item .armor .tab .cost,
+.symbaroum.sheet.item .weapon .tab .stats .cost,
+.symbaroum.sheet.item .equipment .tab .cost {
+  flex-wrap: nowrap;
+}
+
+.symbaroum.sheet.item .armor .tab .cost label,
+.symbaroum.sheet.item .weapon .tab .stats .cost label,
+.symbaroum.sheet.item .equipment .tab .cost label {
+  flex: 0 0 50%;
+  width: 50%;
+}
+
+.symbaroum.sheet.item .armor .tab .cost input[type=number],
+.symbaroum.sheet.item .armor .tab .cost select,
+.symbaroum.sheet.item .weapon .tab .stats .cost input[type=number],
+.symbaroum.sheet.item .weapon .tab .stats .cost select,
+.symbaroum.sheet.item .equipment .tab .cost input[type=number],
+.symbaroum.sheet.item .equipment .tab .cost select {
+  flex: 0 0 25%;
+  width: 25%;
+  min-width: 0;
+}
+
+/* Migrationshinweis füllt die rechte Hälfte (statt Wert + Währung) */
+.symbaroum.sheet.item .armor .tab .cost .price-migration-hint,
+.symbaroum.sheet.item .weapon .tab .stats .cost .price-migration-hint,
+.symbaroum.sheet.item .equipment .tab .cost .price-migration-hint {
+  flex: 0 0 50%;
+  width: 50%;
+  min-width: 0;
+  padding: 5px;
+  text-align: center;
+  font-family: var(--font-text);
+  font-size: 14px;
+}

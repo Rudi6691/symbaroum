@@ -576,7 +576,7 @@
   "MONEY.SHILLING": "Schilling",
   "MONEY.ORTEG": "Orteg",
   "MONEY.THALER_ABBR": "T",
-  "MONEY.SHILLING_ABBR": "ß",
+  "MONEY.SHILLING_ABBR": "S",
   "MONEY.ORTEG_ABBR": "O",
   "MONEY.TOTAL_VALUE": "Gesamt: {value} Orteg",
   "MONEY.WARN_INSUFFICIENT": "Der Bestand reicht dafür nicht aus.",

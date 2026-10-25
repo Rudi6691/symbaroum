@@ -219,7 +219,7 @@ export async function deductActorCurrency(actor, amount, denomination = "orteg",
 /**
  * Parst einen alten Freitext-Kosten-Eintrag in das neue Preis-Modell
  * { value, denomination }. Bevorzugte Formate:
- *   "2 ß", "35 Orteg", "3 Thaler", "24-29 T", "0,8 Taler", "10gp-free" …
+ *   "2 ß", "2 S", "35 Orteg", "3 Thaler", "24-29 T", "0,8 Taler", "10gp-free" …
  * Der erste Zahlenwert gewinnt (untere Bandgrenze), mehrere Zahlen oder
  * fehlende Einheiten werden als unsicher markiert und in der
  * Migrations-Übersicht zur manuellen Prüfung angezeigt.
@@ -246,6 +246,7 @@ export function parseCostString(raw) {
 	else if (/schilling|shilling/.test(lower)) denomination = "shilling";
 	else if (/orteg/.test(lower)) denomination = "orteg";
 	else if (/ß/.test(lower)) denomination = "shilling";
+	else if (/(^|[\s\d])s([\s.,;)]|$)/.test(lower)) denomination = "shilling";
 	else if (/(^|[\s\d])t(h)?([\s.,;)]|$)/.test(lower)) denomination = "thaler";
 	else if (/(^|[\s\d])o([\s.,;)]|$)/.test(lower)) denomination = "orteg";
 
