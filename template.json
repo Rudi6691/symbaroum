@@ -80,8 +80,7 @@
           "thaler": 0,
           "shilling": 0,
           "orteg": 0
-        },
-        "currency": 0
+        }
       },
       "defense": {
         "defense": {
@@ -340,10 +339,6 @@
         "knifePlayCompatibility": false
       },
       "cost": "",
-      "price": {
-        "value": 0,
-        "denomination": "orteg"
-      },
       "number": 1,
       "attribute": "accurate",
       "state": "other"
@@ -367,10 +362,6 @@
         "desecrated": false
       },
       "cost": "",
-      "price": {
-        "value": 0,
-        "denomination": "orteg"
-      },
       "state": "other"
     },
     "equipment": {
@@ -381,10 +372,6 @@
       "description": "",
       "reference": "",
       "cost": "",
-      "price": {
-        "value": 0,
-        "denomination": "orteg"
-      },
       "number" : 1,
       "state": "other"
     },
