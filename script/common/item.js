@@ -3999,6 +3999,15 @@ async function banishingSealChainResult(rollData, functionStuff) {
       break;
     }
     handled.add(nextToken.id);
+    // A36V test round 2 (Rudolf, 25.10.): the chain honours the category
+    // chosen in the seal dialog - a target from another category is NOT
+    // silently sealed: warning + skip (the Holy Aura pattern), the chain
+    // stays open for a fitting target. An empty dialog selection ("no
+    // category") disables the check (SL judgement).
+    if (functionStuff.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== functionStuff.sealCategoryId) {
+      ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
+      continue;
+    }
     functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
     const rollDataNext = [
       await baseRoll(
@@ -4374,6 +4383,7 @@ async function holyAuraResult(rollData, functionStuff) {
   }
   // loop 2 - healing (Adept+): allies receive the regeneration symbol
   // (A35 heal resource, ticks at the START of the ally's own turn)
+  let allyCorruption = 0;
   if (functionStuff.powerLvl.level > 1) {
     while (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY")) {
       const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
@@ -4391,13 +4401,15 @@ async function holyAuraResult(rollData, functionStuff) {
         ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_HAS_REGEN", { targetname: nextToken.name }));
         continue;
       }
-      // A36V test round (Rudolf, 25.10.): the healing costs the ally ONE
-      // point of temporary corruption - GM apply card via the existing
-      // corruptionChange field, once per ally. The "Nah" distance stays
-      // with the SL: the summary card only prints a hint when the measured
-      // distance exceeds short range (5 scene units), no blocking
-      flagDataArray.push({ tokenId: nextToken.id, corruptionChange: 1 });
-      lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_CORRUPTION", { targetname: nextToken.name })}</p>`);
+      // A36V test round 2 (Rudolf, 25.10.): the healing corruption goes to
+      // the MYSTIC, not to the healed ally - one temporary corruption
+      // point per healed ally, summed up and applied to the CASTER via
+      // ONE GM apply card entry (corruptionChange on the caster's token,
+      // see below the loop). The "Nah" distance stays with the SL: the
+      // summary card only prints a hint when the measured distance
+      // exceeds short range (5 scene units), no blocking
+      allyCorruption += 1;
+      lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_CORRUPTION", { targetname: nextToken.name, castername: functionStuff.actingCharName })}</p>`);
       try {
         if (functionStuff.token && canvas.grid.measureDistance(functionStuff.token, nextToken) > 5) {
           lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_TOO_FAR", { targetname: nextToken.name })}</p>`);
@@ -4421,6 +4433,15 @@ async function holyAuraResult(rollData, functionStuff) {
         },
       });
       lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_REGEN", { targetname: nextToken.name, dice: auraHealDice })}</p>`);
+    }
+  }
+  // A36V test round 2 (Rudolf, 25.10.): the summed healing corruption lands
+  // on the caster's own token - ONE GM apply card entry. Without a caster
+  // token on the scene (macro edge case) the SL tracks the points manually.
+  if (allyCorruption > 0) {
+    const casterTokenId = functionStuff.token?.id ?? functionStuff.tokenId;
+    if (casterTokenId) {
+      flagDataArray.push({ tokenId: casterTokenId, corruptionChange: allyCorruption });
     }
   }
   if (lines.length > 0) {
@@ -6260,6 +6281,11 @@ async function preDialogBanishingSeal(functionStuff) {
         callback: (html) => {
           const categoryId = html[0].querySelector("#creatureCategory").value;
           const subtype = html[0].querySelector("#creatureSubtype").value.trim();
+          // A36V test round 2 (Rudolf, 25.10.): the chosen category is no
+          // longer display-only - banishingSealChainResult checks every
+          // follow-up target against it (warning + skip, the Holy Aura
+          // pattern). Empty selection ("no category") disables the check.
+          functionStuff.sealCategoryId = categoryId;
           let typeLabel = "";
           if (categoryId) {
             typeLabel = game.i18n.localize(game.symbaroum.config.CREATURE_CATEGORY_SELECTION[categoryId]?.label ?? "");

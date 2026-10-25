@@ -653,6 +653,7 @@
   "POWER_BANISHINGSEAL.CHAT_MASTER": "Kreaturen ohne den betroffenen Typ im Siegel erleiden 1W8 Schaden, fliehende 1W4 (vom Spielleiter anzuwenden).",
   "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET": "Ein weiteres Ziel wird vom Bannsiegel erfasst? Ziel anvisieren und bestätigen.",
   "POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET": "Kein neues Ziel anvisiert — die Siegelwirkung endet hier.",
+  "POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY": "{targetname} entspricht nicht der im Siegel-Dialog gewählten Kategorie — Ziel übersprungen.",
   "POWER_BANISHINGSEAL.CHAT_FLEEING_INFO": "Verängstigt-Symbole gesetzt — fliehende Kreaturen ggf. manuell aus dem Kampftracker entfernen.",
 
   "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} versucht, {targetname} mit dem Kampfsymbol zu erfassen.",
@@ -746,7 +747,7 @@
   "POWER_HOLYAURA.ENEMY_NO_RESIST": "{targetname} kann dem heiligen Licht nicht widerstehen ({roll} > {target}).",
   "POWER_HOLYAURA.ENEMY_DAMAGE": "{targetname} erleidet {count} Schaden (Rüstung ignoriert).",
   "POWER_HOLYAURA.ALLY_REGEN": "{targetname} erhält Regeneration ({dice} pro Runde).",
-  "POWER_HOLYAURA.ALLY_CORRUPTION": "{targetname} erhält 1 temporäre Korruption (Kosten der Regeneration).",
+  "POWER_HOLYAURA.ALLY_CORRUPTION": "{targetname} regeneriert — {castername} erhält 1 temporäre Korruption (Kosten der Regeneration).",
   "POWER_HOLYAURA.ALLY_TOO_FAR": "Hinweis: {targetname} ist weiter als kurze Distanz (Nah) vom Wirker entfernt — SL prüft.",
   "POWER_HOLYAURA.SCENE_BLOCKED": "Die Heilige Aura ist in dieser Szene nicht mehr einsetzbar (gescheitertes erstes Wirken — SL-Verwaltung).",
   "POWER_HOLYAURA.SUMMARY": "{powername}: Wirkung der Aura",

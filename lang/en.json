@@ -653,6 +653,7 @@
   "POWER_BANISHINGSEAL.CHAT_MASTER": "Creatures of other types inside the seal suffer 1d8 damage, fleeing ones 1d4 (to be applied by the GM).",
   "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET": "Should the banishing seal affect another target? Target it and confirm.",
   "POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET": "No new target marked - the seal's effect ends here.",
+  "POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY": "{targetname} does not match the category chosen in the seal dialog - target skipped.",
   "POWER_BANISHINGSEAL.CHAT_FLEEING_INFO": "Frightened symbols applied - remove fleeing creatures from the combat tracker manually.",
 
   "POWER_BATTLESYMBOL.CHAT_INTRO": "{actorname} tries to engulf {targetname} with the battle symbol.",
@@ -745,7 +746,7 @@
   "POWER_HOLYAURA.ENEMY_NO_RESIST": "{targetname} cannot withstand the holy light ({roll} > {target}).",
   "POWER_HOLYAURA.ENEMY_DAMAGE": "{targetname} suffers {count} damage (armor ignored).",
   "POWER_HOLYAURA.ALLY_REGEN": "{targetname} receives regeneration ({dice} per round).",
-  "POWER_HOLYAURA.ALLY_CORRUPTION": "{targetname} gains 1 temporary corruption (cost of the regeneration).",
+  "POWER_HOLYAURA.ALLY_CORRUPTION": "{targetname} regenerates - {castername} gains 1 temporary corruption (cost of the regeneration).",
   "POWER_HOLYAURA.ALLY_TOO_FAR": "Note: {targetname} is farther than short range (Near) from the caster - GM checks.",
   "POWER_HOLYAURA.SCENE_BLOCKED": "Holy Aura cannot be used again in this scene (failed first casting - GM administration).",
   "POWER_HOLYAURA.SUMMARY": "{powername}: aura effects",
