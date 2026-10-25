@@ -30,6 +30,17 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/chat/ability.hbs',
     'systems/symbaroum/template/chat/combat.hbs',
     'systems/symbaroum/template/chat/applyEffectsButton.hbs',
+    // A6: Partials der modernisierten Blatt-Ansicht (Foundry registriert
+    // Partials NICHT automatisch - die Liste hier ist Pflicht; die
+    // Dialog-Templates attributes-dialog/experience-dialog werden per
+    // renderTemplate on-demand geladen und brauchen kein Preload).
+    'systems/symbaroum/template/sheet/modern/player-modern.hbs',
+    'systems/symbaroum/template/sheet/modern/sidebar.hbs',
+    'systems/symbaroum/template/sheet/modern/tab/combat.hbs',
+    'systems/symbaroum/template/sheet/modern/tab/powers.hbs',
+    'systems/symbaroum/template/sheet/modern/tab/gear.hbs',
+    'systems/symbaroum/template/sheet/modern/tab/bio.hbs',
+    'systems/symbaroum/template/sheet/modern/tab/notes.hbs',
   ];
   return foundry.applications.handlebars.loadTemplates(templatePaths);
 }
