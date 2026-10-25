@@ -472,6 +472,16 @@ export async function damageRollWithDiceParams(functionStuff, critSuccess, attac
     damageAutoParams += ", " + game.i18n.localize('COMBAT.CHAT_DMG_PARAMS_LEADER');
     damageModNPC += 2;
   }
+  // A36-Verbraucher (Geweiht, APG): a hallowed weapon that wounded a
+  // corruption-affected creature adds +1d4 to the damage roll - the flag is
+  // set by the corruption probe in attackResult (auto-fail for thoroughly
+  // corrupt targets, auto-pass at zero corruption, otherwise 1d20 <= total
+  // corruption). NPC attackers get the fixed +2 like the other damage mods.
+  if(functionStuff.hallowedBonus){
+    damageModFormula += " +1d4" + game.i18n.localize('COMBAT.CHAT_DMG_PARAMS_HALLOWED');
+    damageAutoParams += ", " + game.i18n.localize('COMBAT.CHAT_DMG_PARAMS_HALLOWED');
+    damageModNPC += 2;
+  }
   if(critSuccess) {
     //critSuccess is in the attackers perspective, so it always add damage.
     damageModFormula += " +1d6[crit.]";

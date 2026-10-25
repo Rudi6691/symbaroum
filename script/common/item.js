@@ -2598,17 +2598,20 @@ export class SymbaroumItem extends Item {
     base.resultTextSuccess = game.i18n.localize("POWER_HOLYAURA.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_HOLYAURA.CHAT_FAILURE");
     base.activelyMaintaninedCasterEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "holyaura"))];
-    let auraDamage = "1d6";
-    let auraHeal = "1d4";
+    // A36-Verbraucher (Heilige Aura, GRW): the aura dice per level - 1d6/
+    // 1d8/1d10 damage against abominations and undead, 1d4/1d6 healing for
+    // allies from Adept on. The values used to be printed as an informative
+    // finalText only; holyAuraResult now automates the run (immediate
+    // damage + engine-managed damage symbol per victim, regeneration symbol
+    // per ally) and reports on its own summary card, so the old finalText
+    // is gone.
+    base.auraDamageDice = "1d6";
+    base.auraHealDice = "1d4";
     if (base.powerLvl.level == 2) {
-      auraDamage = "1d8";
+      base.auraDamageDice = "1d8";
     } else if (base.powerLvl.level == 3) {
-      auraDamage = "1d10";
-      auraHeal = "1d6";
-    }
-    base.finalTextSucceed = game.i18n.localize("COMBAT.DAMAGE") + auraDamage;
-    if (base.powerLvl.level > 1) {
-      base.finalTextSucceed += game.i18n.localize("POWER_HOLYAURA.HEALING") + auraHeal;
+      base.auraDamageDice = "1d10";
+      base.auraHealDice = "1d6";
     }
     return base;
   }
@@ -3898,6 +3901,11 @@ function getPowerResultFunction(functionStuff) {
       return functionStuff.powerLvl.level > 1 ? earthshotResult : standardPowerResult;
     case "priosburningglass":
       return functionStuff.powerLvl.level > 1 ? priosBurningGlassResult : standardPowerResult;
+    // A36-Verbraucher (Heilige Aura): every level runs the automated aura
+    // flow - the cast places the aura symbols (see holyAuraResult), the
+    // maintain rounds keep them alive and the failed roll removes them
+    case "holyaura":
+      return holyAuraResult;
     default:
       return standardPowerResult;
   }
@@ -4182,6 +4190,185 @@ function priosStunConfirmation(functionStuff, targetname) {
       default: "no",
     });
   });
+}
+
+/* A36-Verbraucher — Heilige Aura (GRW Theurgie, E4): the standard card posts
+   the unopposed Resolute probe (CASTING), the corruption cost and the
+   caster's maintain symbol exactly as before; the actual effects are now
+   engine-managed instead of the old informative finalText:
+   - On a successful CAST the player marks every affected creature in TWO
+     glyph-style selection loops (fresh targeting per target, confirmation
+     before each follow-up, NO per-target probe - "automatische Anwendung"
+     per Rudolf's design). Loop 1 (every level) marks abominations and
+     undead via the A36 category flags: each marked victim takes the aura
+     damage 1d6/1d8/1d10 immediately (armor ignored, GM apply card with the
+     A25 F9 dying feedback) and receives the holyaura damage symbol whose
+     dot block ticks the same dice at the START of its own turn every round
+     (A28 engine, NO duration - it ticks until the aura ends). Loop 2
+     (Adept+) marks allies - monsters included - who receive the
+     regeneration symbol with the aura heal rate 1d4/1d6 (the A35 heal
+     resource). Allied abominations/undead are excluded by simply not
+     marking them, which fulfils the novice exclusion rule without a
+     dialog. All lines and rolls go onto ONE aura summary card (F8 optics).
+   - MAINTAIN: the existing per-round casting roll. A success keeps the
+     aura and ALL symbols ticking without any further clicks; a failure
+     ends the power - every scene symbol carrying this caster's author
+     markers for the holyaura ability is removed via one GM card
+     (holyAuraEndCleanup). The A29 Zug-Start reminder finds the placed
+     symbols via their maintained marker + author flags, so the reminder
+     and its "Nein" abort chain run along for free.
+   Boundaries (deliberate, Freigabe 24.10.): creatures entering sight later
+     are only caught by abort + recast or manual symbols; an ally with the
+     A35 Regeneration trait or an aura regeneration symbol gets no second
+     symbol; damage ticks apply raw (armor ignored per GRW, damage
+     reductions do not apply to engine ticks - A28 model); no immediate heal
+     on cast (the rule heals "per round", the first tick comes with the
+     ally's next turn). */
+async function holyAuraResult(rollData, functionStuff) {
+  const succeeded = rollData?.[0]?.trueActorSucceeded !== false;
+  // standard card first: probe, corruption, caster maintain symbol
+  // (added on cast success, removed on maintain failure by the standard path)
+  await standardPowerResult(rollData, functionStuff);
+  if (functionStuff.isMaintained) {
+    // maintain round: success keeps every symbol ticking (nothing to do),
+    // a failed roll ends the aura and removes all its scene symbols
+    if (!succeeded) {
+      await holyAuraEndCleanup(functionStuff);
+    }
+    return;
+  }
+  if (!succeeded) return;
+  const flagDataArray = [];
+  const auraRolls = [];
+  const lines = [];
+  const handled = new Set();
+  const auraDamageDice = functionStuff.auraDamageDice ?? "1d6";
+  const auraHealDice = functionStuff.auraHealDice ?? "1d4";
+  // loop 1 - damage (every level): abominations and undead only (A36 flags)
+  while (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ENEMY")) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    const category = game.symbaroum.config.getCreatureCategory(nextToken.actor);
+    if (category !== "undead" && category !== "abomination") {
+      ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
+      continue;
+    }
+    // immediate damage, armor ignored (GRW) - one roll per victim on the
+    // summary card, applied via the GM card toughnessChange
+    const damageRoll = await new Roll(auraDamageDice).evaluate();
+    auraRolls.push(damageRoll);
+    flagDataArray.push({
+      tokenId: nextToken.id,
+      toughnessChange: -1 * damageRoll.total,
+    });
+    lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ENEMY_DAMAGE", { targetname: nextToken.name, count: damageRoll.total })}</p>`);
+    // the damage killed the victim (same dying check as the A25 F10/F11
+    // paths) - no damage symbol on a dead token, the defeated flag marks
+    // it in the combat tracker like the standard attack path
+    const targetToughness = nextToken.actor?.system?.health?.toughness?.value;
+    if (targetToughness !== undefined && damageRoll.total >= targetToughness) {
+      if (ui.combat.viewed && (ui.combat.viewed.getCombatantsByToken(nextToken.id) ?? []).length > 0) {
+        flagDataArray.push({ tokenId: nextToken.id, defeated: true });
+      }
+      continue;
+    }
+    flagDataArray.push({
+      tokenId: nextToken.id,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "holyaura")),
+      casterId: functionStuff.actor.id,
+      abilityRef: functionStuff.ability?.reference,
+      casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+      casterName: functionStuff.actingCharName,
+      maintained: true,
+      dot: {
+        label: "POWER_LABEL.HOLY_AURA",
+        formula: auraDamageDice,
+        resource: "toughness",
+        separateRoll: false,
+      },
+    });
+  }
+  // loop 2 - healing (Adept+): allies receive the regeneration symbol
+  // (A35 heal resource, ticks at the START of the ally's own turn)
+  if (functionStuff.powerLvl.level > 1) {
+    while (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY")) {
+      const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+      if (!nextToken) {
+        ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
+        break;
+      }
+      handled.add(nextToken.id);
+      const allyCategory = game.symbaroum.config.getCreatureCategory(nextToken.actor);
+      if (allyCategory === "undead" || allyCategory === "abomination") {
+        ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_NOT_LIVING", { targetname: nextToken.name }));
+        continue;
+      }
+      if (nextToken.actor?.hasCondition("regeneration")) {
+        ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_HAS_REGEN", { targetname: nextToken.name }));
+        continue;
+      }
+      flagDataArray.push({
+        tokenId: nextToken.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "regeneration")),
+        casterId: functionStuff.actor.id,
+        abilityRef: functionStuff.ability?.reference,
+        casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+        casterName: functionStuff.actingCharName,
+        maintained: true,
+        dot: {
+          label: "POWER_LABEL.HOLY_AURA",
+          formula: auraHealDice,
+          resource: "heal",
+          separateRoll: false,
+        },
+      });
+      lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_REGEN", { targetname: nextToken.name, dice: auraHealDice })}</p>`);
+    }
+  }
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.format("POWER_HOLYAURA.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, auraRolls);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* A36-Verbraucher — Heilige Aura: the aura ends (failed maintain roll or
+   the A29 "Nein" abort path) - every scene symbol carrying this caster's
+   author markers for the holyaura ability (damage dots on abominations/
+   undead, ally regeneration symbols) goes onto ONE GM removal card; the
+   caster's own maintain symbol was already removed by standardPowerResult.
+   Untagged conditions are never touched (A23/K6 marker protection); the
+   effect ids come from the ActiveEffect statuses so both symbol types
+   (holyaura, regeneration) are removed through the same removeCondition
+   path as the other GM cards. */
+async function holyAuraEndCleanup(functionStuff) {
+  const casterId = functionStuff.actor.id;
+  const abilityRef = functionStuff.ability?.reference;
+  const flagDataArray = [];
+  const seen = new Set();
+  for (const token of canvas.tokens.placeables) {
+    const tokenActor = token.actor;
+    if (!tokenActor) continue;
+    for (const effect of tokenActor.effects) {
+      const effectFlagData = effect.getFlag(game.system.id, "flagData");
+      if (effectFlagData?.caster !== casterId || effectFlagData?.ability !== abilityRef) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = token.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+    }
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
 }
 
 /* A17 draining glyph: the glyph affects every enemy that can see the symbol
@@ -4954,6 +5141,32 @@ async function attackResult(rollData, functionStuff) {
     if (functionStuff.weapon.qualities.jointed && !rollDataElement.trueActorSucceeded && rollDataElement.diceResult % 2 != 0) {
       rollDataElement.resultText = game.i18n.localize("COMBAT.CHAT_JOINTED_SECONDARY");
     } else if (rollDataElement.trueActorSucceeded) {
+      // A36-Verbraucher (Geweiht, APG): a hallowed weapon probes the wounded
+      // target's corruption - thoroughly corrupt creatures fail automatically
+      // (total corruption >= corruption max, isThoroughlyCorruptTarget with
+      // Rudolf's corrected total-value reading), creatures with zero
+      // corruption pass automatically (no roll), everything else rolls 1d20
+      // and fails on a result <= its TOTAL corruption. A failed probe flags
+      // +1d4 onto the damage roll (damageRollWithDiceParams, NPC attacker +2).
+      // Alternative-damage weapons (Resolute/mystic damage) stay out, like
+      // the other weapon-quality paths; armor quality hallowed is not
+      // scripted (SL side, deliberate).
+      functionStuff.hallowedBonus = false;
+      const hallowedQualities = functionStuff.weapon?.system?.qualities ?? functionStuff.weapon?.qualities;
+      if (!functionStuff.isAlternativeDamage && hallowedQualities?.hallowed) {
+        const hallowedTarget = functionStuff.targetData.actor;
+        const hallowedTotalCorruption =
+          Number(hallowedTarget?.system?.health?.corruption?.temporary ?? 0) +
+          Number(hallowedTarget?.system?.health?.corruption?.longterm ?? 0) +
+          Number(hallowedTarget?.system?.health?.corruption?.permanent ?? 0);
+        if (game.symbaroum.config.isThoroughlyCorruptTarget(hallowedTarget)) {
+          functionStuff.hallowedBonus = true;
+        } else if (hallowedTotalCorruption > 0) {
+          const hallowedProbe = await new Roll("1d20").evaluate();
+          rolls.push(hallowedProbe);
+          functionStuff.hallowedBonus = hallowedProbe.total <= hallowedTotalCorruption;
+        }
+      }
       hasDamage = true;
       rollDataElement.hasDamage = true;
       damage = await damageRollWithDiceParams(functionStuff, rollDataElement.critSuccess, attackNumber);
@@ -5917,17 +6130,41 @@ async function preDialogBanishingSeal(functionStuff) {
     ui.notifications.error(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_TARGET"));
     return;
   }
+  // A36-Verbraucher (Bannsiegel): the free-text creature type dialog becomes
+  // a category dropdown (CREATURE_CATEGORY_SELECTION) plus a free subtype
+  // field, both pre-filled from the primary target's stored A36 flags - a
+  // target already categorised on its sheet needs no extra typing. The
+  // selection is display-only (autoParams), the seal's effect stays
+  // SL-managed, and one dialog covers the whole chain (like the old text).
+  const primaryActor = functionStuff.targetData?.token?.actor ?? functionStuff.targetData?.actor;
+  const presetCategory = game.symbaroum.config.getCreatureCategory(primaryActor);
+  const presetSubtype = primaryActor?.system?.creatureSubtype ?? "";
+  const categoryOptions = Object.values(game.symbaroum.config.CREATURE_CATEGORY_SELECTION)
+    .map(
+      (category) =>
+        `<option value="${category.id}"${category.id === presetCategory ? " selected" : ""}>${game.i18n.localize(category.label)}</option>`
+    )
+    .join("");
   symbDialog({
     title: functionStuff.abilityName,
     content: `<p>${game.i18n.localize("POWER_BANISHINGSEAL.DIALOG_TYPE")}</p>
-      <input type="text" id="creatureType" style="width: 100%">`,
+      <select id="creatureCategory" style="width: 100%">${categoryOptions}</select>
+      <input type="text" id="creatureSubtype" style="width: 100%" value="${presetSubtype}">`,
     buttons: {
       cast: {
         icon: '<i class="fas fa-check"></i>',
         label: game.i18n.localize("BUTTON.ROLL"),
         callback: (html) => {
-          const creatureType = html[0].querySelector("#creatureType").value.trim();
-          if (creatureType.length) functionStuff.autoParams += "(" + creatureType + "), ";
+          const categoryId = html[0].querySelector("#creatureCategory").value;
+          const subtype = html[0].querySelector("#creatureSubtype").value.trim();
+          let typeLabel = "";
+          if (categoryId) {
+            typeLabel = game.i18n.localize(game.symbaroum.config.CREATURE_CATEGORY_SELECTION[categoryId]?.label ?? "");
+          }
+          if (subtype.length) {
+            typeLabel = typeLabel.length ? typeLabel + ", " + subtype : subtype;
+          }
+          if (typeLabel.length) functionStuff.autoParams += "(" + typeLabel + "), ";
           modifierDialog(functionStuff);
         },
       },
