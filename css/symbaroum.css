@@ -5664,15 +5664,22 @@ dialog.symb-dialog.chain-confirm footer button {
    Strecken). Nur sichtbar bei aktivierter optionaler Regel.
    ============================================================ */
 .symbaroum.sheet.actor .combat .encumbrance {
-  /* Runde-1-Fix: .combat ist ein flex-row/wrap-Container - ohne volle
-     flex-basis wäre das Widget nur so breit wie sein Inhalt und würde
-     schmal neben statt unter der Waffenliste erscheinen. */
-  flex-basis: 100%;
-  flex-grow: 0;
-  flex-shrink: 0;
-  margin-top: 4px;
-  margin-left: 5px;
-  margin-right: 5px;
+  /* Runde-2-Fix (Testrunde 2: Balken lag neben statt unter dem
+     Kampf-Block): Die WIRKSAME .combat-Regel ist die A5-Überarbeitung
+     weiter unten in dieser Datei (gleiche Selektor-Spezifität, später
+     im Cascade-Fluss): flex-direction: column - NICHT row/wrap wie
+     die ältere Regel oben. Der Runde-1-Fix mit flex-basis: 100% setzte
+     deshalb die HOEHE des Widgets auf 100% des Kampf-Containers
+     (giant leere Box; die Waffenliste wurde gequetscht und das Widget
+     aus dem Block gedrängt). In einem Column-Container erhält das
+     Widget seine volle Breite automatisch (align-items: stretch) und
+     stapelt sich unter der Waffenliste; flex: 0 0 auto haelt es auf
+     Inhaltshoehe, width: 100% + box-sizing sichert die volle Breite
+     unabhaengig vom Elternelement. */
+  flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 0 0;
   padding: 0 4px 4px 4px;
 }
 
