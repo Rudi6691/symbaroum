@@ -3976,7 +3976,53 @@ async function staffProjectileChainResult(rollData, functionStuff) {
 }
 
 async function banishingSealChainResult(rollData, functionStuff) {
-  return chainResult(rollData, functionStuff, null);
+  // A36V test round (Rudolf, 25.10.): the seal's chain no longer needs a
+  // multi-selection made BEFORE the casting - after the primary target's
+  // card a glyph-style confirmation asks for the next target (fresh
+  // targeting per target, the Brennglas pattern he asked for), every
+  // follow-up is its own opposed test, a miss ends the sequence (as
+  // before), and the follow-ups cost no further corruption (one casting).
+  // Targets that fell to the seal flee: each gets the Verängstigt symbol
+  // via ONE GM apply card ("Kreaturen, die fliehen müssen, bekommen
+  // Verängstigt") - the combat tracker stays untouched, the SL removes
+  // fleeing combatants manually (Rudolf's choice).
+  await standardPowerResult(rollData, functionStuff);
+  if (!rollData?.[0]?.trueActorSucceeded) return;
+  const fleeing = [functionStuff.targetData.tokenId];
+  const handled = new Set([functionStuff.targetData.tokenId]);
+  const savedCorruption = functionStuff.corruption;
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  while (await glyphNextTargetConfirmation(functionStuff, "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET")) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+    const rollDataNext = [
+      await baseRoll(
+        functionStuff.actor,
+        functionStuff.castingAttributeName,
+        nextToken.actor,
+        functionStuff.targetResistAttribute,
+        functionStuff.favour,
+        functionStuff.modifier,
+        false
+      ),
+    ];
+    await standardPowerResult(rollDataNext, functionStuff);
+    if (!rollDataNext[0].trueActorSucceeded) break;
+    fleeing.push(nextToken.id);
+  }
+  functionStuff.corruption = savedCorruption;
+  if (fleeing.length > 0) {
+    // core status 'fear' (V14 id, German "Verängstigt" via SYMBAROUM.STATUS_FEAR);
+    // dual access like actor.js addCondition - .find over the array, then the id key
+    const fearEffect = CONFIG.statusEffects.find((e) => e.id === "fear") ?? CONFIG.statusEffects["fear"];
+    await createModifyTokenChatButton(fleeing.map((tokenId) => ({ tokenId: tokenId, addEffect: foundry.utils.duplicate(fearEffect) })));
+    ui.notifications.info(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_FLEEING_INFO"));
+  }
 }
 
 /* A32 Earth Shot (Erdschuss) Adept/Master (GRW): no maintain - one attack
@@ -4237,14 +4283,48 @@ async function holyAuraResult(rollData, functionStuff) {
     }
     return;
   }
-  if (!succeeded) return;
+  if (!succeeded) {
+    // A36V test round (Rudolf, 25.10.): a failed FIRST casting blocks the
+    // power for the rest of the scene - SL administration, the system does
+    // not enforce it, the notification just tells the table
+    ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.SCENE_BLOCKED"));
+    return;
+  }
   const flagDataArray = [];
   const auraRolls = [];
   const lines = [];
   const handled = new Set();
   const auraDamageDice = functionStuff.auraDamageDice ?? "1d6";
   const auraHealDice = functionStuff.auraHealDice ?? "1d4";
-  // loop 1 - damage (every level): abominations and undead only (A36 flags)
+  // the caster's snapshotted Resolute - author marker AND resistance target
+  const casterResolute = getAttributeValue(functionStuff.actor, "resolute");
+  // A36V test round (Rudolf, 25.10.): the damage symbol carries a resist
+  // block so the A28 engine runs the per-round opposition (see hooks.js) -
+  // the author markers stay identical to the first delivery
+  const pushAuraDamageSymbol = (tokenId) => {
+    flagDataArray.push({
+      tokenId: tokenId,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "holyaura")),
+      casterId: functionStuff.actor.id,
+      abilityRef: functionStuff.ability?.reference,
+      casterResolute: casterResolute,
+      casterName: functionStuff.actingCharName,
+      maintained: true,
+      dot: {
+        label: "POWER_LABEL.HOLY_AURA",
+        formula: auraDamageDice,
+        resource: "toughness",
+        separateRoll: false,
+        resist: {
+          attribute: "resolute",
+          value: casterResolute,
+        },
+      },
+    });
+  };
+  // loop 1 - damage (every level): abominations, undead and thoroughly
+  // corrupt creatures (A36V test round: the corrupt evaluation joins the
+  // two category flags - isThoroughlyCorruptTarget with the Abso. fallback)
   while (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ENEMY")) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
@@ -4253,10 +4333,24 @@ async function holyAuraResult(rollData, functionStuff) {
     }
     handled.add(nextToken.id);
     const category = game.symbaroum.config.getCreatureCategory(nextToken.actor);
-    if (category !== "undead" && category !== "abomination") {
+    if (category !== "undead" && category !== "abomination" && !game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
       ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
       continue;
     }
+    // A36V test round (Rudolf, 25.10.): EVERY damage application is opposed
+    // - Resolute vs the caster's Resolute, the system's one-roll opposed
+    // model (1d20 <= victim value + 10 - caster value). A successful
+    // resistance cancels THIS immediate damage only: the symbol stays,
+    // every round tick gets its own attempt via the resist block
+    const resistRoll = await new Roll("1d20").evaluate();
+    auraRolls.push(resistRoll);
+    const resistTarget = getAttributeValue(nextToken.actor, "resolute") + 10 - casterResolute;
+    if (resistRoll.total <= resistTarget) {
+      lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ENEMY_RESISTED", { targetname: nextToken.name, roll: resistRoll.total, target: resistTarget })}</p>`);
+      pushAuraDamageSymbol(nextToken.id);
+      continue;
+    }
+    lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ENEMY_NO_RESIST", { targetname: nextToken.name, roll: resistRoll.total, target: resistTarget })}</p>`);
     // immediate damage, armor ignored (GRW) - one roll per victim on the
     // summary card, applied via the GM card toughnessChange
     const damageRoll = await new Roll(auraDamageDice).evaluate();
@@ -4276,21 +4370,7 @@ async function holyAuraResult(rollData, functionStuff) {
       }
       continue;
     }
-    flagDataArray.push({
-      tokenId: nextToken.id,
-      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "holyaura")),
-      casterId: functionStuff.actor.id,
-      abilityRef: functionStuff.ability?.reference,
-      casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
-      casterName: functionStuff.actingCharName,
-      maintained: true,
-      dot: {
-        label: "POWER_LABEL.HOLY_AURA",
-        formula: auraDamageDice,
-        resource: "toughness",
-        separateRoll: false,
-      },
-    });
+    pushAuraDamageSymbol(nextToken.id);
   }
   // loop 2 - healing (Adept+): allies receive the regeneration symbol
   // (A35 heal resource, ticks at the START of the ally's own turn)
@@ -4310,6 +4390,20 @@ async function holyAuraResult(rollData, functionStuff) {
       if (nextToken.actor?.hasCondition("regeneration")) {
         ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_HAS_REGEN", { targetname: nextToken.name }));
         continue;
+      }
+      // A36V test round (Rudolf, 25.10.): the healing costs the ally ONE
+      // point of temporary corruption - GM apply card via the existing
+      // corruptionChange field, once per ally. The "Nah" distance stays
+      // with the SL: the summary card only prints a hint when the measured
+      // distance exceeds short range (5 scene units), no blocking
+      flagDataArray.push({ tokenId: nextToken.id, corruptionChange: 1 });
+      lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_CORRUPTION", { targetname: nextToken.name })}</p>`);
+      try {
+        if (functionStuff.token && canvas.grid.measureDistance(functionStuff.token, nextToken) > 5) {
+          lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_TOO_FAR", { targetname: nextToken.name })}</p>`);
+        }
+      } catch (distanceError) {
+        // no grid/scene measurement available - the SL judges the distance alone
       }
       flagDataArray.push({
         tokenId: nextToken.id,
@@ -5148,9 +5242,12 @@ async function attackResult(rollData, functionStuff) {
       // corruption pass automatically (no roll), everything else rolls 1d20
       // and fails on a result <= its TOTAL corruption. A failed probe flags
       // +1d4 onto the damage roll (damageRollWithDiceParams, NPC attacker +2).
-      // Alternative-damage weapons (Resolute/mystic damage) stay out, like
-      // the other weapon-quality paths; armor quality hallowed is not
-      // scripted (SL side, deliberate).
+      // A36V test round (Rudolf, 25.10., Befund 2): targets of the monster
+      // category ABOMINATION always take the bonus - no probe, no corruption
+      // needed; undead keep running through the probe (no category shortcut,
+      // undead are not abominations). Alternative-damage weapons
+      // (Resolute/mystic damage) stay out, like the other weapon-quality
+      // paths; armor quality hallowed is not scripted (SL side, deliberate).
       functionStuff.hallowedBonus = false;
       const hallowedQualities = functionStuff.weapon?.system?.qualities ?? functionStuff.weapon?.qualities;
       if (!functionStuff.isAlternativeDamage && hallowedQualities?.hallowed) {
@@ -5159,7 +5256,10 @@ async function attackResult(rollData, functionStuff) {
           Number(hallowedTarget?.system?.health?.corruption?.temporary ?? 0) +
           Number(hallowedTarget?.system?.health?.corruption?.longterm ?? 0) +
           Number(hallowedTarget?.system?.health?.corruption?.permanent ?? 0);
-        if (game.symbaroum.config.isThoroughlyCorruptTarget(hallowedTarget)) {
+        if (
+          game.symbaroum.config.isCreatureCategory(hallowedTarget, "abomination") ||
+          game.symbaroum.config.isThoroughlyCorruptTarget(hallowedTarget)
+        ) {
           functionStuff.hallowedBonus = true;
         } else if (hallowedTotalCorruption > 0) {
           const hallowedProbe = await new Roll("1d20").evaluate();
@@ -6122,9 +6222,12 @@ async function preDialogStaffProjectile(functionStuff) {
 }
 
 async function preDialogBanishingSeal(functionStuff) {
+  // A36V test round (Rudolf, 25.10.): the chain runs on fresh targeting in
+  // banishingSealChainResult (glyph style) - a multi-selection made before
+  // the casting only feeds the PRIMARY target, any further pre-selected
+  // tokens are ignored
   if (!functionStuff.targetData.hasTarget && functionStuff.targets?.length) {
     functionStuff.targetData = functionStuff.targets[0];
-    functionStuff.chainTargets = functionStuff.targets.slice(1);
   }
   if (!functionStuff.targetData.hasTarget) {
     ui.notifications.error(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_TARGET"));

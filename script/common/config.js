@@ -676,13 +676,18 @@ SYMBAROUM.systemConditionEffects = [
    ("Gesamtwert der Korruption"), which also makes the new hallowed
    weapon quality (Geweiht) evaluate consistently with Prios' Burning
    Glass and Fegefeuer: a creature carrying high temporary corruption
-   already counts as thoroughly corrupt for these evaluations. */
+   already counts as thoroughly corrupt for these evaluations.
+   A36V test round (Rudolf, 25.10.): the max > 0 guard silently disabled the
+   evaluation for every sheet with an untended "Abso." field - corruption.max
+   is DERIVED from Resolute and is > 0 on a maintained sheet, so a max of 0
+   is a data artefact, not "no corruption data": the guard now assumes the
+   default threshold 10 instead of returning false. */
 SYMBAROUM.isThoroughlyCorruptTarget = function (actor) {
 	if (actor?.system?.isThoroughlyCorrupt) return true;
 	const corr = actor?.system?.health?.corruption;
 	if (!corr) return false;
-	const max = Number(corr.max);
-	if (!(max > 0)) return false;
+	let max = Number(corr.max);
+	if (!(max > 0)) max = 10;
 	const total = Number(corr.temporary ?? 0) + Number(corr.longterm ?? 0) + Number(corr.permanent ?? 0);
 	return total >= max;
 };

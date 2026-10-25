@@ -10,7 +10,7 @@ import { enrichTextEditors } from './enricher.js';
 import { SymbaroumActor } from './actor.js';
 import { SymbaroumItem, buildRolls } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
-import { createRollData } from './roll.js';
+import { createRollData, getAttributeValue } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
 // DialogV2 compatibility helper
 import { symbDialog } from './symbDialog.js';
@@ -567,6 +567,26 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		// A33Fix2 (Befund 7) + A33Fix3: regeneration at full toughness or
 		// while dying (toughness 0) ticks nothing
 		if (dot.resource === 'heal' && suppressHeal) continue;
+		// A36V test round (Rudolf, 25.10. - Heilige Aura): a dot with a
+		// resist block is opposed EVERY round - the victim rolls 1d20
+		// against its attribute value + 10 - the caster's snapshotted value
+		// (the system's one-roll opposed model, exactly like the immediate
+		// damage resistance on the aura summary card). A successful
+		// resistance cancels THIS round's tick: resistance line on the
+		// card, no amount, no actor update - the symbol stays, the next
+		// round gets its own attempt. Damage-dots only (heal and corruption
+		// resources never resist).
+		if (dot.resist && dot.resource !== 'heal' && dot.resource !== 'corruption') {
+			const resistTarget = getAttributeValue(actor, dot.resist.attribute) + 10 - Number(dot.resist.value ?? 10);
+			const resistRoll = await new Roll('1d20').evaluate();
+			rolls.push(resistRoll);
+			const resistLabel = dot.label ? game.i18n.localize(dot.label) : e.name;
+			if (resistRoll.total <= resistTarget) {
+				lines.push(game.i18n.format('COMBAT.DOT_RESIST_SUCCESS', { label: resistLabel, roll: resistRoll.total, target: resistTarget }));
+				continue;
+			}
+			lines.push(game.i18n.format('COMBAT.DOT_RESIST_FAILED', { label: resistLabel, roll: resistRoll.total, target: resistTarget }));
+		}
 		const roll = await new Roll(dot.formula).evaluate();
 		rolls.push(roll);
 		const amount = roll.total * (dot.stacks ?? 1);
