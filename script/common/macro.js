@@ -1,6 +1,6 @@
 import { prepareRollAttribute } from "../common/dialog.js";
 import { symbDialog } from "../common/symbDialog.js";
-import { getCurrencyRates, getDenominations, parseCostString } from "../common/currency.js";
+import { getCurrencyRates, getDenominations, parseCostString, getItemPriceBase } from "../common/currency.js";
 
 export class SymbaroumMacros {
 	constructor() {}
@@ -1547,11 +1547,33 @@ export class SymbaroumMacros {
 
 		/* --- Actors: old system.money -> suggested system.currency --- */
 		const allActors = game.actors.filter((a) => a.type === "player" || a.type === "monster");
-		const actors = allActors.filter((a) => a.system.currency === undefined).sort((a, b) => a.name.localeCompare(b.name));
+		const unmigratedActors = allActors.filter((a) => a.system.currency === undefined);
+		/* v1-Schadensbegrenzung: falls ein Aktor durch v1-Tests bereits ein
+		   currency-Feld mit 0 bekommen hat, obwohl alte money-Werte > 0
+		   existieren (Vorlagen-Mischung kann persisted sein), wird er als
+		   Verdachtszeile mit Warnungszeichen angezeigt - der GM entscheidet. */
+		const suspectActors = allActors.filter((a) => {
+			if (a.system.currency === undefined) return false;
+			if (a.system.currency !== 0) return false;
+			const t = Number(a.system.money?.thaler ?? 0);
+			const s = Number(a.system.money?.shilling ?? 0);
+			const o = Number(a.system.money?.orteg ?? 0);
+			return t * rates.thaler + s * rates.shilling + o > 0;
+		});
+		const actors = [...unmigratedActors, ...suspectActors].sort((a, b) => a.name.localeCompare(b.name));
 
 		/* --- Items: old system.cost free-text -> suggested system.price --- */
 		const allItems = game.items.filter((i) => ["weapon", "armor", "equipment"].includes(i.type));
-		const items = allItems.filter((i) => i.system.price === undefined).sort((a, b) => a.name.localeCompare(b.name));
+		const unmigratedItems = allItems.filter((i) => i.system.price === undefined);
+		/* v1-Schadensbegrenzung: migriertes Preisfeld 0, obwohl der alte
+		   cost-Text einen positiven Betrag nennt -> Verdachtszeile. */
+		const suspectItems = allItems.filter((i) => {
+			if (i.system.price === undefined) return false;
+			if (getItemPriceBase(i) !== 0) return false;
+			const parsed = parseCostString(i.system.cost);
+			return (parsed.value ?? 0) > 0;
+		});
+		const items = [...unmigratedItems, ...suspectItems].sort((a, b) => a.name.localeCompare(b.name));
 
 		if (actors.length === 0 && items.length === 0) {
 			ui.notifications.info(game.i18n.localize("MACRO.CURRENCY_MIGRATION_NONE"));
@@ -1572,19 +1594,21 @@ export class SymbaroumMacros {
 			const o = Number(actor.system.money?.orteg ?? 0);
 			const rawTotal = t * rates.thaler + s * rates.shilling + o;
 			const isInteger = Number.isInteger(rawTotal);
-			const suggested = Math.round(rawTotal);
+			const isSuspect = typeof actor.system.currency === "number";
+			const suggested = isSuspect ? Math.max(0, Math.round(actor.system.currency)) : Math.round(rawTotal);
 			actorRows = actorRows.concat(`<tr>
                     <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(actor.name)}</td>
-                    <td style="padding:2px 6px;">${moneyText(actor.system.money)}${isInteger ? "" : warnMark}</td>
+                    <td style="padding:2px 6px;">${moneyText(actor.system.money)}${isSuspect || !isInteger ? warnMark : ""}</td>
                     <td style="padding:2px 6px;"><input style="width:100%; text-align:right;" type="number" min="0" step="1" data-actor-id="${actor.id}" class="currency-total" value="${suggested}" /></td>
                 </tr>`);
 		}
 
 		let itemRows = "";
 		for (const item of items) {
+			const isSuspect = item.system.price !== undefined;
 			const parsed = parseCostString(item.system.cost);
-			const suggestedValue = parsed.value ?? 0;
-			const suggestedDenomination = parsed.denomination ?? "orteg";
+			const suggestedValue = isSuspect ? Math.max(0, Math.round(Number(item.system.price.value) || 0)) : (parsed.value ?? 0);
+			const suggestedDenomination = isSuspect ? (item.system.price.denomination ?? "orteg") : (parsed.denomination ?? "orteg");
 			const costText = String(item.system.cost ?? "").trim();
 			const oldCell = costText === "" ? "&mdash;" : foundry.utils.escapeHTML(costText);
 			const options = denominations
@@ -1592,7 +1616,7 @@ export class SymbaroumMacros {
 				.join("");
 			itemRows = itemRows.concat(`<tr>
                     <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(item.name)}</td>
-                    <td style="padding:2px 6px;">${oldCell}${parsed.certain ? "" : warnMark}</td>
+                    <td style="padding:2px 6px;">${oldCell}${isSuspect || !parsed.certain ? warnMark : ""}</td>
                     <td style="padding:2px 6px; white-space:nowrap;"><input style="width:5em; text-align:right;" type="number" min="0" step="1" data-item-id="${item.id}" class="price-value" value="${suggestedValue}" />&nbsp;<select data-item-id="${item.id}" class="price-denomination">${options}</select></td>
                 </tr>`);
 		}
@@ -1624,9 +1648,9 @@ export class SymbaroumMacros {
         <div style="display:flex; flex-direction:column;">
         <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_HEADER")}</p>
         <p style="margin:0 0 4px 0; font-size:0.9em; opacity:0.8;">${game.i18n.format("MACRO.CURRENCY_MIGRATION_ALREADY", {
-			actors: allActors.length - actors.length,
+			actors: allActors.length - unmigratedActors.length,
 			actorsTotal: allActors.length,
-			items: allItems.length - items.length,
+			items: allItems.length - unmigratedItems.length,
 			itemsTotal: allItems.length,
 		})}</p>
         <p style="margin:8px 0 2px 0; font-weight:bold;">${game.i18n.localize("MACRO.CURRENCY_MIGRATION_ACTORS")}</p>

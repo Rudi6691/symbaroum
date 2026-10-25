@@ -480,7 +480,36 @@ Hooks.on('preCreateActor', (doc, createData, options, userid) => {
 		createChanges.prototypeToken.vision = true;
 		createChanges.prototypeToken.actorLink = true;
 	}
+
+	// A38 Währungssystem: system.currency explizit bei NEUANLAGE setzen.
+	// Bewusst NICHT über template.json-Defaults: Foundry mischt Template-
+	// Defaults zur Laufzeit in ALLE bestehenden Dokumente - die Migrations-
+	// erkennung (system.currency === undefined) würde dann nie zuschlagen
+	// und Alt-Akteure würden stillschweigend als migriert gelten.
+	// Guard: nur wenn currency fehlt UND die alten money-Felder leer sind -
+	// Duplikate und Importe von Alt-Akteuren behalten ihren Zustand und
+	// landen weiter im Migrationsdialog.
+	if (doc.type === 'player' || doc.type === 'monster') {
+		if (doc.system.currency === undefined) {
+			const money = doc.system.money ?? {};
+			const moneyEmpty = !(Number(money.thaler) || Number(money.shilling) || Number(money.orteg));
+			if (moneyEmpty) createChanges['system.currency'] = 0;
+		}
+	}
+
 	doc.updateSource(createChanges);
+});
+
+// A38 Währungssystem: Preisfeld bei NEUANLAGE von weapon/armor/equipment
+// setzen - gleicher Schutz wie beim Aktor: nicht per template.json
+// (Laufzeit-Mischung), und nur wenn price fehlt UND cost leer ist, damit
+// Importe von Alt-Items nicht stillschweigend vor-migriert werden
+// (Duplikate bringen ihr migriertes price bereits mit).
+Hooks.on('preCreateItem', (doc, createData, options, userid) => {
+	if (!['weapon', 'armor', 'equipment'].includes(doc.type)) return;
+	if (doc.system.price !== undefined) return;
+	if (String(doc.system.cost ?? '').trim() !== '') return;
+	doc.updateSource({ 'system.price': { value: 0, denomination: 'orteg' } });
 });
 
 // Hooks.on('createOwnedItem', (actor, item) => {});
