@@ -5787,6 +5787,46 @@ dialog.symb-dialog.chain-confirm footer button {
    .modern-theme-classic (klassik-orientiert, Papier) - kein zweites Template.
    Monsterblätter erben automatisch (gleiche Klassenstruktur). */
 
+/* ---------- A6v4 (Testrunde 3): HOHENKETTE des modernen Zweigs --------------
+   Root-Cause der Reiter-/Scroll-/Editor-Funde: die klassischen 7.2.10-Regeln
+   setzen .window-content form { flex: 1 0 auto !important } und
+   form > div { flex: 1 0 auto } - das klassische Blatt wächst BEWUSST mit
+   seinem Inhalt (das Fenster scrollt als Ganzes). Der moderne Zweig erbt
+   diese Kette: .modern-root (height: 100%) läuft gegen eine auto-Höhe
+   zirkulär, das ganze Fenster scrollt (Reiterleiste und Stammleiste scrollen
+   mit, der Ausrüstungs-Tab schob die Reiter aus dem Bild), .modern-body
+   scrollt nie (sein scrollTop bleibt 0 - deshalb griff die v3-Scroll-
+   Sicherung ins Leere), der Notizen-Tab war "zu hoch", und die Bio-Editoren
+   bekamen keine definite Höhe.
+   Fix: die Marker-Klasse modern-sheet-root (player.hbs, Wurzel-Div, nur im
+   modernen Zweig) pinnt die Kette auf Fensternähe - :has() greift NUR, wenn
+   der moderne Zweig gerendert ist; klassische Blätter, Item-Sheets und alle
+   anderen Fenster bleiben unberührt. window-content, form und Wurzel-Div
+   bekommen definite Höhe + overflow: hidden; .modern-root füllt 100%.
+   Damit stehen die Reiterleiste und die Stammleiste fix, und .modern-body
+   bzw. .m-sidebar werden die eigentlichen Scroll-Container. */
+.symbaroum.sheet.actor .window-content:has(> form > div.modern-sheet-root) {
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .window-content:has(> form > div.modern-sheet-root) form {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .window-content form > div.modern-sheet-root {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .modern-sheet-root .modern-root {
+  height: 100%;
+  min-height: 0;
+}
+
 /* ---------- Grundlayout: Stammleiste | Tab-Bereich | Icon-Reiterleiste ---- */
 .symbaroum.sheet.actor .modern-root {
   display: flex;
@@ -5960,21 +6000,40 @@ dialog.symb-dialog.chain-confirm footer button {
   font-weight: 600;
 }
 
-/* A6v3 (Testrunde 2): Zähigkeit direkt in der Stammleiste editierbar -
-   kleines Zahlfeld ohne Spinner, Zeilendarstellung "Feld / Max" bleibt. */
-.symbaroum.sheet.actor .modern-root .m-vital-input {
-  width: 3.2rem;
-  text-align: right;
-  padding: 0.05rem 0.25rem;
-  font-size: 0.72rem;
-  appearance: textfield;
-  -moz-appearance: textfield;
+/* A6v4 (Testrunde 3, Rudolfs Wunsch): statt Eingabefeld zwei kleine Tasten
+   (Pfeil links -1 / Pfeil rechts +1) für Zähigkeit und temporäre Korruption.
+   Handler in player.js (_onModernVitalAdjust), Klemmung 0..max bzw. >= 0. */
+.symbaroum.sheet.actor .modern-root .m-vital-nums {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.symbaroum.sheet.actor .modern-root .m-vital-input::-webkit-outer-spin-button,
-.symbaroum.sheet.actor .modern-root .m-vital-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.symbaroum.sheet.actor .modern-root .m-vital-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.25rem;
+  background: var(--m-panel2);
+  color: var(--m-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-vital-btn:hover {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .m-vital-btn:focus,
+.symbaroum.sheet.actor .modern-root .m-vital-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .symbaroum.sheet.actor .modern-root .m-bar {
@@ -6249,14 +6308,18 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /* ---------- Vertikale Icon-Reiterleiste (rechter Rand) ---------------------
-   A6v3 (Testrunde 2): Reiter eng beieinander am oberen Rand wie im Mockup. */
+   A6v4 (Testrunde 3, Rudolfs Wunsch): Reiter OHNE Abstand aneinandergekettet,
+   fix oben in der Leiste - Vorlage DnD-Spielerblatt. Nie mitscrollen: die
+   Reiterleiste ist ein Geschwister der Scroll-Container; erst die reparierte
+   Höhenkette oben hat das stabil gemacht (vorher scrollte das Fenster als
+   Ganzes und nahm die Reiter mit). */
 .symbaroum.sheet.actor .modern-root .modern-rail {
   flex: 0 0 2.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.3rem 0.25rem;
+  gap: 0;
+  padding: 0.2rem 0.25rem;
   box-sizing: border-box;
   background: var(--m-panel);
   border-left: 0.0625rem solid var(--m-line);
@@ -6265,6 +6328,7 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.actor .modern-root .modern-rail-btn {
   width: 2.1rem;
   height: 2.1rem;
+  margin-bottom: 0.1rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6457,35 +6521,39 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /* ---------- Favoriten-Stern ------------------------------------------------
-   A6v3 (Testrunde 2): aktiv = ausgefüllter Stern in Akzentfarbe mit leichtem
-   Glow; inaktiv = deutlicher Umriss-Stern (fa-regular fa-star im Template).
-   Der "rote Rahmen" war die Foundry-Fokus-Outline des Buttons - entfernt. */
+   A6v4 (Testrunde 3): das Template benutzt überall den soliden fas-Stern
+   (fa-regular fa-star ist im Foundry-Font-Bundle nicht sichtbar bzw. sah wie
+   der alte Zustand aus). Inaktiv = hohl über -webkit-text-stroke und
+   transparenter Füllung (Chromium/Foundry safe), aktiv = solid in
+   Akzentfarbe mit Glow. Der "rote Rahmen" war die Foundry-Fokus-Outline. */
 .symbaroum.sheet.actor .modern-root .favorite-toggle {
   flex: 0 0 auto;
   padding: 0 0.15rem;
   border: none;
   background: none;
-  color: var(--m-muted);
+  color: transparent;
+  -webkit-text-stroke: 0.05rem var(--m-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  opacity: 0.4;
+  opacity: 0.55;
 }
 
 .symbaroum.sheet.actor .modern-root .favorite-toggle:hover {
   opacity: 1;
-  color: var(--m-accent);
+  -webkit-text-stroke: 0.05rem var(--m-accent);
 }
 
 .symbaroum.sheet.actor .modern-root .favorite-toggle.active {
   color: var(--m-accent);
+  -webkit-text-stroke: 0;
   opacity: 1;
   text-shadow: 0 0 0.25rem rgba(201, 162, 39, 0.45);
 }
 
 .symbaroum.sheet.actor .modern-root .favorite-toggle:focus,
 .symbaroum.sheet.actor .modern-root .favorite-toggle:focus-visible {
-  outline: none;
-  box-shadow: none;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* ---------- Kacheln (Fähigkeiten & Kräfte, Favoriten) ------------------------
@@ -6647,11 +6715,31 @@ dialog.symb-dialog.chain-confirm footer button {
   display: block;
 }
 
-/* A6v3 (Testrunde 2): Bio-Editierfelder mit automatischer Höhenanpassung an
-   den Inhalt - Mindesthöhe wie bisher (4.5rem), Maximalhöhe 300px, darüber
-   interner Scrollbalken. prose-mirror rendert Toolbar/Editor als LIGHT-DOM-
-   Kinder (.editor-container > .editor-content > .ProseMirror). */
+/* A6v4 (Testrunde 3): Bio-Editierfelder wachsen mit dem Inhalt bis 300px,
+   danach interner Scroll. Die v3-Regeln griffen nur die sichtbare Box an;
+   die eigentliche Ursache: prose-mirror rendert Toolbar/Editor als LIGHT-DOM
+   (.editor-container > .editor-content > .ProseMirror, siehe klassische
+   7.2.10-Runde 7) - ohne Flex-Kette am Host/Container behielt der Editor
+   seine starre Innenhöhe, und die Editor-Menüleiste legte sich beim
+   Aktivieren ÜBER den Text (der Inhalt wurde nach oben aus der Box
+   geschoben). Die Kette hier ist das genaue Gegenstück zur klassischen
+   Lösung: Host und Container werden Flex-Spalten, die Box flext und
+   scrollt selbst. */
+.symbaroum.sheet.actor .modern-root .m-bio .m-prose prose-mirror {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.symbaroum.sheet.actor .modern-root .m-bio .m-prose .editor-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .symbaroum.sheet.actor .modern-root .m-bio .m-prose .editor-content {
+  flex: 1 1 auto;
   height: auto;
   min-height: 4.5rem;
   max-height: 300px;
@@ -6742,8 +6830,17 @@ dialog.symb-dialog.chain-confirm footer button {
    erschienen im Foundry-Standard-Chrome ("klassisches Design"). symbDialog
    setzt die übergebenen Klassen auf den DialogV2-Fenster-Root
    (dialog.symb-dialog.modern-dialog...) - hier wird das FENSTER selbst
-   dunkel themen: Kopfzeile, Inhalt, Buttons, Eingabefelder, Labels. Die
-   Inhalts-Regeln darunter (.modern-attr-dialog etc.) bleiben unverändert. */
+   dunkel themen: Kopfzeile, Inhalt, Buttons, Eingabefelder, Labels.
+   A6v4 (Testrunde 3, "Dialog nicht dunkel, Schrift kaum lesbar"): Der
+   A25-Block (7.1.8/7.1.9/7.1.16) malt ALLE Dialog-Flächen beige -
+   .window-content, form, .dialog-content, .dialog-buttons, footer bekommen
+   #cdc8b4, die Buttons den hellen Gradient und die Inputs die
+   editable.webp-Textur, beides MIT !important. v3 themte nur
+   .window-content: das beige <form> (AppV2 verpackt den Inhalt in ein
+   Formular, sobald benannte Eingaben vorhanden sind) schlug durch, und die
+   helle v3-Schrift auf beige war unlesbar. v4 überschreibt deshalb JEDE
+   der A25-Flächen mit derselben Hartnäckigkeit: gleiche Selektoren plus
+   .modern-dialog, plus !important, wo A25 !important setzt. */
 dialog.symb-dialog.modern-dialog {
   --m-bg: #0f1412;
   --m-panel: #182019;
@@ -6757,44 +6854,72 @@ dialog.symb-dialog.modern-dialog {
   color: var(--m-ink);
 }
 
+/* Fensterkopf dunkel statt Denim-Textur (7.1.9, ohne !important - leicht
+   zu schlagen). Die weißen Kopf-Buttons (7.1.11, !important) bleiben
+   bewusst weiß - hohles Quadrat wäre auf dunklem Grund unsichtbar. */
 dialog.symb-dialog.modern-dialog .window-header {
-  background: var(--m-panel);
+  background: var(--m-panel) !important;
   border-bottom: 0.0625rem solid var(--m-line);
 }
 
 dialog.symb-dialog.modern-dialog .window-header .window-title,
+dialog.symb-dialog.modern-dialog .window-header .window-title *,
 dialog.symb-dialog.modern-dialog .window-header .header-button {
+  color: var(--m-ink) !important;
+}
+
+/* Alle Inhaltsflächen (inklusive form - der A25-Beige-Fläche, die v3
+   übersah) und die Textfarbe (7.1.16 forciert var(--color-text) schwarz). */
+dialog.symb-dialog.modern-dialog .window-content,
+dialog.symb-dialog.modern-dialog form,
+dialog.symb-dialog.modern-dialog .dialog-content,
+dialog.symb-dialog.modern-dialog footer {
+  background: var(--m-bg) !important;
+  color: var(--m-ink) !important;
+}
+
+dialog.symb-dialog.modern-dialog .window-content p,
+dialog.symb-dialog.modern-dialog .dialog-content p {
   color: var(--m-ink);
 }
 
-dialog.symb-dialog.modern-dialog .window-content {
-  background: var(--m-bg);
-  color: var(--m-ink);
-}
-
+/* Button-Leiste dunkel; Buttons schlagen den hellen A25-Gradient (!important
+   gegen !important, höhere Spezifität gewinnt). */
 dialog.symb-dialog.modern-dialog .dialog-buttons {
+  background: var(--m-panel) !important;
   border-top: 0.0625rem solid var(--m-line);
-  background: var(--m-panel);
   gap: 0.4rem;
   padding: 0.5rem;
 }
 
-dialog.symb-dialog.modern-dialog .dialog-buttons button {
-  background: var(--m-panel2);
-  color: var(--m-ink);
-  border: 0.0625rem solid var(--m-line);
+dialog.symb-dialog.modern-dialog .window-content button,
+dialog.symb-dialog.modern-dialog .dialog-buttons button,
+dialog.symb-dialog.modern-dialog footer button {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  background: var(--m-panel2) !important;
+  border: 0.0625rem solid var(--m-line) !important;
+  color: var(--m-ink) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
 }
 
-dialog.symb-dialog.modern-dialog .dialog-buttons button:hover {
-  color: var(--m-accent);
-  border-color: var(--m-accent);
+dialog.symb-dialog.modern-dialog .window-content button:hover,
+dialog.symb-dialog.modern-dialog .dialog-buttons button:hover,
+dialog.symb-dialog.modern-dialog footer button:hover {
+  background: var(--m-panel) !important;
+  border-color: var(--m-accent) !important;
+  color: var(--m-accent) !important;
 }
 
+/* Eingabefelder schlagen die editable.webp-Textur (7.1.9, !important). */
 dialog.symb-dialog.modern-dialog input,
+dialog.symb-dialog.modern-dialog input[type=text],
+dialog.symb-dialog.modern-dialog input[type=number],
 dialog.symb-dialog.modern-dialog select,
 dialog.symb-dialog.modern-dialog textarea {
-  background: var(--m-input-bg);
-  color: var(--m-input-ink);
+  background: var(--m-input-bg) !important;
+  color: var(--m-input-ink) !important;
   border: 0.0625rem solid var(--m-line);
   border-radius: 0.25rem;
   padding: 0.15rem 0.3rem;

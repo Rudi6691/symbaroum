@@ -1,8 +1,8 @@
-<div class="{{cssClass}}">
+<div class="{{cssClass}}{{#if renderModern}} modern-sheet-root{{/if}}">
     {{!-- A6 Blatt-Überarbeitung: modernisierte Ansicht (Stammleiste + Icon-Reiter)
-        als eigenständiger Template-Zweig. Die klassische Ansicht bleibt UNVERÄNDERT,
-        Limited-Betrachter sehen weiterhin den klassischen Zweig (renderModern wird
-        in _prepareContext für limitierte Rechte nie gesetzt). --}}
+        als eigenständiger Template-Zweig. Die klassische Ansicht bleibt UNVERÄNDERT.
+        A6v4: Die Marker-Klasse modern-sheet-root am Template-Wurzel-Div fixiert die
+        Höhenkette des modernen Zweigs (Details im CSS-Block "Höhenkette"). --}}
     {{#if renderModern}}
         {{> systems/symbaroum/template/sheet/modern/player-modern.hbs}}
     {{else}}

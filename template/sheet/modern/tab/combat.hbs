@@ -17,7 +17,10 @@
             <div class="v">{{modern.combat.impedingDisplay}}</div>
             <div class="l">{{localize "MODERN.CHIP_IMPEDING"}}</div>
         </div>
-        <div class="m-chip" data-tooltip="{{localize "INITIATIVE.EXPLANATION"}}">
+        {{!-- A6v4 (Testrunde 3): Initiative-Tooltip - das tatsächlich
+            verwendete Attribut statt des kaputten Literal-Platzhalters
+            (in JS vorberechnet: "Initiative angezeigt als Aufmerksamkeit"). --}}
+        <div class="m-chip" data-tooltip="{{modern.combat.initiativeTooltip}}">
             <div class="v">{{toFixed system.initiative.value 2}}</div>
             <div class="l">{{localize "INITIATIVE.TITLE"}}</div>
         </div>
@@ -35,16 +38,16 @@
             <span class="m-hint">{{localize "MODERN.ALWAYS_SHOWN"}}</span>
         </div>
         <div class="m-box-b">
-            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{system.combat.id}}">
-                <div class="m-item-img" style="background-image: url('{{system.combat.img}}');"></div>
-                <button type="button" class="roll-armor m-inv-name">{{system.combat.name}}<small>{{system.combat.displayTextShort}}</small></button>
-                {{!-- Testrunde-2-Fund: Status-Chip wie im Ausrüstungs-Tab klickbar
-                    (Zustands-Zyklus + Belastungswirkung), falls eine echte Rüstung
-                    aktiv ist; bei "keine Rüstung" statisches Chip. --}}
-                {{#if modern.combat.hasActiveArmor}}
-                {{#with (lookup modern.itemStateChips system.combat.id)}}
-                <button type="button" class="item-state m-st m-st-{{state}}" data-tooltip="{{tooltip}}"><i class="{{icon}}"></i></button>
-                {{/with}}
+            {{!-- A6v4 (Testrunde 3): die lookup/with-Subexpression im v3-Template
+                renderte in Foundry V14 nichts - die Zeilen kommen fertig aus dem
+                JS-Kontext (modern.combat.armor); das Status-Chip ist klickbar wie im
+                Ausrüstungs-Tab (Zustands-Zyklus + Belastungswirkung), bei
+                "keine Rüstung" statisch. --}}
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{modern.combat.armor.id}}">
+                <div class="m-item-img" style="background-image: url('{{modern.combat.armor.img}}');"></div>
+                <button type="button" class="roll-armor m-inv-name">{{modern.combat.armor.name}}<small>{{modern.combat.armor.sub}}</small></button>
+                {{#if modern.combat.armor.chip}}
+                <button type="button" class="item-state m-st m-st-{{modern.combat.armor.chip.state}}" data-tooltip="{{modern.combat.armor.chip.tooltip}}"><i class="{{modern.combat.armor.chip.icon}}"></i></button>
                 {{else}}
                 <span class="m-st m-st-active">{{localize "GEAR.ACTIVE"}}</span>
                 {{/if}}
@@ -58,17 +61,18 @@
             <span class="m-hint">{{localize "MODERN.ALWAYS_SHOWN"}}</span>
         </div>
         <div class="m-box-b">
-            {{#each system.weapons as |item|}}
-            {{#if item.isActive}}
+            {{!-- A6v4 (Testrunde 3): aktive Waffen als fertige Zeilen aus dem
+                JS-Kontext (modern.combat.weapons) - inklusive klickbarem
+                Status-Chip (in JS vorberechnet, kein lookup/with). --}}
+            {{#each modern.combat.weapons as |item|}}
             <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{item.id}}">
                 <div class="m-item-img" style="background-image: url('{{item.img}}');"></div>
-                <button type="button" class="roll-weapon m-inv-name">{{item.name}}<small>{{item.damage.displayTextShort}}</small></button>
-                <span class="m-attr-abbr" data-tooltip="{{localize "WEAPON.ATTACK_ATTRIBUTE"}} {{localize item.attributeLabel}}">{{localizeabbr item.attributeLabel}}</span>
-                {{#with (lookup modern.itemStateChips item.id)}}
-                <button type="button" class="item-state m-st m-st-{{state}}" data-tooltip="{{tooltip}}"><i class="{{icon}}"></i></button>
-                {{/with}}
+                <button type="button" class="roll-weapon m-inv-name">{{item.name}}<small>{{item.damageShort}}</small></button>
+                <span class="m-attr-abbr" data-tooltip="{{item.attrTooltip}}">{{item.attrAbbr}}</span>
+                {{#if item.chip}}
+                <button type="button" class="item-state m-st m-st-{{item.chip.state}}" data-tooltip="{{item.chip.tooltip}}"><i class="{{item.chip.icon}}"></i></button>
+                {{/if}}
             </div>
-            {{/if}}
             {{/each}}
         </div>
     </div>

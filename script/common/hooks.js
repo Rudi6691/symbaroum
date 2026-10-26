@@ -265,6 +265,9 @@ Hooks.once('init', () => {
 
 	// A38 Währungssystem: Umrechnungskurse als Welt-Einstellungen (Rudolfs Entscheidung (4)).
 	// Default entspricht dem Setting-Kurs 1 Thaler = 10 Schilling = 100 Orteg.
+	// A6v4 (Testrunde 3, Rudolfs Wunsch): kein range-Slider mehr, sondern die
+	// normale Number-Eingabe - Range-Inputs reagieren auf das Mausrad und
+	// verstellten sich beim Durchscrollen der Einstellungsseite.
 	game.settings.register('symbaroum', 'currencyShillingOrteg', {
 		name: 'SYMBAROUM.SETTING_CURRENCY_SHILLING_ORTEG',
 		hint: 'SYMBAROUM.SETTING_CURRENCY_SHILLING_ORTEG_HINT',
@@ -272,7 +275,6 @@ Hooks.once('init', () => {
 		type: Number,
 		default: 10,
 		config: true,
-		range: { min: 1, max: 10000, step: 1 },
 	});
 	game.settings.register('symbaroum', 'currencyThalerShilling', {
 		name: 'SYMBAROUM.SETTING_CURRENCY_THALER_SHILLING',
@@ -281,7 +283,6 @@ Hooks.once('init', () => {
 		type: Number,
 		default: 10,
 		config: true,
-		range: { min: 1, max: 10000, step: 1 },
 	});
 
 	// A39 Belastungssystem: optionaler Regelblock aus dem Advanced Player's
@@ -309,6 +310,8 @@ Hooks.once('init', () => {
 	});
 	// Schwellwert der harten Grenze: Stärke x Wert (APG-Default 2). Darüber
 	// kann sich ein Charakter nur noch kurze Strecken bewegen (Anzeige).
+	// A6v4 (Testrunde 3): Number-Eingabe statt range-Slider (Mausrad-Fund,
+	// siehe currencyShillingOrteg oben).
 	game.settings.register('symbaroum', 'encumbranceHardLimitMultiplier', {
 		name: 'SYMBAROUM.SETTING_ENCUMBRANCE_HARD_LIMIT',
 		hint: 'SYMBAROUM.SETTING_ENCUMBRANCE_HARD_LIMIT_HINT',
@@ -316,7 +319,6 @@ Hooks.once('init', () => {
 		type: Number,
 		default: 2,
 		config: true,
-		range: { min: 1, max: 10, step: 0.5 },
 		onChange: _refreshEncumbrance,
 	});
 

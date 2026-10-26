@@ -163,6 +163,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	 * Gesichert wird vor dem Re-Render und nach `await super.render(...)`
 	 * wiederhergestellt (das App-Wurzelelement bleibt über Re-Renders
 	 * bestehen, nur die Kinder werden ersetzt).
+	 * A6v4 (Testrunde 3): funktionierte in v3 nicht, weil .modern-body
+	 * mangels definite Höhe nie selbst scrollte (scrollTop blieb 0, das
+	 * Fenster scrollte als Ganzes). Die reparierte Höhenkette
+	 * (.modern-sheet-root, css) macht .modern-body/.m-sidebar zu den
+	 * eigentlichen Scroll-Containern - dieser Override greift damit.
 	 */
 	async render(force = false, options = {}) {
 		const root = this.element;
@@ -259,16 +264,30 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		/* A6 Blatt-Überarbeitung: renderModern schaltet im Wurzel-Template
 		   (player.hbs) zwischen klassischem und modernisiertem Zweig um.
 		   - Aktivierungs-Checkbox (Welt-Setting, nur GM, Default aus),
-		   - individuelle Präferenz des Nutzers (User-Flag, Fallback: Design-Default),
-		   - Limited-Betrachter sehen IMMER den klassischen Zweig (Sicherheit).
+		   - individuelle Präferenz des Nutzers (User-Flag, Fallback: Design-Default).
+		   A6v4 (Testrunde 3, Rudolfs Wunsch): Auch Spieler schalten um, und
+		   die eingestellte Ansicht gilt für ALLE Blätter, auf die sie
+		   zugreifen können - der isLimitedView-Ausschluss ist entfallen
+		   (Limited-Betrachter sehen ebenfalls die gewählte Ansicht; das
+		   moderne Template zeigt Eingabefelder nur bei Rechten).
 		   Die modernen Kontextdaten werden nur im modernen Zweig aufgebaut
 		   (Kosten nur zahlen, wenn die Ansicht aktiv ist). MonsterSheet erbt. */
-		const userLevel = this.actor.getUserLevel(game.user);
-		const isLimitedView = !(userLevel > CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED || game.user.isGM);
 		const modernEnabled = !!game.settings.get('symbaroum', 'modernSheetEnabled');
-		context.renderModern = !!(modernEnabled && !isLimitedView && getModernSheetUserStyle() === 'modern');
+		context.renderModern = !!(modernEnabled && getModernSheetUserStyle() === 'modern');
 		if (context.renderModern) {
 			context.modern = this._prepareModernContext(context, getModernSheetDesign());
+		}
+		/* A6v4 (Testrunde 3): Scroll-Sicherung, zweite Stufe. Der render()-
+		   Override sichert bereits vor super.render(); hier wird zusätzlich
+           direkt vor dem Ersetzen des DOM gemessen (der alte Inhalt steht
+           zu diesem Zeitpunkt noch). Gemeinsam mit der reparierten
+           Höhenkette (.modern-sheet-root) bleibt der Tab-Scroll damit auch
+           bei Status-/Favoriten-Klicks am Ende langer Listen stehen. */
+		if (this.element) {
+			this._modernScroll = {
+				body: this.element.querySelector('.modern-body')?.scrollTop ?? 0,
+				sidebar: this.element.querySelector('.m-sidebar')?.scrollTop ?? 0,
+			};
 		}
 		return context;
 	}
@@ -547,7 +566,39 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			const info = stateInfo(s.state ?? 'other');
 			itemStateChips[item.id] = { state: info.state, icon: info.icon, tooltip: info.tooltip };
 		}
-		combat.hasActiveArmor = !!itemsById.get(combatData.id);
+		/* A6v4 (Testrunde 3): {{#with (lookup ...)}} renderte in Foundry V14
+		   nichts - die Status-Chips blieben unsichtbar. Die Kampf-Zeilen
+		   werden deshalb komplett in JS vorberechnet: fertige Objekte pro
+		   Rüstung/Waffe inklusive Chip (state/icon/tooltip), das Template
+		   rendert nur noch die fertigen Werte. */
+		const armorItem = itemsById.get(combatData.id);
+		combat.armor = {
+			id: combatData.id,
+			name: combatData.name,
+			img: combatData.img,
+			sub: combatData.displayTextShort ?? '',
+			// keine echte Rüstung aktiv ("keine Rüstung") -> statisches Chip
+			chip: armorItem ? (itemStateChips[combatData.id] ?? null) : null,
+		};
+		combat.weapons = [];
+		for (const w of live.weapons ?? []) {
+			if (!w.isActive) continue;
+			combat.weapons.push({
+				id: w.id,
+				name: w.name,
+				img: w.img,
+				damageShort: w.damage?.displayTextShort ?? '',
+				attrAbbr: localize(`${w.attributeLabel}ABBR`),
+				attrTooltip: `${localize('WEAPON.ATTACK_ATTRIBUTE')} ${localize(w.attributeLabel)}`,
+				chip: itemStateChips[w.id] ?? null,
+			});
+		}
+		// Testrunde-3-Fund (Initiative): der klassische i18n-Key INITIATIVE.
+		// EXPLANATION enthielt den kaputten Literal-Platzhalter
+		// "[initiative attribute.vigilant]" - im Tooltip steht jetzt das
+		// tatsächlich verwendete Attribut (system.initiative.label ist ein
+		// i18n-Key, z. B. ATTRIBUTE.VIGILANT; Default Aufmerksamkeit).
+		combat.initiativeTooltip = `${localize('INITIATIVE.EXPLANATION')} ${localize(live.initiative?.label ?? '')}`.trim();
 
 		return {
 			theme: design.theme === 'classic' ? 'classic' : 'dark',
@@ -567,7 +618,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			favorites,
 			hasFavorites: favorites.length > 0,
 			combat,
-			itemStateChips,
 		};
 	}
 
@@ -675,6 +725,24 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			s.addEventListener('click', (ev) => {
 				this._onFavoriteToggle(ev);
 			});
+		}
+		// A6v4 (Testrunde 3): Zähigkeit und temporäre Korruption über zwei
+		// kleine Tasten (Pfeil links -1 / Pfeil rechts +1) statt Eingabefeld.
+		const vitalBtns = element.querySelectorAll('.m-vital-btn');
+		for (const s of vitalBtns) {
+			s.addEventListener('click', (ev) => {
+				this._onModernVitalAdjust(ev);
+			});
+		}
+		// A6v4 (Testrunde 3): Scroll-Position wiederherstellen (zweite Stufe
+		// der Sicherung - gemessen in _prepareContext, unmittelbar bevor der
+		// DOM ersetzt wird; die Höhenkette stellt sicher, dass .modern-body
+		// und .m-sidebar die eigentlichen Scroll-Container sind).
+		if (context.renderModern && this._modernScroll) {
+			const body = element.querySelector('.modern-body');
+			if (body) body.scrollTop = this._modernScroll.body ?? 0;
+			const sidebar = element.querySelector('.m-sidebar');
+			if (sidebar) sidebar.scrollTop = this._modernScroll.sidebar ?? 0;
 		}
 
 		// Attribute drag support; this binding also carries the sheet's drop handling.
@@ -853,7 +921,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			// A6v3 (Testrunde 2): Dialogfenster im modernen dunklen Design -
 			// die Klassen landen auf dem DialogV2-Fenster-Root und themen
 			// Fensterkopf/-inhalt/-Buttons (CSS-Block .symb-dialog.modern-dialog).
+			// A6v4 (Testrunde 3): feste Breite pro Dialog, passend zum Inhalt
+			// (5-Spalten-Attributstabelle braucht die meiste Breite).
 			classes: modernDesign ? ['modern-dialog', 'modern-attr-dialog'] : [],
+			width: 560,
 			buttons: {
 				confirm: {
 					icon: '<i class="fas fa-check"></i>',
@@ -917,6 +988,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			title: localize('BIO.EXPERIENCE'),
 			content: html,
 			classes: ['modern-dialog', 'modern-exp-dialog'],
+			width: 460,
 			buttons: {
 				confirm: {
 					icon: '<i class="fas fa-check"></i>',
@@ -955,6 +1027,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			title: localize('TITLE.MONEY'),
 			content: content,
 			classes: ['modern-dialog', 'modern-money-dialog'],
+			width: 440,
 			buttons: {
 				confirm: {
 					icon: '<i class="fas fa-check"></i>',
@@ -991,6 +1064,33 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			await item.unsetFlag('symbaroum', 'favorite');
 		} else {
 			await item.setFlag('symbaroum', 'favorite', true);
+		}
+	}
+
+	/**
+	 * A6v4 (Testrunde 3): Zähigkeit und temporäre Korruption in der Stammleiste
+	 * über die beiden ±1-Tasten (.m-vital-btn, data-field toughness|corruption,
+	 * data-dir -1|1). Zähigkeit wird auf 0..max geklemmt, die temporäre
+	 * Korruption auf >= 0. Nur der Aktor-Besitzer darf ändern; das Re-Render
+	 * des Blatts erfolgt über die Aktor-Aktualisierung automatisch.
+	 */
+	async _onModernVitalAdjust(event) {
+		event.preventDefault();
+		if (!this.actor.isOwner) return;
+		const btn = event.currentTarget.closest('.m-vital-btn');
+		if (!btn) return;
+		const dir = Number(btn.dataset.dir) > 0 ? 1 : -1;
+		const live = this.actor.system;
+		if (btn.dataset.field === 'toughness') {
+			const t = live.health.toughness;
+			const max = Number(t.max) || 0;
+			let value = Math.max(0, (Number(t.value) || 0) + dir);
+			if (max > 0) value = Math.min(value, max);
+			if (value !== t.value) await this.actor.update({ 'system.health.toughness.value': value });
+		} else if (btn.dataset.field === 'corruption') {
+			const cor = live.health.corruption;
+			const value = Math.max(0, (Number(cor.temporary) || 0) + dir);
+			if (value !== cor.temporary) await this.actor.update({ 'system.health.corruption.temporary': value });
 		}
 	}
 }

@@ -40,8 +40,11 @@
 
     <div class="m-sec-label">{{localize "MODERN.VITALS"}}</div>
     <div class="m-vital">
+        {{!-- A6v4 (Testrunde 3): statt Eingabefeld zwei Tasten - Pfeil links
+            senkt den Zähigkeitswert um 1, Pfeil rechts erhöht ihn um 1
+            (nur mit Editierrechten; Klemmung 0..max im Handler). --}}
         <div class="m-vital-row" data-tooltip="{{{modern.toughness.tooltip}}}">
-            <span class="lab">{{localize "HEALTH.TOUGHNESS"}}</span><span class="val m-vital-nums">{{#if editable}}<input class="m-vital-input" name="system.health.toughness.value" type="number" data-dtype="Number" value="{{system.health.toughness.value}}" />{{else}}{{system.health.toughness.value}}{{/if}} / {{system.health.toughness.max}}</span>
+            <span class="lab">{{localize "HEALTH.TOUGHNESS"}}</span><span class="val m-vital-nums">{{#if editable}}<button type="button" class="m-vital-btn" data-field="toughness" data-dir="-1" data-tooltip="{{localize "MODERN.VITAL_DECREASE"}}"><i class="fas fa-caret-left"></i></button> {{/if}}{{system.health.toughness.value}}{{#if editable}} <button type="button" class="m-vital-btn" data-field="toughness" data-dir="1" data-tooltip="{{localize "MODERN.VITAL_INCREASE"}}"><i class="fas fa-caret-right"></i></button>{{/if}} / {{system.health.toughness.max}}</span>
         </div>
         <div class="m-bar">
             <div class="m-fill m-hp" style="width: {{modern.toughness.pct}}%;"></div>
@@ -49,13 +52,19 @@
                 Korruptions-Schwelle) --}}
             <div class="m-mark" style="left: {{modern.toughness.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.TOUGHNESS_THRESHOLD"}}: {{system.health.toughness.threshold}}"></div>
         </div>
+        {{!-- A6v4 (Testrunde 3): auch für Korruption zwei Tasten (wie
+            Zähigkeit) - sie verändern die TEMPORÄRE Korruption um 1;
+            permanente Korruption bleibt dem Aktor-Blatt vorbehalten. --}}
         <div class="m-vital-row" data-tooltip="{{{modern.corruption.tooltip}}}">
-            <span class="lab">{{localize "HEALTH.CORRUPTION"}}</span><span class="val">{{#if modern.corruption.thoroughlyCorrupt}}{{localize "HEALTH.CORRUPTION_NA"}}{{else}}{{modern.corruption.value}} / {{modern.corruption.max}}{{/if}}</span>
+            <span class="lab">{{localize "HEALTH.CORRUPTION"}}</span><span class="val m-vital-nums">{{#if modern.corruption.thoroughlyCorrupt}}{{localize "HEALTH.CORRUPTION_NA"}}{{else}}{{#if editable}}<button type="button" class="m-vital-btn" data-field="corruption" data-dir="-1" data-tooltip="{{localize "MODERN.VITAL_DECREASE"}}"><i class="fas fa-caret-left"></i></button> {{/if}}{{modern.corruption.value}}{{#if editable}} <button type="button" class="m-vital-btn" data-field="corruption" data-dir="1" data-tooltip="{{localize "MODERN.VITAL_INCREASE"}}"><i class="fas fa-caret-right"></i></button>{{/if}} / {{modern.corruption.max}}{{/if}}</span>
         </div>
+        {{!-- A6v4 (Testrunde 3, Rudolfs Wunsch): permanente Korruption am
+            ANFANG des Balkens in dunklem Violett, temporäre schließt in
+            hellerem Violett daran an (Farben wie bisher, nur vertauscht). --}}
         <div class="m-bar">
             {{#unless modern.corruption.thoroughlyCorrupt}}
-            <div class="m-fill m-co-temp" style="width: {{modern.corruption.tempPct}}%;"></div>
-            <div class="m-fill m-co-perm" style="width: {{modern.corruption.permPct}}%; left: {{modern.corruption.tempPct}}%;"></div>
+            <div class="m-fill m-co-perm" style="width: {{modern.corruption.permPct}}%;"></div>
+            <div class="m-fill m-co-temp" style="width: {{modern.corruption.tempPct}}%; left: {{modern.corruption.permPct}}%;"></div>
             <div class="m-mark" style="left: {{modern.corruption.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.CORRUPTION_THRESHOLD"}}: {{modern.corruption.threshold}}"></div>
             {{/unless}}
         </div>

@@ -108,7 +108,12 @@
                 <div class="combat foreground">
                     <div class="combatheader">
                         <div style="width:100%"><h1>{{localize "TITLE.COMBAT"}}</h1></div>
-                        <div class="iniheader" data-tooltip="{{localize "INITIATIVE.EXPLANATION"}}">
+                        {{!-- A6v4: der i18n-Key INITIATIVE.EXPLANATION enthielt
+                            den kaputten Literal-Platzhalter "[initiative
+                            attribute.vigilant]" - das tatsächlich verwendete
+                            Attribut (system.initiative.label, Default
+                            Aufmerksamkeit) wird angehängt. --}}
+                        <div class="iniheader" data-tooltip="{{localize "INITIATIVE.EXPLANATION"}} {{localize system.initiative.label}}">
                             <div class="title">{{localize "INITIATIVE.TITLE"}}</div>
                             <label style="white-space: nowrap"> {{localizeabbr system.initiative.label}}</label>
                             <input type="text" value="{{toFixed system.initiative.value 2}}" disabled> 
