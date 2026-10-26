@@ -108,17 +108,44 @@
             </div>
             {{#ife modern.gauge.variant 'half'}}
             <svg class="m-gauge-svg" viewBox="0 0 120 70">
+                {{!-- A6v7 (Rudolfs Änderungswünsche): Die einfarbige (gelbe)
+                    Standanzeige ist durch einen Farbverlauf ersetzt, der von
+                    Grün über Gelb nach Rot über die gesamte Skala verläuft
+                    und die Gauge-Skala (Zonenband) weitestgehend ausfüllt.
+                    Der Verlauf spannt sich über den ganzen Bogen
+                    (objectBoundingBox), unabhängig vom Füllstand - der
+                    gefüllte Teil zeigt damit grün -> gelb -> rötlich je
+                    nachdem, wie weit die Last den Bogen entlangläuft. --}}
+                <defs>
+                    <linearGradient id="m-gauge-grad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0" class="m-grad-low"></stop>
+                        <stop offset="0.5" class="m-grad-mid"></stop>
+                        <stop offset="1" class="m-grad-high"></stop>
+                    </linearGradient>
+                </defs>
                 <path class="m-gz m-gz-good" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="75.4 150.8"></path>
                 <path class="m-gz m-gz-warn" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="37.7 150.8" stroke-dashoffset="-75.4"></path>
                 <path class="m-gz m-gz-bad" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="37.7 150.8" stroke-dashoffset="-113.1"></path>
-                <path class="m-gauge-load m-gs-{{modern.gauge.state}}" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="{{modern.gauge.arc}} 150.8"></path>
+                <path class="m-gauge-load" stroke="url(#m-gauge-grad)" d="M12 62 A48 48 0 0 1 108 62" stroke-dasharray="{{modern.gauge.arc}} 150.8"></path>
                 <line class="m-gauge-marker" x1="{{modern.gauge.markerX1}}" y1="{{modern.gauge.markerY1}}" x2="{{modern.gauge.markerX2}}" y2="{{modern.gauge.markerY2}}"></line>
                 <text class="m-gauge-text" x="60" y="48" text-anchor="middle">{{localize "MODERN.GAUGE_HARD" limit=modern.gauge.hardLimitDisplay}}</text>
             </svg>
             {{else}}
             <svg class="m-gauge-svg m-gauge-ring" viewBox="0 0 100 100">
+                {{!-- A6v7: gleicher Grün-Gelb-Rot-Verlauf für den Segmentring.
+                    SVG unterstützt keine echten Winkel-Verläufe - der
+                    Linear-Verlauf verläuft vertikal (oben grün, mitte gelb,
+                    unten rot), sodass die Füllung beim Startpunkt oben grün
+                    beginnt und bis zur Unterkante rot ausläuft. --}}
+                <defs>
+                    <linearGradient id="m-gauge-grad-ring" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" class="m-grad-low"></stop>
+                        <stop offset="0.5" class="m-grad-mid"></stop>
+                        <stop offset="1" class="m-grad-high"></stop>
+                    </linearGradient>
+                </defs>
                 <circle class="m-gauge-ring-bg" cx="50" cy="50" r="40" pathLength="100"></circle>
-                <circle class="m-gauge-load m-gs-{{modern.gauge.state}}" cx="50" cy="50" r="40" pathLength="100" transform="rotate(-90 50 50)" stroke-dasharray="{{modern.gauge.pct}} 100"></circle>
+                <circle class="m-gauge-load" stroke="url(#m-gauge-grad-ring)" cx="50" cy="50" r="40" pathLength="100" transform="rotate(-90 50 50)" stroke-dasharray="{{modern.gauge.pct}} 100"></circle>
                 <line class="m-gauge-marker" x1="{{modern.gauge.ringMarkerX1}}" y1="{{modern.gauge.ringMarkerY1}}" x2="{{modern.gauge.ringMarkerX2}}" y2="{{modern.gauge.ringMarkerY2}}"></line>
                 <text class="m-gauge-ring-value" x="50" y="47" text-anchor="middle">{{modern.gauge.loadDisplay}}</text>
                 <text class="m-gauge-ring-sub" x="50" y="59" text-anchor="middle">{{localize "MODERN.GAUGE_HARD" limit=modern.gauge.hardLimitDisplay}}</text>

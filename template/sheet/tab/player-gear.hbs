@@ -128,7 +128,12 @@
                         <div class="state">{{localize "GEAR.STATE"}}</div>
                     </tr>
                     {{#each items as |item|}}
-                    {{#if item.system.isEquipment}}                       
+                    {{!-- A6v7 (Rudolfs Änderungswünsche): Ausrüstung mit aktivierter
+                        Artefakt-Checkbox nur unter ARTEFAKTE listen (dort greift die
+                        isArtifact-Bedingung unten bereits) - nicht zusätzlich unter
+                        Ausrüstung (bisherige Doppel-Listung). --}}
+                    {{#if item.system.isEquipment}}
+                    {{#unless item.system.isArtifact}}
                     <li class="symbaroum-contextmenu equipment item-row item draggable" data-item-id="{{item.id}}">
                         <div class="name" data-tooltip="{{item.name}}">
                             <div class="image-container">
@@ -149,6 +154,7 @@
                             {{/if}}
                         </div>
                     </li>
+                    {{/unless}}
                     {{/if}}
                     {{/each}}
                 </ol>

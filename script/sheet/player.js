@@ -537,10 +537,16 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		}
 		for (const item of context.items) {
 			const s = item.system;
-			if (s.isEquipment) gear.equipments.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
-			else if (s.isArtifact) {
+			/* A6v7 (Rudolfs Änderungswünsche): Items mit aktivierter Artefakt-
+			   Checkbox (z. B. Ausrüstung mit system.isArtifact) einsortieren
+			   unter ARTEFAKTE, nicht unter Ausrüstung - deshalb prüft die
+			   Artefakt-Bedingung zuerst; als Untertitel stehen die Artefakt-
+			   Merkmale (Aktionen/Korruption), nicht die Anzahl. */
+			if (s.isArtifact) {
 				const subs = [item.getArtifactActions?.(), item.getArtifactCorruptions?.()].filter((t) => t && String(t).trim());
 				gear.artifacts.push(gearRow(item.id, item.name, item.img, subs.join(' · '), item));
+			} else if (s.isEquipment) {
+				gear.equipments.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
 			}
 		}
 
@@ -1103,6 +1109,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	 * data-dir -1|1). Zähigkeit wird auf 0..max geklemmt, die temporäre
 	 * Korruption auf >= 0. Nur der Aktor-Besitzer darf ändern; das Re-Render
 	 * des Blatts erfolgt über die Aktor-Aktualisierung automatisch.
+	 * A6v7 (Rudolfs Änderungswünsche): + erhöht die temporäre Korruption nur
+	 * noch bis „Absolut“ (Abso.) - die Gesamt-Korruption (temporary +
+	 * longterm + permanent, abgeleitet in system.health.corruption.value)
+	 * kann über die Taste das Maximum nicht mehr überschreiten; − senkt
+	 * unverändert bis 0.
 	 */
 	async _onModernVitalAdjust(event) {
 		event.preventDefault();
@@ -1119,7 +1130,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			if (value !== t.value) await this.actor.update({ 'system.health.toughness.value': value });
 		} else if (btn.dataset.field === 'corruption') {
 			const cor = live.health.corruption;
-			const value = Math.max(0, (Number(cor.temporary) || 0) + dir);
+			let value = Math.max(0, (Number(cor.temporary) || 0) + dir);
+			if (dir > 0 && Number(cor.max) > 0) {
+				const others = (Number(cor.value) || 0) - (Number(cor.temporary) || 0);
+				const cap = Number(cor.max) - others;
+				if (cap >= 0) value = Math.min(value, cap);
+			}
 			if (value !== cor.temporary) await this.actor.update({ 'system.health.corruption.temporary': value });
 		}
 	}

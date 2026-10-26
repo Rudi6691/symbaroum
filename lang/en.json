@@ -1251,7 +1251,7 @@
   "MODERN.EXP_SPENT": "Spent on abilities etc.",
   "MODERN.EXP_AVAILABLE": "Available",
   "MODERN.EXP_HINT": "Only total XP and reroll points are editable; the points spent on abilities derive from the learned items.",
-  "MODERN.GAUGE_HARD": "hard limit: {limit} LU",
+  "MODERN.GAUGE_HARD": "Limit: {limit} LU",
   "MODERN.GAUGE_NOTE": "white marker = load limit · only with the optional rule active",
   "MODERN.MOVE_DENIED": "Not allowed: you own neither the source nor the target actor.",
   "MODERN.DESIGN_TITLE": "Design Settings – Alternative Player and Monster Sheets",

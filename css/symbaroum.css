@@ -6259,20 +6259,29 @@ dialog.symb-dialog.chain-confirm footer button {
 
 .symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load {
   fill: none;
-  stroke-width: 3;
+  stroke-width: 7;
   stroke-linecap: round;
 }
 
-.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load.m-gs-ok {
-  stroke: var(--m-good);
+/* A6v7 (Rudolfs Änderungswünsche): Die Standanzeige der Belastung ist kein
+   einfarbiger Zustandsbalken (gelb) mehr - der gefüllte Bogen trägt einen
+   Farbverlauf von Grün über Gelb nach Rot, der über die GESAMTE Skala
+   verläuft (Gradient in objectBoundingBox-Einheiten über den ganzen Pfad,
+   unabhängig vom Füllstand) und mit stroke-width 7 das Zonenband (11)
+   weitestgehend ausfüllt. Die Zustandsfarbe bleibt als Text-Chip
+   (Unbelastet/Belastet/Überlastet) erhalten; die m-gs-Klassen am
+   Last-Bogen sind entfallen. Der Verlauf nutzt die Theme-Variablen, beide
+   Farbwelten bekommen also ihren eigenen Grün/Gelb/Rot-Ton. */
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-grad-low {
+  stop-color: var(--m-good);
 }
 
-.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load.m-gs-loaded {
-  stroke: var(--m-warn);
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-grad-mid {
+  stop-color: var(--m-warn);
 }
 
-.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-load.m-gs-over {
-  stroke: var(--m-bad);
+.symbaroum.sheet.actor .modern-root .m-gauge-svg .m-grad-high {
+  stop-color: var(--m-bad);
 }
 
 .symbaroum.sheet.actor .modern-root .m-gauge-svg .m-gauge-marker {
@@ -6558,6 +6567,22 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.actor .modern-root .m-st.m-st-equipped {
   color: var(--m-accent);
   border-color: var(--m-accent);
+}
+
+/* A6v7 (Rudolfs Änderungswünsche): Nur dunkles Design - die Statussymbole
+   heller färben. "Andere" trägt bereits die Schriftfarbe der Anzahl-/LE-
+   Werte (--m-muted); die farbigen Zustände (Aktiv = Grün, Ausgerüstet =
+   Gold) werden im dunklen Theme auf vergleichbare bzw. höhere Helligkeit
+   angehoben, damit die Symbole auf dem Panel-Hintergrund klar lesbar
+   sind. Das klassische (helle) Design bleibt unverändert. */
+.symbaroum.sheet.actor .modern-root.modern-theme-dark .m-st.m-st-active {
+  color: #9ed3ab;
+  border-color: #9ed3ab;
+}
+
+.symbaroum.sheet.actor .modern-root.modern-theme-dark .m-st.m-st-equipped {
+  color: #e6c14a;
+  border-color: #e6c14a;
 }
 
 /* ---------- Favoriten-Stern ------------------------------------------------
