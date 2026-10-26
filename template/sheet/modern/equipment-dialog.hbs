@@ -1,0 +1,16 @@
+{{!-- A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Anzahl-Dialog für
+    Ausrüstung (Rechtsklick auf eine Ausrüstungs-Zeile im Ausrüstungs-Tab).
+    Die −/+1-Tasten (Klemmung bei 1, siehe player.js) und die Löschen-Taste
+    mit Sicherheitsfrage werden in _openEquipmentDialog am DOM-Element
+    verdrahtet, bevor der Dialog geöffnet wird - DialogV2 bereinigt
+    String-Inhalte, deshalb geht der Weg über das attributfreie Wrapper-Div
+    (siehe symbDialog). --}}
+<div class="symbaroum modern-equip-dialog">
+    <div class="m-eq-row">
+        <label for="meq-number">{{localize "EQUIPMENT.NUMBER"}}</label>
+        <button type="button" class="m-eq-btn" data-dir="-1" data-tooltip="{{localize "MODERN.QTY_DECREASE"}}"><i class="fas fa-caret-left"></i></button>
+        <input id="meq-number" type="number" value="{{number}}" data-dtype="Number" />
+        <button type="button" class="m-eq-btn" data-dir="1" data-tooltip="{{localize "MODERN.QTY_INCREASE"}}"><i class="fas fa-caret-right"></i></button>
+    </div>
+    <button type="button" class="m-eq-delete"><i class="fas fa-trash"></i> {{localize "MODERN.DELETE"}}</button>
+</div>

@@ -6064,6 +6064,14 @@ dialog.symb-dialog.chain-confirm footer button {
   box-shadow: none;
 }
 
+/* A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Klick auf die Korruptions-
+   Reihe der Stammleiste öffnet den Korruptions-Dialog - der Zeiger wird aber
+   nur gesetzt, wenn das Blatt editierbar ist (Klasse m-corrupt-edit, siehe
+   sidebar.hbs); sonst bleibt der Standard-Cursor. */
+.symbaroum.sheet.actor .modern-root .m-vital-row.m-corrupt-edit {
+  cursor: pointer;
+}
+
 .symbaroum.sheet.actor .modern-root .m-bar {
   position: relative;
   height: 0.5rem;
@@ -6585,6 +6593,20 @@ dialog.symb-dialog.chain-confirm footer button {
   border-color: #e6c14a;
 }
 
+/* A6v8 (Testrunde 7, Rudolfs Fund 6 "Statusicons nicht heller"): Die v7-
+   Regeln oben heben die CHIP-Farbe an - sichtbar wurde aber vor allem der
+   hellere Rahmen, die Icons selbst blieben dunkel. Die Färbung steht deshalb
+   jetzt direkt auf dem FontAwesome-Icon-Element (<i>, das color erbt bzw.
+   hier explizit bekommt) - in derselben Farbe wie die Schrift der Anzahl-/
+   LE-Werte (--m-muted, wie .m-inv-name small), über alle Zustände hinweg
+   einheitlich und mit !important gegen Core-/Vererbungsquellen. Die v7-
+   Chip-Regeln bleiben als hellere Zustands-Ränder (Aktiv = Grün,
+   Ausgerüstet = Gold) erhalten. Nur das dunkle Design; hell/klassisch
+   unverändert. */
+.symbaroum.sheet.actor .modern-root.modern-theme-dark .m-st i {
+  color: var(--m-muted) !important;
+}
+
 /* ---------- Favoriten-Stern ------------------------------------------------
    A6v5 (Testrunde 4): zwei Anläufe über den FontAwesome-Stern scheiterten
    (fa-regular fehlt im V14-Font-Bundle, A6v3; der text-stroke-Trick auf dem
@@ -7089,19 +7111,22 @@ dialog.symb-dialog.modern-dialog .hint {
   text-align: center;
 }
 
-.symbaroum.modern-exp-dialog .m-exp-row {
+.symbaroum.modern-exp-dialog .m-exp-row,
+.symbaroum.modern-corruption-dialog .m-exp-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.4rem;
 }
 
-.symbaroum.modern-exp-dialog .m-exp-row label {
+.symbaroum.modern-exp-dialog .m-exp-row label,
+.symbaroum.modern-corruption-dialog .m-exp-row label {
   flex: 1 1 auto;
   margin: 0;
 }
 
-.symbaroum.modern-exp-dialog .m-exp-row input {
+.symbaroum.modern-exp-dialog .m-exp-row input,
+.symbaroum.modern-corruption-dialog .m-exp-row input {
   flex: 0 0 5.5rem;
   text-align: right;
 }
@@ -7115,6 +7140,67 @@ dialog.symb-dialog.modern-dialog .hint {
 .symbaroum.modern-money-dialog symbaroum-currency {
   display: block;
   margin-bottom: 0.25rem;
+}
+
+/* A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Anzahl-Dialog für Ausrüstung
+   (Rechtsklick auf eine Ausrüstungs-Zeile) - Label, −1-Taste, Eingabefeld
+   und +1-Taste in einer Zeile; die Pfeiltasten sind wie die Zähigkeits-/
+   Korruptionstasten der Stammleiste geformt. Darunter die Löschen-Taste
+   in der Warnfarbe (--m-bad). */
+.symbaroum.modern-equip-dialog .m-eq-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.symbaroum.modern-equip-dialog .m-eq-row label {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.symbaroum.modern-equip-dialog .m-eq-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.25rem;
+  background: var(--m-panel2);
+  color: var(--m-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.symbaroum.modern-equip-dialog .m-eq-btn:hover {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+.symbaroum.modern-equip-dialog .m-eq-btn:focus,
+.symbaroum.modern-equip-dialog .m-eq-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.symbaroum.modern-equip-dialog .m-eq-row input {
+  flex: 0 0 4.5rem;
+  text-align: right;
+}
+
+.symbaroum.modern-equip-dialog .m-eq-delete {
+  width: 100%;
+  margin: 0;
+  color: var(--m-bad);
+  border-color: var(--m-bad);
+}
+
+/* Sicherheitsfrage des Ausrüstungs-Dialogs (Ja/Nein-Fenster). */
+dialog.symb-dialog.modern-dialog p.m-eq-confirm {
+  margin: 0.25rem 0;
 }
 
 /* ---------- Modernes Design bei sehr schmalen Fenstern ---------------------

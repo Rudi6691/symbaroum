@@ -63,8 +63,11 @@
             Zähigkeit) - sie verändern die TEMPORÄRE Korruption um 1;
             permanente Korruption bleibt dem Aktor-Blatt vorbehalten.
             A6v5: gleiches Grid wie die Zähigkeitsreihe (Paar mittig, Wert
-            rechts) - dadurch sind beide Paare vertikal ausgerichtet. --}}
-        <div class="m-vital-row" data-tooltip="{{{modern.corruption.tooltip}}}">
+            rechts) - dadurch sind beide Paare vertikal ausgerichtet.
+            A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Klick auf die
+            Reihe (außer den ±-Tasten) öffnet den Korruptions-Dialog;
+            m-corrupt-edit setzt nur bei editierbarem Blatt den Zeiger. --}}
+        <div class="m-vital-row m-corrupt-row{{#if editable}} m-corrupt-edit{{/if}}" data-tooltip="{{{modern.corruption.tooltip}}}">
             <span class="lab">{{localize "HEALTH.CORRUPTION"}}</span>
             <span class="m-vital-btns">{{#if editable}}{{#unless modern.corruption.thoroughlyCorrupt}}<button type="button" class="m-vital-btn" data-field="corruption" data-dir="-1" data-tooltip="{{localize "MODERN.VITAL_DECREASE"}}"><i class="fas fa-caret-left"></i></button><button type="button" class="m-vital-btn" data-field="corruption" data-dir="1" data-tooltip="{{localize "MODERN.VITAL_INCREASE"}}"><i class="fas fa-caret-right"></i></button>{{/unless}}{{/if}}</span>
             <span class="val m-vital-nums">{{#if modern.corruption.thoroughlyCorrupt}}{{localize "HEALTH.CORRUPTION_NA"}}{{else}}{{modern.corruption.value}} / {{modern.corruption.max}}{{/if}}</span>
@@ -133,12 +136,19 @@
             {{else}}
             <svg class="m-gauge-svg m-gauge-ring" viewBox="0 0 100 100">
                 {{!-- A6v7: gleicher Grün-Gelb-Rot-Verlauf für den Segmentring.
-                    SVG unterstützt keine echten Winkel-Verläufe - der
-                    Linear-Verlauf verläuft vertikal (oben grün, mitte gelb,
-                    unten rot), sodass die Füllung beim Startpunkt oben grün
-                    beginnt und bis zur Unterkante rot ausläuft. --}}
+                    SVG unterstützt keine echten Winkel-Verläufe; der Kreis
+                    trägt rotate(-90 50 50) und dreht damit auch den
+                    Linear-Verlauf mit (A6v8-Fix, Testrunde 7: deshalb war
+                    der Verlauf vorher optisch rot-am-Start). Die Verlaufs-
+                    achse muss im LOKALEN Elementraum definiert werden:
+                    horizontal von rechts (x=1, Grün) nach links (x=0, Rot).
+                    Nach der Rotation -90° liegt der Verlauf visuell
+                    vertikal: Startpunkt oben = Grün, rechte Seite (25%) =
+                    Gelb, Unterkante (50%, dort steht die Grenz-Marke beim
+                    Standardwert) = Rot - die Füllung verläuft also wie die
+                    Halbrund-Gauge von Grün nach Rot. --}}
                 <defs>
-                    <linearGradient id="m-gauge-grad-ring" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="m-gauge-grad-ring" x1="1" y1="0" x2="0" y2="0">
                         <stop offset="0" class="m-grad-low"></stop>
                         <stop offset="0.5" class="m-grad-mid"></stop>
                         <stop offset="1" class="m-grad-high"></stop>

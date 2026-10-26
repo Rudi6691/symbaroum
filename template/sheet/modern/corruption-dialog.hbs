@@ -1,0 +1,15 @@
+{{!-- A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Korruptions-Dialog - Design
+    wie der Eigenschaften-/Erfahrungs-Dialog (.m-exp-row), Aufbau wie der
+    Korruptions-Container des klassischen Blatts. Temporär, Täglich und
+    Permanent sind eingebbar; Aktuell, Korruptionsschwelle und Absolut sind
+    abgeleitet und gesperrt. Bei "völlig korrumpiert" (und ohne Editier-
+    rechte) bleiben auch die drei Eingabefelder gesperrt, wie im klassischen
+    Blatt. --}}
+<div class="symbaroum modern-corruption-dialog">
+    {{#each fields as |f|}}
+    <div class="m-exp-row">
+        <label for="mcor-{{f.id}}" data-tooltip="{{{f.tooltip}}}">{{f.label}}</label>
+        <input id="mcor-{{f.id}}" type="number" value="{{f.value}}" data-dtype="Number" {{#unless f.editable}}disabled{{/unless}} />
+    </div>
+    {{/each}}
+</div>

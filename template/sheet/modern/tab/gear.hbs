@@ -75,8 +75,14 @@
             {{#each modern.gear.artifacts as |g|}}
             <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
                 <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
-                <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
-                <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
+                {{!-- A6v8 (Rudolfs Änderungswunsch): Artefakt-Zeilen wie die
+                    anderen Gruppen - LE/Preis unter dem Namen, die Anzahl
+                    rechts; die Artefakt-Merkmale (Aktionen/Korruption)
+                    entfallen als Untertitel. Reine Artefakt-Items tragen
+                    keine Lasteinheiten und zeigen deshalb "—" unter dem
+                    Namen, die Anzahl steht trotzdem rechts (× 1). --}}
+                <button type="button" class="item-edit m-inv-name">{{g.name}}<small data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</small></button>
+                <span class="m-num">{{g.sub}}</span>
                 <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><svg class="m-star" viewBox="0 0 576 512" aria-hidden="true"><path d="M288 24L342.8 192.6L520.1 192.6L376.6 296.8L431.4 465.4L288 361.2L144.6 465.4L199.4 296.8L55.9 192.6L233.2 192.6Z"/></svg></button>
                 <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
             </div>

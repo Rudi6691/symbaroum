@@ -371,7 +371,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			tooltip:
 				`${localize('HEALTH.CORRUPTION')}: ${thoroughlyCorrupt ? localize('HEALTH.CORRUPTION_NA') : `${cor.value} / ${corMax}`}<br>` +
 				`${localize('HEALTH.CORRUPTION_TEMPORARY')}: ${cor.temporary ?? 0} · ${localize('HEALTH.CORRUPTION_LONGTERM')}: ${cor.longterm ?? 0} · ${localize('HEALTH.CORRUPTION_PERMANENT')}: ${perm}<br>` +
-				`${localize('HEALTH.CORRUPTION_THRESHOLD')}: ${cor.threshold ?? 0} · ${localize('HEALTH.CORRUPTION_MAX')}: ${corMax}`,
+				`${localize('HEALTH.CORRUPTION_THRESHOLD')}: ${cor.threshold ?? 0} · ${localize('HEALTH.CORRUPTION_MAX')}: ${corMax}` +
+				/* A6v8 (Testrunde 7): Hinweis auf den Korruptions-Dialog,
+				   der per Klick auf die Reihe geöffnet wird. */
+				(this.isEditable && this.actor.isOwner ? `<br>${localize('MODERN.CORRUPTION_DIALOG_HINT')}` : ''),
 		};
 
 		/* --- Erfahrung (wie das klassische Blatt: 4 Felder, Dialog bei Klick) --- */
@@ -540,11 +543,15 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			/* A6v7 (Rudolfs Änderungswünsche): Items mit aktivierter Artefakt-
 			   Checkbox (z. B. Ausrüstung mit system.isArtifact) einsortieren
 			   unter ARTEFAKTE, nicht unter Ausrüstung - deshalb prüft die
-			   Artefakt-Bedingung zuerst; als Untertitel stehen die Artefakt-
-			   Merkmale (Aktionen/Korruption), nicht die Anzahl. */
+			   Artefakt-Bedingung zuerst.
+			   A6v8 (Rudolfs Änderungswunsch): Als Untertitel stehen nicht mehr
+			   die Artefakt-Merkmale (Aktionen/Korruption), sondern rechts die
+			   Anzahl - die Zeilen sind damit wie Waffen/Rüstung/Ausrüstung
+			   aufgebaut. Reine Artefakt-Items haben kein system.number und
+			   zeigen deshalb "× 1"; Ausrüstung mit Artefakt-Checkbox behält
+			   ihre Anzahl. */
 			if (s.isArtifact) {
-				const subs = [item.getArtifactActions?.(), item.getArtifactCorruptions?.()].filter((t) => t && String(t).trim());
-				gear.artifacts.push(gearRow(item.id, item.name, item.img, subs.join(' · '), item));
+				gear.artifacts.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
 			} else if (s.isEquipment) {
 				gear.equipments.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
 			}
@@ -768,6 +775,38 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		for (const s of vitalBtns) {
 			s.addEventListener('click', (ev) => {
 				this._onModernVitalAdjust(ev);
+			});
+		}
+		// A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Klick auf die
+		// Korruptions-Reihe der Stammleiste öffnet den Korruptions-Dialog.
+		// Die ±-Tasten liegen in derselben Reihe - ihr Klick blubbert hier
+		// mit hoch, wird über closest('.m-vital-btn') aber ignoriert, sodass
+		// kein stopPropagation in _onModernVitalAdjust nötig ist.
+		const corruptRow = element.querySelector('.m-vital-row.m-corrupt-row');
+		if (corruptRow) {
+			corruptRow.addEventListener('click', (ev) => {
+				if (ev.target.closest('.m-vital-btn')) return;
+				if (!this.isEditable || !this.actor.isOwner) return;
+				this._openCorruptionDialog();
+			});
+		}
+		// A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Rechtsklick auf eine
+		// Ausrüstungs-Zeile im modernen Ausrüstungs-Tab öffnet den Anzahl-
+		// Dialog statt des Standard-Kontextmenüs. Das betrifft auch
+		// Ausrüstung mit aktiver Artefakt-Checkbox (die Zeilen stehen unter
+		// ARTEFAKTE, bleiben aber Ausrüstung). Ohne Editierrechte läuft der
+		// Rechtsklick ins Standard-Kontextmenü durch (kein preventDefault).
+		// stopPropagation verhindert die Delegation des CMPowerMenu, dessen
+		// Listener am Blatt-Root hängt.
+		const equipRows = element.querySelectorAll('.m-gear .m-inv-row');
+		for (const row of equipRows) {
+			const item = this.actor.items.get(row.dataset.itemId);
+			if (!item?.system?.isEquipment) continue;
+			row.addEventListener('contextmenu', (ev) => {
+				if (!this.isEditable || !this.actor.isOwner) return;
+				ev.preventDefault();
+				ev.stopPropagation();
+				this._openEquipmentDialog(item);
 			});
 		}
 		// A6v4 (Testrunde 3): Scroll-Position wiederherstellen (zweite Stufe
@@ -1037,6 +1076,151 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						if (!isNaN(total)) update['system.experience.total'] = total;
 						if (!isNaN(artifactrr)) update['system.experience.artifactrr'] = artifactrr;
 						if (Object.keys(update).length) await this.actor.update(update);
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async (html) => {},
+				},
+			},
+		});
+	}
+
+	/**
+	 * A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Korruptions-Dialog für die
+	 * moderne Ansicht - Design wie der Eigenschaften-/Erfahrungs-Dialog,
+	 * Aufbau wie der Korruptions-Container des klassischen Blatts. Temporär,
+	 * Täglich und Permanent sind eingebbar; Aktuell, Korruptionsschwelle und
+	 * Absolut sind abgeleitet und nur anzeigend (disabled). Bei "völlig
+	 * korrumpiert" - wie im klassischen Blatt - und ohne Editierrechte sind
+	 * auch die drei Eingabefelder gesperrt. Negative Eingaben werden auf 0
+	 * geklemmt; die Klemmung der ±-Tasten in der Stammleiste (maximal bis
+	 * "Absolut" bei der temporären Korruption) greift hier nicht, weil der
+	 * Dialog die drei Felder direkt setzt.
+	 */
+	async _openCorruptionDialog() {
+		const localize = (key) => game.i18n.localize(key);
+		const cor = this.actor.system.health.corruption ?? {};
+		const editable = this.isEditable && this.actor.isOwner && !this.actor.system.isThoroughlyCorrupt;
+		const fields = [
+			{ id: 'current', label: localize('HEALTH.CORRUPTION_CURRENT'), tooltip: localize('TOOLTIP.HEALTH.CORRUPTION_CURRENT'), value: cor.value ?? 0, editable: false },
+			{ id: 'temporary', label: localize('HEALTH.CORRUPTION_TEMPORARY'), tooltip: localize('TOOLTIP.HEALTH.CORRUPTION_TEMPORARY'), value: cor.temporary ?? 0, editable },
+			{ id: 'longterm', label: localize('HEALTH.CORRUPTION_LONGTERM'), tooltip: localize('TOOLTIP.HEALTH.CORRUPTION_LONGTERM'), value: cor.longterm ?? 0, editable },
+			{ id: 'permanent', label: localize('HEALTH.CORRUPTION_PERMANENT'), tooltip: localize('TOOLTIP.HEALTH.CORRUPTION_PERMANENT'), value: cor.permanent ?? 0, editable },
+			{ id: 'threshold', label: localize('HEALTH.CORRUPTION_THRESHOLD'), tooltip: localize('TOOLTIP.HEALTH.CORRUPTION_THRESHOLD'), value: cor.threshold ?? 0, editable: false },
+			{ id: 'max', label: localize('HEALTH.CORRUPTION_MAX'), tooltip: localize('TOOLTIP.HEALTH.CORRUPTION_MAX'), value: cor.max ?? 0, editable: false },
+		];
+		const html = await foundry.applications.handlebars.renderTemplate(
+			'systems/symbaroum/template/sheet/modern/corruption-dialog.hbs',
+			{ fields }
+		);
+		symbDialog({
+			title: localize('HEALTH.CORRUPTION'),
+			content: html,
+			classes: ['modern-dialog', 'modern-corruption-dialog'],
+			width: 460,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('MODERN.APPLY'),
+					callback: async (html) => {
+						if (!editable) return;
+						const update = {};
+						const temporary = parseInt(html[0].querySelector('#mcor-temporary')?.value, 10);
+						const longterm = parseInt(html[0].querySelector('#mcor-longterm')?.value, 10);
+						const permanent = parseInt(html[0].querySelector('#mcor-permanent')?.value, 10);
+						if (!isNaN(temporary)) update['system.health.corruption.temporary'] = Math.max(0, temporary);
+						if (!isNaN(longterm)) update['system.health.corruption.longterm'] = Math.max(0, longterm);
+						if (!isNaN(permanent)) update['system.health.corruption.permanent'] = Math.max(0, permanent);
+						if (Object.keys(update).length) await this.actor.update(update);
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async (html) => {},
+				},
+			},
+		});
+	}
+
+	/**
+	 * A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Anzahl-Dialog für
+	 * Ausrüstung (Rechtsklick auf eine Ausrüstungs-Zeile im modernen
+	 * Ausrüstungs-Tab). Eingabefeld mit der aktuellen Anzahl, −/+1-Pfeil-
+	 * tasten wie bei Zähigkeit/Korruption in der Stammleiste (Klemmung bei
+	 * 1 - ein Item bewusst auf 0 zu reduzieren ist nicht vorgesehen,
+	 * dafür gibt es die Löschen-Taste mit Sicherheitsfrage), Übernehmen und
+	 * Abbruch; das Schließen über X ruft keinen Button-Callback auf und
+	 * gilt damit wie Abbruch. Der Dialog erfasst nur Ausrüstung -
+	 * Waffen/Rüstungen behalten ihr Standard-Kontextmenü.
+	 */
+	async _openEquipmentDialog(item) {
+		const localize = (key) => game.i18n.localize(key);
+		const current = Math.max(1, parseInt(item.system.number ?? 1, 10) || 1);
+		const html = await foundry.applications.handlebars.renderTemplate(
+			'systems/symbaroum/template/sheet/modern/equipment-dialog.hbs',
+			{ number: current }
+		);
+		/* DialogV2 bereinigt String-Inhalte mit cleanHTML - deshalb wie im
+		   symbDialog-Hilfsmodus: Das gerenderte Template in ein attribut-
+		   freies Wrapper-Div setzen und die Dialog-Tasten am Element
+		   verdrahten, BEVOR der Dialog geöffnet wird; die Listener wandern
+		   mit dem Element ins Dialogfenster. */
+		const wrap = document.createElement('div');
+		wrap.innerHTML = html;
+		const input = wrap.querySelector('#meq-number');
+		for (const btn of wrap.querySelectorAll('.m-eq-btn')) {
+			btn.addEventListener('click', () => {
+				const next = Math.max(1, (parseInt(input.value, 10) || 1) + Number(btn.dataset.dir));
+				input.value = next;
+			});
+		}
+		/* Handle auf den Anzahl-Dialog vorab deklarieren, damit die
+		   Sicherheitsfrage ihn nach dem Bestätigen schließen kann. */
+		let dlg = null;
+		wrap.querySelector('.m-eq-delete')?.addEventListener('click', () => {
+			/* Sicherheitsfrage (Ja/Nein) - der Item-Name wird über
+			   textContent gesetzt und kann deshalb kein HTML einschleppen. */
+			const question = document.createElement('p');
+			question.className = 'm-eq-confirm';
+			question.textContent = game.i18n.format('MODERN.EQUIP_DELETE_CONFIRM', { name: item.name });
+			const confirmWrap = document.createElement('div');
+			confirmWrap.appendChild(question);
+			symbDialog({
+				title: localize('MODERN.DELETE'),
+				content: confirmWrap,
+				classes: ['modern-dialog'],
+				buttons: {
+					confirm: {
+						icon: '<i class="fas fa-check"></i>',
+						label: localize('BUTTON.YES'),
+						callback: async () => {
+							dlg?.close?.();
+							await item.delete();
+						},
+					},
+					cancel: {
+						icon: '<i class="fas fa-times"></i>',
+						label: localize('BUTTON.NO'),
+						callback: async () => {},
+					},
+				},
+			});
+		});
+		dlg = symbDialog({
+			title: item.name,
+			content: wrap,
+			classes: ['modern-dialog', 'modern-equip-dialog'],
+			width: 440,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('MODERN.APPLY'),
+					callback: async (html) => {
+						const v = parseInt(html[0].querySelector('#meq-number')?.value, 10);
+						if (!isNaN(v) && v >= 1 && v !== current) await item.update({ 'system.number': v });
 					},
 				},
 				cancel: {
