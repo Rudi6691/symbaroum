@@ -486,6 +486,7 @@
   "TYPES.Item.armor": "Armor",
   "TYPES.Item.artifact": "Artifact",
   "TYPES.Item.equipment": "Equipment",
+  "TYPES.Item.container": "Container",
   "TYPES.Item.mysticalPower": "Mystical Power",
   "TYPES.Item.ritual": "Ritual",
   "TYPES.Item.weapon": "Weapon",

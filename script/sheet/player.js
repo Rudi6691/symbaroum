@@ -558,6 +558,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		for (const item of context.items) {
 			const s = item.system;
 			if (packed(item)) continue;
+			/* Behältersystem v1.1: Behälter haben ihre eigene Gruppe und
+			   bleiben der Artefakt-/Ausrüstungs-Sortierung entzogen - auch
+			   wenn über die neue Artefakt-Checkbox system.isArtifact gesetzt
+			   ist (keine Doppel-Listung). */
+			if (item.type === 'container') continue;
 			/* A6v7 (Rudolfs Änderungswünsche): Items mit aktivierter Artefakt-
 			   Checkbox (z. B. Ausrüstung mit system.isArtifact) einsortieren
 			   unter ARTEFAKTE, nicht unter Ausrüstung - deshalb prüft die
@@ -594,6 +599,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						icon: child.system.icon || '',
 						depth,
 						isContainer: true,
+						// Testrunde-1-Wunsch: auch der verschachtelte Behälter
+						// hat seinen eigenen Kollaps-Pfeil (gleiches User-Flag).
+						collapsed: !!collapsedFlags[child.id],
 						capacityDisplay:
 							subCapacity > 0
 								? `${formatGE(sub.contentsGE)} / ${formatGE(subCapacity)} ${localize('WEIGHT.GE_ABBR')}`
@@ -1645,17 +1653,21 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	_confirmContainerDelete(container, mode, dlg) {
 		const localize = (key) => game.i18n.localize(key);
 		const children = getContainerChildren(this.actor, container.id);
-		const question = document.createElement('div');
-		question.className = 'm-cont-confirm';
+		/* Testrunde-1-Fix (6.2): DialogV2 verlangt ein attributefreies
+		   Content-Element ("config.content element must have no attributes")
+		   - die Klasse darf nur auf dem KINDELEMENT liegen (symbDialog-
+		   Muster, siehe Kommentar in symbDialog.js). */
+		const wrapper = document.createElement('div');
 		const p = document.createElement('p');
+		p.className = 'm-cont-confirm';
 		p.textContent =
 			mode === 'purge'
 				? game.i18n.format('CONTAINER.DELETE_PURGE_CONFIRM', { count: children.length, name: container.name })
 				: game.i18n.format('CONTAINER.DELETE_RETURN_CONFIRM', { count: children.length, name: container.name });
-		question.appendChild(p);
+		wrapper.appendChild(p);
 		symbDialog({
 			title: localize('MODERN.DELETE'),
-			content: question,
+			content: wrapper,
 			classes: this._modernDialogClasses(),
 			buttons: {
 				confirm: {

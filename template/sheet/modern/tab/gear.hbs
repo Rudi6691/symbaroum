@@ -50,9 +50,13 @@
                     {{#each c.children as |ch|}}
                     {{#if ch.isContainer}}
                     {{!-- Verschachtelter Behälter (Ebene 2): eigene Zeile,
-                        ebenfalls Drop-Ziel für seinen Inhalt. --}}
+                        ebenfalls Drop-Ziel für seinen Inhalt - und seit
+                        Rudolfs Testrunde 1 mit eigenem Kollaps-Pfeil
+                        (Ein-/Ausklappen wie bei den Behältern der obersten
+                        Ebene, Kollaps-Zustand als gleiches User-Flag). --}}
                     <div class="item m-container-row m-container-child m-cont-d{{ch.depth}} draggable" data-item-id="{{ch.id}}" data-container-id="{{ch.id}}">
                         <span class="m-cont-indent"></span>
+                        <button type="button" class="m-container-collapse" data-tooltip="{{localize "CONTAINER.COLLAPSE_TOGGLE"}}"><i class="fas fa-chevron-{{#if ch.collapsed}}right{{else}}down{{/if}}"></i></button>
                         {{#if ch.icon}}
                         <i class="m-item-img m-container-icon {{ch.icon}}"></i>
                         {{else}}

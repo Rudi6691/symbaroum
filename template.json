@@ -408,6 +408,7 @@
       "cost": "",
       "price": { "value": 0, "denomination": "orteg" },
       "weight": "none",
+      "isArtifact": false,
       "capacity": 0,
       "carried": true,
       "countLoad": true,

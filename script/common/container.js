@@ -286,7 +286,10 @@ export async function moveItemToContainer(item, container) {
  */
 export async function removeItemFromContainer(item) {
 	if (!item?.system?.container) return null;
-	return item.update({ "system.-=container": null });
+	// V14: die alte "-="-Syntax (system.-=container) ist deprecated (Entfernung
+	// mit V16) und warnte in Rudolfs Testrunde 1 auf der Konsole - moderne
+	// Schreibweise ist der ForcedDeletion-Operator (V14-Migrationshinweis).
+	return item.update({ system: { container: new foundry.data.operators.ForcedDeletion() } });
 }
 
 /* -------------------------------------------- */
@@ -332,13 +335,26 @@ export async function changeContainerCurrency(actor, container, delta) {
  * Behälter samt Inhalt löschen (rekursiv, beide Ebenen).
  * @returns {Promise<string[]>} IDs aller gelöschten Items
  */
+/**
+ * Sammelt die IDs eines Behälter-Teilbaums (Behälter + Kinder beider
+ * Ebenen) OHNE zu löschen - nur der äußerste Aufruf von
+ * deleteContainerWithContents löscht dann EINMAL (v1.1-Fix: die
+ * v1-Rekursion löschte selbst UND die äußere Ebene nochmal - bei
+ * verschachtelten Behältern wären IDs doppelt gelöscht worden).
+ */
+function collectContainerTreeIds(actor, container, acc = []) {
+	if (!container) return acc;
+	acc.push(container.id);
+	for (const child of getContainerChildren(actor, container.id)) {
+		if (child.system?.isContainer) collectContainerTreeIds(actor, child, acc);
+		else acc.push(child.id);
+	}
+	return acc;
+}
+
 export async function deleteContainerWithContents(actor, container) {
 	if (!actor || !container || container.type !== "container") return [];
-	const ids = [container.id];
-	for (const child of getContainerChildren(actor, container.id)) {
-		if (child.system?.isContainer) ids.push(...(await deleteContainerWithContents(actor, child)));
-		else ids.push(child.id);
-	}
+	const ids = collectContainerTreeIds(actor, container);
 	await actor.deleteEmbeddedDocuments("Item", ids);
 	return ids;
 }
@@ -351,12 +367,10 @@ export async function deleteContainerKeepContents(actor, container) {
 	if (!actor || !container || container.type !== "container") return null;
 	const updates = [];
 	for (const child of getContainerChildren(actor, container.id)) {
-		if (child.system?.isContainer) {
-			// Verschachtelte Behälter werden zu Behältern der obersten Ebene.
-			updates.push({ _id: child.id, "system.container": null });
-		} else {
-			updates.push({ _id: child.id, "system.-=container": null });
-		}
+		// Beide Zweige löschen die Referenz auf dieselbe Weise: die alte
+		// "-="-Syntax ist deprecated (V16-Entfernung), modern ist der
+		// ForcedDeletion-Operator (Rudolfs Testrunde 1, 6.1).
+		updates.push({ _id: child.id, system: { container: new foundry.data.operators.ForcedDeletion() } });
 	}
 	if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
 	await actor.deleteEmbeddedDocuments("Item", [container.id]);

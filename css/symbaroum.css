@@ -3545,7 +3545,8 @@ Monster Codex Stuff
 
 .symbaroum.sheet.item .equipment .description,
 .symbaroum.sheet.item .equipment .artifact,
-.symbaroum.sheet.item .equipment .bonus {
+.symbaroum.sheet.item .equipment .bonus,
+.symbaroum.sheet.item .container .description {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -3553,12 +3554,15 @@ Monster Codex Stuff
   border-top: none;
 }
 
-.symbaroum.sheet.item .equipment .description .editor {
+.symbaroum.sheet.item .equipment .description .editor,
+.symbaroum.sheet.item .container .description .editor {
   height: 200px;
 }
 
 .symbaroum.sheet.item .equipment .tab .cost,
-.symbaroum.sheet.item .equipment .tab .number {
+.symbaroum.sheet.item .equipment .tab .number,
+.symbaroum.sheet.item .container .tab .cost,
+.symbaroum.sheet.item .container .tab .number {
   display: flex;
   flex-direction: row;
   flex-basis: 100%;
@@ -5582,13 +5586,15 @@ dialog.symb-dialog.chain-confirm footer button {
    ============================================================ */
 .symbaroum.sheet.item .armor .tab .cost,
 .symbaroum.sheet.item .weapon .tab .stats .cost,
-.symbaroum.sheet.item .equipment .tab .cost {
+.symbaroum.sheet.item .equipment .tab .cost,
+.symbaroum.sheet.item .container .tab .cost {
   flex-wrap: nowrap;
 }
 
 .symbaroum.sheet.item .armor .tab .cost label,
 .symbaroum.sheet.item .weapon .tab .stats .cost label,
-.symbaroum.sheet.item .equipment .tab .cost label {
+.symbaroum.sheet.item .equipment .tab .cost label,
+.symbaroum.sheet.item .container .tab .cost label {
   flex: 0 0 50%;
   width: 50%;
 }
@@ -5598,7 +5604,9 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.item .weapon .tab .stats .cost input[type=number],
 .symbaroum.sheet.item .weapon .tab .stats .cost select,
 .symbaroum.sheet.item .equipment .tab .cost input[type=number],
-.symbaroum.sheet.item .equipment .tab .cost select {
+.symbaroum.sheet.item .equipment .tab .cost select,
+.symbaroum.sheet.item .container .tab .cost input[type=number],
+.symbaroum.sheet.item .container .tab .cost select {
   flex: 0 0 25%;
   width: 25%;
   min-width: 0;
@@ -5607,7 +5615,8 @@ dialog.symb-dialog.chain-confirm footer button {
 /* Migrationshinweis füllt die rechte Hälfte (statt Wert + Währung) */
 .symbaroum.sheet.item .armor .tab .cost .price-migration-hint,
 .symbaroum.sheet.item .weapon .tab .stats .cost .price-migration-hint,
-.symbaroum.sheet.item .equipment .tab .cost .price-migration-hint {
+.symbaroum.sheet.item .equipment .tab .cost .price-migration-hint,
+.symbaroum.sheet.item .container .tab .cost .price-migration-hint {
   flex: 0 0 50%;
   width: 50%;
   min-width: 0;
@@ -5629,7 +5638,8 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.item .weapon .tab .stats .weight,
 .symbaroum.sheet.item .armor .tab .weight,
 .symbaroum.sheet.item .equipment .tab .weight,
-.symbaroum.sheet.item .artifact .tab .weight {
+.symbaroum.sheet.item .artifact .tab .weight,
+.symbaroum.sheet.item .container .tab .weight {
   display: flex;
   flex-direction: row;
   flex-basis: 100%;
@@ -5640,7 +5650,8 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.item .weapon .tab .stats .weight label,
 .symbaroum.sheet.item .armor .tab .weight label,
 .symbaroum.sheet.item .equipment .tab .weight label,
-.symbaroum.sheet.item .artifact .tab .weight label {
+.symbaroum.sheet.item .artifact .tab .weight label,
+.symbaroum.sheet.item .container .tab .weight label {
   flex: 0 0 50%;
   width: 50%;
 }
@@ -5648,7 +5659,8 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.item .weapon .tab .stats .weight select,
 .symbaroum.sheet.item .armor .tab .weight select,
 .symbaroum.sheet.item .equipment .tab .weight select,
-.symbaroum.sheet.item .artifact .tab .weight select {
+.symbaroum.sheet.item .artifact .tab .weight select,
+.symbaroum.sheet.item .container .tab .weight select {
   flex: 0 0 50%;
   width: 50%;
   min-width: 0;
@@ -7473,4 +7485,15 @@ input[name='symbaroum.encumbranceHardLimitMultiplier'] {
 
 .modern-container-dialog .m-cont-btn-danger {
   color: #b04b3a;
+}
+
+/* Testrunde-1-Fix (6.2): Sicherheitsfrage vor dem Behälter-Löschen. Die
+   Klasse liegt auf dem <p> INNERHALB des attributefreien Wrapper-Divs
+   (DialogV2 lehnt Attribute am Content-Element ab), deshalb hier am
+   modernen Dialog-Chrome statt am Content-Element selbst gescoped. */
+dialog.symb-dialog.modern-dialog .m-cont-confirm {
+  margin: 0.25rem 0 0.5rem 0;
+  font-family: var(--font-text);
+  font-size: 14px;
+  text-align: center;
 }
