@@ -31,17 +31,23 @@
     {{#if modern.showShadow}}
     <div class="m-inline-field m-shadow-field">
         <label for="{{id}}-system.bio.shadow">{{localize "BIO.SHADOW"}}</label>
-        <input id="{{id}}-system.bio.shadow" name="system.bio.shadow" type="text" value="{{system.bio.shadow}}" data-tooltip="{{localize "MODERN.SHADOW_HINT"}}" />
+        {{!-- Testrunde-2-Fund: 3-zeiliges Editierfeld mit Zeilenumbruch statt
+            einzeiligem Input. Textarea bekommt ihren Inhalt als inneres HTML
+            (automatisch escaped), KEIN value-Attribut. --}}
+        <textarea class="m-shadow-input" id="{{id}}-system.bio.shadow" name="system.bio.shadow" rows="3" wrap="soft" data-tooltip="{{localize "MODERN.SHADOW_HINT"}}">{{system.bio.shadow}}</textarea>
     </div>
     {{/if}}
 
     <div class="m-sec-label">{{localize "MODERN.VITALS"}}</div>
     <div class="m-vital">
         <div class="m-vital-row" data-tooltip="{{{modern.toughness.tooltip}}}">
-            <span class="lab">{{localize "HEALTH.TOUGHNESS"}}</span><span class="val">{{system.health.toughness.value}} / {{system.health.toughness.max}}</span>
+            <span class="lab">{{localize "HEALTH.TOUGHNESS"}}</span><span class="val m-vital-nums">{{#if editable}}<input class="m-vital-input" name="system.health.toughness.value" type="number" data-dtype="Number" value="{{system.health.toughness.value}}" />{{else}}{{system.health.toughness.value}}{{/if}} / {{system.health.toughness.max}}</span>
         </div>
         <div class="m-bar">
             <div class="m-fill m-hp" style="width: {{modern.toughness.pct}}%;"></div>
+            {{!-- Testrunde-2-Fund: Schmerzschwelle als weiße Linie (analog der
+                Korruptions-Schwelle) --}}
+            <div class="m-mark" style="left: {{modern.toughness.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.TOUGHNESS_THRESHOLD"}}: {{system.health.toughness.threshold}}"></div>
         </div>
         <div class="m-vital-row" data-tooltip="{{{modern.corruption.tooltip}}}">
             <span class="lab">{{localize "HEALTH.CORRUPTION"}}</span><span class="val">{{#if modern.corruption.thoroughlyCorrupt}}{{localize "HEALTH.CORRUPTION_NA"}}{{else}}{{modern.corruption.value}} / {{modern.corruption.max}}{{/if}}</span>

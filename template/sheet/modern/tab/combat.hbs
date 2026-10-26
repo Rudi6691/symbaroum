@@ -17,12 +17,14 @@
             <div class="v">{{modern.combat.impedingDisplay}}</div>
             <div class="l">{{localize "MODERN.CHIP_IMPEDING"}}</div>
         </div>
-        <div class="m-chip" data-tooltip="{{localize "INITIATIVE.EXPLANATION"}} {{localizeabbr system.initiative.label}}">
+        <div class="m-chip" data-tooltip="{{localize "INITIATIVE.EXPLANATION"}}">
             <div class="v">{{toFixed system.initiative.value 2}}</div>
             <div class="l">{{localize "INITIATIVE.TITLE"}}</div>
         </div>
+        {{!-- Testrunde-2-Fund: Defaultanzeige = Gesamt-XP (Details im Hover
+            und im Dialog); verfügbar bleibt dort sichtbar. --}}
         <button type="button" class="m-chip m-chip-click modern-exp" data-tooltip="{{{modern.exp.tooltip}}}">
-            <div class="v">{{modern.exp.available}}</div>
+            <div class="v">{{modern.exp.total}}</div>
             <div class="l">{{localize "MODERN.CHIP_EXPERIENCE"}}</div>
         </button>
     </div>
@@ -36,7 +38,16 @@
             <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{system.combat.id}}">
                 <div class="m-item-img" style="background-image: url('{{system.combat.img}}');"></div>
                 <button type="button" class="roll-armor m-inv-name">{{system.combat.name}}<small>{{system.combat.displayTextShort}}</small></button>
+                {{!-- Testrunde-2-Fund: Status-Chip wie im Ausrüstungs-Tab klickbar
+                    (Zustands-Zyklus + Belastungswirkung), falls eine echte Rüstung
+                    aktiv ist; bei "keine Rüstung" statisches Chip. --}}
+                {{#if modern.combat.hasActiveArmor}}
+                {{#with (lookup modern.itemStateChips system.combat.id)}}
+                <button type="button" class="item-state m-st m-st-{{state}}" data-tooltip="{{tooltip}}"><i class="{{icon}}"></i></button>
+                {{/with}}
+                {{else}}
                 <span class="m-st m-st-active">{{localize "GEAR.ACTIVE"}}</span>
+                {{/if}}
             </div>
         </div>
     </div>
@@ -53,7 +64,9 @@
                 <div class="m-item-img" style="background-image: url('{{item.img}}');"></div>
                 <button type="button" class="roll-weapon m-inv-name">{{item.name}}<small>{{item.damage.displayTextShort}}</small></button>
                 <span class="m-attr-abbr" data-tooltip="{{localize "WEAPON.ATTACK_ATTRIBUTE"}} {{localize item.attributeLabel}}">{{localizeabbr item.attributeLabel}}</span>
-                <span class="m-st m-st-active">{{localize "GEAR.ACTIVE"}}</span>
+                {{#with (lookup modern.itemStateChips item.id)}}
+                <button type="button" class="item-state m-st m-st-{{state}}" data-tooltip="{{tooltip}}"><i class="{{icon}}"></i></button>
+                {{/with}}
             </div>
             {{/if}}
             {{/each}}

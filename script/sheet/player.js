@@ -6,7 +6,7 @@ import { symbDialog } from '../common/symbDialog.js';
 import { getEncumbranceData, formatGE } from '../common/encumbrance.js';
 // A6 Blatt-Überarbeitung: alternative (modernisierte) Ansicht - Design-Settings
 // (GM-Dialog) und die individuelle Nutzer-Präferenz (User-Flag, welt-weit).
-import { getModernSheetDesign, getModernSheetUserStyle } from '../common/modernSheetConfig.js';
+import { getModernSheetDesign, getModernSheetUserStyle, renderAllActorSheets } from '../common/modernSheetConfig.js';
 // A38 Währungssystem: Anzeige-Aufteilung des Orteg-Basiswerts für die Stammleiste
 import { allocateFromBase, getDenominations, getItemPriceBase, formatCurrency } from '../common/currency.js';
 
@@ -146,12 +146,39 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	/**
 	 * A6: Individuelle Ansicht (klassisch/modern) des aktuellen Nutzers
 	 * umschalten. Gespeichert als User-Flag (welt-weit persistent, pro Nutzer
-	 * schreibbar), danach wird das Blatt neu gerendert.
+	 * schreibbar). Testrunde-2-Fund: der Umschalter wirkt auf ALLE offenen
+	 * Blätter des Nutzers (Rudolfs Wunsch "alle Blätter in der gewählten
+	 * Ansicht"), nicht nur auf dasjenige mit dem geklickten Button.
 	 */
 	async _toggleModernView() {
 		const next = getModernSheetUserStyle() === 'modern' ? 'classic' : 'modern';
 		await game.user.setFlag('symbaroum', 'modernSheetStyle', next);
-		this.render(true);
+		renderAllActorSheets();
+	}
+
+	/**
+	 * A6v3: Scroll-Position über Re-Renders hinweg erhalten. Fund aus
+	 * Testrunde 2: Status-/Favoriten-Änderungen am Ende einer langen Liste
+	 * ließen den Tab- bzw. Stammleisten-Scroll an den Listenanfang springen.
+	 * Gesichert wird vor dem Re-Render und nach `await super.render(...)`
+	 * wiederhergestellt (das App-Wurzelelement bleibt über Re-Renders
+	 * bestehen, nur die Kinder werden ersetzt).
+	 */
+	async render(force = false, options = {}) {
+		const root = this.element;
+		const saved = root
+			? {
+					body: root.querySelector('.modern-body')?.scrollTop,
+					sidebar: root.querySelector('.m-sidebar')?.scrollTop,
+				}
+			: null;
+		await super.render(force, options);
+		if (saved && this.element) {
+			const body = this.element.querySelector('.modern-body');
+			if (body && Number.isFinite(saved.body)) body.scrollTop = saved.body;
+			const sidebar = this.element.querySelector('.m-sidebar');
+			if (sidebar && Number.isFinite(saved.sidebar)) sidebar.scrollTop = saved.sidebar;
+		}
 	}
 
 	/**
@@ -272,6 +299,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		const tough = live.health.toughness;
 		const toughness = {
 			pct: tough.max > 0 ? Math.min(100, Math.round((tough.value / tough.max) * 100)) : 0,
+			thresholdPct: tough.max > 0 ? Math.min(100, Math.round(((tough.threshold ?? 0) / tough.max) * 1000) / 10) : 0,
 			tooltip: `${localize('HEALTH.TOUGHNESS')}: ${tough.value} / ${tough.max}<br>${localize('HEALTH.TOUGHNESS_THRESHOLD')}: ${tough.threshold}${tough.max_msg ?? ''}`,
 		};
 
@@ -501,11 +529,25 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		/* --- Kampf-Chips --- */
 		const combatData = live.combat ?? {};
 		const impeding = Number(combatData.impeding) || 0;
+		// Testrunde-2-Fund: klassischer Hovertext "verteidigt sich mit [Attribut]"
+		// (ARMOR.DEFENCE_ATTRIBUTE) vor dem Wert-Breakdown (combatData.msg).
+		const defenseAttrLine = `${localize('ARMOR.DEFENCE_ATTRIBUTE')} ${localize(combatData.defenseAttribute?.label ?? '')}`;
 		const combat = {
 			defenseDisplay: isNPC && showMods ? `${combatData.defmod > 0 ? '+' : ''}${combatData.defmod}` : String(combatData.defense ?? 0),
-			defenseTooltip: combatData.msg ?? '',
+			defenseTooltip: combatData.msg ? `${defenseAttrLine}<br>${combatData.msg}` : defenseAttrLine,
 			impedingDisplay: impeding > 0 ? `−${impeding}` : '0',
 		};
+		// Testrunde-2-Fund: Status-Chips auch im Kampf-Tab (Rüstungs-/Waffen-Zeilen)
+		// klickbar wie im Ausrüstungs-Tab - Zyklus-Logik und Binding
+		// (.item-state in actor.js _onItemStateUpdate) sind bereits vorhanden.
+		const itemStateChips = {};
+		for (const item of this.actor.items) {
+			const s = item.system;
+			if (!s?.isGear) continue;
+			const info = stateInfo(s.state ?? 'other');
+			itemStateChips[item.id] = { state: info.state, icon: info.icon, tooltip: info.tooltip };
+		}
+		combat.hasActiveArmor = !!itemsById.get(combatData.id);
 
 		return {
 			theme: design.theme === 'classic' ? 'classic' : 'dark',
@@ -525,6 +567,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			favorites,
 			hasFavorites: favorites.length > 0,
 			combat,
+			itemStateChips,
 		};
 	}
 
@@ -599,7 +642,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		}
 
 		// A6: Eigenschaften-Chip (Stammleiste) -> Basis/Modifikator/Bonus-Dialog
-		const attrChips = element.querySelectorAll('.modern-attr-chip');
+		// (Testrunde-2-Fix: Der Selektor muss zur Chip-Klasse .m-attr-chip aus
+		// sidebar.hbs passen - .modern-attr-chip traf nichts, der Dialog
+		// öffnete deshalb nicht.)
+		const attrChips = element.querySelectorAll('.m-attr-chip');
 		for (const s of attrChips) {
 			s.addEventListener('click', (ev) => {
 				ev.preventDefault();
@@ -804,6 +850,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		let dialog = symbDialog({
 			title: title,
 			content: html,
+			// A6v3 (Testrunde 2): Dialogfenster im modernen dunklen Design -
+			// die Klassen landen auf dem DialogV2-Fenster-Root und themen
+			// Fensterkopf/-inhalt/-Buttons (CSS-Block .symb-dialog.modern-dialog).
+			classes: modernDesign ? ['modern-dialog', 'modern-attr-dialog'] : [],
 			buttons: {
 				confirm: {
 					icon: '<i class="fas fa-check"></i>',
@@ -866,6 +916,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		symbDialog({
 			title: localize('BIO.EXPERIENCE'),
 			content: html,
+			classes: ['modern-dialog', 'modern-exp-dialog'],
 			buttons: {
 				confirm: {
 					icon: '<i class="fas fa-check"></i>',
@@ -903,6 +954,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		symbDialog({
 			title: localize('TITLE.MONEY'),
 			content: content,
+			classes: ['modern-dialog', 'modern-money-dialog'],
 			buttons: {
 				confirm: {
 					icon: '<i class="fas fa-check"></i>',

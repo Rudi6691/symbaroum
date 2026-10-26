@@ -5829,6 +5829,20 @@ dialog.symb-dialog.chain-confirm footer button {
   --m-input-ink: #2c2317;
 }
 
+/* A6v3 (Testrunde 2): Die V13-Grundregel .symbaroum.sheet.actor label gibt
+   JEDEM Label im Blatt den alten Textur-Hintergrund, 10em Breite, Zentrierung
+   und 5px-Padding - sie leakt über die Scoping-Grenze der modernen Ansicht
+   (Schatten-, Verhalten- und Bio-Labels zeigten "schwarzen Rahmen/Textur").
+   Reset NUR im modernen Scope; die konkreten Label-Regeln hier (.m-inline-field
+   label, .m-field label, spezifischer) überschreiben dieses Reset weiterhin. */
+.symbaroum.sheet.actor .modern-root label {
+  background: none;
+  width: auto;
+  text-align: left;
+  padding: 0;
+  color: inherit;
+}
+
 /* ---------- Stammleiste (Fixbereich, links) ------------------------------ */
 .symbaroum.sheet.actor .modern-root .m-sidebar {
   flex: 0 0 15rem;
@@ -5897,8 +5911,22 @@ dialog.symb-dialog.chain-confirm footer button {
   margin: 0;
 }
 
-.symbaroum.sheet.actor .modern-root .m-shadow-field input {
+/* A6v3 (Testrunde 2): Schatten = 3-zeilige Textarea mit Zeilenumbruch
+   (vorher einzeiliger Input), vertikal vergrößerbar. */
+.symbaroum.sheet.actor .modern-root .m-shadow-field textarea.m-shadow-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 3.4rem;
+  background: var(--m-input-bg);
+  color: var(--m-input-ink);
+  border: 0.0625rem solid var(--m-line);
   border-left: 0.15rem solid var(--m-corrupt);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  line-height: 1.2;
 }
 
 .symbaroum.sheet.actor .modern-root .m-sec-label {
@@ -5930,6 +5958,23 @@ dialog.symb-dialog.chain-confirm footer button {
 
 .symbaroum.sheet.actor .modern-root .m-vital-row .val {
   font-weight: 600;
+}
+
+/* A6v3 (Testrunde 2): Zähigkeit direkt in der Stammleiste editierbar -
+   kleines Zahlfeld ohne Spinner, Zeilendarstellung "Feld / Max" bleibt. */
+.symbaroum.sheet.actor .modern-root .m-vital-input {
+  width: 3.2rem;
+  text-align: right;
+  padding: 0.05rem 0.25rem;
+  font-size: 0.72rem;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.symbaroum.sheet.actor .modern-root .m-vital-input::-webkit-outer-spin-button,
+.symbaroum.sheet.actor .modern-root .m-vital-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .symbaroum.sheet.actor .modern-root .m-bar {
@@ -6043,9 +6088,11 @@ dialog.symb-dialog.chain-confirm footer button {
   color: var(--m-muted);
 }
 
-/* ---------- Belastungs-Gauge (unten in der Stammleiste) -------------------- */
+/* ---------- Belastungs-Gauge (unter "Geld" in der Stammleiste) --------------
+   A6v3 (Testrunde 2): margin-top:auto entfällt - die Gauge klebt nicht mehr
+   am unteren Rand, sondern folgt direkt auf den Geld-Button (bei langen
+   Inhalten rutscht sie sonst aus dem Sichtbereich). */
 .symbaroum.sheet.actor .modern-root .m-gauge-bottom {
-  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -6201,14 +6248,15 @@ dialog.symb-dialog.chain-confirm footer button {
   display: block;
 }
 
-/* ---------- Vertikale Icon-Reiterleiste (rechter Rand) --------------------- */
+/* ---------- Vertikale Icon-Reiterleiste (rechter Rand) ---------------------
+   A6v3 (Testrunde 2): Reiter eng beieinander am oberen Rand wie im Mockup. */
 .symbaroum.sheet.actor .modern-root .modern-rail {
   flex: 0 0 2.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.55rem 0.25rem;
+  gap: 0.15rem;
+  padding: 0.3rem 0.25rem;
   box-sizing: border-box;
   background: var(--m-panel);
   border-left: 0.0625rem solid var(--m-line);
@@ -6408,7 +6456,10 @@ dialog.symb-dialog.chain-confirm footer button {
   border-color: var(--m-accent);
 }
 
-/* ---------- Favoriten-Stern ------------------------------------------------ */
+/* ---------- Favoriten-Stern ------------------------------------------------
+   A6v3 (Testrunde 2): aktiv = ausgefüllter Stern in Akzentfarbe mit leichtem
+   Glow; inaktiv = deutlicher Umriss-Stern (fa-regular fa-star im Template).
+   Der "rote Rahmen" war die Foundry-Fokus-Outline des Buttons - entfernt. */
 .symbaroum.sheet.actor .modern-root .favorite-toggle {
   flex: 0 0 auto;
   padding: 0 0.15rem;
@@ -6417,16 +6468,24 @@ dialog.symb-dialog.chain-confirm footer button {
   color: var(--m-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .symbaroum.sheet.actor .modern-root .favorite-toggle:hover {
   opacity: 1;
+  color: var(--m-accent);
 }
 
 .symbaroum.sheet.actor .modern-root .favorite-toggle.active {
   color: var(--m-accent);
   opacity: 1;
+  text-shadow: 0 0 0.25rem rgba(201, 162, 39, 0.45);
+}
+
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 /* ---------- Kacheln (Fähigkeiten & Kräfte, Favoriten) ------------------------
@@ -6588,13 +6647,77 @@ dialog.symb-dialog.chain-confirm footer button {
   display: block;
 }
 
-.symbaroum.sheet.actor .modern-root .m-prose .editor {
+/* A6v3 (Testrunde 2): Bio-Editierfelder mit automatischer Höhenanpassung an
+   den Inhalt - Mindesthöhe wie bisher (4.5rem), Maximalhöhe 300px, darüber
+   interner Scrollbalken. prose-mirror rendert Toolbar/Editor als LIGHT-DOM-
+   Kinder (.editor-container > .editor-content > .ProseMirror). */
+.symbaroum.sheet.actor .modern-root .m-bio .m-prose .editor-content {
+  height: auto;
   min-height: 4.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.symbaroum.sheet.actor .modern-root .m-bio .m-prose .ProseMirror {
+  min-height: 4.5rem;
+}
+
+/* A6v3 (Testrunde 2): Notizen-Tab - der Editor füllt die Tab-Höhe (kein
+   äußerer Scrollbalken, solange der Rahmen reicht); längerer Inhalt scrollt
+   IM Editierfeld. Flex-Kette: Tab -> .m-notes -> .m-box -> .m-prose ->
+   prose-mirror -> .editor-container -> .editor-content. */
+.symbaroum.sheet.actor .modern-root .modern-body > .tab.active[data-tab='notes'] {
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.actor .modern-root .m-notes {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .modern-root .m-notes .m-box {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.symbaroum.sheet.actor .modern-root .m-notes .m-box-b.m-prose {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .modern-root .m-notes .m-prose prose-mirror {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .modern-root .m-notes .m-prose .editor-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.actor .modern-root .m-notes .m-prose .editor-content {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* ---------- Eingabeelemente (modern) ---------------------------------------- */
 .symbaroum.sheet.actor .modern-root input,
-.symbaroum.sheet.actor .modern-root select {
+.symbaroum.sheet.actor .modern-root select,
+.symbaroum.sheet.actor .modern-root textarea {
   background: var(--m-input-bg);
   color: var(--m-input-ink);
   border: 0.0625rem solid var(--m-line);
@@ -6614,7 +6737,87 @@ dialog.symb-dialog.chain-confirm footer button {
   opacity: 0.8;
 }
 
-/* ---------- Dialoge (neues Design, klassik-unabhängig) ---------------------- */
+/* ---------- Dialoge (neues Design, klassik-unabhängig) ----------------------
+   A6v3 (Testrunde 2): Die modernen Dialoge (Eigenschaften/Erfahrung/Geld)
+   erschienen im Foundry-Standard-Chrome ("klassisches Design"). symbDialog
+   setzt die übergebenen Klassen auf den DialogV2-Fenster-Root
+   (dialog.symb-dialog.modern-dialog...) - hier wird das FENSTER selbst
+   dunkel themen: Kopfzeile, Inhalt, Buttons, Eingabefelder, Labels. Die
+   Inhalts-Regeln darunter (.modern-attr-dialog etc.) bleiben unverändert. */
+dialog.symb-dialog.modern-dialog {
+  --m-bg: #0f1412;
+  --m-panel: #182019;
+  --m-panel2: #212c23;
+  --m-line: #37443a;
+  --m-ink: #dfe6df;
+  --m-muted: #8fa192;
+  --m-accent: #c9a227;
+  --m-input-bg: rgba(255, 255, 255, 0.06);
+  --m-input-ink: #dfe6df;
+  color: var(--m-ink);
+}
+
+dialog.symb-dialog.modern-dialog .window-header {
+  background: var(--m-panel);
+  border-bottom: 0.0625rem solid var(--m-line);
+}
+
+dialog.symb-dialog.modern-dialog .window-header .window-title,
+dialog.symb-dialog.modern-dialog .window-header .header-button {
+  color: var(--m-ink);
+}
+
+dialog.symb-dialog.modern-dialog .window-content {
+  background: var(--m-bg);
+  color: var(--m-ink);
+}
+
+dialog.symb-dialog.modern-dialog .dialog-buttons {
+  border-top: 0.0625rem solid var(--m-line);
+  background: var(--m-panel);
+  gap: 0.4rem;
+  padding: 0.5rem;
+}
+
+dialog.symb-dialog.modern-dialog .dialog-buttons button {
+  background: var(--m-panel2);
+  color: var(--m-ink);
+  border: 0.0625rem solid var(--m-line);
+}
+
+dialog.symb-dialog.modern-dialog .dialog-buttons button:hover {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+dialog.symb-dialog.modern-dialog input,
+dialog.symb-dialog.modern-dialog select,
+dialog.symb-dialog.modern-dialog textarea {
+  background: var(--m-input-bg);
+  color: var(--m-input-ink);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+}
+
+dialog.symb-dialog.modern-dialog input:disabled {
+  opacity: 0.55;
+}
+
+/* Gegenstück zum Label-Reset im Blatt: die V13-Dialog-Grundregel
+   (.symbaroum.dialog label) gibt auch hier jeden Label den Textur-Balken. */
+dialog.symb-dialog.modern-dialog label {
+  background: none;
+  width: auto;
+  text-align: left;
+  padding: 0;
+  color: var(--m-ink);
+}
+
+dialog.symb-dialog.modern-dialog .hint {
+  color: var(--m-muted);
+}
+
 .symbaroum.modern-attr-dialog .m-attr-grid {
   display: grid;
   grid-template-columns: 1.6fr repeat(4, minmax(0, 1fr));

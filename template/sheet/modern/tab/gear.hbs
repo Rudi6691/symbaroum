@@ -15,7 +15,7 @@
                 <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
                 <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
                 {{#unless g.isNoArmor}}
-                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="{{#if g.favorite}}fas fa-star{{else}}fa-regular fa-star{{/if}}"></i></button>
                 <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
                 {{else}}
                 <span class="m-st m-st-none"><i class="fas fa-tshirt"></i></span>
@@ -36,7 +36,7 @@
                 <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
                 <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
                 <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
-                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="{{#if g.favorite}}fas fa-star{{else}}fa-regular fa-star{{/if}}"></i></button>
                 <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
             </div>
             {{/each}}
@@ -54,7 +54,7 @@
                 <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
                 <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
                 <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
-                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="{{#if g.favorite}}fas fa-star{{else}}fa-regular fa-star{{/if}}"></i></button>
                 <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
             </div>
             {{/each}}
@@ -71,7 +71,7 @@
                 <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
                 <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
                 <span class="m-num" data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</span>
-                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="fas fa-star"></i></button>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><i class="{{#if g.favorite}}fas fa-star{{else}}fa-regular fa-star{{/if}}"></i></button>
                 <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
             </div>
             {{/each}}

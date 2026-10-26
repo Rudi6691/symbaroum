@@ -14,8 +14,9 @@
             <label for="{{id}}-system.bio.occupation">{{localize "BIO.OCCUPATION"}}</label>
             <input id="{{id}}-system.bio.occupation" name="system.bio.occupation" type="text" value="{{system.bio.occupation}}" />
         </div>
+        {{!-- Testrunde-2-Fund: Defaultanzeige = Gesamt-XP wie im Kampf-Chip. --}}
         <button type="button" class="m-chip m-chip-click modern-exp" data-tooltip="{{{modern.exp.tooltip}}}">
-            <span class="v">{{modern.exp.available}}</span>
+            <span class="v">{{modern.exp.total}}</span>
             <span class="l">{{localize "EXPERIENCE"}}</span>
         </button>
     </div>

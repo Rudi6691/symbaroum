@@ -69,10 +69,42 @@ export function getModernSheetUserStyle() {
 	return getModernSheetDesign().defaultStyle;
 }
 
-/** Rendert alle offenen Akteursblätter neu (nach Setting-/Design-Änderungen). */
+/**
+ * Rendert alle offenen Akteursblätter neu (nach Setting-/Design-Änderungen).
+ * Testrunde-2-Fund: `Object.values(ui.windows)` lieferte in V14 KEINE
+ * Applications mehr (die Registry ist dort iterierbar, kein plain Object) -
+ * Designänderungen wirkten deshalb erst nach dem nächsten manuellen Render.
+ * Robust gegen alle Registry-Formen: Welt-Akteure über ihr ApplicationV2-
+ * Singleton-Sheet (game.actors) plus tolerante Iteration über die offenen
+ * Fenster-Registries (deckt Token-Akteure ab).
+ */
 export function renderAllActorSheets() {
-	for (const app of Object.values(ui.windows)) {
-		if (app?.actor && typeof app.render === 'function') app.render(false);
+	const seen = new Set();
+	// Nur Akteursblätter neu rendern - keine anderen offenen Applications
+	// (z. B. Würfel-/Einstellungsdialoge, deren Eingaben ein Re-Render verwerfen würde).
+	const isActorSheet = (app) => {
+		try {
+			return app?.document?.documentName === 'Actor' || app?.actor?.documentName === 'Actor';
+		} catch {
+			return false;
+		}
+	};
+	const renderIfOpen = (app) => {
+		if (!app || seen.has(app) || typeof app.render !== 'function') return;
+		if (!isActorSheet(app)) return;
+		seen.add(app);
+		if (app.rendered === true || app.element) app.render(false);
+	};
+	for (const actor of game.actors ?? []) renderIfOpen(actor.sheet);
+	const registries = [];
+	if (typeof ui !== 'undefined' && ui?.windows) registries.push(ui.windows);
+	if (game?.windows) registries.push(game.windows);
+	for (const registry of registries) {
+		if (registry && typeof registry[Symbol.iterator] === 'function') {
+			for (const app of registry) renderIfOpen(app);
+		} else if (registry) {
+			for (const app of Object.values(registry)) renderIfOpen(app);
+		}
 	}
 }
 
