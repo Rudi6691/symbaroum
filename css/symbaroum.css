@@ -5817,6 +5817,21 @@ dialog.symb-dialog.chain-confirm footer button {
   overflow-y: hidden;
 }
 
+/* A6v6 (Testrunde 5, Punkt 8): Die klassische A5-Mindestbreite
+   (.symbaroum.sheet.actor { min-width: 844px }) gilt für ALLE
+   Akteursblätter - deshalb ließ sich das moderne Blatt nicht schmaler
+   ziehen ("unverändert zu klassischem Blatt"). Im modernen Zweig wird
+   sie auf Rudolfs Maß überschrieben: Stammleiste (15rem) + kleinste
+   Kachel (10.5rem) + Reiterleiste (2.75rem) + Body-Padding (1.4rem)
+   = 29.65rem. Der Resize-Anschlag stoppt damit beim modernen Blatt
+   bei ~474px statt 844px; die Core-API kennt kein natives
+   position.minWidth (ApplicationPosition: nur left/top/width/height/
+   scale/zIndex). :has() greift nur, wenn der moderne Zweig gerendert
+   ist - klassische Blätter behalten ihre 844px. */
+.symbaroum.sheet.actor:has(div.modern-sheet-root) {
+  min-width: 29.65rem;
+}
+
 .symbaroum.sheet.actor .modern-sheet-root .modern-root {
   height: 100%;
   min-height: 0;
@@ -6321,18 +6336,29 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /* ---------- Vertikale Icon-Reiterleiste (rechter Rand) ---------------------
-   A6v5 (Testrunde 4): die Reiter sind für Rudolf funktional Teil der
-   Stammleiste - OHNE Abstand aneinandergereiht (gap 0, kein Rand zwischen
-   den Tasten) und an FIXER Position (die Höhenkette oben pinnt das Blatt,
-   .modern-body ist der einzige Scroll-Container, die Reiter scrollen nie
-   mit - Vorlage DnD-Spielerblatt). */
+   A6v6 (Testrunde 5): Rudolfs Wunschanordnung laut Screenshot/Bestätigung -
+   die 5 Tasten behalten ihren Karten-Look MIT festem kleinem Abstand
+   (~2-3px), erste Taste an der Oberkante des Charakterbildes, darunter
+   frei. Stabilität: das nav trägt die Core-Klasse "tabs", und Foundrys
+   Core-Stylesheet legt für nav.tabs eigene Flex-Regeln fest (Ausrichtung/
+   Verteilung/Umbruch) - deshalb konnten sich Abstände und Lage der Tasten
+   beim Höhen-Resize ändern (v4: "verändern Abstände zueinander", v5:
+   "Abstand, der sich bei Resize der Höhe ändern kann"). Fix: ALLE
+   layout-relevanten Eigenschaften werden hier explizit und mit !important
+   gepinnt - Verteilung oben (flex-start), kein Umbruch, fester Abstand,
+   keine Ränder an den Tasten. Nichts an der Leiste bewegt sich damit noch
+   beim Fenstern-Resize; die Reiter scrollen nie mit (Höhenkette oben). */
 .symbaroum.sheet.actor .modern-root .modern-rail {
   flex: 0 0 2.75rem;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  padding: 0.2rem 0.25rem;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 0.15rem !important;
+  /* erste Taste auf Höhe der Avatar-Oberkante: Stammleisten-Padding-top
+     (0.7rem) - die Avatar-Zeile ist das erste Stammleisten-Element. */
+  padding: 0.7rem 0.25rem 0.2rem;
   box-sizing: border-box;
   background: var(--m-panel);
   border-left: 0.0625rem solid var(--m-line);
@@ -6341,7 +6367,8 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.actor .modern-root .modern-rail-btn {
   width: 2.1rem;
   height: 2.1rem;
-  margin-bottom: 0;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6572,14 +6599,51 @@ dialog.symb-dialog.chain-confirm footer button {
   stroke-width: 10;
 }
 
-.symbaroum.sheet.actor .modern-root .favorite-toggle.active svg.m-star {
-  filter: drop-shadow(0 0 0.2rem rgba(201, 162, 39, 0.45));
-}
-
+/* A6v6 (Testrunde 5, Punkt 3): um den AKTIVEN Stern zeigte sich dauerhaft
+   ein dünner rot/oranger Rahmen (nicht nur kurzzeitig nach dem Klick,
+   Rudolfs Bestätigung: bleibt am aktiven Stern). Outline/box-shadow hatten
+   wir bereits mit !important entfernt (v4/v5) - der Rahmen kam also nicht
+   über die üblichen Eigenschaften zustande, sondern über einen anderen
+   Zeichnungsweg des Cores oder einen Pseudo-Zustand. Deshalb jetzt ein
+   vollständiger Zustands-Reset auf ALLE visuellen Rahmen-Eigenschaften
+   (outline, box-shadow, border, background, filter) in jedem Zustand -
+   und zusätzlich die Pseudo-Elemente der Taste stillgelegt. Der aktive
+   Stern zeigt damit NUR die goldene Füllung; der v5-Glow (drop-shadow)
+   ist ersatzlos entfallen, um jede Filter-basierte Rahmenbildung
+   auszuschließen. Sollte wider Erwarten noch ein Rahmen bleiben, brauchen
+   wir einen F12-Screenshot des Elements mit allen aktiven Regeln. */
+.symbaroum.sheet.actor .modern-root .favorite-toggle,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:link,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:visited,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:hover,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:active,
 .symbaroum.sheet.actor .modern-root .favorite-toggle:focus,
-.symbaroum.sheet.actor .modern-root .favorite-toggle:focus-visible {
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus-visible,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus-within,
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active,
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active:active,
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active:focus,
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active:focus-visible {
   outline: none !important;
   box-shadow: none !important;
+  border: none !important;
+  background: none !important;
+  filter: none !important;
+}
+
+.symbaroum.sheet.actor .modern-root .favorite-toggle::before,
+.symbaroum.sheet.actor .modern-root .favorite-toggle::after,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus::before,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus::after,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus-visible::before,
+.symbaroum.sheet.actor .modern-root .favorite-toggle:focus-visible::after,
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active::before,
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active::after {
+  content: none !important;
+  display: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 /* ---------- Kacheln (Fähigkeiten & Kräfte, Favoriten) ------------------------
