@@ -70,6 +70,33 @@ export function getModernSheetUserStyle() {
 }
 
 /**
+ * A6v5 (Testrunde 4, Rudolfs Frage): individuelle FARBWELT (dunkel/klassisch)
+ * des aktuellen Nutzers für die moderne Ansicht. Gespeichert als User-Flag
+ * 'modernSheetTheme' ('dark'|'classic'); UNSET = Welt-Default aus den
+ * Designeinstellungen (nur der Nutzer selbst schaltet um - sein Flag gewinnt
+ * gegen das Welt-Design, ohne es für andere zu ändern).
+ * @returns {'dark'|'classic'|null}
+ */
+export function getModernSheetUserTheme() {
+	const flagged = game.user.getFlag('symbaroum', 'modernSheetTheme');
+	if (flagged === 'dark' || flagged === 'classic') return flagged;
+	return null;
+}
+
+/**
+ * Wirksames Design = Welt-Design mit der individuellen Farbwelt des Nutzers
+ * (User-Flag > Welt-Default). Nur das theme-Feld wird überschrieben;
+ * Gauge/Icons/DefaultStyle bleiben Welt-Sache.
+ * @returns {{theme: string, gauge: string, defaultStyle: string, icons: object}}
+ */
+export function getModernSheetEffectiveDesign() {
+	const design = getModernSheetDesign();
+	const userTheme = getModernSheetUserTheme();
+	if (userTheme) design.theme = userTheme;
+	return design;
+}
+
+/**
  * Rendert alle offenen Akteursblätter neu (nach Setting-/Design-Änderungen).
  * Testrunde-2-Fund: `Object.values(ui.windows)` lieferte in V14 KEINE
  * Applications mehr (die Registry ist dort iterierbar, kein plain Object) -

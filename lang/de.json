@@ -1277,5 +1277,6 @@
   "SYMBAROUM.SETTING_MODERNSHEET_DESIGN": "Designeinstellungen…",
   "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_HINT": "Farbwelt, Belastungsvariante, Tab-Icons und Standard-Ansicht der alternativen Blätter (nur SL).",
   "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_TITLE": "Designeinstellungen – Alternative Spieler- und Monsterblätter",
-  "BUTTON.TOGGLE_MODERN": "Ansicht wechseln (klassisch/modern)"
+  "BUTTON.TOGGLE_MODERN": "Ansicht wechseln (klassisch/modern)",
+  "BUTTON.TOGGLE_MODERN_THEME": "Designfarbe der modernen Ansicht umschalten (dunkel/hell)"
 }

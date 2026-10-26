@@ -1277,5 +1277,6 @@
   "SYMBAROUM.SETTING_MODERNSHEET_DESIGN": "Design Settings…",
   "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_HINT": "Color scheme, load gauge variant, tab icons and default view of the alternative sheets (GM only).",
   "SYMBAROUM.SETTING_MODERNSHEET_DESIGN_TITLE": "Design Settings – Alternative Player and Monster Sheets",
-  "BUTTON.TOGGLE_MODERN": "Toggle sheet view (classic/modern)"
+  "BUTTON.TOGGLE_MODERN": "Toggle sheet view (classic/modern)",
+  "BUTTON.TOGGLE_MODERN_THEME": "Toggle modern sheet theme (dark/light)"
 }

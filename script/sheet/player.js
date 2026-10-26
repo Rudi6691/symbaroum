@@ -6,7 +6,7 @@ import { symbDialog } from '../common/symbDialog.js';
 import { getEncumbranceData, formatGE } from '../common/encumbrance.js';
 // A6 Blatt-Überarbeitung: alternative (modernisierte) Ansicht - Design-Settings
 // (GM-Dialog) und die individuelle Nutzer-Präferenz (User-Flag, welt-weit).
-import { getModernSheetDesign, getModernSheetUserStyle, renderAllActorSheets } from '../common/modernSheetConfig.js';
+import { getModernSheetEffectiveDesign, getModernSheetUserStyle, renderAllActorSheets } from '../common/modernSheetConfig.js';
 // A38 Währungssystem: Anzeige-Aufteilung des Orteg-Basiswerts für die Stammleiste
 import { allocateFromBase, getDenominations, getItemPriceBase, formatCurrency } from '../common/currency.js';
 
@@ -108,6 +108,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				event.preventDefault();
 				await this._toggleModernView();
 			},
+			// A6v5 (Testrunde 4): Umschalten der Farbwelt (dunkel/hell) der
+			// modernen Ansicht - individuelles User-Flag 'modernSheetTheme',
+			// gewinnt über dem Welt-Default aus den Designeinstellungen.
+			toggleModernTheme: async function (event) {
+				event.preventDefault();
+				await this._toggleModernTheme();
+			},
 		},
 	};
 
@@ -139,6 +146,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		// die modernisierte Ansicht in den Welt-Settings aktiviert ist.
 		if ( game.settings.get('symbaroum', 'modernSheetEnabled') ) {
 			buttons.push({ action: 'toggleModern', icon: 'fas fa-table-columns', label: 'BUTTON.TOGGLE_MODERN' });
+			// A6v5: Farbwelt-Umschalter - nur in der modernen Ansicht sinnvoll
+			// (im klassischen Zweig gibt es kein Theming), deshalb nur dann
+			// anbieten, wenn der Nutzer die moderne Ansicht tatsächlich sieht.
+			if ( getModernSheetUserStyle() === 'modern' ) {
+				buttons.push({ action: 'toggleModernTheme', icon: 'fas fa-circle-half-stroke', label: 'BUTTON.TOGGLE_MODERN_THEME' });
+			}
 		}
 		return buttons;
 	}
@@ -153,6 +166,20 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	async _toggleModernView() {
 		const next = getModernSheetUserStyle() === 'modern' ? 'classic' : 'modern';
 		await game.user.setFlag('symbaroum', 'modernSheetStyle', next);
+		renderAllActorSheets();
+	}
+
+	/**
+	 * A6v5 (Testrunde 4, Rudolfs Frage "Wo kann ein Spieler zwischen dunklem
+	 * und hellem Design umschalten?"): Farbwelt-Umschalter im Blattkopf.
+	 * Gespeichert als User-Flag 'modernSheetTheme' - unset bedeutet
+	 * Welt-Default; ein Klick wechselt zwischen dunkel und hell und wirkt
+	 * (wie der Ansichts-Umschalter) auf alle offenen Blätter des Nutzers.
+	 */
+	async _toggleModernTheme() {
+		const current = getModernSheetEffectiveDesign().theme;
+		const next = current === 'dark' ? 'classic' : 'dark';
+		await game.user.setFlag('symbaroum', 'modernSheetTheme', next);
 		renderAllActorSheets();
 	}
 
@@ -275,7 +302,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		const modernEnabled = !!game.settings.get('symbaroum', 'modernSheetEnabled');
 		context.renderModern = !!(modernEnabled && getModernSheetUserStyle() === 'modern');
 		if (context.renderModern) {
-			context.modern = this._prepareModernContext(context, getModernSheetDesign());
+			/* A6v5 (Testrunde 4): wirksames Design = Welt-Design mit der
+			   individuellen Farbwelt des Nutzers (User-Flag 'modernSheetTheme'
+			   gewinnt über dem Welt-Default; Umschalten über den Kopf-Button). */
+			context.modern = this._prepareModernContext(context, getModernSheetEffectiveDesign());
 		}
 		/* A6v4 (Testrunde 3): Scroll-Sicherung, zweite Stufe. Der render()-
 		   Override sichert bereits vor super.render(); hier wird zusätzlich

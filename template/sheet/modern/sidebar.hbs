@@ -42,9 +42,16 @@
     <div class="m-vital">
         {{!-- A6v4 (Testrunde 3): statt Eingabefeld zwei Tasten - Pfeil links
             senkt den Zähigkeitswert um 1, Pfeil rechts erhöht ihn um 1
-            (nur mit Editierrechten; Klemmung 0..max im Handler). --}}
+            (nur mit Editierrechten; Klemmung 0..max im Handler).
+            A6v5 (Testrunde 4, Rudolfs Layout-Wunsch): beide Tasten links vom
+            Wert, das Paar zentriert über dem Balken, beide Reihen vertikal
+            aneinander ausgerichtet. Grid 1fr|auto|1fr: Label links, Tastenpaar
+            exakt mittig (immer über der Balkenmitte, unabhängig von der
+            Wertbreite - einstelliger Wert verschiebt nichts), Wert rechts. --}}
         <div class="m-vital-row" data-tooltip="{{{modern.toughness.tooltip}}}">
-            <span class="lab">{{localize "HEALTH.TOUGHNESS"}}</span><span class="val m-vital-nums">{{#if editable}}<button type="button" class="m-vital-btn" data-field="toughness" data-dir="-1" data-tooltip="{{localize "MODERN.VITAL_DECREASE"}}"><i class="fas fa-caret-left"></i></button> {{/if}}{{system.health.toughness.value}}{{#if editable}} <button type="button" class="m-vital-btn" data-field="toughness" data-dir="1" data-tooltip="{{localize "MODERN.VITAL_INCREASE"}}"><i class="fas fa-caret-right"></i></button>{{/if}} / {{system.health.toughness.max}}</span>
+            <span class="lab">{{localize "HEALTH.TOUGHNESS"}}</span>
+            <span class="m-vital-btns">{{#if editable}}<button type="button" class="m-vital-btn" data-field="toughness" data-dir="-1" data-tooltip="{{localize "MODERN.VITAL_DECREASE"}}"><i class="fas fa-caret-left"></i></button><button type="button" class="m-vital-btn" data-field="toughness" data-dir="1" data-tooltip="{{localize "MODERN.VITAL_INCREASE"}}"><i class="fas fa-caret-right"></i></button>{{/if}}</span>
+            <span class="val m-vital-nums">{{system.health.toughness.value}} / {{system.health.toughness.max}}</span>
         </div>
         <div class="m-bar">
             <div class="m-fill m-hp" style="width: {{modern.toughness.pct}}%;"></div>
@@ -54,9 +61,13 @@
         </div>
         {{!-- A6v4 (Testrunde 3): auch für Korruption zwei Tasten (wie
             Zähigkeit) - sie verändern die TEMPORÄRE Korruption um 1;
-            permanente Korruption bleibt dem Aktor-Blatt vorbehalten. --}}
+            permanente Korruption bleibt dem Aktor-Blatt vorbehalten.
+            A6v5: gleiches Grid wie die Zähigkeitsreihe (Paar mittig, Wert
+            rechts) - dadurch sind beide Paare vertikal ausgerichtet. --}}
         <div class="m-vital-row" data-tooltip="{{{modern.corruption.tooltip}}}">
-            <span class="lab">{{localize "HEALTH.CORRUPTION"}}</span><span class="val m-vital-nums">{{#if modern.corruption.thoroughlyCorrupt}}{{localize "HEALTH.CORRUPTION_NA"}}{{else}}{{#if editable}}<button type="button" class="m-vital-btn" data-field="corruption" data-dir="-1" data-tooltip="{{localize "MODERN.VITAL_DECREASE"}}"><i class="fas fa-caret-left"></i></button> {{/if}}{{modern.corruption.value}}{{#if editable}} <button type="button" class="m-vital-btn" data-field="corruption" data-dir="1" data-tooltip="{{localize "MODERN.VITAL_INCREASE"}}"><i class="fas fa-caret-right"></i></button>{{/if}} / {{modern.corruption.max}}{{/if}}</span>
+            <span class="lab">{{localize "HEALTH.CORRUPTION"}}</span>
+            <span class="m-vital-btns">{{#if editable}}{{#unless modern.corruption.thoroughlyCorrupt}}<button type="button" class="m-vital-btn" data-field="corruption" data-dir="-1" data-tooltip="{{localize "MODERN.VITAL_DECREASE"}}"><i class="fas fa-caret-left"></i></button><button type="button" class="m-vital-btn" data-field="corruption" data-dir="1" data-tooltip="{{localize "MODERN.VITAL_INCREASE"}}"><i class="fas fa-caret-right"></i></button>{{/unless}}{{/if}}</span>
+            <span class="val m-vital-nums">{{#if modern.corruption.thoroughlyCorrupt}}{{localize "HEALTH.CORRUPTION_NA"}}{{else}}{{modern.corruption.value}} / {{modern.corruption.max}}{{/if}}</span>
         </div>
         {{!-- A6v4 (Testrunde 3, Rudolfs Wunsch): permanente Korruption am
             ANFANG des Balkens in dunklem Violett, temporäre schließt in

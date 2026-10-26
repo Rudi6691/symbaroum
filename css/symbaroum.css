@@ -5787,44 +5787,47 @@ dialog.symb-dialog.chain-confirm footer button {
    .modern-theme-classic (klassik-orientiert, Papier) - kein zweites Template.
    Monsterblätter erben automatisch (gleiche Klassenstruktur). */
 
-/* ---------- A6v4 (Testrunde 3): HOHENKETTE des modernen Zweigs --------------
-   Root-Cause der Reiter-/Scroll-/Editor-Funde: die klassischen 7.2.10-Regeln
-   setzen .window-content form { flex: 1 0 auto !important } und
-   form > div { flex: 1 0 auto } - das klassische Blatt wächst BEWUSST mit
-   seinem Inhalt (das Fenster scrollt als Ganzes). Der moderne Zweig erbt
-   diese Kette: .modern-root (height: 100%) läuft gegen eine auto-Höhe
-   zirkulär, das ganze Fenster scrollt (Reiterleiste und Stammleiste scrollen
-   mit, der Ausrüstungs-Tab schob die Reiter aus dem Bild), .modern-body
-   scrollt nie (sein scrollTop bleibt 0 - deshalb griff die v3-Scroll-
-   Sicherung ins Leere), der Notizen-Tab war "zu hoch", und die Bio-Editoren
-   bekamen keine definite Höhe.
-   Fix: die Marker-Klasse modern-sheet-root (player.hbs, Wurzel-Div, nur im
-   modernen Zweig) pinnt die Kette auf Fensternähe - :has() greift NUR, wenn
-   der moderne Zweig gerendert ist; klassische Blätter, Item-Sheets und alle
-   anderen Fenster bleiben unberührt. window-content, form und Wurzel-Div
-   bekommen definite Höhe + overflow: hidden; .modern-root füllt 100%.
-   Damit stehen die Reiterleiste und die Stammleiste fix, und .modern-body
-   bzw. .m-sidebar werden die eigentlichen Scroll-Container. */
-.symbaroum.sheet.actor .window-content:has(> form > div.modern-sheet-root) {
+/* ---------- A6v5 (Testrunde 4): HOHENKETTE des modernen Zweigs --------------
+   A6v4 versuchte sie über exakte Kind-Selektoren (.window-content:has(> form >
+   div.modern-sheet-root)) - griff in Testrunde 4 NICHT: das Fenster scrollte
+   weiterhin als Ganzes, Reiter und Stammleiste scrollten mit. Die exakte
+   Core-Verpackung zwischen .window-content und dem Template-Wurzel-Div ist
+   versionsabhängig (form-Wrapper, Part-Container); ein exakter Kind-Pfad ist
+   zu fragil. Robuster Ansatz: Nachfahren-Selektoren + absolutes Pinning.
+   .modern-sheet-root wird aus dem Fluss genommen und füllt .window-content
+   komplett (inset: 0) - form und alle Zwischen-Wrapper kollabieren dabei
+   harmlos (die benannten Eingabefelder bleiben DOM-Kinder des form, der
+   Form-Submit ist unberührt). .window-content selbst scrollt nie wieder
+   (overflow: hidden); .modern-body und .m-sidebar sind die eigentlichen
+   Scroll-Container: Reiterleiste und Stammleiste stehen damit fix, und die
+   Scroll-Sicherung (player.js, render()-Override + _prepareContext) greift,
+   weil .modern-body tatsächlich scrollt.
+   Gilt NUR, wenn der moderne Zweig gerendert ist (Marker-Klasse in
+   player.hbs) - klassische Blätter, Item-Sheets und alle anderen Fenster
+   bleiben unberührt. */
+.symbaroum.sheet.actor .window-content:has(div.modern-sheet-root) {
+  position: relative;
   overflow: hidden;
 }
 
-.symbaroum.sheet.actor .window-content:has(> form > div.modern-sheet-root) form {
-  flex: 1 1 auto !important;
-  height: 100% !important;
-  overflow: hidden;
-}
-
-.symbaroum.sheet.actor .window-content form > div.modern-sheet-root {
-  flex: 1 1 auto !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  overflow: hidden;
+.symbaroum.sheet.actor .window-content div.modern-sheet-root {
+  position: absolute !important;
+  inset: 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .symbaroum.sheet.actor .modern-sheet-root .modern-root {
   height: 100%;
   min-height: 0;
+  /* A6v5 (Testrunde 4, Punkt 9): Mindestbreite des modernen Blatts =
+     Stammleiste (15rem) + kleinste Kachel (10.5rem) + Reiterleiste
+     (2.75rem) + Body-Padding (2 x 0.7rem) = 29.65rem. Schmaler wird das
+     Layout nicht gequetscht - stattdessen scrollt es horizontal im
+     Blattrahmen (overflow-x am .modern-sheet-root oben). Die Core-API
+     kennt kein position.minWidth (ApplicationPosition: nur left/top/
+     width/height/scale/zIndex), deshalb der CSS-Weg. */
+  min-width: 29.65rem;
 }
 
 /* ---------- Grundlayout: Stammleiste | Tab-Bereich | Icon-Reiterleiste ---- */
@@ -5984,11 +5987,17 @@ dialog.symb-dialog.chain-confirm footer button {
   gap: 0.15rem;
 }
 
+/* A6v5 (Testrunde 4, Rudolfs Layout-Wunsch): jede Vital-Reihe ist ein
+   3-Spalen-Grid 1fr | auto | 1fr - Label links, Tastenpaar (-1 / +1)
+   exakt MITTIG (Spalte 2, damit zentriert über dem Balken und vertikal
+   mit dem Paar der anderen Reihe ausgerichtet), Wert rechtsbündig
+   (Spalte 3). Die 1fr-Spalten fangen Wertbreiten auf: ob der Wert ein-
+   oder zweistellig ist, verschiebt weder Tasten noch Label. */
 .symbaroum.sheet.actor .modern-root .m-vital-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.4rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 0.4rem;
   font-size: 0.72rem;
 }
 
@@ -5998,17 +6007,21 @@ dialog.symb-dialog.chain-confirm footer button {
 
 .symbaroum.sheet.actor .modern-root .m-vital-row .val {
   font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.symbaroum.sheet.actor .modern-root .m-vital-btns {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
 }
 
 /* A6v4 (Testrunde 3, Rudolfs Wunsch): statt Eingabefeld zwei kleine Tasten
    (Pfeil links -1 / Pfeil rechts +1) für Zähigkeit und temporäre Korruption.
    Handler in player.js (_onModernVitalAdjust), Klemmung 0..max bzw. >= 0. */
-.symbaroum.sheet.actor .modern-root .m-vital-nums {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
 .symbaroum.sheet.actor .modern-root .m-vital-btn {
   display: inline-flex;
   align-items: center;
@@ -6308,11 +6321,11 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /* ---------- Vertikale Icon-Reiterleiste (rechter Rand) ---------------------
-   A6v4 (Testrunde 3, Rudolfs Wunsch): Reiter OHNE Abstand aneinandergekettet,
-   fix oben in der Leiste - Vorlage DnD-Spielerblatt. Nie mitscrollen: die
-   Reiterleiste ist ein Geschwister der Scroll-Container; erst die reparierte
-   Höhenkette oben hat das stabil gemacht (vorher scrollte das Fenster als
-   Ganzes und nahm die Reiter mit). */
+   A6v5 (Testrunde 4): die Reiter sind für Rudolf funktional Teil der
+   Stammleiste - OHNE Abstand aneinandergereiht (gap 0, kein Rand zwischen
+   den Tasten) und an FIXER Position (die Höhenkette oben pinnt das Blatt,
+   .modern-body ist der einzige Scroll-Container, die Reiter scrollen nie
+   mit - Vorlage DnD-Spielerblatt). */
 .symbaroum.sheet.actor .modern-root .modern-rail {
   flex: 0 0 2.75rem;
   display: flex;
@@ -6328,7 +6341,7 @@ dialog.symb-dialog.chain-confirm footer button {
 .symbaroum.sheet.actor .modern-root .modern-rail-btn {
   width: 2.1rem;
   height: 2.1rem;
-  margin-bottom: 0.1rem;
+  margin-bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6521,33 +6534,46 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /* ---------- Favoriten-Stern ------------------------------------------------
-   A6v4 (Testrunde 3): das Template benutzt überall den soliden fas-Stern
-   (fa-regular fa-star ist im Foundry-Font-Bundle nicht sichtbar bzw. sah wie
-   der alte Zustand aus). Inaktiv = hohl über -webkit-text-stroke und
-   transparenter Füllung (Chromium/Foundry safe), aktiv = solid in
-   Akzentfarbe mit Glow. Der "rote Rahmen" war die Foundry-Fokus-Outline. */
+   A6v5 (Testrunde 4): zwei Anläufe über den FontAwesome-Stern scheiterten
+   (fa-regular fehlt im V14-Font-Bundle, A6v3; der text-stroke-Trick auf dem
+   soliden fas-Stern zeigte in Testrunde 4 keinen sichtbaren Effekt, A6v4).
+   Deshalb rendert das Template jetzt einen EIGENEN Inline-SVG-Stern
+   (template/sheet/modern/tab/{gear,powers,combat}.hbs) - unabhängig vom
+   Icon-Font, deterministisch gestylbar: inaktiv = reine Kontur (fill: none,
+   heller Umriss), aktiv = gefüllt in Akzentfarbe mit weichem Glow. */
 .symbaroum.sheet.actor .modern-root .favorite-toggle {
   flex: 0 0 auto;
   padding: 0 0.15rem;
   border: none;
   background: none;
-  color: transparent;
-  -webkit-text-stroke: 0.05rem var(--m-muted);
-  font-size: 0.75rem;
   cursor: pointer;
-  opacity: 0.55;
 }
 
-.symbaroum.sheet.actor .modern-root .favorite-toggle:hover {
-  opacity: 1;
-  -webkit-text-stroke: 0.05rem var(--m-accent);
+.symbaroum.sheet.actor .modern-root .favorite-toggle svg.m-star {
+  width: 0.8rem;
+  height: 0.8rem;
+  display: block;
 }
 
-.symbaroum.sheet.actor .modern-root .favorite-toggle.active {
-  color: var(--m-accent);
-  -webkit-text-stroke: 0;
-  opacity: 1;
-  text-shadow: 0 0 0.25rem rgba(201, 162, 39, 0.45);
+.symbaroum.sheet.actor .modern-root .favorite-toggle svg.m-star path {
+  fill: none;
+  stroke: var(--m-muted);
+  stroke-width: 28;
+  stroke-linejoin: round;
+}
+
+.symbaroum.sheet.actor .modern-root .favorite-toggle:hover svg.m-star path {
+  stroke: var(--m-accent);
+}
+
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active svg.m-star path {
+  fill: var(--m-accent);
+  stroke: var(--m-accent);
+  stroke-width: 10;
+}
+
+.symbaroum.sheet.actor .modern-root .favorite-toggle.active svg.m-star {
+  filter: drop-shadow(0 0 0.2rem rgba(201, 162, 39, 0.45));
 }
 
 .symbaroum.sheet.actor .modern-root .favorite-toggle:focus,
@@ -6716,15 +6742,18 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 /* A6v4 (Testrunde 3): Bio-Editierfelder wachsen mit dem Inhalt bis 300px,
-   danach interner Scroll. Die v3-Regeln griffen nur die sichtbare Box an;
-   die eigentliche Ursache: prose-mirror rendert Toolbar/Editor als LIGHT-DOM
-   (.editor-container > .editor-content > .ProseMirror, siehe klassische
-   7.2.10-Runde 7) - ohne Flex-Kette am Host/Container behielt der Editor
-   seine starre Innenhöhe, und die Editor-Menüleiste legte sich beim
-   Aktivieren ÜBER den Text (der Inhalt wurde nach oben aus der Box
-   geschoben). Die Kette hier ist das genaue Gegenstück zur klassischen
-   Lösung: Host und Container werden Flex-Spalten, die Box flext und
-   scrollt selbst. */
+   danach interner Scroll. A6v5 (Testrunde 4): Root-Cause gefunden - die
+   v4-Flex-Kette allein genügt nicht, weil der V14-CORE (foundry2.css) das
+   .editor-content im prose-mirror-Host ABSOLUT positioniert
+   (position: absolute; inset: 0). Ein absolut positioniertes Kind trägt
+   nichts zur Höhe des Hosts bei - der Editor behielt deshalb seine feste
+   Höhe, egal was die äußere Flex-Kette erlaubte (im Notizen-Tab
+   "funktionierte" das zufällig, weil dort der Host über die Flex-Kette
+   eine definite Höhe bekommt). Fix: .editor-content im Bio-Scope per
+   !important zurück in den Fluss (static), Höhe auto + min/max - dann
+   wächst der Host über die Kette Host -> .editor-container -> .editor-
+   content -> .ProseMirror mit dem Text bis 300px, danach scrollt die
+   Box intern (Menüleiste bleibt oben, überdeckt nichts). */
 .symbaroum.sheet.actor .modern-root .m-bio .m-prose prose-mirror {
   display: flex;
   flex-direction: column;
@@ -6739,15 +6768,17 @@ dialog.symb-dialog.chain-confirm footer button {
 }
 
 .symbaroum.sheet.actor .modern-root .m-bio .m-prose .editor-content {
-  flex: 1 1 auto;
-  height: auto;
-  min-height: 4.5rem;
+  position: static !important;
+  inset: auto !important;
+  height: auto !important;
+  min-height: 4.5rem !important;
   max-height: 300px;
   overflow-y: auto;
 }
 
 .symbaroum.sheet.actor .modern-root .m-bio .m-prose .ProseMirror {
   min-height: 4.5rem;
+  height: auto;
 }
 
 /* A6v3 (Testrunde 2): Notizen-Tab - der Editor füllt die Tab-Höhe (kein
@@ -7073,4 +7104,21 @@ dialog.symb-dialog.modern-dialog .hint {
     gap: 0.5rem;
     justify-content: flex-end;
   }
+}
+
+/* ---------- A6v5 (Testrunde 4): Einstellungs-Numberfelder ------------------
+   Rudolfs Feinschliff: die drei A6-Number-Einstellungen (Wechselkurs
+   Schilling->Orteg, Thaler->Schilling, Faktor der harten Belastungsgrenze;
+   seit A6v4 Number-Inputs statt Mausrad-empfindlicher Range-Slider) sollen
+   deutlich schmaler sein und den Inhalt zentriert zeigen. Die Settings-
+   Inputs tragen eindeutige name-Attribute "symbaroum.<key>" - der
+   Attribut-Selektor greift im Einstellungsfenster unabhängig von Theme
+   und Container-Struktur und berührt keine anderen Felder. */
+input[name='symbaroum.currencyShillingOrteg'],
+input[name='symbaroum.currencyThalerShilling'],
+input[name='symbaroum.encumbranceHardLimitMultiplier'] {
+  width: 5.5rem !important;
+  flex: 0 0 5.5rem;
+  max-width: 5.5rem;
+  text-align: center !important;
 }
