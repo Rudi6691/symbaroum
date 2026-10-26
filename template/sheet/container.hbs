@@ -11,6 +11,14 @@
                 </div>
             </div>
         </div>
+        <div class="sheet-tabs tabs" data-group="primary">
+            {{!-- Testrunde-2-Fix (7): item.js aktiviert den Tab-Inhalt NUR,
+                wenn die Nav-Leiste .sheet-tabs existiert - ohne sie blieb der
+                .tab-Content inaktiv und unsichtbar (leeres Blatt). Eine
+                Tab-Leiste wie auf dem Ausrüstungs-Blatt gehört ohnehin zum
+                gewünschten Gear-Look (11b). --}}
+            <b class="item" data-tab="description">{{localize "TAB.DESCRIPTION"}}</b>
+        </div>
         <div class="sheet-body">
             {{!-- Testrunde-1-Wunsch (11b): Layout exakt am Ausrüstungs-Blatt -
                 gleicher Wrapper (.container analog .equipment), gleiche .tab-Struktur

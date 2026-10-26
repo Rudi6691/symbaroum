@@ -7363,15 +7363,26 @@ input[name='symbaroum.encumbranceHardLimitMultiplier'] {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.m-gear .m-container-collapse {
+/* Testrunde-2-Fix (5): Die klassische Chrome-Regel .symbaroum.sheet.actor
+   button (Textur-Hintergrund, Spezifität 0,3,1) schlug die alten Regeln
+   (0,2,0) - die Kollaps-/Entnahme-Tasten zeigten dunkle Texturen statt
+   Icons. Umscopet auf das A6-Muster (.modern-Root, 0,5,0) wie .m-add,
+   .m-vital-btn, .m-inv-name: Hintergrund/Border raus, Icon-Farbe
+   --m-muted, Hover wie .m-container-takeout. */
+.symbaroum.sheet.actor .modern-root .m-gear .m-container-collapse {
   flex: 0 0 auto;
   width: 1.1rem;
   padding: 0;
   border: none;
   background: none;
-  color: inherit;
+  color: var(--m-muted);
   opacity: 0.7;
   font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root .m-gear .m-container-collapse:hover {
+  opacity: 1;
 }
 
 .m-gear .m-container-icon {
@@ -7431,17 +7442,18 @@ input[name='symbaroum.encumbranceHardLimitMultiplier'] {
   flex: 0 0 0.8rem;
 }
 
-.m-gear .m-container-takeout {
+.symbaroum.sheet.actor .modern-root .m-gear .m-container-takeout {
   flex: 0 0 auto;
   padding: 0 0.25rem;
   border: none;
   background: none;
-  color: inherit;
+  color: var(--m-muted);
   opacity: 0.55;
   font-size: 0.75rem;
+  cursor: pointer;
 }
 
-.m-gear .m-container-takeout:hover {
+.symbaroum.sheet.actor .modern-root .m-gear .m-container-takeout:hover {
   opacity: 1;
 }
 
