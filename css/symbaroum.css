@@ -7325,3 +7325,152 @@ input[name='symbaroum.encumbranceHardLimitMultiplier'] {
   max-width: 5.5rem;
   text-align: center !important;
 }
+
+/* ==========================================================================
+   Behältersystem (Projekt "Behälter" v1) - Ausrüstungs-Tab, moderne Ansicht
+   Eigene Gruppe "Behälter" über den vier Ausrüstungs-Gruppen: einklappbare
+   Behälterzeile (Kollaps-Pfeil, Bild/Icon, Titel, GE-Summe mit Kapazitäts-
+   balken, Geldanzeige, zwei Status-Chips), darunter eingerückte Kinder-
+   zeilen (Ebene 1) und verschachtelte Behälter mit deren Kindern (Ebene 2).
+   ========================================================================== */
+.m-gear .m-box-containers .m-container-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.m-gear .m-container-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.m-gear .m-container-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.m-gear .m-container-collapse {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.m-gear .m-container-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+/* Kapazitäts-Füllbalken zwischen Titel und Geldanzeige */
+.m-gear .m-cap-bar {
+  position: relative;
+  flex: 0 0 3.5rem;
+  height: 0.4rem;
+  border: 1px solid var(--color-border, #777);
+  border-radius: 0.2rem;
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.m-gear .m-cap-bar .m-cap-fill {
+  display: block;
+  height: 100%;
+  background: #7a9e43;
+}
+
+.m-gear .m-cap-bar.full .m-cap-fill {
+  background: #b04b3a;
+}
+
+.m-gear .m-cont-money {
+  flex: 0 0 auto;
+  min-width: 3rem;
+  text-align: right;
+  font-size: 0.8rem;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+/* Kinderzeilen: eingerückt, eine Ebene Tiefe sichtbar */
+.m-gear .m-container-children {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1.6rem;
+}
+
+.m-gear .m-container-child.m-cont-d2 {
+  padding-left: 1.2rem;
+}
+
+.m-gear .m-container-children .m-inv-row,
+.m-gear .m-container-children .m-container-row {
+  opacity: 0.92;
+}
+
+.m-gear .m-cont-indent {
+  flex: 0 0 0.8rem;
+}
+
+.m-gear .m-container-takeout {
+  flex: 0 0 auto;
+  padding: 0 0.25rem;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.55;
+  font-size: 0.75rem;
+}
+
+.m-gear .m-container-takeout:hover {
+  opacity: 1;
+}
+
+/* Gespäter countLoad-Chip, wenn der Behälter nicht mitgeführt wird */
+.m-gear .m-chip-off {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Kontextdialog: Zweispaltiges Formularraster mit Löschen-Zeile */
+.modern-container-dialog .m-cont-dlg-grid {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.modern-container-dialog .m-cont-dlg-grid label {
+  margin: 0;
+}
+
+.modern-container-dialog .m-cont-dlg-money {
+  font-weight: bold;
+}
+
+.modern-container-dialog .m-cont-dlg-hint {
+  margin: 0.5rem 0 0.4rem 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.modern-container-dialog .m-cont-dlg-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.modern-container-dialog .m-cont-btn {
+  flex: 1;
+}
+
+.modern-container-dialog .m-cont-btn-danger {
+  color: #b04b3a;
+}

@@ -166,6 +166,7 @@
       "artifact",
       "boon",
       "burden",
+      "container",
       "equipment",
       "mysticalPower",
       "ritual",
@@ -400,6 +401,19 @@
       },
       "reference": "",
       "state": "other"
+    },
+    "container": {
+      "description": "",
+      "reference": "",
+      "cost": "",
+      "price": { "value": 0, "denomination": "orteg" },
+      "weight": "none",
+      "capacity": 0,
+      "carried": true,
+      "countLoad": true,
+      "currency": 0,
+      "icon": "",
+      "weightlessContents": false
     }
   }
 }

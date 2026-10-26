@@ -1241,6 +1241,15 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.encumbranceMigration();",
 				img: "systems/symbaroum/asset/image/biceps.svg",
 			},
+			{
+				// Behältersystem v1: bestehende Ausrüstungs-Items mit Behälter-
+				// Namen (Rucksack, Beutel, Truhe ...) in den Typ "container"
+				// überführen - editierbare Kapazitäts-Vorschläge, wiederholbar,
+				// Kompendien bleiben unberührt.
+				name: game.i18n.localize("MACRO.CONTAINER_MIGRATION_NAME"),
+				command: "game.symbaroum.macros.containerMigration();",
+				img: "systems/symbaroum/asset/image/container.svg",
+			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro
@@ -1850,6 +1859,128 @@ export class SymbaroumMacros {
 							count++;
 						}
 						ui.notifications.info(game.i18n.format("MACRO.WEIGHT_MIGRATION_DONE", { count }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("BUTTON.CANCEL"),
+				},
+			},
+			default: "Accept",
+		});
+	}
+
+	/**
+	 * Behältersystem (Projekt "Behälter" v1): GM-Makro zur Konvertierung
+	 * bestehender Ausrüstungs-Items in den neuen Typ "container".
+	 *  - Findet Ausrüstung (Welt- und eingebettete Aktor-Items) über eine
+	 *    Namens-Heuristik (Rucksack, Beutel, Tasche, Sack, Kiste, Truhe,
+	 *    Köcher, Satteltaschen, Pack, Bag, Pouch, Chest, Case ...).
+	 *  - Vorschläge: Gewichtskategorie (Aktueller Stand, umstellbar) und
+	 *    Fassungsvermögen in GE (Default 0 = unbegrenzt - bewusst KEINE
+	 *    RAW-Werte erfunden, Rudolfs Entscheidung; der GM editiert).
+	 *  - Konvertierung: Neues Item vom Typ "container" mit derselben ID
+	 *    (Name, Bild, Beschreibung, Gewicht, Preis wandern mit; die A38-
+	 *    preise werden übernommen, alle Felder bekommen den Template-
+	 *    Default des NEUEN Typs - A38-sicher, keine Altbestände berührt).
+	 *  - Wiederholbar: Bereits konvertierte Items sind Typ "container" und
+	 *    tauchen nicht mehr in der Liste auf; Kompendien bleiben außen vor.
+	 */
+	async containerMigration() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const namePattern = /(rucksack|handsack|beutel|tasche|sack|kiste|truhe|köcher|quiver|satteltasche|pack|bag|pouch|chest|backpack)/i;
+		const weightConfig = game.symbaroum.config.weight;
+		const weightOrder = game.symbaroum.config.weightOrder;
+
+		const entries = [];
+		for (const item of game.items) {
+			if (item.type === "equipment" && namePattern.test(item.name ?? "")) entries.push({ item, owner: null });
+		}
+		for (const actor of game.actors) {
+			for (const item of actor.items) {
+				if (item.type === "equipment" && namePattern.test(item.name ?? "")) entries.push({ item, owner: actor.name });
+			}
+		}
+		entries.sort((a, b) => (a.owner ?? "").localeCompare(b.owner ?? "") || a.item.name.localeCompare(b.item.name));
+
+		if (entries.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.CONTAINER_MIGRATION_NONE"));
+			return;
+		}
+
+		let rows = "";
+		for (let i = 0; i < entries.length; i++) {
+			const { item, owner } = entries[i];
+			const displayName = owner ? `${item.name} (${owner})` : item.name;
+			const currentWeight = typeof item.system.weight === "string" ? item.system.weight : "light";
+			const options = weightOrder
+				.map((id) => `<option value="${id}"${id === currentWeight ? " selected" : ""}>${game.i18n.localize(weightConfig[id].label)}</option>`)
+				.join("");
+			rows = rows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
+                    <td style="padding:2px 6px; white-space:nowrap;"><select style="width:100%;" data-entry-idx="${i}" class="weight-select">${options}</select></td>
+                    <td style="padding:2px 6px;"><input style="width:5em; text-align:right;" type="number" min="0" step="0.5" data-entry-idx="${i}" class="capacity-input" value="0" /></td>
+                </tr>`);
+		}
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.CONTAINER_MIGRATION_HEADER")}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th style="text-align:left;">${game.i18n.localize("WEIGHT.LABEL")}</th>
+                <th style="text-align:right;">${game.i18n.localize("MACRO.CONTAINER_MIGRATION_CAPACITY")}</th>
+            </tr>
+            ${rows}
+        </table>
+        </div>
+        <p style="margin:6px 0 0 0; font-size:0.9em; opacity:0.8;">${game.i18n.localize("MACRO.CONTAINER_MIGRATION_HINT")}</p>
+        </div>`;
+		symbDialog({
+			width: 600,
+			title: game.i18n.localize("MACRO.CONTAINER_MIGRATION_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Accept: {
+					label: game.i18n.localize("MACRO.CONTAINER_MIGRATION_ACCEPT"),
+					callback: async (html) => {
+						const root = html[0];
+						let count = 0;
+						for (let i = 0; i < entries.length; i++) {
+							const select = root.querySelector(`select.weight-select[data-entry-idx="${i}"]`);
+							const capacityInput = root.querySelector(`input.capacity-input[data-entry-idx="${i}"]`);
+							if (!select) continue;
+							const { item, owner } = entries[i];
+							const data = item.toObject();
+							data.type = "container";
+							data.system.weight = select.value;
+							data.system.capacity = Math.max(0, Number(capacityInput?.value) || 0);
+							/* Zustands-Defaults des neuen Typs; Alt-Felder der
+							   Ausrüstung (number/state) bleiben als tote Daten
+							   harmlos im system-Objekt stehen. */
+							data.system.carried = true;
+							data.system.countLoad = true;
+							data.system.currency = 0;
+							data.system.icon = "";
+							data.system.weightlessContents = false;
+							if (data.system.price === undefined) data.system.price = { value: 0, denomination: "orteg" };
+							if (item.parent) {
+								/* Eingebettet: alte ID beibehalten, damit keine
+								   Referenzen brechen; erst löschen, dann mit der
+								   alten _id neu anlegen (Typ ist in Foundry
+								   unveränderbar). */
+								await item.parent.deleteEmbeddedDocuments("Item", [item.id]);
+								await item.parent.createEmbeddedDocuments("Item", [data]);
+							} else {
+								await item.delete();
+								await Item.create(data);
+							}
+							count++;
+						}
+						ui.notifications.info(game.i18n.format("MACRO.CONTAINER_MIGRATION_DONE", { count }));
 					},
 				},
 				Cancel: {

@@ -41,6 +41,8 @@
  */
 import { SYMBAROUM } from "./config.js";
 import { getCurrencyRates } from "./currency.js";
+// Behältersystem: Last-Summen der Behälter (Eigen-GE + Inhalt + Geld)
+import { getContainerTotals } from "./container.js";
 
 /* -------------------------------------------- */
 /*  Einstellungen                               */
@@ -93,11 +95,27 @@ export function getWeightCategory(categoryId) {
  *    sind ihr "Gewicht" bereits).
  *  - Status "Ausgerüstet" zählt bei allen Ausrüstungsteilen; Ausrüstung
  *    und Artefakte in "Aktiv" (am Körper getragen/in Gebrauch) ebenfalls.
+ *
+ * Behältersystem (Projekt "Behälter" v1): Behälter sind der Sonderfall.
+ *  - Behälter: zählt nur, wenn mitgeführt UND auf Last anzurechnen
+ *    (carried/countLoad); die Summe (Behälter + Inhalt + Geld) trägt der
+ *    Behälter selbst hinein (siehe getEncumbranceData).
+ *  - Items IN einem Behälter zählen nie einzeln - sie laufen über die
+ *    Behälter-Summe (keine Doppelzählung, dnd5e-Muster). Verwaiste
+ *    Referenzen (Behälter gelöscht) gelten als nicht verpackt.
  * @param {Item} item
  * @returns {boolean}
  */
 export function isCarriedForLoad(item) {
 	const system = item?.system;
+	// Verwaiste Referenzen (Behälter gelöscht oder weggezogen) gelten als
+	// nicht verpackt - die Kinder bleiben damit sichtbar und zählbar.
+	const inContainer = !!(system?.container && item.parent?.items?.get(system.container)?.type === "container");
+	if (system?.isContainer) {
+		if (inContainer) return false; // verschachtelt: zählt über den Eltern-Behälter
+		return !!(system.carried && system.countLoad);
+	}
+	if (inContainer) return false; // verpackt: zählt über den Behälter
 	if (!system?.isGear) return false;
 	if (system.state !== "active" && system.state !== "equipped") return false;
 	if (system.isActive && (system.isArmor || system.isWeapon)) return false;
@@ -108,11 +126,18 @@ export function isCarriedForLoad(item) {
  * Gewicht eines einzelnen Items in GE (x Stückzahl), oder null, wenn das
  * Item nicht in die Last eingeht ("Zu schwer" = nie tragbar; nicht
  * mitgeführte Teile; getragene Rüstung und Waffe in der Hand).
+ * Behälter: Summe aus Eigen-GE + Inhalt (beide Ebenen) + Geld-GE - sie
+ * tragen ihre Gesamtlast selbst hinein, ihre Kinder nie einzeln.
  * @param {Item} item
  * @returns {number|null}
  */
 export function getItemLoadGE(item) {
 	if (!isCarriedForLoad(item)) return null;
+	if (item.system.isContainer) {
+		if (!item.parent) return roundGE(getWeightCategory(item.system.weight).value ?? 0);
+		const totals = getContainerTotals(item.parent, item);
+		return totals.ownGE === null ? null : totals.totalGE;
+	}
 	const category = getWeightCategory(item.system.weight);
 	if (category.id === "toolarge") return null;
 	const number = Math.max(1, Math.round(Number(item.system.number ?? 1) || 1));
@@ -155,7 +180,7 @@ export function hasPackMule(actor) {
  * @param {Actor} actor
  * @returns {{
  *   enabled: boolean, show: boolean,
- *   loadGE: number, moneyGE: number, tooHeavyCount: number,
+ *   loadGE: number, moneyGE: number, containerMoneyGE: number, tooHeavyCount: number,
  *   strong: number, packMule: boolean, threshold: number,
  *   baseLimit: number, hardLimit: number,
  *   isLoaded: boolean, beyondHard: boolean, defenseMalus: number,
@@ -172,6 +197,7 @@ export function getEncumbranceData(actor) {
 		show: enabled,
 		loadGE: 0,
 		moneyGE: 0,
+		containerMoneyGE: 0,
 		tooHeavyCount: 0,
 		strong: 0,
 		packMule: false,
@@ -196,6 +222,23 @@ export function getEncumbranceData(actor) {
 	/* --- Last: Items --- */
 	let load = 0;
 	for (const item of actor.items) {
+		/* Behältersystem: Ein zählender, mitgeführter Behälter trägt seine
+		   Gesamtsumme (Eigen-GE + Inhalt beider Ebenen + Geld-GE) hinein;
+		   verschachtelte Behälter zählen über ihren Eltern-Behälter, ihre
+		   Kinder nie einzeln (keine Doppelzählung). Behälter mit "Zu
+		   schwer"-Kategorie sind nie tragbar und warnen wie Items. */
+		if (item?.system?.isContainer) {
+			if (isCarriedForLoad(item)) {
+				const totals = getContainerTotals(actor, item);
+				if (totals.ownGE === null) {
+					data.tooHeavyCount++;
+				} else {
+					load += totals.totalGE;
+					data.containerMoneyGE = roundGE(data.containerMoneyGE + totals.moneyGE);
+				}
+			}
+			continue;
+		}
 		if (!item?.system?.isGear) continue;
 		const category = getWeightCategory(item.system.weight);
 		if (category.id === "toolarge") {
@@ -267,6 +310,9 @@ export function getEncumbranceData(actor) {
 	];
 	if (data.defenseMalus > 0) {
 		lines.push(game.i18n.format("WEIGHT.TOOLTIP_MALUS", { malus: data.defenseMalus }));
+	}
+	if (data.containerMoneyGE > 0) {
+		lines.push(game.i18n.format("WEIGHT.TOOLTIP_CONTAINER_MONEY", { money: formatGE(data.containerMoneyGE) }));
 	}
 	if (data.beyondHard) {
 		lines.push(game.i18n.localize("WEIGHT.TOOLTIP_HINT_OVER"));

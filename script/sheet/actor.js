@@ -122,17 +122,24 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 	 * A15: Item von einem anderen Akteur übernehmen und im Quell-Akteur
 	 * entfernen. Erlaubt für GM sowie für Nutzer, die BEIDE Akteure besitzen.
 	 * Die Item-Flags (u. a. der A6-Favoriten-Stern) wandern mit.
+	 * Behältersystem v1: Eine mitgebrachte Behälter-Referenz (system.container)
+	 * zeigt im Ziel auf eine dort nicht existierende Item-ID - sie wird beim
+	 * Zug gelöscht; verwaiste Referenzen gelten überall als nicht verpackt.
+	 * Rückgabe: das im Ziel neu angelegte Item (für Nachbearbeitung, z. B.
+	 * direktes Einlagern in einen Behälter beim Drop auf eine Behälterzeile).
 	 */
 	async _moveItemBetweenActors(sourceItem, sourceActor) {
 		const allowed = game.user.isGM || (this.actor?.isOwner && sourceActor.isOwner);
 		if (!allowed) {
 			ui.notifications.warn(game.i18n.localize('MODERN.MOVE_DENIED'));
-			return;
+			return null;
 		}
 		const itemData = sourceItem.toObject();
 		delete itemData._id; // neue ID im Ziel - das Original wird gelöscht
-		await this.actor.createEmbeddedDocuments('Item', [itemData]);
+		if (itemData?.system?.container !== undefined) delete itemData.system.container;
+		const created = await this.actor.createEmbeddedDocuments('Item', [itemData]);
 		await sourceActor.deleteEmbeddedDocuments('Item', [sourceItem.id]);
+		return created?.[0] ?? null;
 	}
 
 	_onItemCreate(event) {

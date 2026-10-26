@@ -31,6 +31,8 @@ import { WeaponSheet } from '../sheet/weapon.js';
 import { ArmorSheet } from '../sheet/armor.js';
 import { EquipmentSheet } from '../sheet/equipment.js';
 import { ArtifactSheet } from '../sheet/artifact.js';
+// Behältersystem (Projekt "Behälter" v1): Item-Blatt des neuen Typs "container"
+import { ContainerSheet } from '../sheet/container.js';
 import { SymbaroumWide } from '../sheet/journal.js';
 
 import { migrateWorld } from './migration.js';
@@ -57,6 +59,7 @@ Hooks.once('init', () => {
 	foundry.documents.collections.Items.registerSheet('symbaroum', ArmorSheet, { types: ['armor'], makeDefault: true });
 	foundry.documents.collections.Items.registerSheet('symbaroum', EquipmentSheet, { types: ['equipment'], makeDefault: true });
 	foundry.documents.collections.Items.registerSheet('symbaroum', ArtifactSheet, { types: ['artifact'], makeDefault: true });
+	foundry.documents.collections.Items.registerSheet('symbaroum', ContainerSheet, { types: ['container'], makeDefault: true });
 	foundry.documents.collections.Journal.registerSheet('symbaroum', SymbaroumWide, {
 		label: game.i18n.localize('SYMBAROUM.OPTIONAL_CUSTOMSHEETJOURNAL'),
 		makeDefault: false,

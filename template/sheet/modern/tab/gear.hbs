@@ -2,7 +2,86 @@
     Status-Chip mit Umschalten per Klick: Aktiv -> Ausgerüstet -> Andere).
     Kontextmenü und Drag&Drop bleiben über die bestehenden Klassen aktiv.
     Geld liegt kompakt in der Stammleiste (Klick öffnet den Währungsdialog). --}}
+{{!-- Behältersystem (Projekt "Behälter" v1): eigene Gruppe mit einklappbaren
+    Behälterzeilen (Bild/Icon, Titel = Item-Name, GE-Summe mit Kapazitäts-
+    balken, Geldanzeige mit Hover, zwei Status-Chips "mitgeführt"/"zählt zur
+    Last"), eingerückten Kinderzeilen und Drag&Drop rein/raus. Drop auf die
+    Zeile = einlagern (Validierung: Maximaltiefe 2, Status-Zwang "Andere"),
+    Drop anderswo auf dem Blatt = entnehmen; Rechtsklick = Kontextdialog. --}}
 <div class="m-gear">
+    <div class="m-box m-box-containers">
+        <div class="m-box-h">
+            <span>{{localize "TITLE.CONTAINERS"}}</span>
+            <button type="button" class="item-create m-add" data-type="container" data-tooltip="{{localize "CONTAINER.ADDBUTTON"}}"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="m-box-b">
+            {{#each modern.gear.containers as |c|}}
+            <div class="item m-container-block" data-item-id="{{c.id}}">
+                <div class="m-container-row draggable" data-item-id="{{c.id}}" data-container-id="{{c.id}}">
+                    <button type="button" class="m-container-collapse" data-tooltip="{{localize "CONTAINER.COLLAPSE_TOGGLE"}}"><i class="fas fa-chevron-{{#if c.collapsed}}right{{else}}down{{/if}}"></i></button>
+                    {{#if c.icon}}
+                    <i class="m-item-img m-container-icon {{c.icon}}"></i>
+                    {{else}}
+                    <div class="m-item-img" style="background-image: url('{{c.img}}');"></div>
+                    {{/if}}
+                    <button type="button" class="item-edit m-inv-name">{{c.name}}<small data-tooltip="{{c.loadTooltip}}">{{c.capacityDisplay}}</small></button>
+                    {{#if c.fillPct}}
+                    <span class="m-cap-bar{{#if c.fillFull}} full{{/if}}" data-tooltip="{{c.capacityDisplay}}"><span class="m-cap-fill" style="width:{{c.fillPct}}%"></span></span>
+                    {{/if}}
+                    <span class="m-cont-money" data-tooltip="{{c.moneyTooltip}}">{{c.currencyDisplay}}</span>
+                    {{#if c.carried}}
+                    <button type="button" class="container-flag m-st m-st-active" data-flag="carried" data-tooltip="{{localize "CONTAINER.CARRIED"}}"><i class="fas fa-person-hiking"></i></button>
+                    {{else}}
+                    <button type="button" class="container-flag m-st m-st-none" data-flag="carried" data-tooltip="{{localize "CONTAINER.CARRIED_OFF"}}"><i class="fas fa-person-hiking"></i></button>
+                    {{/if}}
+                    {{#if c.carried}}
+                    {{#if c.countLoad}}
+                    <button type="button" class="container-flag m-st m-st-active" data-flag="countLoad" data-tooltip="{{localize "CONTAINER.COUNT_LOAD"}}"><i class="fas fa-weight-hanging"></i></button>
+                    {{else}}
+                    <button type="button" class="container-flag m-st m-st-none" data-flag="countLoad" data-tooltip="{{localize "CONTAINER.COUNT_LOAD_OFF"}}"><i class="fas fa-weight-hanging"></i></button>
+                    {{/if}}
+                    {{else}}
+                    <span class="m-st m-st-none m-chip-off"><i class="fas fa-weight-hanging"></i></span>
+                    {{/if}}
+                </div>
+                {{#unless c.collapsed}}
+                {{#if c.hasChildren}}
+                <div class="m-container-children">
+                    {{#each c.children as |ch|}}
+                    {{#if ch.isContainer}}
+                    {{!-- Verschachtelter Behälter (Ebene 2): eigene Zeile,
+                        ebenfalls Drop-Ziel für seinen Inhalt. --}}
+                    <div class="item m-container-row m-container-child m-cont-d{{ch.depth}} draggable" data-item-id="{{ch.id}}" data-container-id="{{ch.id}}">
+                        <span class="m-cont-indent"></span>
+                        {{#if ch.icon}}
+                        <i class="m-item-img m-container-icon {{ch.icon}}"></i>
+                        {{else}}
+                        <div class="m-item-img" style="background-image: url('{{ch.img}}');"></div>
+                        {{/if}}
+                        <button type="button" class="item-edit m-inv-name">{{ch.name}}<small>{{ch.capacityDisplay}}</small></button>
+                        <span class="m-cont-money" data-tooltip="{{ch.moneyTooltip}}">{{ch.currencyDisplay}}</span>
+                        <button type="button" class="m-container-takeout" data-tooltip="{{localize "CONTAINER.TAKE_OUT"}}"><i class="fas fa-arrow-up"></i></button>
+                    </div>
+                    {{else}}
+                    {{!-- Packtes Item: Status bleibt "Andere" (Status-Zwang),
+                        Entnahme per Taste oder Drag&Drop auf das Blatt. --}}
+                    <div class="symbaroum-contextmenu item m-inv-row draggable m-container-child m-cont-d{{ch.depth}}" data-item-id="{{ch.id}}">
+                        <div class="m-item-img" style="background-image: url('{{ch.img}}');"></div>
+                        <button type="button" class="item-edit m-inv-name">{{ch.name}}<small data-tooltip="{{ch.weightTooltip}}">{{ch.weightDisplay}}</small></button>
+                        <span class="m-num">{{ch.sub}}</span>
+                        <span class="m-st m-st-other" data-tooltip="{{localize "CONTAINER.PACKED"}}"><i class="fas fa-box-archive"></i></span>
+                        <button type="button" class="m-container-takeout" data-tooltip="{{localize "CONTAINER.TAKE_OUT"}}"><i class="fas fa-arrow-up"></i></button>
+                    </div>
+                    {{/if}}
+                    {{/each}}
+                </div>
+                {{/if}}
+                {{/unless}}
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
     <div class="m-box">
         <div class="m-box-h">
             <span>{{localize "TITLE.ARMORS"}}</span>

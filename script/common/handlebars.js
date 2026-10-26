@@ -23,6 +23,9 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/armor.hbs',
     'systems/symbaroum/template/sheet/equipment.hbs',
     'systems/symbaroum/template/sheet/artifact.hbs',
+    // Behältersystem: Item-Blatt des Typs "container" (wird zusätzlich
+    // beim ersten Öffnen automatisch gecacht, hier aus Konsistenzgründen)
+    'systems/symbaroum/template/sheet/container.hbs',
     'systems/symbaroum/template/sheet/tab/bonus.hbs',
     'systems/symbaroum/template/sheet/tab/artifact.hbs',
     'systems/symbaroum/template/sheet/attributes.hbs',

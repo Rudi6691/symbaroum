@@ -29,7 +29,7 @@ SYMBAROUM.attributeImages = {
 
 SYMBAROUM.imageRef = "systems/symbaroum/asset/image/{filename}";
 
-SYMBAROUM.itemSortOrder = ["ability", "trait", "mysticalPower", "ritual", "boon", "burden", "armor", "weapon", "equipment", "artifact"];
+SYMBAROUM.itemSortOrder = ["ability", "trait", "mysticalPower", "ritual", "boon", "burden", "armor", "weapon", "equipment", "container", "artifact"];
 
 SYMBAROUM.itemImages = {
   ability: "ability.png",
@@ -42,11 +42,12 @@ SYMBAROUM.itemImages = {
   weapon: "weapon.png",
   equipment: "equipment.png",
   artifact: "artifact.png",
+  container: "container.svg",
 };
 
 // Deprecated item types
 SYMBAROUM.itemDeprecated = ["artifact"];
-SYMBAROUM.itemValid = [ "ability", "armor", "boon", "burden", "equipment", "mysticalPower", "ritual", "trait", "weapon" ];
+SYMBAROUM.itemValid = [ "ability", "armor", "boon", "burden", "container", "equipment", "mysticalPower", "ritual", "trait", "weapon" ];
 // Ability definitions
 SYMBAROUM.abilitiesList = {
   none: "ABILITY_LABEL.DEFAULT",

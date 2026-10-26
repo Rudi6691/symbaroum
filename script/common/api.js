@@ -3,6 +3,15 @@ import { baseRoll, rollAttribute } from './roll.js';
 import { convertToBase, allocateFromBase, getActorCurrencyTotal, modifyActorCurrency, deductActorCurrency, getItemPriceBase, parseCostString } from './currency.js';
 // A39 Belastungssystem: öffentliche Encumbrance-API für externe Module
 import { getEncumbranceData, getItemLoadGE, isEncumbranceEnabled } from './encumbrance.js';
+// Behältersystem (Projekt "Behälter" v1): öffentliche Container-API
+import {
+	getActorContainers,
+	getContainerChildren,
+	getContainerTotals,
+	moveItemToContainer,
+	removeItemFromContainer,
+	changeContainerCurrency,
+} from './container.js';
 
 export class SymbaroumAPI
 {
@@ -25,6 +34,15 @@ export class SymbaroumAPI
         this.getActorEncumbrance = getEncumbranceData;
         this.getItemLoadWeight = getItemLoadGE;
         this.isEncumbranceEnabled = isEncumbranceEnabled;
+        // Behältersystem v1: Container-API — Geldbeträge immer als Ganzzahl
+        // Orteg (A38-Konvention). moveItemToContainer erzwingt den Status-
+        // Zwang ("Andere") und die Maximaltiefe 2 (Validierung in container.js).
+        this.getActorContainers = getActorContainers;
+        this.getContainerChildren = getContainerChildren;
+        this.getContainerTotals = getContainerTotals;
+        this.moveItemToContainer = moveItemToContainer;
+        this.removeItemFromContainer = removeItemFromContainer;
+        this.changeContainerCurrency = changeContainerCurrency;
     }
 
 

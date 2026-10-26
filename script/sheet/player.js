@@ -9,6 +9,16 @@ import { getEncumbranceData, formatGE } from '../common/encumbrance.js';
 import { getModernSheetEffectiveDesign, getModernSheetUserStyle, renderAllActorSheets } from '../common/modernSheetConfig.js';
 // A38 Währungssystem: Anzeige-Aufteilung des Orteg-Basiswerts für die Stammleiste
 import { allocateFromBase, getDenominations, getItemPriceBase, formatCurrency } from '../common/currency.js';
+// Behältersystem (Projekt "Behälter" v1): Struktur, Summen, Ein-/Auslagern, Geld
+import {
+	getContainerChildren,
+	getContainerTotals,
+	moveItemToContainer,
+	removeItemFromContainer,
+	changeContainerCurrency,
+	deleteContainerWithContents,
+	deleteContainerKeepContents,
+} from '../common/container.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -527,8 +537,14 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				...extra,
 			};
 		};
-		const gear = { armors: [], weapons: [], equipments: [], artifacts: [] };
+		const gear = { armors: [], weapons: [], equipments: [], artifacts: [], containers: [] };
+		/* Behältersystem v1: Items in einem (gültigen) Behälter erscheinen nur
+		   als Kinderzeile des Behälters, nie zusätzlich in den Einzelgruppen.
+		   Verwaiste Referenzen (Behälter gelöscht) gelten als nicht verpackt. */
+		const packed = (rawItem) =>
+			!!(rawItem?.system?.container && this.actor.items.get(rawItem.system.container)?.type === 'container');
 		for (const a of live.armors ?? []) {
+			if (packed(itemsById.get(a.id))) continue;
 			if (a.isNoArmor) {
 				gear.armors.push(gearRow(a.id, a.name, a.img, `${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id), { isNoArmor: true }));
 				continue;
@@ -536,10 +552,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			gear.armors.push(gearRow(a.id, a.name, a.img, `${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id)));
 		}
 		for (const w of live.weapons ?? []) {
+			if (packed(itemsById.get(w.id))) continue;
 			gear.weapons.push(gearRow(w.id, w.name, w.img, `${w.damage?.displayTextShort ?? ''} · ${localize(`${w.attributeLabel}ABBR`)}`, itemsById.get(w.id)));
 		}
 		for (const item of context.items) {
 			const s = item.system;
+			if (packed(item)) continue;
 			/* A6v7 (Rudolfs Änderungswünsche): Items mit aktivierter Artefakt-
 			   Checkbox (z. B. Ausrüstung mit system.isArtifact) einsortieren
 			   unter ARTEFAKTE, nicht unter Ausrüstung - deshalb prüft die
@@ -557,11 +575,92 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			}
 		}
 
+		/* --- Behälter (Behältersystem v1): eigene Gruppe, einklappbare
+		   Zeilen mit Kapazitäts-/Geldanzeige und den beiden Status-Chips
+		   "mitgeführt" / "zählt zur Last". Kinderzeilen sind eingerückt,
+           verschachtelte Behälter als eigene Zeile mit ihren Kindern (max.
+           2 Ebenen). Kollaps-Zustand pro Behälter als User-Flag (SL und
+           Spieler klappen unabhängig). --- */
+		const collapsedFlags = game.user.getFlag('symbaroum', 'containerCollapsed') ?? {};
+		const buildChildRows = (containerItem, depth, rows) => {
+			for (const child of getContainerChildren(this.actor, containerItem.id)) {
+				if (child.type === 'container') {
+					const sub = getContainerTotals(this.actor, child);
+					const subCapacity = Math.max(0, Number(child.system.capacity) || 0);
+					rows.push({
+						id: child.id,
+						name: child.name,
+						img: child.img,
+						icon: child.system.icon || '',
+						depth,
+						isContainer: true,
+						capacityDisplay:
+							subCapacity > 0
+								? `${formatGE(sub.contentsGE)} / ${formatGE(subCapacity)} ${localize('WEIGHT.GE_ABBR')}`
+								: `${formatGE(sub.contentsGE)} ${localize('WEIGHT.GE_ABBR')}`,
+						currencyDisplay: sub.currencyTotal > 0 ? formatCurrency(sub.currencyTotal) : '',
+						moneyTooltip: sub.currencyTotal > 0 ? `${localize('CONTAINER.MONEY_TOOLTIP')}: ${formatCurrency(sub.currencyTotal)}` : '',
+					});
+					// Kinder des verschachtelten Behälters nur, wenn er selbst offen ist
+					if (!collapsedFlags[child.id]) buildChildRows(child, depth + 1, rows);
+				} else {
+					const w = weightInfo(child);
+					rows.push({
+						id: child.id,
+						name: child.name,
+						img: child.img,
+						depth,
+						isContainer: false,
+						weightDisplay: w.display,
+						weightTooltip: w.tooltip,
+						sub: `× ${Math.max(1, Math.round(Number(child.system.number ?? 1) || 1))}`,
+					});
+				}
+			}
+		};
+		for (const item of context.items) {
+			if (item.type !== 'container') continue;
+			if (packed(item)) continue; // verschachtelte Behälter rendern als Kinderzeile
+			const s = item.system;
+			const totals = getContainerTotals(this.actor, item);
+			const capacity = Math.max(0, Number(s.capacity) || 0);
+			const children = [];
+			buildChildRows(item, 1, children);
+			const loadTooltipLines = [
+				`${localize('WEIGHT.LABEL')}: ${formatGE(totals.ownGE ?? 0)} ${localize('WEIGHT.GE_ABBR')}`,
+				`${localize('CONTAINER.CONTENTS_GE')}: ${formatGE(totals.contentsGE)} ${localize('WEIGHT.GE_ABBR')}`,
+				`${localize('CONTAINER.MONEY_GE')}: ${formatGE(totals.moneyGE)} ${localize('WEIGHT.GE_ABBR')}`,
+			];
+			if (totals.weightless) loadTooltipLines.push(localize('CONTAINER.WEIGHTLESS_HINT'));
+			gear.containers.push({
+				id: item.id,
+				name: item.name,
+				img: item.img,
+				icon: s.icon || '',
+				carried: !!s.carried,
+				countLoad: !!(s.carried && s.countLoad),
+				collapsed: !!collapsedFlags[item.id],
+				capacity,
+				capacityDisplay:
+					capacity > 0
+						? `${formatGE(totals.contentsGE)} / ${formatGE(capacity)} ${localize('WEIGHT.GE_ABBR')}`
+						: `${formatGE(totals.contentsGE)} ${localize('WEIGHT.GE_ABBR')}`,
+				fillPct: capacity > 0 ? Math.min(100, Math.round((totals.contentsGE / capacity) * 1000) / 10) : null,
+				fillFull: capacity > 0 && totals.contentsGE > capacity,
+				currencyDisplay: totals.currencyTotal > 0 ? formatCurrency(totals.currencyTotal) : '',
+				moneyTooltip: totals.currencyTotal > 0 ? `${localize('CONTAINER.MONEY_TOOLTIP')}: ${formatCurrency(totals.currencyTotal)}` : '',
+				loadTooltip: loadTooltipLines.join('<br>'),
+				children,
+				hasChildren: children.length > 0,
+			});
+		}
+
 		/* --- Favoriten für den Kampf-Tab (Hybrid-Regel) --- */
 		const favorites = [];
 		for (const item of context.items) {
 			if (!item.flags?.symbaroum?.favorite) continue;
 			const s = item.system;
+			if (packed(item)) continue; // verpackte Teile kämpfen nicht (Status-Zwang)
 			if (s.isPower) {
 				const entry = powerEntryById[item.id];
 				if (entry) favorites.push({ id: item.id, name: item.name, img: item.img, kind: 'power', hasScript: entry.hasScript, sub: entry.sub });
@@ -662,6 +761,85 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			hasFavorites: favorites.length > 0,
 			combat,
 		};
+	}
+
+	/* ----------------------------------------------------------------
+	 * Behältersystem (Projekt "Behälter" v1): Drag & Drop
+	 *
+	 * Drop auf eine Behälterzeile legt das Item in den Behälter (gleicher
+	 * Akteur, A15-Zug von fremden Akteuren oder Kopie aus Seitenleiste/
+	 * Kompendium); Drop außerhalb jeder Behälterzeile entnimmt ein
+	 * verpacktes Item zurück ins Inventar. Validierung (Status-Zwang,
+	 * Maximaltiefe 2, Zykel-Schutz) läuft in container.js; alle anderen
+	 * Drop-Fälle gehen unverändert an die Basisklasse.
+	 */
+	async _onDrop(event) {
+		const containerRow = event.target?.closest?.('.m-container-row[data-container-id]');
+		if (containerRow) {
+			await this._onDropIntoContainer(event, containerRow.dataset.containerId);
+			return;
+		}
+		let dragData = null;
+		try {
+			dragData = JSON.parse(event.dataTransfer?.getData('text/plain') ?? 'null');
+		} catch {
+			dragData = null;
+		}
+		if (dragData?.type === 'Item' && dragData.uuid) {
+			let sourceItem = null;
+			try {
+				sourceItem = await Item.fromDropData(dragData);
+			} catch {
+				sourceItem = null;
+			}
+			if (
+				sourceItem?.parent === this.actor &&
+				sourceItem.system?.container &&
+				this.actor.items.get(sourceItem.system.container)?.type === 'container'
+			) {
+				if (!this.isEditable || !this.actor.isOwner) return;
+				await removeItemFromContainer(sourceItem);
+				return;
+			}
+		}
+		return super._onDrop(event);
+	}
+
+	/** Drop-Behandlung für eine Behälterzeile (siehe _onDrop). */
+	async _onDropIntoContainer(event, containerId) {
+		if (!this.isEditable || !this.actor.isOwner) return;
+		const container = this.actor.items.get(containerId);
+		if (!container || container.type !== 'container') return;
+		let dragData = null;
+		try {
+			dragData = JSON.parse(event.dataTransfer?.getData('text/plain') ?? 'null');
+		} catch {
+			dragData = null;
+		}
+		if (dragData?.type !== 'Item' || !dragData.uuid) return;
+		let sourceItem = null;
+		try {
+			sourceItem = await Item.fromDropData(dragData);
+		} catch {
+			sourceItem = null;
+		}
+		if (!sourceItem) return;
+		if (sourceItem.parent === this.actor) {
+			await moveItemToContainer(sourceItem, container);
+			return;
+		}
+		if (sourceItem.parent instanceof Actor) {
+			// A15-Zug: erst übernehmen (Ziel-Kopie ohne alte Behälter-Referenz),
+			// dann in den Behälter einlagern.
+			const created = await this._moveItemBetweenActors(sourceItem, sourceItem.parent);
+			if (created) await moveItemToContainer(created, container);
+			return;
+		}
+		// Welt-Item oder Kompendium: Kopie im Aktor anlegen und einlagern
+		const itemData = sourceItem.toObject();
+		delete itemData._id;
+		const created = await this.actor.createEmbeddedDocuments('Item', [itemData]);
+		if (created?.[0]) await moveItemToContainer(created[0], container);
 	}
 
 	/**
@@ -788,6 +966,37 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				if (ev.target.closest('.m-vital-btn')) return;
 				if (!this.isEditable || !this.actor.isOwner) return;
 				this._openCorruptionDialog();
+			});
+		}
+		// Behältersystem v1: Kollaps-Pfeil, Status-Chips, Entnahme-Taste und
+		// Rechtsklick-Kontextdialog auf den Behälterzeilen.
+		const containerCollapses = element.querySelectorAll('.m-container-collapse');
+		for (const s of containerCollapses) {
+			s.addEventListener('click', (ev) => {
+				this._onContainerCollapseToggle(ev);
+			});
+		}
+		const containerChips = element.querySelectorAll('.container-flag');
+		for (const s of containerChips) {
+			s.addEventListener('click', (ev) => {
+				this._onContainerFlagToggle(ev);
+			});
+		}
+		const containerTakeouts = element.querySelectorAll('.m-container-takeout');
+		for (const s of containerTakeouts) {
+			s.addEventListener('click', (ev) => {
+				this._onContainerTakeOut(ev);
+			});
+		}
+		const containerRows = element.querySelectorAll('.m-container-row[data-container-id]');
+		for (const row of containerRows) {
+			row.addEventListener('contextmenu', (ev) => {
+				if (!this.isEditable || !this.actor.isOwner) return;
+				const container = this.actor.items.get(row.dataset.containerId);
+				if (!container || container.type !== 'container') return;
+				ev.preventDefault();
+				ev.stopPropagation(); // CMPowerMenu hängt am Blatt-Root
+				this._openContainerDialog(container);
 			});
 		}
 		// A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Rechtsklick auf eine
@@ -1284,6 +1493,184 @@ export class PlayerSheet extends SymbaroumActorSheet {
 					icon: '<i class="fas fa-times"></i>',
 					label: localize('BUTTON.CANCEL'),
 					callback: async (html) => {},
+				},
+			},
+		});
+	}
+
+	/* ----------------------------------------------------------------
+	 * Behältersystem (Projekt "Behälter" v1): Zeilen-Interaktion
+	 * --------------------------------------------------------------- */
+
+	/**
+	 * Kollaps-Zustand eines Behälters umschalten. Gespeichert als User-Flag
+	 * flags.symbaroum.containerCollapsed.<itemId> - pro Nutzer, damit SL und
+	 * Spieler unabhängig voneinander klappen können (Muster wie die A6-
+	 * Design-Flags). unsetFlag löscht den Eintrag (offen = kein Flag).
+	 */
+	async _onContainerCollapseToggle(event) {
+		event.preventDefault();
+		const row = event.currentTarget.closest('.m-container-row[data-container-id]');
+		const id = row?.dataset.containerId;
+		if (!id) return;
+		const flags = game.user.getFlag('symbaroum', 'containerCollapsed') ?? {};
+		if (flags[id]) await game.user.unsetFlag('symbaroum', `containerCollapsed.${id}`);
+		else await game.user.setFlag('symbaroum', 'containerCollapsed.' + id, true);
+		this.render();
+	}
+
+	/**
+	 * Status-Chips des Behälters: "mitgeführt" (carried) und "zählt zur
+	 * Last" (countLoad). carried = false erzwingt countLoad = false
+	 * (Rudolfs Implikation - kein dritter Zustand); der countLoad-Chip
+	 * wird ohne carried im Template ausgeblendet bzw. gesperrt.
+	 */
+	async _onContainerFlagToggle(event) {
+		event.preventDefault();
+		if (!this.actor.isOwner) return;
+		const btn = event.currentTarget;
+		const row = btn.closest('[data-container-id]');
+		const container = this.actor.items.get(row?.dataset.containerId);
+		const flag = btn.dataset.flag;
+		if (!container || container.type !== 'container' || !flag) return;
+		if (flag === 'carried') {
+			const carried = !container.system.carried;
+			const update = { 'system.carried': carried };
+			if (!carried) update['system.countLoad'] = false;
+			await container.update(update);
+		} else if (flag === 'countLoad') {
+			if (!container.system.carried) return;
+			await container.update({ 'system.countLoad': !container.system.countLoad });
+		}
+	}
+
+	/** Entnahme-Taste einer Kinderzeile: Item zurück ins Inventar. */
+	async _onContainerTakeOut(event) {
+		event.preventDefault();
+		if (!this.actor.isOwner) return;
+		const div = event.currentTarget.closest('.item');
+		if (!div?.dataset.itemId) return;
+		const item = this.actor.items.get(div.dataset.itemId);
+		if (item) await removeItemFromContainer(item);
+	}
+
+	/**
+	 * Kontextdialog eines Behälters (Rechtsklick auf die Behälterzeile):
+	 * Fassungsvermögen, Icon, die beiden Zustände, Geld einlagern/
+	 * entnehmen (atomar mit dem Aktor-Geld, Anforderung G) sowie die
+	 * beiden Löschen-Pfade (Inhalt zurück vs. mitlöschen). Die Tasten im
+	 * Inhalt werden - A6v9-Lernweis - ERST NACH dem Render am live
+	 * gerenderten Fenster verdrahtet.
+	 */
+	async _openContainerDialog(container) {
+		const localize = (key) => game.i18n.localize(key);
+		const s = container.system;
+		const currency = Math.max(0, Math.round(Number(s.currency) || 0));
+		const capacity = Math.max(0, Number(s.capacity) || 0);
+		const icon = foundry.utils.escapeHTML(String(s.icon ?? ''));
+		const content = `
+		<div class="symbaroum modern-container-dialog">
+			<div class="m-cont-dlg-grid">
+				<label for="mcont-capacity">${localize('CONTAINER.CAPACITY')}</label>
+				<input id="mcont-capacity" type="number" min="0" step="0.5" value="${capacity}" data-tooltip="${localize('CONTAINER.CAPACITY_TOOLTIP')}"/>
+				<label for="mcont-icon">${localize('CONTAINER.ICON')}</label>
+				<input id="mcont-icon" type="text" value="${icon}" placeholder="fas fa-suitcase"/>
+				<label for="mcont-carried">${localize('CONTAINER.CARRIED')}</label>
+				<input id="mcont-carried" type="checkbox" ${s.carried ? 'checked' : ''}/>
+				<label for="mcont-countload">${localize('CONTAINER.COUNT_LOAD')}</label>
+				<input id="mcont-countload" type="checkbox" ${s.countLoad ? 'checked' : ''}/>
+				<label>${localize('CONTAINER.MONEY_IN_CONTAINER')}</label>
+				<span class="m-cont-dlg-money">${formatCurrency(currency)}</span>
+				<label for="mcont-money">${localize('CONTAINER.MONEY_TRANSFER')}</label>
+				<input id="mcont-money" type="number" step="1" value="0" data-tooltip="${localize('CONTAINER.MONEY_TRANSFER_HINT')}"/>
+			</div>
+			<p class="m-cont-dlg-hint">${localize('CONTAINER.DELETE_HINT')}</p>
+			<div class="m-cont-dlg-actions">
+				<button type="button" class="m-cont-btn" data-act="return"><i class="fas fa-arrow-rotate-left"></i> ${localize('CONTAINER.DELETE_RETURN')}</button>
+				<button type="button" class="m-cont-btn m-cont-btn-danger" data-act="purge"><i class="fas fa-trash"></i> ${localize('CONTAINER.DELETE_PURGE')}</button>
+			</div>
+		</div>`;
+		/* Handle vorab deklarieren, damit die Sicherheitsfrage den Dialog
+		   nach dem Bestätigen schließen kann. */
+		let dlg = null;
+		dlg = symbDialog({
+			title: container.name,
+			content,
+			classes: this._modernDialogClasses('modern-container-dialog'),
+			width: 480,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('MODERN.APPLY'),
+					callback: async (html) => {
+						const root = html[0];
+						const carried = !!root.querySelector('#mcont-carried')?.checked;
+						let countLoad = !!root.querySelector('#mcont-countload')?.checked;
+						if (!carried) countLoad = false; // Implikation erzwingen
+						const updates = {
+							'system.capacity': Math.max(0, Number(root.querySelector('#mcont-capacity')?.value) || 0),
+							'system.icon': String(root.querySelector('#mcont-icon')?.value ?? '').trim(),
+							'system.carried': carried,
+							'system.countLoad': countLoad,
+						};
+						const money = Math.round(Number(root.querySelector('#mcont-money')?.value) || 0);
+						await container.update(updates);
+						if (money !== 0) await changeContainerCurrency(this.actor, container, money);
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async (html) => {},
+				},
+			},
+		});
+		/* Erst nach dem abgeschlossenen Render am live gerenderten Fenster
+		   verdrahten (DialogV2 serialisiert den Inhalt, A6v9-Lernweis). */
+		await dlg.render();
+		const root = dlg.element;
+		if (!root) return;
+		for (const btn of root.querySelectorAll('.m-cont-btn')) {
+			btn.addEventListener('click', () => {
+				this._confirmContainerDelete(container, btn.dataset.act, dlg);
+			});
+		}
+	}
+
+	/**
+	 * Sicherheitsfrage vor dem Behälter-Löschen: zwei Pfade (dnd5e-Muster)
+	 * - "return": Inhalt zurück ins Inventar (Referenzen löschen)
+	 * - "purge":  Behälter und kompletten Inhalt löschen (rekursiv)
+	 */
+	_confirmContainerDelete(container, mode, dlg) {
+		const localize = (key) => game.i18n.localize(key);
+		const children = getContainerChildren(this.actor, container.id);
+		const question = document.createElement('div');
+		question.className = 'm-cont-confirm';
+		const p = document.createElement('p');
+		p.textContent =
+			mode === 'purge'
+				? game.i18n.format('CONTAINER.DELETE_PURGE_CONFIRM', { count: children.length, name: container.name })
+				: game.i18n.format('CONTAINER.DELETE_RETURN_CONFIRM', { count: children.length, name: container.name });
+		question.appendChild(p);
+		symbDialog({
+			title: localize('MODERN.DELETE'),
+			content: question,
+			classes: this._modernDialogClasses(),
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('BUTTON.YES'),
+					callback: async () => {
+						dlg?.close?.();
+						if (mode === 'purge') await deleteContainerWithContents(this.actor, container);
+						else await deleteContainerKeepContents(this.actor, container);
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.NO'),
+					callback: async () => {},
 				},
 			},
 		});
