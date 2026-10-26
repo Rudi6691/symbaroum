@@ -35,7 +35,8 @@
     <div class="m-box">
         <div class="m-box-h">
             <span>{{localize "MODERN.ACTIVE_ARMOR"}}</span>
-            <span class="m-hint">{{localize "MODERN.ALWAYS_SHOWN"}}</span>
+            {{!-- A6v9 (Testrunde 8, Rudolfs Wunsch): klärende Hinweise hinter
+                den Überschriften (erscheint immer / Favorit-Regel) entfernt. --}}
         </div>
         <div class="m-box-b">
             {{!-- A6v4 (Testrunde 3): die lookup/with-Subexpression im v3-Template
@@ -58,7 +59,6 @@
     <div class="m-box">
         <div class="m-box-h">
             <span>{{localize "MODERN.ACTIVE_WEAPONS"}}</span>
-            <span class="m-hint">{{localize "MODERN.ALWAYS_SHOWN"}}</span>
         </div>
         <div class="m-box-b">
             {{!-- A6v4 (Testrunde 3): aktive Waffen als fertige Zeilen aus dem
@@ -80,7 +80,6 @@
     <div class="m-box">
         <div class="m-box-h">
             <span>{{localize "MODERN.FAVORITES"}}</span>
-            <span class="m-hint">{{localize "MODERN.FAVORITES_HINT"}}</span>
         </div>
         <div class="m-box-b">
             {{#if modern.hasFavorites}}

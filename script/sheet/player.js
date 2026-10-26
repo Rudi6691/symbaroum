@@ -973,6 +973,19 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	}
 
 	/**
+	 * A6v9 (Testrunde 8, Rudolfs Fund): Die modernen Dialoge folgen jetzt dem
+	 * Design des Blatts (dunkel/hell) - bisher erschienen sie auch beim
+	 * hellen Design immer dunkel. Die Theme-Klasse am DialogV2-Fenster-Root
+	 * (dialog.symb-dialog.modern-theme-...) liefert die Farbvariablen für
+	 * das Dialog-Chrome (siehe CSS-Block .modern-dialog); das Design wird
+	 * beim Öffnen gelesen - ein laufender Dialog wechselt nicht live mit.
+	 */
+	_modernDialogClasses(...extra) {
+		const theme = getModernSheetEffectiveDesign()?.theme === 'classic' ? 'classic' : 'dark';
+		return ['modern-dialog', `modern-theme-${theme}`, ...extra];
+	}
+
+	/**
 	 * A6: Öffnet den Eigenschaften-Dialog - klassisches Layout (attributes.hbs)
 	 * oder das neue Design (modern/attributes-dialog.hbs). Beide Templates
 	 * nutzen dieselben Feld-IDs, die Übernahme-Logik ist identisch.
@@ -998,7 +1011,8 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			// Fensterkopf/-inhalt/-Buttons (CSS-Block .symb-dialog.modern-dialog).
 			// A6v4 (Testrunde 3): feste Breite pro Dialog, passend zum Inhalt
 			// (5-Spalten-Attributstabelle braucht die meiste Breite).
-			classes: modernDesign ? ['modern-dialog', 'modern-attr-dialog'] : [],
+			// A6v9: Theme-Klasse folgt dem Blatt-Design (dunkel/hell).
+			classes: modernDesign ? this._modernDialogClasses('modern-attr-dialog') : [],
 			width: 560,
 			buttons: {
 				confirm: {
@@ -1062,7 +1076,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		symbDialog({
 			title: localize('BIO.EXPERIENCE'),
 			content: html,
-			classes: ['modern-dialog', 'modern-exp-dialog'],
+			classes: this._modernDialogClasses('modern-exp-dialog'),
 			width: 460,
 			buttons: {
 				confirm: {
@@ -1118,7 +1132,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		symbDialog({
 			title: localize('HEALTH.CORRUPTION'),
 			content: html,
-			classes: ['modern-dialog', 'modern-corruption-dialog'],
+			classes: this._modernDialogClasses('modern-corruption-dialog'),
 			width: 460,
 			buttons: {
 				confirm: {
@@ -1153,8 +1167,16 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	 * 1 - ein Item bewusst auf 0 zu reduzieren ist nicht vorgesehen,
 	 * dafür gibt es die Löschen-Taste mit Sicherheitsfrage), Übernehmen und
 	 * Abbruch; das Schließen über X ruft keinen Button-Callback auf und
-	 * gilt damit wie Abbruch. Der Dialog erfasst nur Ausrüstung -
-	 * Waffen/Rüstungen behalten ihr Standard-Kontextmenü.
+	 * gilt damit wie Abbruch. Auch direkt getippte Werte werden beim
+	 * Übernehmen auf mindestens 1 geklemmt. Der Dialog erfasst nur
+	 * Ausrüstung - Waffen/Rüstungen behalten ihr Standard-Kontextmenü.
+	 *
+	 * A6v9 (Testrunde 8, Fund 3): Die Tasten im Dialog-Inhalt (−/+1,
+	 * Löschen) reagierten in v8 nicht. DialogV2 rendert asynchron (symbDialog
+	 * feuert den Render ohne await) und serialisiert den Inhalt über den
+	 * Content-Part - Listener, die VOR dem Öffnen am Element hängen,
+	 * überleben das nicht. Die Verdrahtung läuft deshalb erst NACH dem
+	 * Render am live gerenderten Fenster (dlg.element).
 	 */
 	async _openEquipmentDialog(item) {
 		const localize = (key) => game.i18n.localize(key);
@@ -1163,24 +1185,44 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			'systems/symbaroum/template/sheet/modern/equipment-dialog.hbs',
 			{ number: current }
 		);
-		/* DialogV2 bereinigt String-Inhalte mit cleanHTML - deshalb wie im
-		   symbDialog-Hilfsmodus: Das gerenderte Template in ein attribut-
-		   freies Wrapper-Div setzen und die Dialog-Tasten am Element
-		   verdrahten, BEVOR der Dialog geöffnet wird; die Listener wandern
-		   mit dem Element ins Dialogfenster. */
-		const wrap = document.createElement('div');
-		wrap.innerHTML = html;
-		const input = wrap.querySelector('#meq-number');
-		for (const btn of wrap.querySelectorAll('.m-eq-btn')) {
+		/* Handle auf den Anzahl-Dialog vorab deklarieren, damit die
+		   Sicherheitsfrage ihn nach dem Bestätigen schließen kann. */
+		let dlg = null;
+		dlg = symbDialog({
+			title: item.name,
+			content: html,
+			classes: this._modernDialogClasses('modern-equip-dialog'),
+			width: 440,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('MODERN.APPLY'),
+					callback: async (html) => {
+						const v = parseInt(html[0].querySelector('#meq-number')?.value, 10);
+						if (!isNaN(v) && v !== current) await item.update({ 'system.number': Math.max(1, v) });
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async (html) => {},
+				},
+			},
+		});
+		/* Auf den abgeschlossenen Render warten (kein force - löst keinen
+		   zweiten Renderlauf aus, wartet aber, bis das Fenster samt Inhalt
+		   steht), dann die Dialog-Tasten am LIVE-Element verdrahten. */
+		await dlg.render();
+		const root = dlg.element;
+		if (!root) return;
+		const input = root.querySelector('#meq-number');
+		for (const btn of root.querySelectorAll('.m-eq-btn')) {
 			btn.addEventListener('click', () => {
 				const next = Math.max(1, (parseInt(input.value, 10) || 1) + Number(btn.dataset.dir));
 				input.value = next;
 			});
 		}
-		/* Handle auf den Anzahl-Dialog vorab deklarieren, damit die
-		   Sicherheitsfrage ihn nach dem Bestätigen schließen kann. */
-		let dlg = null;
-		wrap.querySelector('.m-eq-delete')?.addEventListener('click', () => {
+		root.querySelector('.m-eq-delete')?.addEventListener('click', () => {
 			/* Sicherheitsfrage (Ja/Nein) - der Item-Name wird über
 			   textContent gesetzt und kann deshalb kein HTML einschleppen. */
 			const question = document.createElement('p');
@@ -1191,7 +1233,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			symbDialog({
 				title: localize('MODERN.DELETE'),
 				content: confirmWrap,
-				classes: ['modern-dialog'],
+				classes: this._modernDialogClasses(),
 				buttons: {
 					confirm: {
 						icon: '<i class="fas fa-check"></i>',
@@ -1209,27 +1251,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				},
 			});
 		});
-		dlg = symbDialog({
-			title: item.name,
-			content: wrap,
-			classes: ['modern-dialog', 'modern-equip-dialog'],
-			width: 440,
-			buttons: {
-				confirm: {
-					icon: '<i class="fas fa-check"></i>',
-					label: localize('MODERN.APPLY'),
-					callback: async (html) => {
-						const v = parseInt(html[0].querySelector('#meq-number')?.value, 10);
-						if (!isNaN(v) && v >= 1 && v !== current) await item.update({ 'system.number': v });
-					},
-				},
-				cancel: {
-					icon: '<i class="fas fa-times"></i>',
-					label: localize('BUTTON.CANCEL'),
-					callback: async (html) => {},
-				},
-			},
-		});
 	}
 
 	/**
@@ -1246,7 +1267,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		symbDialog({
 			title: localize('TITLE.MONEY'),
 			content: content,
-			classes: ['modern-dialog', 'modern-money-dialog'],
+			classes: this._modernDialogClasses('modern-money-dialog'),
 			width: 440,
 			buttons: {
 				confirm: {

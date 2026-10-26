@@ -6991,8 +6991,30 @@ dialog.symb-dialog.modern-dialog {
   --m-ink: #dfe6df;
   --m-muted: #8fa192;
   --m-accent: #c9a227;
+  --m-bad: #c0554a;
   --m-input-bg: rgba(255, 255, 255, 0.06);
   --m-input-ink: #dfe6df;
+  color: var(--m-ink);
+}
+
+/* A6v9 (Testrunde 8, Rudolfs Fund): Die Dialoge erschienen auch beim hellen
+   Design immer dunkel. player.js setzt jetzt die Theme-Klasse des Blatts
+   mit auf das Fenster (modern-theme-dark/modern-theme-classic, siehe
+   _modernDialogClasses); dieser Block liefert die hellen Werte - die
+   Palette ist identisch mit .modern-root.modern-theme-classic im Blatt.
+   Dunkel bleibt der Default (Block oben). Das Design wird beim Öffnen
+   gelesen; ein offener Dialog wechselt nicht live mit. */
+dialog.symb-dialog.modern-dialog.modern-theme-classic {
+  --m-bg: #efe6cf;
+  --m-panel: #f5eeda;
+  --m-panel2: #ece2c8;
+  --m-line: #c4b48d;
+  --m-ink: #2c2317;
+  --m-muted: #6c5c40;
+  --m-accent: #8a6d1c;
+  --m-bad: #a3402f;
+  --m-input-bg: rgba(255, 255, 255, 0.55);
+  --m-input-ink: #2c2317;
   color: var(--m-ink);
 }
 
@@ -7143,26 +7165,31 @@ dialog.symb-dialog.modern-dialog .hint {
 }
 
 /* A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Anzahl-Dialog für Ausrüstung
-   (Rechtsklick auf eine Ausrüstungs-Zeile) - Label, −1-Taste, Eingabefeld
-   und +1-Taste in einer Zeile; die Pfeiltasten sind wie die Zähigkeits-/
-   Korruptionstasten der Stammleiste geformt. Darunter die Löschen-Taste
-   in der Warnfarbe (--m-bad). */
+   (Rechtsklick auf eine Ausrüstungs-Zeile). A6v9 (Testrunde 8, Rudolfs
+   Feinschliff): Überschrift "Anzahl ändern" statt Label, Eingabefeld
+   zentriert, Löschen-Taste in derselben Zeile rechts (Warnfarbe --m-bad);
+   die Pfeiltasten sind wie die Zähigkeits-/Korruptionstasten der
+   Stammleiste geformt. */
+.symbaroum.modern-equip-dialog .m-eq-title {
+  margin: 0 0 0.6rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--m-muted);
+}
+
 .symbaroum.modern-equip-dialog .m-eq-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.6rem;
-}
-
-.symbaroum.modern-equip-dialog .m-eq-row label {
-  flex: 1 1 auto;
-  margin: 0;
 }
 
 .symbaroum.modern-equip-dialog .m-eq-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto !important;
   width: 1.05rem;
   height: 1.05rem;
   padding: 0;
@@ -7188,12 +7215,13 @@ dialog.symb-dialog.modern-dialog .hint {
 
 .symbaroum.modern-equip-dialog .m-eq-row input {
   flex: 0 0 4.5rem;
-  text-align: right;
+  text-align: center;
 }
 
 .symbaroum.modern-equip-dialog .m-eq-delete {
-  width: 100%;
-  margin: 0;
+  margin-left: auto;
+  flex: 0 0 auto !important;
+  padding: 0.15rem 0.5rem;
   color: var(--m-bad);
   border-color: var(--m-bad);
 }
