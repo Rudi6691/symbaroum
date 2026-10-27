@@ -19,11 +19,7 @@
             <div class="item m-container-block" data-item-id="{{c.id}}">
                 <div class="m-container-row draggable" data-item-id="{{c.id}}" data-container-id="{{c.id}}">
                     <button type="button" class="m-container-collapse" data-tooltip="{{localize "CONTAINER.COLLAPSE_TOGGLE"}}"><i class="fas fa-chevron-{{#if c.collapsed}}right{{else}}down{{/if}}"></i></button>
-                    {{#if c.icon}}
-                    <i class="m-item-img m-container-icon {{c.icon}}"></i>
-                    {{else}}
                     <div class="m-item-img" style="background-image: url('{{c.img}}');"></div>
-                    {{/if}}
                     <button type="button" class="item-edit m-inv-name">{{c.name}}<small data-tooltip="{{c.loadTooltip}}">{{c.capacityDisplay}}</small></button>
                     {{#if c.fillPct}}
                     <span class="m-cap-bar{{#if c.fillFull}} full{{/if}}" data-tooltip="{{c.capacityDisplay}}"><span class="m-cap-fill" style="width:{{c.fillPct}}%"></span></span>
@@ -57,11 +53,7 @@
                     <div class="item m-container-row m-container-child m-cont-d{{ch.depth}} draggable" data-item-id="{{ch.id}}" data-container-id="{{ch.id}}">
                         <span class="m-cont-indent"></span>
                         <button type="button" class="m-container-collapse" data-tooltip="{{localize "CONTAINER.COLLAPSE_TOGGLE"}}"><i class="fas fa-chevron-{{#if ch.collapsed}}right{{else}}down{{/if}}"></i></button>
-                        {{#if ch.icon}}
-                        <i class="m-item-img m-container-icon {{ch.icon}}"></i>
-                        {{else}}
                         <div class="m-item-img" style="background-image: url('{{ch.img}}');"></div>
-                        {{/if}}
                         <button type="button" class="item-edit m-inv-name">{{ch.name}}<small>{{ch.capacityDisplay}}</small></button>
                         <span class="m-cont-money" data-tooltip="{{ch.moneyTooltip}}">{{ch.currencyDisplay}}</span>
                         <button type="button" class="m-container-takeout" data-tooltip="{{localize "CONTAINER.TAKE_OUT"}}"><i class="fas fa-arrow-up"></i></button>

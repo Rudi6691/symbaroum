@@ -5,8 +5,8 @@
  *  - Neuer Item-Typ "container" mit eigenen Feldern: weight (GE-Kategorie,
  *    wie A39), capacity (Fassungsvermögen in GE, 0 = unbegrenzt), carried
  *    (mitgeführt), countLoad (auf Belastung anrechnen), currency (echtes Geld
- *    im Behälter, Ganzzahl Orteg wie A38), icon (optionale FA-Klasse, leer =
- *    Item-Bild), weightlessContents (Magiebeutel: Inhalt wiegt nichts).
+ *    im Behälter, Ganzzahl Orteg wie A38), weightlessContents (Magiebeutel:
+ *    Inhalt wiegt nichts).
  *  - Kinder-Referenz flach wie D&D 5e: Nur beim Hineinlegen wird auf dem
  *    Kind (weapon/armor/equipment/artifact/container) das Feld
  *    system.container mit der Item-ID des Behälters geschrieben. KEIN

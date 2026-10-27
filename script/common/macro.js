@@ -1964,7 +1964,6 @@ export class SymbaroumMacros {
 							data.system.carried = true;
 							data.system.countLoad = true;
 							data.system.currency = 0;
-							data.system.icon = "";
 							data.system.weightlessContents = false;
 							if (data.system.price === undefined) data.system.price = { value: 0, denomination: "orteg" };
 							if (item.parent) {

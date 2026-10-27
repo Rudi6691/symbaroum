@@ -7385,13 +7385,6 @@ input[name='symbaroum.encumbranceHardLimitMultiplier'] {
   opacity: 1;
 }
 
-.m-gear .m-container-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-}
-
 /* Kapazitäts-Füllbalken zwischen Titel und Geldanzeige */
 .m-gear .m-cap-bar {
   position: relative;
@@ -7455,6 +7448,20 @@ input[name='symbaroum.encumbranceHardLimitMultiplier'] {
 
 .symbaroum.sheet.actor .modern-root .m-gear .m-container-takeout:hover {
   opacity: 1;
+}
+
+/* Testrunde-3-Wunsch (B): Im dunklen Design zeigten die Kollaps-/Entnahme-
+   Icons die Core-Textfarbe statt --m-muted: Die klassische Regel
+   .symbaroum.sheet.actor .window-content .fas (0,3,0) setzt color DIREKT
+   am <i>-Element - eine direkte Elementregel schlägt immer die Vererbung
+   von der Button-Regel (0,5,0), egal wie hoch deren Spezifität ist.
+   Gleicher Mechanismus wie beim Chip-Fix (A6v8): Färbung deshalb direkt
+   am <i> mit !important, analog zur Chip-Icon-Regel
+   (.modern-theme-dark .m-st i). Nur das dunkle Design; hell/klassisch
+   unverändert. */
+.symbaroum.sheet.actor .modern-root.modern-theme-dark .m-gear .m-container-collapse i,
+.symbaroum.sheet.actor .modern-root.modern-theme-dark .m-gear .m-container-takeout i {
+  color: var(--m-muted) !important;
 }
 
 /* Gespäter countLoad-Chip, wenn der Behälter nicht mitgeführt wird */

@@ -596,7 +596,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						id: child.id,
 						name: child.name,
 						img: child.img,
-						icon: child.system.icon || '',
 						depth,
 						isContainer: true,
 						// Testrunde-1-Wunsch: auch der verschachtelte Behälter
@@ -644,7 +643,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				id: item.id,
 				name: item.name,
 				img: item.img,
-				icon: s.icon || '',
 				carried: !!s.carried,
 				countLoad: !!(s.carried && s.countLoad),
 				collapsed: !!collapsedFlags[item.id],
@@ -1575,14 +1573,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		const s = container.system;
 		const currency = Math.max(0, Math.round(Number(s.currency) || 0));
 		const capacity = Math.max(0, Number(s.capacity) || 0);
-		const icon = foundry.utils.escapeHTML(String(s.icon ?? ''));
 		const content = `
 		<div class="symbaroum modern-container-dialog">
 			<div class="m-cont-dlg-grid">
 				<label for="mcont-capacity">${localize('CONTAINER.CAPACITY')}</label>
 				<input id="mcont-capacity" type="number" min="0" step="0.5" value="${capacity}" data-tooltip="${localize('CONTAINER.CAPACITY_TOOLTIP')}"/>
-				<label for="mcont-icon">${localize('CONTAINER.ICON')}</label>
-				<input id="mcont-icon" type="text" value="${icon}" placeholder="fas fa-suitcase"/>
 				<label for="mcont-carried">${localize('CONTAINER.CARRIED')}</label>
 				<input id="mcont-carried" type="checkbox" ${s.carried ? 'checked' : ''}/>
 				<label for="mcont-countload">${localize('CONTAINER.COUNT_LOAD')}</label>
@@ -1617,7 +1612,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						if (!carried) countLoad = false; // Implikation erzwingen
 						const updates = {
 							'system.capacity': Math.max(0, Number(root.querySelector('#mcont-capacity')?.value) || 0),
-							'system.icon': String(root.querySelector('#mcont-icon')?.value ?? '').trim(),
 							'system.carried': carried,
 							'system.countLoad': countLoad,
 						};

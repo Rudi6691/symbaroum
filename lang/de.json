@@ -1294,8 +1294,6 @@
   "CONTAINER.CARRIED_OFF": "Nicht mitgeführt (z. B. im Lager)",
   "CONTAINER.COUNT_LOAD": "Zählt zur Last",
   "CONTAINER.COUNT_LOAD_OFF": "Zählt nicht zur Last",
-  "CONTAINER.ICON": "Icon (Font Awesome)",
-  "CONTAINER.ICON_TOOLTIP": "Optionale Font-Awesome-Klasse für die Behälterzeile, z. B. fas fa-suitcase. Leer = Item-Bild.",
   "CONTAINER.COLLAPSE_TOGGLE": "Behälter ein-/ausklappen",
   "CONTAINER.PACKED": "Verpackt – Status „Andere“ (kämpft nicht, zählt nicht einzeln)",
   "CONTAINER.TAKE_OUT": "Zurück ins Inventar",

@@ -1294,8 +1294,6 @@
   "CONTAINER.CARRIED_OFF": "Not carried (e.g. left at camp)",
   "CONTAINER.COUNT_LOAD": "Counts toward load",
   "CONTAINER.COUNT_LOAD_OFF": "Does not count toward load",
-  "CONTAINER.ICON": "Icon (Font Awesome)",
-  "CONTAINER.ICON_TOOLTIP": "Optional Font Awesome class for the container row, e.g. fas fa-suitcase. Empty = item image.",
   "CONTAINER.COLLAPSE_TOGGLE": "Expand / collapse container",
   "CONTAINER.PACKED": "Packed – state \"Other\" (does not fight, not counted individually)",
   "CONTAINER.TAKE_OUT": "Return to inventory",
