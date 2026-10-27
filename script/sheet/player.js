@@ -19,6 +19,9 @@ import {
 	deleteContainerWithContents,
 	deleteContainerKeepContents,
 } from '../common/container.js';
+// AP2 Stapeln (Merge-on-Drop): Drops auf Behälterzeilen mergen mit einem
+// identischen Stapel INNERHALB des Behälters, statt ein zweites Item anzulegen.
+import { mergeStackDrop } from '../common/stacking.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -777,7 +780,8 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	 * Kompendium); Drop außerhalb jeder Behälterzeile entnimmt ein
 	 * verpacktes Item zurück ins Inventar. Validierung (Status-Zwang,
 	 * Maximaltiefe 2, Zykel-Schutz) läuft in container.js; alle anderen
-	 * Drop-Fälle gehen unverändert an die Basisklasse.
+	 * Drop-Fälle gehen an die Basisklasse (dort greift seit AP2 ggf.
+	 * Merge-on-Drop für identische Stapel, siehe script/common/stacking.js).
 	 */
 	async _onDrop(event) {
 		const containerRow = event.target?.closest?.('.m-container-row[data-container-id]');
@@ -830,6 +834,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			sourceItem = null;
 		}
 		if (!sourceItem) return;
+		// AP2 Stapeln: Vor dem Einlagern prüfen, ob im Behälter bereits ein
+		// identischer Stapel liegt (Typ + Name + Preis + Gewicht) - dann nur
+		// dessen Anzahl erhöhen (und eine eingebettete Quelle löschen),
+		// statt ein zweites Item im Behälter abzulegen.
+		const merged = await mergeStackDrop(this.actor, sourceItem, container.id);
+		if (merged) return;
 		if (sourceItem.parent === this.actor) {
 			await moveItemToContainer(sourceItem, container);
 			return;

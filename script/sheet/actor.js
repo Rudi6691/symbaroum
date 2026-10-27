@@ -1,4 +1,6 @@
 import { symbDialog } from '../common/symbDialog.js';
+// AP2 Stapeln (Merge-on-Drop): Identitätsprüfung + Merge vor A15-Move/Core-Kopie.
+import { mergeStackDrop } from '../common/stacking.js';
 
 /**
  * Header controls that ActorSheetV2 adds by default (token configuration and artwork).
@@ -92,9 +94,18 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 	/**
 	 * A15: Drag & Drop von Items zwischen zwei Akteuren verschiebt das Item
 	 * (Move: im Ziel anlegen + im Quell-Akteur löschen) statt es zu kopieren.
-	 * Drags innerhalb desselben Akteurs (Sortierung), von der Seitenleiste und
-	 * aus Kompendien behalten das Foundry-Standardverhalten (Kopie bzw.
-	 * Core-Handling) - alles andere wird an die Basisklasse durchgereicht.
+	 * Drags innerhalb desselben Akteurs (Sortierung) und das Entnehmen aus
+	 * Behältern behalten das Foundry-Standardverhalten - alles andere wird
+	 * an die Basisklasse durchgereicht, wenn kein Merge gegriffen hat.
+	 *
+	 * AP2 Stapeln (Merge-on-Drop): Vor dem A15-Move und vor der Core-Kopie
+	 * (Item-Verzeichnis/Kompendium) wird geprüft, ob im Ziel-Aktor bereits
+	 * ein identischer Stapel liegt (Typ + Name + Preis + Gewicht, Regeln in
+	 * script/common/stacking.js) - dann wird nur dessen Anzahl erhöht und
+	 * das Quell-Item bei eingebetteten Quellen gelöscht. Rechte-Prüfung
+	 * (GM bzw. beide Akteure) läuft in mergeStackDrop; bei Ablehnung greift
+	 * der reguläre A15-/Core-Pfad. Reine Umsortier-Drags im selben Blatt
+	 * sind bewusst NICHT von Merge betroffen (siehe _onDrop in player.js).
 	 */
 	async _onDrop(event) {
 		let dragData = null;
@@ -110,9 +121,19 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 			} catch {
 				sourceItem = null;
 			}
-			const sourceActor = sourceItem?.parent;
-			if (sourceItem && sourceActor instanceof Actor && sourceActor !== this.actor) {
-				return this._moveItemBetweenActors(sourceItem, sourceActor);
+			if (sourceItem) {
+				const sourceActor = sourceItem.parent;
+				if (sourceActor instanceof Actor && sourceActor !== this.actor) {
+					// A15-Zug von fremdem Akteur: Merge vor Move.
+					const merged = await mergeStackDrop(this.actor, sourceItem);
+					if (merged) return merged;
+					return this._moveItemBetweenActors(sourceItem, sourceActor);
+				}
+				if (!(sourceActor instanceof Actor)) {
+					// Welt-Item oder Kompendium: Merge vor der Core-Kopie.
+					const merged = await mergeStackDrop(this.actor, sourceItem);
+					if (merged) return merged;
+				}
 			}
 		}
 		return super._onDrop(event);

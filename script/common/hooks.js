@@ -610,6 +610,26 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 			doc.updateSource({ 'system.weight': 'none' });
 		}
 	}
+	// AP2 Stapeln: system.stackable (Artefakte) und system.number (Artefakt-
+	// Typ) bei NEUANLAGE setzen - gleicher A38-Schutz wie oben: NICHT per
+	// template.json (Laufzeit-Mischung in alle Bestände). Alt-Items behalten
+	// undefined: Stapelbarkeit = aus (Wahrheitswert-Prüfung in stacking.js),
+	// Anzahl = 1 (Last-/Behälter-Summen behandeln fehlende Anzahl als 1).
+	// Die Anzahl am Artefakt-Typ ist Voraussetzung für stapelbare Artefakte:
+	// Der Merge erhöht system.number, das Artefakt-Blatt zeigt/bearbeitet sie.
+	if (doc.type === 'artifact') {
+		if (doc.system.stackable === undefined) {
+			doc.updateSource({ 'system.stackable': false });
+		}
+		if (doc.system.number === undefined) {
+			doc.updateSource({ 'system.number': 1 });
+		}
+	}
+	if (doc.type === 'equipment' && doc.system.stackable === undefined) {
+		// Ausrüstung stapelt immer - das Flag wird nur relevant, wenn das
+		// Artefakt-Flag gesetzt wird (dann entscheidet es über Merge-on-Drop).
+		doc.updateSource({ 'system.stackable': false });
+	}
 });
 
 // Hooks.on('createOwnedItem', (actor, item) => {});

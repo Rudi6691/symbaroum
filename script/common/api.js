@@ -12,6 +12,8 @@ import {
 	removeItemFromContainer,
 	changeContainerCurrency,
 } from './container.js';
+// AP2 Stapeln (Merge-on-Drop): öffentliche Stapel-API
+import { isStackableItem, getStackKey, findStackTarget, mergeStackDrop } from './stacking.js';
 
 export class SymbaroumAPI
 {
@@ -43,6 +45,16 @@ export class SymbaroumAPI
         this.moveItemToContainer = moveItemToContainer;
         this.removeItemFromContainer = removeItemFromContainer;
         this.changeContainerCurrency = changeContainerCurrency;
+        // AP2 Stapeln: Stapel-API — isItemStackable prüft die Regel-Matrix
+        // (Waffe/Rüstung/Behälter nie; Ausrüstung ja; Artefakte nur mit
+        // system.stackable), getStackKey liefert den Identitäts-Schlüssel
+        // (Typ + Name + Preis-Basis + Gewicht), findStackTarget sucht den
+        // Merge-Ziel-Stapel, mergeStackDrop führt einen Merge aus (mit
+        // Rechte-Prüfung; Aufruf durch die Drop-Handler der Blätter).
+        this.isItemStackable = isStackableItem;
+        this.getStackKey = getStackKey;
+        this.findStackTarget = findStackTarget;
+        this.mergeStackDrop = mergeStackDrop;
     }
 
 

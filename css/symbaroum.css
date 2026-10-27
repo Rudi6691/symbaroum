@@ -3561,6 +3561,9 @@ Monster Codex Stuff
 
 .symbaroum.sheet.item .equipment .tab .cost,
 .symbaroum.sheet.item .equipment .tab .number,
+.symbaroum.sheet.item .equipment .tab .stackable,
+.symbaroum.sheet.item .artifact .tab .number,
+.symbaroum.sheet.item .artifact .tab .stackable,
 .symbaroum.sheet.item .container .tab .cost,
 .symbaroum.sheet.item .container .tab .number {
   display: flex;

@@ -32,6 +32,25 @@
                             die Auswahl wird erst beim Speichern geschrieben. --}}
                         <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize "WEIGHT.TOOLTIP"}}">{{{weightOptions item}}}</select>
                     </div>
+                    <div class="number">
+                        <label for="{{id}}-system.number">{{localize "EQUIPMENT.NUMBER"}}</label>
+                        {{!-- AP2 Stapeln: Anzahl eines (stapelbaren) Artefakts. Der Merge-on-Drop
+                            erhöht genau dieses Feld. Neue Artefakte starten per preCreate-Hook auf 1;
+                            Alt-Items ohne Anzahl zeigen hier 1 (Last-/Behälter-Summen behandeln
+                            fehlende Anzahl ebenfalls als 1) und schreiben den Wert beim Speichern. --}}
+                        <input id="{{id}}-system.number" name="system.number" type="number" value="{{#if system.number}}{{system.number}}{{else}}1{{/if}}" data-tooltip="{{localize "STACK.NUMBER_TOOLTIP"}}"/>
+                    </div>
+                    <div class="stackable">
+                        <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
+                        {{!-- AP2 Stapeln: Artefakte mergen nur mit explizitem Flag (Rudolfs
+                            Entscheidung - Default aus). Mit Flag liegen identische Artefakte
+                            (Typ + Name + Preis + Gewicht) beim Ablegen als EIN Item mit Anzahl. --}}
+                        {{#if system.stackable}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{else}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{/if}}
+                    </div>
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>
