@@ -164,7 +164,10 @@ export async function mergeStackDrop(actor, sourceItem, containerId = null) {
 	if (sourceParent instanceof Actor) {
 		await sourceParent.deleteEmbeddedDocuments("Item", [sourceItem.id]);
 	}
-	ui.notifications.info(game.i18n.format("STACK.MERGE_INFO", { name: sourceItem.name ?? "", count: incoming }));
+	// Kosmetik v1 (Rudolfs Wunsch, 27.10.2026): Stapel-/Merge-Meldung dauerhaft
+	// ausgeblendet - das Merging selbst läuft unverändert, nur die Info-Toast
+	// erscheint nicht mehr. Zum Reaktivieren die nächste Zeile einkommentieren.
+	// ui.notifications.info(game.i18n.format("STACK.MERGE_INFO", { name: sourceItem.name ?? "", count: incoming }));
 	return target;
 }
 
@@ -210,6 +213,9 @@ export async function splitStackItem(actor, item, count = 1) {
 	await item.update({ "system.number": current - take });
 	const created = await actor.createEmbeddedDocuments("Item", [data]);
 	const newItem = created?.[0] ?? null;
-	ui.notifications.info(game.i18n.format("STACK.SPLIT_INFO", { name: item.name ?? "", count: take }));
+	// Kosmetik v1 (Rudolfs Wunsch, 27.10.2026): Trenn-Meldung dauerhaft
+	// ausgeblendet - das Trennen selbst läuft unverändert, nur die Info-Toast
+	// erscheint nicht mehr. Zum Reaktivieren die nächste Zeile einkommentieren.
+	// ui.notifications.info(game.i18n.format("STACK.SPLIT_INFO", { name: item.name ?? "", count: take }));
 	return newItem;
 }

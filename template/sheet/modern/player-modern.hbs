@@ -7,6 +7,12 @@
     {{> systems/symbaroum/template/sheet/modern/sidebar.hbs}}
 
     <div class="modern-body">
+        {{!-- Kosmetik v1 (Rudolfs Wunsch): Limitierte/Beobachter-Rechte sehen
+            nur den Biographie-Tab (dort bis einschließlich Aussehen). Kampf,
+            Kräfte, Ausrüstung und Notizen sind Besitzern (und der SL) 
+            vorbehalten; die Reiterleiste blendet die Buttons entsprechend
+            aus. MonsterSheet nutzt dasselbe Template. --}}
+        {{#unless modern.limitedView}}
         <div class="tab" data-group="modern" data-tab="combat">
             {{> systems/symbaroum/template/sheet/modern/tab/combat.hbs}}
         </div>
@@ -16,19 +22,26 @@
         <div class="tab" data-group="modern" data-tab="gear">
             {{> systems/symbaroum/template/sheet/modern/tab/gear.hbs}}
         </div>
+        {{/unless}}
         <div class="tab" data-group="modern" data-tab="bio">
             {{> systems/symbaroum/template/sheet/modern/tab/bio.hbs}}
         </div>
+        {{#unless modern.limitedView}}
         <div class="tab" data-group="modern" data-tab="notes">
             {{> systems/symbaroum/template/sheet/modern/tab/notes.hbs}}
         </div>
+        {{/unless}}
     </div>
 
     <nav class="modern-rail tabs" data-group="modern" data-tooltip-direction="LEFT">
+        {{#unless modern.limitedView}}
         <button type="button" class="modern-rail-btn" data-tab="combat" data-tooltip="{{localize 'MODERN.TAB_COMBAT'}}"><i class="{{modern.tabIcons.combat}}"></i></button>
         <button type="button" class="modern-rail-btn" data-tab="powers" data-tooltip="{{localize 'MODERN.TAB_POWERS'}}"><i class="{{modern.tabIcons.powers}}"></i></button>
         <button type="button" class="modern-rail-btn" data-tab="gear" data-tooltip="{{localize 'MODERN.TAB_GEAR'}}"><i class="{{modern.tabIcons.gear}}"></i></button>
+        {{/unless}}
         <button type="button" class="modern-rail-btn" data-tab="bio" data-tooltip="{{localize 'MODERN.TAB_BIO'}}"><i class="{{modern.tabIcons.bio}}"></i></button>
+        {{#unless modern.limitedView}}
         <button type="button" class="modern-rail-btn" data-tab="notes" data-tooltip="{{localize 'MODERN.TAB_NOTES'}}"><i class="{{modern.tabIcons.notes}}"></i></button>
+        {{/unless}}
     </nav>
 </div>

@@ -13,7 +13,13 @@
         {{/ifgt}}
     </div>
 
+    {{!-- Kosmetik v1 (Rudolfs Wunsch): Limitierte/Beobachter-Rechte sehen in
+        der Stammleiste NUR Avatar und Volk/Beruf (bzw. Kategorie/Untertyp).
+        Name, Verhalten, Vitalwerte, Eigenschaften, Geld und Belastung sind
+        auf Besitzer (und SL) beschränkt. --}}
+    {{#unless modern.limitedView}}
     <input class="m-name" name="name" type="text" value="{{actor.name}}" placeholder="{{localize "BIO.NAME"}}" />
+    {{/unless}}
 
     {{#ife actor.type 'monster'}}
         <div class="m-subline">{{modern.categoryLine}}</div>
@@ -21,12 +27,14 @@
         <div class="m-subline">{{modern.idLine}}</div>
     {{/ife}}
 
+    {{#unless modern.limitedView}}
     {{#ife actor.type 'monster'}}
     <div class="m-inline-field">
         <label for="{{id}}-system.bio.manner">{{localize "BIO.MANNER"}}</label>
         <input id="{{id}}-system.bio.manner" name="system.bio.manner" type="text" value="{{system.bio.manner}}" />
     </div>
     {{/ife}}
+    {{/unless}}
 
     {{#if modern.showShadow}}
     <div class="m-inline-field m-shadow-field">
@@ -38,6 +46,7 @@
     </div>
     {{/if}}
 
+    {{#unless modern.limitedView}}
     <div class="m-sec-label">{{localize "MODERN.VITALS"}}</div>
     <div class="m-vital">
         {{!-- A6v4 (Testrunde 3): statt Eingabefeld zwei Tasten - Pfeil links
@@ -79,7 +88,10 @@
             {{#unless modern.corruption.thoroughlyCorrupt}}
             <div class="m-fill m-co-perm" style="width: {{modern.corruption.permPct}}%;"></div>
             <div class="m-fill m-co-temp" style="width: {{modern.corruption.tempPct}}%; left: {{modern.corruption.permPct}}%;"></div>
-            <div class="m-mark" style="left: {{modern.corruption.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.CORRUPTION_THRESHOLD"}}: {{modern.corruption.threshold}}"></div>
+            {{!-- Kosmetik v1 (Rudolfs Wunsch): die Korruptions-Schwelle ist
+                ROT statt weiß (Modifier m-mark-red, css var(--m-bad));
+                die Zähigkeits-Schwelle oben bleibt weiß. --}}
+            <div class="m-mark m-mark-red" style="left: {{modern.corruption.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.CORRUPTION_THRESHOLD"}}: {{modern.corruption.threshold}}"></div>
             {{/unless}}
         </div>
     </div>
@@ -168,4 +180,5 @@
         </div>
     </div>
     {{/if}}
+    {{/unless}}
 </aside>

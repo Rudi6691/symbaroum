@@ -763,6 +763,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			theme: design.theme === 'classic' ? 'classic' : 'dark',
 			tabIcons: { ...design.icons },
 			showShadow: !!(game.user.isGM || this.actor.isOwner),
+			/* Kosmetik v1 (Rudolfs Wunsch): eingeschränkte Ansicht für Nutzer
+			   mit limitierten oder Beobachter-Rechten (LIMITED/OBSERVER).
+			   isOwner deckt GM und Charakterbesitzer ab - für alle anderen
+			   Betrachter zeigt die Stammleiste nur Avatar + Volk/Beruf (bzw.
+			   Kategorie/Untertyp bei Monstern), und von den Tabs bleibt nur
+			   Biographie bis einschließlich Aussehen. MonsterSheet erbt. */
+			limitedView: !this.actor.isOwner,
 			idLine: idParts.join(' · '),
 			categoryLabel,
 			categoryLine: categoryParts.join(' · '),
@@ -931,7 +938,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			this.modernTabs ??= new foundry.applications.ux.Tabs({
 				navSelector: '.modern-rail',
 				contentSelector: '.modern-body',
-				initial: 'combat',
+				/* Kosmetik v1: in der eingeschränkten Ansicht (limitierte/
+				   Beobachter-Rechte) existiert der Kampf-Tab nicht mehr -
+				   Start-Tab ist dann Biographie. */
+				initial: this.actor.isOwner ? 'combat' : 'bio',
 			});
 			this.modernTabs.bind(element);
 		}

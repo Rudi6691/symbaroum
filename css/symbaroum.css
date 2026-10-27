@@ -6126,6 +6126,14 @@ dialog.symb-dialog.chain-confirm footer button {
   opacity: 0.85;
 }
 
+/* Kosmetik v1: Korruptions-Schwelle in Rot statt Weiß (Rudolfs Wunsch);
+   die Schmerz-/Zähigkeits-Schwelle trägt KEINE Modifier-Klasse und bleibt
+   weiß. var(--m-bad) ist in beiden Farbwelten definiert (Theme-Rot). */
+.symbaroum.sheet.actor .modern-root .m-mark.m-mark-red {
+  background: var(--m-bad);
+  opacity: 0.95;
+}
+
 /* ---------- Eigenschaften (2x4-Chips) ------------------------------------- */
 .symbaroum.sheet.actor .modern-root .m-attrs {
   display: grid;
@@ -6535,6 +6543,11 @@ dialog.symb-dialog.chain-confirm footer button {
   text-align: left;
   cursor: pointer;
   overflow: hidden;
+  /* Kosmetik v1: rem statt der fixen 14px aus der klassischen Regel
+     (.symbaroum.sheet.actor button) - der Item-Titel skaliert damit
+     genau wie der small-Untertitel (0.62rem) mit der Core-Fontgröße.
+     0.875rem = 14px bei 16px-Root, die Optik ändert sich nicht. */
+  font-size: 0.875rem;
 }
 
 .symbaroum.sheet.actor .modern-root .m-inv-name:hover {
@@ -6781,6 +6794,10 @@ dialog.symb-dialog.chain-confirm footer button {
   text-align: left;
   cursor: pointer;
   overflow: hidden;
+  /* Kosmetik v1: siehe .m-inv-name - Titel in rem, damit er mit dem
+     small-Untertitel (0.62rem) gleichmäßig mit der Core-Fontgröße
+     skaliert statt fix bei 14px zu bleiben. */
+  font-size: 0.875rem;
 }
 
 .symbaroum.sheet.actor .modern-root .m-tile-name:hover {

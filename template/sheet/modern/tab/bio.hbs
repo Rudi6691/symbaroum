@@ -56,6 +56,11 @@
         </div>
     </div>
 
+    {{!-- Kosmetik v1 (Rudolfs Wunsch): Für limitierte/Beobachter-Rechte endet
+        der Biographie-Tab mit dem Aussehen-Block. Hintergrund, Persönliche
+        Ziele, Stigmata (Spieler) bzw. Taktik (Monster) sehen nur Besitzer
+        (und die SL). --}}
+    {{#unless modern.limitedView}}
     <div class="m-box">
         <div class="m-box-h"><span>{{localize "BIO.BACKGROUND"}}</span></div>
         <div class="m-box-b m-prose">
@@ -87,4 +92,5 @@
         </div>
     </div>
     {{/ife}}
+    {{/unless}}
 </div>

@@ -71,13 +71,20 @@ export class SymbaroumActor extends Actor {
 				if (system.attributes[aKey].modifier > 0) {
 					modSign = "+";
 				}
+				// Kosmetik v1 (Rudolfs Wunsch): Hover-Tooltip beginnt mit dem
+				// Eigenschafts-Namen, erst danach folgt der Wert-Breakdown.
 				system.attributes[aKey].msg =
+					game.i18n.localize(system.attributes[aKey].label) +
+					": " +
 					game.i18n.localize("TOOLTIP.BONUS_TOTAL") +
 					` ${system.attributes[aKey].total} (${modSign}${system.attributes[aKey].modifier})<br />${game.i18n.localize("ATTRIBUTE.BASE")}(${system.attributes[
 						aKey
 					].value.toString()}) ${system.bonus[aKey + "_msg"] ?? ""}`;
 			} else {
+				// Kosmetik v1: siehe Monster-Zweig - Name voranstellen.
 				system.attributes[aKey].msg =
+					game.i18n.localize(system.attributes[aKey].label) +
+					": " +
 					game.i18n.localize("TOOLTIP.BONUS_TOTAL") +
 					` ${system.attributes[aKey].total}` +
 					"<br />" +
