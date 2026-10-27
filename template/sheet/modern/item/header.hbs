@@ -1,6 +1,6 @@
 {{!-- Item-Sheet-Modernisierung v1 / Layout v2 (Rudolfs Entscheidungen aus der
     Testrunde 1, 27.10.): Kopf im Stammleisten-Stil des Aktorblatts -
-    Avatar/Name/Typ-Subline als Identitaets-Zeile, darunter Abschnitts-
+    Avatar/Name als Identitaets-Zeile, darunter Abschnitts-
     Bloecke mit m-sec-label (Stammleisten-Vokabular): BESITZ (Preis-Chip mit
     Klick -> Waehrungsdialog nach dem _openMoneyDialog-Muster, Confirm
     schreibt system.price als Basis-Integer; Gewicht-select; Anzahl mit
@@ -9,7 +9,12 @@
     Last-Level, berechnete SC/NPC-Kampfwerte als reine Anzeige-Chips im
     Attribut-Chip-Stil). Oeffnet .modern-root (modern-theme + Lock-Klasse,
     Muster player-modern.hbs); das Typ-Template liefert Body + Icon-Route
-    und schliesst modern-root. --}}
+    und schliesst modern-root.
+    ItemSheets v3.1 (Rudolfs Testrunde 4, Punkt 9): Die Typ-Subline unter
+    dem Namen ist ENTFALLEN - sie zeigte in allen Sprachen nur das
+    Wortfeld "Name" (die typeLabelKey-Parameter *.NAME sind die Feld-
+    Labels, nicht die Typ-Bezeichner) und war reines Rauschen; der Typ
+    steht im Fenstertitel. --}}
 <div class="modern-root modern-theme-{{modern.theme}}{{#unless editable}} modern-locked{{/unless}}">
     <div class="m-item-main">
     <div class="m-item-header">
@@ -27,7 +32,6 @@
                     <input id="{{id}}-system.level" name="system.level" type="number" value="{{system.level}}" data-dtype="Number"/>
                 </div>
                 {{/if}}
-                <div class="m-subline">{{localize typeLabelKey}}</div>
             </div>
             {{#if modern.showActivate}}
             <button type="button" class="m-activate-btn" data-action="activateAbility" data-tooltip="{{item.name}}"><img src="icons/vtt-512.png" alt=""/></button>

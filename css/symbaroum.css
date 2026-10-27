@@ -7750,12 +7750,6 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   justify-content: center;
 }
 
-.symbaroum.sheet.item .modern-root .m-subline {
-  font-size: 0.7rem;
-  color: var(--m-muted);
-  overflow-wrap: anywhere;
-}
-
 .symbaroum.sheet.item .modern-root input.m-name {
   width: 100%;
   box-sizing: border-box;
@@ -8137,18 +8131,30 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   box-sizing: border-box;
 }
 
-/* ---------- ItemSheets v3: Beschreibungs-Editor (Aktorblatt-Muster) -------
-   Rudolfs Testrunde 3, Punkt 11. (a) Pergament-Menüleiste: die klassische
-   Regel .symbaroum .prosemirror menu legt die title.webp-Bannertextur auf
-   die Editor-Menüleiste - im modernen Scope auf die Palette umgestellt.
-   (b) Text unter der Menüleiste: der V14-Core positioniert .editor-content
-   im prose-mirror-Host absolut (inset: 0), der Inhalt scrollt dann oben
-   unter der Menüleiste hervor - Fix wie am Aktorblatt (A6v5): Flex-Kette,
-   Inhalt zurück in den Fluss (static), wächst mit dem Text bis max-height,
-   danach interner Scroll; die Menüleiste überdeckt nichts.
-   (c) Font-Skalierung: Editor-Text auf rem gesetzt - skaliert mit der
-   Foundry-Core-Einstellung zur Schriftgröße. */
-.symbaroum.sheet.item .modern-root .prosemirror menu {
+/* ---------- ItemSheets v3.1: Beschreibungs-Editor (Aktorblatt-Muster) -----
+   Rudolfs Testrunde 4, Punkt 4. Die v3-Regeln griffen nicht bzw.
+   greiften daneben: (a) Die Pergament-Kiste kam ueberhaupt nicht von der
+   Menueleisten-Regel, sondern von der klassischen V13-Regel
+   .symbaroum.sheet.item .editor-content (Light-DOM-Treffer auch im
+   modernen Scope) - hier explizit auf die moderne Palette umgestellt.
+   (b) Fuer die Menueleiste sind BEIDE moeglichen DOM-Deutungen des
+   V14-Cores abgedeckt (menu als Kind eines .prosemirror-Elements ODER
+   menu.prosemirror selbst) - die globale klassische Regel
+   .symbaroum .prosemirror menu wird im modernen Scope auf die Palette
+   umgebogen, und order:-1 stellt die Menueleiste in der Flex-Kette
+   sicher nach OBEN, egal wo der Core sie einsortiert (Testrunde-4-
+   Beobachtung "Menueleiste hinter/unter dem Editorfeld").
+   (c) Geometrie exakt wie am bewaehrten Aktor-bio-Editor (A6v5): Der
+   Scope ist .modern-root (der klassischen Ansicht fehlt dieser
+   Ancestor, sie behaelt ihr V13-Styling inkl. Pergament) - so greifen
+   die Regeln auch auf Editoren, die Waffe/Ruestung/Ausruestung ueber
+   das SHARED klassische Partial tab/artifact.hbs in den Kraft-Tab
+   laden. Der V14-Core positioniert .editor-content absolut (inset: 0)
+   - zurueck in den Fluss (static), waechst mit dem Text bis max-height,
+   danach interner Scroll. */
+.symbaroum.sheet.item .modern-root .prosemirror menu,
+.symbaroum.sheet.item .modern-root menu.prosemirror {
+  order: -1;
   background: var(--m-panel2);
   color: var(--m-ink);
   font-family: inherit;
@@ -8175,6 +8181,13 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   min-height: 8rem !important;
   max-height: 26rem;
   overflow-y: auto;
+  /* V13-Pergament (Hintergrund + Innenschatten) im modernen Scope ersetzen */
+  background: var(--m-panel2);
+  box-shadow: none;
+  border-radius: 0 0.25rem 0.25rem 0.25rem;
+  color: var(--m-ink);
+  font-size: 0.85rem;
+  padding: 0.5rem;
 }
 
 .symbaroum.sheet.item .modern-root .ProseMirror {

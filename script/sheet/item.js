@@ -411,6 +411,21 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   WERTE-Abschnitt) - fuer die Abschnitts-Sichtbarkeit zaehlt sie
 		   deshalb nicht mehr mit. */
 		modern.showValues = modern.showReference || modern.showComputed;
+		/* ItemSheets v3.1 (Rudolfs Testrunde 4, Punkt 7): Rail-Stufen-
+		   markierung. V3 hatte die verschachtelten Handlebars-ifs DIREKT im
+		   class-Attribut notiert - durch einen Ersetzungsfehler standen dort
+		   single Braces ({#if ...}), Handlebars gab sie als Literal in den
+		   Klassentext, der erste Token war "modern-rail-btn{#if" und die
+		   CSS-Geometrie (.modern-rail-btn) matchte nicht mehr (Rail-Icons
+		   klein, ohne Akzent). Lernweis: Keine verschachtelten ifs im
+		   Attribut-Body - die Flags werden hier vorbereitet, das Template
+		   prueft nur noch einen flachen Boolean. Nur gehaltene Items
+		   markieren erlernte Stufen. */
+		modern.levelLearned = {
+			novice: !!item.isOwned && !!item.system?.novice?.isActive,
+			adept: !!item.isOwned && !!item.system?.adept?.isActive,
+			master: !!item.isOwned && !!item.system?.master?.isActive,
+		};
 		if (showPrice && priceExists) {
 			const base = Math.max(0, Math.round(Number(price) || 0));
 			const denoms = getDenominations();
@@ -506,7 +521,16 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 	async _onBonusAdjust(event, delta) {
 		event.preventDefault();
 		if (!this.isEditable || !this.item.isOwner) return;
-		const name = event.currentTarget?.dataset?.name;
+		/* ItemSheets v3.1 (Rudolfs Testrunde 4, Punkt 5): ApplicationV2
+		   reicht den Klick-Buttons nicht als event.currentTarget durch -
+		   currentTarget ist das Sheet-Root, dataset.name dort leer, der
+		   Handler stieg kommentarlos aus (die Stepper wirketen "tot",
+		   seit v2.1 ungetestet). Der Weg ist das zweite Handler-Argument
+		   bzw. hier der Zielbutton via closest('[data-action]'). Die
+		   Kopf-Anzahl-Stepper funktionierten, weil ihr Handler (bewusst)
+		   kein data-name am Button liest. */
+		const button = event.target?.closest?.('[data-action]') ?? null;
+		const name = button?.dataset?.name;
 		if (!name || !name.startsWith('system.')) return;
 		const stored = foundry.utils.getProperty(this.item, name);
 		const base = Number.isFinite(Number(stored)) ? Math.round(Number(stored)) : 0;

@@ -20,7 +20,7 @@
                 <label for="{{lookup ../item 'id'}}-{{bonus.name}}">{{localize bonus.label}}</label>
                 <div class="m-qty m-bonus-ctrl">
                     <button type="button" class="m-qty-btn" data-action="bonusMinus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_MINUS'}}"><i class="fas fa-caret-left"></i></button>
-                    <input id="{{lookup ../item 'id'}}-{{bonus.name}}" name="{{bonus.name}}" type="number" min="-10" max="10" value="{{getProperty ../item bonus.name}}" data-dtype="Number"/>
+                    <input id="{{lookup ../item 'id'}}-{{bonus.name}}" name="{{bonus.name}}" type="number" min="-10" max="10" value="{{ifThen (getProperty ../item bonus.name) (getProperty ../item bonus.name) 0}}" data-dtype="Number"/>
                     <button type="button" class="m-qty-btn" data-action="bonusPlus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_PLUS'}}"><i class="fas fa-caret-right"></i></button>
                 </div>
             </div>
@@ -32,7 +32,7 @@
                 <label for="{{lookup ../item 'id'}}-{{bonus.name}}">{{localize bonus.label}}</label>
                 <div class="m-qty m-bonus-ctrl">
                     <button type="button" class="m-qty-btn" data-action="bonusMinus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_MINUS'}}"><i class="fas fa-caret-left"></i></button>
-                    <input id="{{lookup ../item 'id'}}-{{bonus.name}}" name="{{bonus.name}}" type="number" min="-10" max="10" value="{{getProperty ../item bonus.name}}" data-dtype="Number"/>
+                    <input id="{{lookup ../item 'id'}}-{{bonus.name}}" name="{{bonus.name}}" type="number" min="-10" max="10" value="{{ifThen (getProperty ../item bonus.name) (getProperty ../item bonus.name) 0}}" data-dtype="Number"/>
                     <button type="button" class="m-qty-btn" data-action="bonusPlus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_PLUS'}}"><i class="fas fa-caret-right"></i></button>
                 </div>
             </div>

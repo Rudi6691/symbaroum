@@ -1,7 +1,7 @@
 {{!-- Item-Sheet-Modernisierung v1: Blatt der Mystischen Kraft, modernisierte
     Ansicht. Wie Fähigkeit, zusätzlich das Material-Feld im Beschreibungs-tab
     (klassische Position). --}}
-{{> systems/symbaroum/template/sheet/modern/item/header.hbs typeLabelKey="MYSTICAL_POWER.NAME"}}
+{{> systems/symbaroum/template/sheet/modern/item/header.hbs}}
     <div class="sheet-body m-item-body">
         <div class="tab" data-group="primary" data-tab="description">
             <div class="m-panel">
@@ -80,9 +80,9 @@
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
         <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
         {{#ifn system.marker}}
-        <button type="button" class="modern-rail-btn{#if isOwned}{#if system.novice.isActive} m-level-learned{/if}{/if}" data-tab="novice" data-tooltip="{{localize 'TAB.NOVICE'}}"><i class="fas fa-seedling"></i></button>
-        <button type="button" class="modern-rail-btn{#if isOwned}{#if system.adept.isActive} m-level-learned{/if}{/if}" data-tab="adept" data-tooltip="{{localize 'TAB.ADEPT'}}"><i class="fas fa-leaf"></i></button>
-        <button type="button" class="modern-rail-btn{#if isOwned}{#if system.master.isActive} m-level-learned{/if}{/if}" data-tab="master" data-tooltip="{{localize 'TAB.MASTER'}}"><i class="fas fa-crown"></i></button>
+        <button type="button" class="modern-rail-btn{{#if modern.levelLearned.novice}} m-level-learned{{/if}}" data-tab="novice" data-tooltip="{{localize 'TAB.NOVICE'}}"><i class="fas fa-seedling"></i></button>
+        <button type="button" class="modern-rail-btn{{#if modern.levelLearned.adept}} m-level-learned{{/if}}" data-tab="adept" data-tooltip="{{localize 'TAB.ADEPT'}}"><i class="fas fa-leaf"></i></button>
+        <button type="button" class="modern-rail-btn{{#if modern.levelLearned.master}} m-level-learned{{/if}}" data-tab="master" data-tooltip="{{localize 'TAB.MASTER'}}"><i class="fas fa-crown"></i></button>
         {{/ifn}}
         <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>
     </nav>
