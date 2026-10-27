@@ -1,89 +1,108 @@
-{{!-- Item-Sheet-Modernisierung v1: fixer Kopf ALLER modernisierten Item-Blätter
-    (Rudolfs Aufbau-Anforderung 27.10.): Bild, Name, Preis kompakt mit Klick ->
-    Währungsdialog (Confirm schreibt system.price als Basis-Integer), Gewicht,
-    Anzahl mit ±-Pfeilen NUR bei stapelbaren Items (AP2 v2 Uniform-Regel).
-    Die Beschreibung ist bewusst KEIN Kopf-Element, sondern der erste
-    Reiter-Tab (Detail-Entscheidung). Zeile 2 versammelt die typspezifischen
-    Kopf-Felder: GM-Referenz (UND-Gating wie das klassische {{#ifat}}),
-    Segen/Last-Level, berechnete Kampfwerte (Waffe/Rüstung) und den
-    Aktivieren-Button (Fähigkeit/Merkmal/Kraft). Die sichtbaren Felder
-    steuert item.js _prepareModernItemContext über fertige Booleans. --}}
+{{!-- Item-Sheet-Modernisierung v1 / Layout v2 (Rudolfs Entscheidungen aus der
+    Testrunde 1, 27.10.): Kopf im Stammleisten-Stil des Aktorblatts -
+    Avatar/Name/Typ-Subline als Identitaets-Zeile, darunter Abschnitts-
+    Bloecke mit m-sec-label (Stammleisten-Vokabular): BESITZ (Preis-Chip mit
+    Klick -> Waehrungsdialog nach dem _openMoneyDialog-Muster, Confirm
+    schreibt system.price als Basis-Integer; Gewicht-select; Anzahl mit
+    Caret-Steppern im Ausruestungsdialog-Stil, NUR bei stapelbaren Items)
+    und WERTE (GM-Referenz mit UND-Gating isGM+allowShowReference, Segen/
+    Last-Level, berechnete SC/NPC-Kampfwerte als reine Anzeige-Chips im
+    Attribut-Chip-Stil). Oeffnet .modern-root (modern-theme + Lock-Klasse,
+    Muster player-modern.hbs); das Typ-Template liefert Body + Icon-Route
+    und schliesst modern-root. --}}
 <div class="modern-root modern-theme-{{modern.theme}}{{#unless editable}} modern-locked{{/unless}}">
     <div class="m-item-header">
         <div class="m-item-row">
-        <div class="m-avatar">
-            <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" data-tooltip="{{item.name}}"/>
-        </div>
-        <div class="m-item-title">
-            <label class="m-item-type" for="{{id}}-name">{{localize typeLabelKey}}</label>
-            <input class="m-name" name="name" id="{{id}}-name" type="text" value="{{item.name}}"/>
-        </div>
-        {{#if modern.showPrice}}
-        {{#if modern.priceExists}}
-        <button type="button" class="m-price-btn{{#unless editable}} m-readonly{{/unless}}" data-action="openPriceDialog" data-tooltip="{{localize 'MODERN_ITEM.PRICE_HINT'}}">
-            <span class="mfield"><b>{{modern.price.thaler}}</b><span>{{modern.price.abbrThaler}}</span></span>
-            <span class="mfield"><b>{{modern.price.shilling}}</b><span>{{modern.price.abbrShilling}}</span></span>
-            <span class="mfield"><b>{{modern.price.orteg}}</b><span>{{modern.price.abbrOrteg}}</span></span>
-        </button>
-        {{else}}
-        <span class="m-price-missing" data-tooltip="{{localize 'PRICE.MIGRATION_HINT'}}"><i class="fas fa-coins"></i></span>
-        {{/if}}
-        {{/if}}
-        {{#if modern.showWeight}}
-        <div class="m-inline-field m-weight-field">
-            <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
-            <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize modern.weightTooltipKey}}">{{{weightOptions item}}}</select>
-        </div>
-        {{/if}}
-        {{#if modern.showNumber}}
-        <div class="m-qty{{#unless modern.showQuantityArrows}} m-qty-plain{{/unless}}">
-            {{#if modern.showQuantityArrows}}
-            <button type="button" class="m-qty-btn" data-action="quantityMinus" data-tooltip="{{localize 'MODERN_ITEM.QTY_MINUS'}}"><i class="fas fa-minus"></i></button>
-            {{/if}}
-            <input id="{{id}}-system.number" name="system.number" type="number" value="{{modern.numberDisplay}}" data-tooltip="{{localize 'STACK.NUMBER_TOOLTIP'}}"/>
-            {{#if modern.showQuantityArrows}}
-            <button type="button" class="m-qty-btn" data-action="quantityPlus" data-tooltip="{{localize 'MODERN_ITEM.QTY_PLUS'}}"><i class="fas fa-plus"></i></button>
+            <div class="m-avatar">
+                <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" data-tooltip="{{item.name}}"/>
+            </div>
+            <div class="m-item-title">
+                <input class="m-name" name="name" id="{{id}}-name" type="text" value="{{item.name}}"/>
+                <div class="m-subline">{{localize typeLabelKey}}</div>
+            </div>
+            {{#if modern.showActivate}}
+            <button type="button" class="m-activate-btn" data-action="activateAbility" data-tooltip="{{item.name}}"><img src="icons/vtt-512.png" alt=""/></button>
             {{/if}}
         </div>
+        <div class="m-section-row">
+        {{#if modern.showPossession}}
+        <div class="m-item-section">
+            <div class="m-sec-label">{{localize "MODERN_ITEM.SECTION_POSSESSION"}}</div>
+            <div class="m-item-chips">
+                {{#if modern.showPrice}}
+                {{#if modern.priceExists}}
+                <button type="button" class="m-price-btn{{#unless editable}} m-readonly{{/unless}}" data-action="openPriceDialog" data-tooltip="{{localize 'MODERN_ITEM.PRICE_HINT'}}">
+                    <span class="mfield"><b>{{modern.price.thaler}}</b><span>{{modern.price.abbrThaler}}</span></span>
+                    <span class="mfield"><b>{{modern.price.shilling}}</b><span>{{modern.price.abbrShilling}}</span></span>
+                    <span class="mfield"><b>{{modern.price.orteg}}</b><span>{{modern.price.abbrOrteg}}</span></span>
+                </button>
+                {{else}}
+                <span class="m-price-missing" data-tooltip="{{localize 'PRICE.MIGRATION_HINT'}}"><i class="fas fa-coins"></i></span>
+                {{/if}}
+                {{/if}}
+                {{#if modern.showWeight}}
+                <div class="m-inline-field m-weight-field">
+                    <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
+                    <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize modern.weightTooltipKey}}">{{{weightOptions item}}}</select>
+                </div>
+                {{/if}}
+                {{#if modern.showNumber}}
+                <div class="m-inline-field m-qty-field">
+                    <label for="{{id}}-system.number">{{localize "EQUIPMENT.NUMBER"}}</label>
+                    <div class="m-qty{{#unless modern.showQuantityArrows}} m-qty-plain{{/unless}}">
+                        {{#if modern.showQuantityArrows}}
+                        <button type="button" class="m-qty-btn" data-action="quantityMinus" data-tooltip="{{localize 'MODERN.QTY_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
+                        {{/if}}
+                        <input id="{{id}}-system.number" name="system.number" type="number" value="{{modern.numberDisplay}}" data-tooltip="{{localize 'STACK.NUMBER_TOOLTIP'}}"/>
+                        {{#if modern.showQuantityArrows}}
+                        <button type="button" class="m-qty-btn" data-action="quantityPlus" data-tooltip="{{localize 'MODERN.QTY_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
+                        {{/if}}
+                    </div>
+                </div>
+                {{/if}}
+            </div>
+        </div>
         {{/if}}
-        {{#if modern.showActivate}}
-        <button type="button" class="m-activate-btn" data-action="activateAbility" data-tooltip="{{item.name}}"><img src="icons/vtt-512.png" alt=""/></button>
+        {{#if modern.showValues}}
+        <div class="m-item-section">
+            <div class="m-sec-label">{{localize "MODERN_ITEM.SECTION_VALUES"}}</div>
+            <div class="m-item-chips">
+                {{#if modern.showReference}}
+                <div class="m-inline-field m-reference-field">
+                    <label for="{{id}}-system.reference">{{localize "ABILITY.REFERENCE"}}</label>
+                    <input id="{{id}}-system.reference" name="system.reference" type="text" value="{{system.reference}}"/>
+                </div>
+                {{/if}}
+                {{#if modern.showLevel}}
+                <div class="m-inline-field">
+                    <label for="{{id}}-system.level">{{localize "BOON.LEVEL"}}</label>
+                    <input id="{{id}}-system.level" name="system.level" type="text" value="{{system.level}}" data-dtype="Number"/>
+                </div>
+                {{/if}}
+                {{#if modern.showComputed}}
+                {{#ife item.type 'weapon'}}
+                <div class="m-stat-chip" data-tooltip="{{localize "WEAPON.PC_DAMAGE"}}">
+                    <span class="v">{{system.pcDamage}}</span>
+                    <span class="l">{{localize "WEAPON.PC_DAMAGE"}}</span>
+                </div>
+                <div class="m-stat-chip" data-tooltip="{{localize "WEAPON.NPC_DAMAGE"}}">
+                    <span class="v">{{system.npcDamage}}</span>
+                    <span class="l">{{localize "WEAPON.NPC_DAMAGE"}}</span>
+                </div>
+                {{/ife}}
+                {{#ife item.type 'armor'}}
+                <div class="m-stat-chip" data-tooltip="{{localize "ARMOR.PC_PROTECTION"}}">
+                    <span class="v">{{system.pcProtection}}</span>
+                    <span class="l">{{localize "ARMOR.PC_PROTECTION"}}</span>
+                </div>
+                <div class="m-stat-chip" data-tooltip="{{localize "ARMOR.NPC_PROTECTION"}}">
+                    <span class="v">{{system.npcProtection}}</span>
+                    <span class="l">{{localize "ARMOR.NPC_PROTECTION"}}</span>
+                </div>
+                {{/ife}}
+                {{/if}}
+            </div>
+        </div>
         {{/if}}
         </div>
-    </div>
-    <div class="m-item-subrow">
-        {{#if modern.showReference}}
-        <div class="m-inline-field m-reference-field">
-            <label for="{{id}}-system.reference">{{localize "ABILITY.REFERENCE"}}</label>
-            <input id="{{id}}-system.reference" name="system.reference" type="text" value="{{system.reference}}"/>
-        </div>
-        {{/if}}
-        {{#if modern.showLevel}}
-        <div class="m-inline-field">
-            <label for="{{id}}-system.level">{{localize "BOON.LEVEL"}}</label>
-            <input id="{{id}}-system.level" name="system.level" type="text" value="{{system.level}}" data-dtype="Number"/>
-        </div>
-        {{/if}}
-        {{#if modern.showComputed}}
-        {{#ife item.type 'weapon'}}
-        <div class="m-computed">
-            <label>{{localize "WEAPON.PC_DAMAGE"}}</label>
-            <input type="text" value="{{system.pcDamage}}" data-dtype="Text" disabled/>
-        </div>
-        <div class="m-computed">
-            <label>{{localize "WEAPON.NPC_DAMAGE"}}</label>
-            <input type="number" value="{{system.npcDamage}}" data-dtype="Number" disabled/>
-        </div>
-        {{/ife}}
-        {{#ife item.type 'armor'}}
-        <div class="m-computed">
-            <label>{{localize "ARMOR.PC_PROTECTION"}}</label>
-            <input type="text" value="{{system.pcProtection}}" data-dtype="Text" disabled/>
-        </div>
-        <div class="m-computed">
-            <label>{{localize "ARMOR.NPC_PROTECTION"}}</label>
-            <input type="number" value="{{system.npcProtection}}" data-dtype="Number" disabled/>
-        </div>
-        {{/ife}}
-        {{/if}}
     </div>

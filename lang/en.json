@@ -1248,8 +1248,6 @@
   "MODERN.SHADOW_HINT": "Shadow: visible to the GM and the character owner only",
   "MODERN.MONEY_HINT": "Click to edit – thaler/shilling/orteg with delta syntax (e.g. +3 or -2)",
   "MODERN_ITEM.PRICE_HINT": "Click to edit – price (orteg base value) with delta syntax (e.g. +3 or -2)",
-  "MODERN_ITEM.QTY_MINUS": "Decrease quantity",
-  "MODERN_ITEM.QTY_PLUS": "Increase quantity",
   "MODERN.CHIP_DEFENSE": "Defense",
   "MODERN.CHIP_PROTECTION": "Armor Protection",
   "MODERN.CHIP_IMPEDING": "Impeding",
@@ -1347,5 +1345,7 @@
   "MACRO.CONTAINER_MIGRATION_HINT": "Capacity 0 = unlimited. No RAW values are suggested – please review per container before accepting.",
   "MACRO.CONTAINER_MIGRATION_NONE": "No equipment with container names found.",
   "MACRO.CONTAINER_MIGRATION_ACCEPT": "Accept",
-  "MACRO.CONTAINER_MIGRATION_DONE": "{count} container(s) converted."
+  "MACRO.CONTAINER_MIGRATION_DONE": "{count} container(s) converted.",
+  "MODERN_ITEM.SECTION_POSSESSION": "Possessions",
+  "MODERN_ITEM.SECTION_VALUES": "Values"
 }

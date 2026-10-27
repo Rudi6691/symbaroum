@@ -4,13 +4,7 @@
     beiden Checkbox-Feldern Artefakt/Stapelbar; Kraft-Tab nur bei isArtifact
     (gemeinsames Partial, wie klassisch); Bonus-Tab. --}}
 {{> systems/symbaroum/template/sheet/modern/item/header.hbs typeLabelKey="EQUIPMENT.NAME"}}
-    <nav class="sheet-tabs tabs m-item-tabs" data-group="primary">
-        <b class="item" data-tab="description">{{localize "TAB.DESCRIPTION"}}</b>
-        {{#if system.isArtifact}}
-        <b class="item" data-tab="power">{{localize "TAB.POWER"}}</b>
-        {{/if}}
-        <b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>
-    </nav>
+    <div class="m-main-row">
     <div class="sheet-body m-item-body">
         <div class="tab" data-group="primary" data-tab="description">
             <div class="m-panel">
@@ -38,5 +32,13 @@
         <div class="tab" data-group="primary" data-tab="bonus">
             {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
         </div>
+    <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
+        <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
+        {{#if system.isArtifact}}
+        <button type="button" class="modern-rail-btn" data-tab="power" data-tooltip="{{localize 'TAB.POWER'}}"><i class="fas fa-wand-magic-sparkles"></i></button>
+        {{/if}}
+        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-arrow-up"></i></button>
+    </nav>
     </div>
+</div>
 </div>

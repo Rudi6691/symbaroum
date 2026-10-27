@@ -107,6 +107,16 @@ export function getModernSheetEffectiveDesign() {
  */
 export function renderAllActorSheets() {
 	const seen = new Set();
+	/* ItemSheets v1.2 (Rudolfs Testrunde 1, Punkt 2): Offene Item-Blätter
+	   wurden NICHT live umgeschaltet. Root Cause: ui.windows enthält in V14
+	   nur Legacy-V1-Fenster - ApplicationV2-Instanzen (alle Blätter dieses
+	   Systems) leben in der Map foundry.applications.instances. Die offenen
+	   Akteurblätter wurden bislang allein über den game.actors-Singleton-Pfad
+	   erwischt, Item-Blätter fielen durchs Raster (game.items fehlte und die
+	   Fenster-Registry war leer). Deshalb jetzt: Instances-Map als primaere
+	   Quelle (deckt auch eingebettete/token-gebundene Items ab), plus der
+	   Singleton-Pfad ueber game.items (Spiegel des Akteur-Musters). */
+
 	// Nur Blätter des Systems neu rendern - keine anderen offenen Applications
 	// (z. B. Würfel-/Einstellungsdialoge, deren Eingaben ein Re-Render verwerfen würde).
 	const isActorSheet = (app) => {
@@ -135,11 +145,15 @@ export function renderAllActorSheets() {
 		if (app.rendered === true || app.element) app.render(false);
 	};
 	for (const actor of game.actors ?? []) renderIfOpen(actor.sheet);
+	for (const item of game.items ?? []) renderIfOpen(item.sheet);
 	const registries = [];
+	if (typeof foundry !== 'undefined' && foundry?.applications?.instances) registries.push(foundry.applications.instances);
 	if (typeof ui !== 'undefined' && ui?.windows) registries.push(ui.windows);
 	if (game?.windows) registries.push(game.windows);
 	for (const registry of registries) {
-		if (registry && typeof registry[Symbol.iterator] === 'function') {
+		if (registry instanceof Map) {
+			for (const app of registry.values()) renderIfOpen(app);
+		} else if (registry && typeof registry[Symbol.iterator] === 'function') {
 			for (const app of registry) renderIfOpen(app);
 		} else if (registry) {
 			for (const app of Object.values(registry)) renderIfOpen(app);

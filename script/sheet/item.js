@@ -370,6 +370,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		modern.showLevel = type === 'boon' || type === 'burden';
 		modern.showComputed = type === 'weapon' || type === 'armor';
 		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
+		/* Layout v2 (Rudolfs Entscheidungen 27.10., Testrunde 1): Der Kopf ist
+		   in Abschnitts-Bloecke mit m-sec-label gegliedert (Stammleisten-
+		   Stil) - BESITZ (Preis/Gewicht/Anzahl, nur Gegenstaende) und WERTE
+		   (GM-Referenz/Level/berechnete Kampfwerte). Beide Abschnitte nur
+		   rendern, wenn sie Inhalt haben. */
+		modern.showPossession = showPrice || showWeight || showNumber;
+		modern.showValues = modern.showReference || modern.showLevel || modern.showComputed;
 		if (showPrice && priceExists) {
 			const base = Math.max(0, Math.round(Number(price) || 0));
 			const denoms = getDenominations();

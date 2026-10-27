@@ -6,8 +6,8 @@ import { SymbaroumItemSheet } from './item.js';
 export class ArmorSheet extends SymbaroumItemSheet {
 	static DEFAULT_OPTIONS = {
 		position: {
-			width: 700,
-			height: 600,
+			width: 800,
+			height: 640,
 		},
 	};
 

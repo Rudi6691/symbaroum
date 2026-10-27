@@ -8,8 +8,8 @@ import { SymbaroumItemSheet } from './item.js';
 export class ArtifactSheet extends SymbaroumItemSheet {
 	static DEFAULT_OPTIONS = {
 		position: {
-			width: 500,
-			height: 472,
+			width: 800,
+			height: 640,
 		},
 	};
 

@@ -7727,11 +7727,10 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   justify-content: center;
 }
 
-.symbaroum.sheet.item .modern-root .m-item-type {
-  font-size: 0.62rem;
+.symbaroum.sheet.item .modern-root .m-subline {
+  font-size: 0.7rem;
   color: var(--m-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  overflow-wrap: anywhere;
 }
 
 .symbaroum.sheet.item .modern-root input.m-name {
@@ -7802,23 +7801,34 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   flex: 0 1 7rem;
 }
 
-/* Anzahl mit ±-Pfeilen (nur stapelbare Items) */
-.symbaroum.sheet.item .modern-root .m-qty {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.25rem;
-  flex: 0 0 auto;
-}
-
 .symbaroum.sheet.item .modern-root .m-qty input {
   width: 3.4rem;
   text-align: center;
 }
 
+/* ItemSheets v1.2 (Rudolfs Testrunde 1, Punkt 5): Anzahl-Pfeile in der
+   Optik des Ausruestungs-Kontextmenues (A6v8/v9 .m-eq-btn) - kompakte
+   quadratische Caret-Tasten, muted, Hover in Akzentfarbe. */
 .symbaroum.sheet.item .modern-root .m-qty .m-qty-btn {
-  padding: 0.18rem 0.4rem;
-  align-self: flex-end;
-  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border-radius: 0.25rem;
+  background: var(--m-panel2);
+  color: var(--m-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  align-self: center;
+}
+
+.symbaroum.sheet.item .modern-root .m-qty .m-qty-btn:hover {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
 }
 
 /* Aktivieren-Button (Fähigkeit/Merkmal/Kraft) */
@@ -7834,70 +7844,142 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   height: 1.4rem;
 }
 
-/* Kopf-Zeile 2: Referenz / Segen-Last-Level / berechnete Werte */
-.symbaroum.sheet.item .modern-root .m-item-subrow {
+/* ---------- Layout v2: Kopf-Abschnitte im Stammleisten-Stil -------------
+   Rudolfs Entscheidung (Testrunde 1): Abschnitts-Bloecke mit m-sec-label
+   (Vokabular der Aktor-Stammleiste) statt einer losen Chip-Zeile - BESITZ
+   (Preis/Gewicht/Anzahl) und WERTE (Referenz/Level/berechnete Werte).
+   Die beiden Abschnitte teilen sich eine Zeile (flex), bei engen
+   Fenstern bricht die Zeile um. */
+.symbaroum.sheet.item .modern-root .m-section-row {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 0.5rem 0.9rem;
+  gap: 0.2rem 1.4rem;
+  margin-top: 0.15rem;
 }
 
-.symbaroum.sheet.item .modern-root .m-item-subrow .m-inline-field {
-  flex: 0 1 11rem;
+.symbaroum.sheet.item .modern-root .m-item-section {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
-.symbaroum.sheet.item .modern-root .m-computed {
+.symbaroum.sheet.item .modern-root .m-item-section .m-sec-label {
+  margin-top: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--m-muted);
+}
+
+.symbaroum.sheet.item .modern-root .m-item-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  margin-top: 0.15rem;
+}
+
+/* Berechnete Kampfwerte (SC/NPC) als reine Anzeige-Chips im Attribut-Chip-
+   Stil der Stammleiste (Rudolfs Entscheidung: grosse Zahl, kleines Label,
+   keine Eingabefelder - die Werte sind abgeleitet). */
+.symbaroum.sheet.item .modern-root .m-stat-chip {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
-  flex: 0 1 6.5rem;
+  align-items: center;
+  gap: 0.05rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 0.35rem;
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  color: var(--m-ink);
 }
 
-.symbaroum.sheet.item .modern-root .m-computed label {
+.symbaroum.sheet.item .modern-root .m-stat-chip .v {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.symbaroum.sheet.item .modern-root .m-stat-chip .l {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
   color: var(--m-muted);
 }
 
-/* ---------- Reiterleiste (Nav) ------------------------------------------ */
-.symbaroum.sheet.item .modern-root .m-item-tabs {
+/* Anzahl-Feld mit Steppern sitzt jetzt im Inline-Feld-Gefuege des
+   BESITZ-Abschnitts (Label darueber wie beim Gewicht). */
+.symbaroum.sheet.item .modern-root .m-qty-field {
+  flex: 0 1 auto;
+}
+
+.symbaroum.sheet.item .modern-root .m-qty {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+/* ---------- Layout v2: Hauptzeile (Body links | Icon-Route rechts) ----- */
+.symbaroum.sheet.item .modern-root .m-main-row {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
-  flex: 0 0 auto;
-  font-size: 0.75rem;
+}
+
+/* Icon-Route rechts - Rudolfs Entscheidung (Testrunde 1): NUR Icons wie
+   beim Aktorblatt (modern-rail), Tooltip = Tabtitel. Vokabular/Geometrie
+   identisch zur Aktor-Route; die klassische Nav-Regel .symbaroum.sheet.item
+   .sheet-tabs (Zeilenrichtung, Textur-Hintergrund, 18px) wird ueber die
+   hoehere Spezifitaet des modernen Scopes ueberschrieben, die
+   Spaltenrichtung steht auf !important (Muster der Aktor-Route). */
+.symbaroum.sheet.item .modern-root .modern-rail {
+  flex: 0 0 2.75rem;
+  display: flex;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 0.15rem !important;
+  font-size: 0.8rem;
   margin: 0;
-  padding: 0.2rem;
+  padding: 0.55rem 0.25rem 0.2rem;
+  box-sizing: border-box;
   background: var(--m-panel);
-  border: 0.0625rem solid var(--m-line);
-  border-radius: 0.35rem;
+  border-left: 0.0625rem solid var(--m-line);
 }
 
-.symbaroum.sheet.item .modern-root .m-item-tabs .item {
-  color: var(--m-muted);
-  padding: 0.2rem 0.6rem;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.68rem;
-  font-weight: 600;
-}
-
-.symbaroum.sheet.item .modern-root .m-item-tabs .item:hover {
-  color: var(--m-ink);
-  text-shadow: none;
-}
-
-.symbaroum.sheet.item .modern-root .m-item-tabs .item.active {
-  color: var(--m-ink);
+.symbaroum.sheet.item .modern-root .modern-rail-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
   background: var(--m-panel2);
-  border-bottom: 0.12rem solid var(--m-accent);
-  border-radius: 0.25rem 0.25rem 0 0;
-  text-shadow: none;
+  border: 0.0625rem solid var(--m-line);
+  color: var(--m-muted);
+  font-size: 0.95rem;
+  cursor: pointer;
 }
 
-/* ---------- Body (Tab-Inhalt, scrollt) ---------------------------------- */
+.symbaroum.sheet.item .modern-root .modern-rail-btn:hover {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+.symbaroum.sheet.item .modern-root .modern-rail-btn.active {
+  color: var(--m-bg);
+  background: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+/* ---------- Body (Tab-Inhalt, scrollt; links neben der Route) ---------- */
 .symbaroum.sheet.item .modern-root .m-item-body {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   padding-right: 0.15rem;

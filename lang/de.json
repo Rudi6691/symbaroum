@@ -1248,8 +1248,6 @@
   "MODERN.SHADOW_HINT": "Schatten: nur für die SL und den Charakterbesitzer sichtbar",
   "MODERN.MONEY_HINT": "Klicken zum Bearbeiten – Thaler/Schilling/Orteg mit Delta-Syntax (z. B. +3 oder -2)",
   "MODERN_ITEM.PRICE_HINT": "Klicken zum Bearbeiten – Preis (Orteg-Basiswert) mit Delta-Syntax (z. B. +3 oder -2)",
-  "MODERN_ITEM.QTY_MINUS": "Anzahl verringern",
-  "MODERN_ITEM.QTY_PLUS": "Anzahl erhöhen",
   "MODERN.CHIP_DEFENSE": "Verteidigung",
   "MODERN.CHIP_PROTECTION": "Rüstungsschutz",
   "MODERN.CHIP_IMPEDING": "Behinderung",
@@ -1347,5 +1345,7 @@
   "MACRO.CONTAINER_MIGRATION_HINT": "Fassungsvermögen 0 = unbegrenzt. Keine RAW-Werte vorgegeben – bitte vor dem Übernehmen je Behälter prüfen.",
   "MACRO.CONTAINER_MIGRATION_NONE": "Keine Ausrüstung mit Behälter-Namen gefunden.",
   "MACRO.CONTAINER_MIGRATION_ACCEPT": "Übernehmen",
-  "MACRO.CONTAINER_MIGRATION_DONE": "{count} Behälter konvertiert."
+  "MACRO.CONTAINER_MIGRATION_DONE": "{count} Behälter konvertiert.",
+  "MODERN_ITEM.SECTION_POSSESSION": "Besitz",
+  "MODERN_ITEM.SECTION_VALUES": "Werte"
 }
