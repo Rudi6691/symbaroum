@@ -1,0 +1,45 @@
+{{!-- Item-Sheet-Modernisierung v1: Behälter-Blatt, modernisierte Ansicht
+    (Behältersystem v1.3). Kopf mit Preis-Chip und Gewicht (Behälter haben
+    keine Anzahl-Verwaltung); Beschreibungs-tab mit Fassungsvermögen, den
+    Zuständen mitgeführt/zählt zur Last, Inhalt wiegt nichts und dem
+    Behälter-Geld (alle Felder wie klassisch, inkl. Tooltips). Kein Bonus-Tab
+    (klassische Struktur des Behälter-Blatts). --}}
+{{> systems/symbaroum/template/sheet/modern/item/header.hbs typeLabelKey="EQUIPMENT.NAME"}}
+    <nav class="sheet-tabs tabs m-item-tabs" data-group="primary">
+        <b class="item" data-tab="description">{{localize "TAB.DESCRIPTION"}}</b>
+    </nav>
+    <div class="sheet-body m-item-body">
+        <div class="tab" data-group="primary" data-tab="description">
+            <div class="m-panel">
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.capacity">{{localize "CONTAINER.CAPACITY"}}</label>
+                        <input id="{{id}}-system.capacity" name="system.capacity" type="number" min="0" step="0.5" data-dtype="Number" value="{{item.system.capacity}}" data-tooltip="{{localize "CONTAINER.CAPACITY_TOOLTIP"}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.currency">{{localize "CONTAINER.CURRENCY_LABEL"}}</label>
+                        <input id="{{id}}-system.currency" name="system.currency" type="number" min="0" step="1" data-dtype="Number" value="{{item.system.currency}}" data-tooltip="{{localize "CONTAINER.CURRENCY_SHEET_HINT"}}"/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.carried">{{localize "CONTAINER.CARRIED"}}</label>
+                        <input id="{{id}}-system.carried" name="system.carried" type="checkbox" value="carried" data-dtype="Boolean" {{checked system.carried}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.countLoad">{{localize "CONTAINER.COUNT_LOAD"}}</label>
+                        <input id="{{id}}-system.countLoad" name="system.countLoad" type="checkbox" value="countLoad" data-dtype="Boolean" {{checked system.countLoad}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.weightlessContents">{{localize "CONTAINER.WEIGHTLESS"}}</label>
+                        <input id="{{id}}-system.weightlessContents" name="system.weightlessContents" type="checkbox" value="weightlessContents" data-dtype="Boolean" {{checked system.weightlessContents}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
+                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
+                    </div>
+                </div>
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+        </div>
+    </div>
+</div>

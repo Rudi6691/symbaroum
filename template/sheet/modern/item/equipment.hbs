@@ -1,0 +1,42 @@
+{{!-- Item-Sheet-Modernisierung v1: Ausrüstungs-Blatt, modernisierte Ansicht.
+    Fixer Kopf mit Preis-Chip (Klick -> Währungsdialog), Gewicht und Anzahl
+    (±-Pfeile nur bei stapelbaren Items). Beschreibung = erster Tab mit den
+    beiden Checkbox-Feldern Artefakt/Stapelbar; Kraft-Tab nur bei isArtifact
+    (gemeinsames Partial, wie klassisch); Bonus-Tab. --}}
+{{> systems/symbaroum/template/sheet/modern/item/header.hbs typeLabelKey="EQUIPMENT.NAME"}}
+    <nav class="sheet-tabs tabs m-item-tabs" data-group="primary">
+        <b class="item" data-tab="description">{{localize "TAB.DESCRIPTION"}}</b>
+        {{#if system.isArtifact}}
+        <b class="item" data-tab="power">{{localize "TAB.POWER"}}</b>
+        {{/if}}
+        <b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>
+    </nav>
+    <div class="sheet-body m-item-body">
+        <div class="tab" data-group="primary" data-tab="description">
+            <div class="m-panel">
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                <div class="m-row">
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
+                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
+                        {{#if stackableChecked}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{else}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{/if}}
+                    </div>
+                </div>
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+        </div>
+        {{#if system.isArtifact}}
+        {{> systems/symbaroum/template/sheet/tab/artifact.hbs}}
+        {{/if}}
+        <div class="tab" data-group="primary" data-tab="bonus">
+            {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
+        </div>
+    </div>
+</div>

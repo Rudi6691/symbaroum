@@ -1,0 +1,108 @@
+{{!-- Item-Sheet-Modernisierung v1: Waffen-Blatt, modernisierte Ansicht.
+    Fixer Kopf mit berechneten SC/NPC-Schaden in Zeile 2, Preis-Chip, Gewicht,
+    Anzahl (±-Pfeile nur bei stapelbaren Waffen). Beschreibung = erster Tab;
+    Stats-Tab mit den Kampfwerten (Preis/Anzahl/Gewicht wohnen jetzt im Kopf);
+    Qualitäten-Tab mit den Checkbox-Grids (klassisches Markup, modern
+    übersteuert); Bonus; Kraft-Tab nur bei isArtifact. --}}
+{{> systems/symbaroum/template/sheet/modern/item/header.hbs typeLabelKey="WEAPON.NAME"}}
+    <nav class="sheet-tabs tabs m-item-tabs" data-group="primary">
+        <b class="item" data-tab="description">{{localize "TAB.DESCRIPTION"}}</b>
+        <b class="item" data-tab="stats">{{localize "TAB.STATS"}}</b>
+        <b class="item" data-tab="qualities">{{localize "TAB.QUALITIES"}}</b>
+        {{#if system.isArtifact}}
+        <b class="item" data-tab="power">{{localize "TAB.POWER"}}</b>
+        {{/if}}
+        <b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>
+    </nav>
+    <div class="sheet-body m-item-body">
+        <div class="tab" data-group="primary" data-tab="description">
+            <div class="m-panel">
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+        </div>
+        <div class="tab" data-group="primary" data-tab="stats">
+            <div class="m-panel">
+                <h1>{{localize "TITLE.STATS"}}</h1>
+                <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.attribute">{{localize "WEAPON.ATTRIBUTE"}}</label>
+                        <select id="{{id}}-system.attribute" name="system.attribute">
+                            {{selectOptions attribute_selection selected=system.attribute labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.reference">{{localize "WEAPON_CLASS.LABEL"}}</label>
+                        <select id="{{id}}-system.reference" name="system.reference">
+                            {{selectOptions weapon_type_selection selected=system.reference labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseDamage">{{localize "WEAPON.BASE_DAMAGE"}}</label>
+                        <select id="{{id}}-system.baseDamage" name="system.baseDamage">
+                            {{selectOptions weapon_damage_selection selected=system.baseDamage labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.bonusDamage">{{localize "WEAPON.BONUS_DAMAGE"}}</label>
+                        <input id="{{id}}-system.bonusDamage" name="system.bonusDamage" type="text" value="{{system.bonusDamage}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.alternativeDamage">{{localize "TRAIT_LABEL.ALTERNATIVEDAMAGE"}}</label>
+                        <select id="{{id}}-system.alternativeDamage" name="system.alternativeDamage">
+                            {{selectOptions alternative_selection selected=system.alternativeDamage labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.quality">{{localize "WEAPON.QUALITY"}}</label>
+                        <input id="{{id}}-system.quality" name="system.quality" type="text" value="{{system.quality}}"/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
+                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
+                        {{#if stackableChecked}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{else}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{/if}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="tab" data-group="primary" data-tab="qualities">
+            <div class="m-panel">
+                <h1>{{localize "TITLE.QUALITIES"}}</h1>
+                <div class="m-qualities">
+                    {{#each qualities as | quality |}}
+                    <div class="m-quality">
+                        <label for="{{id}}-system.qualities.{{quality}}">{{qualitylocalize quality}}</label>
+                        <input id="{{id}}-system.qualities.{{quality}}" name="system.qualities.{{quality}}" type="checkbox" value="flexible" {{checked (lookup ../system.qualities quality)}}/>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{#if_nempty compatibilities}}
+            <div class="m-panel">
+                <h1>{{localize "TITLE.SPECIALQUALITIES"}}</h1>
+                <div class="m-qualities">
+                    {{#each compatibilities as | compatibility |}}
+                    <div class="m-quality">
+                        <label for="{{id}}-system.qualities.{{compatibility}}">{{qualitylocalize compatibility}}</label>
+                        <input id="{{id}}-system.qualities.{{compatibility}}" name="system.qualities.{{compatibility}}" type="checkbox" value="flexible" {{checked (lookup ../system.qualities compatibility)}}/>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{/if_nempty}}
+        </div>
+        {{#if system.isArtifact}}
+        {{> systems/symbaroum/template/sheet/tab/artifact.hbs}}
+        {{/if}}
+        <div class="tab" data-group="primary" data-tab="bonus">
+            {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
+        </div>
+    </div>
+</div>

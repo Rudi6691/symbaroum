@@ -1,4 +1,11 @@
-<div class="{{cssClass}}">
+<div class="{{cssClass}}{{#if renderModern}} modern-item-root{{/if}}">
+{{!-- Item-Sheet-Modernisierung v1: Zweig-Umschalter am Wurzel-Template
+    (Muster player.hbs/A6) - schaltet ein User sein Aktorblatt global um,
+    gilt die moderne Ansicht auch hier; der klassische Zweig bleibt
+    UNVERÄNDERT. --}}
+{{#if renderModern}}
+{{> systems/symbaroum/template/sheet/modern/item/ability.hbs}}
+{{else}}
     <div class="ability">
         <div class="sheet-header foreground border">
             <div class="avatar">
@@ -95,4 +102,5 @@
             </div>
         </div>
     </div>
+{{/if}}
 </div>

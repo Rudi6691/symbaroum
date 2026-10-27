@@ -1,4 +1,11 @@
 import { isStackableItem } from '../common/stacking.js';
+// Item-Sheet-Modernisierung v1: die moderne Ansicht der Item-Blätter folgt
+// dem GLOBALEN Umschalter pro Nutzer (Rudolfs Entscheidung 27.10.) - schaltet
+// ein Nutzer sein Spieler-/Monsterblatt um, gelten ALLE seiner Blätter
+// (inkl. Items) als modern; klassische Item-Templates bleiben erhalten.
+import { getModernSheetUserStyle, getModernSheetEffectiveDesign } from '../common/modernSheetConfig.js';
+import { symbDialog } from '../common/symbDialog.js';
+import { allocateFromBase, getDenominations } from '../common/currency.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -64,6 +71,16 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			powerCreate: function (event) {
 				this._onPowerCreate(event);
 			},
+			// Item-Sheet-Modernisierung v1: Kopf-Interaktionen der modernen Ansicht
+			openPriceDialog: function (event) {
+				this._onOpenPriceDialog(event);
+			},
+			quantityPlus: function (event) {
+				this._onQuantityAdjust(event, 1);
+			},
+			quantityMinus: function (event) {
+				this._onQuantityAdjust(event, -1);
+			},
 		},
 	};
 
@@ -102,6 +119,17 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   false schreiben und das Default-Merging abschalten. Umgekehrt
 		   zeigen Waffen/Rüstungen/Artefakte bei undefined "unchecked". */
 		context.stackableChecked = isStackableItem(this.item);
+		/* Item-Sheet-Modernisierung v1: renderModern schaltet jedes der 11
+		   Item-Blätter in den modernisierten Zweig seines Wurzel-Templates -
+		   EXAKT wie am Aktorblatt (A6): Welt-Setting aktiviert, individuelle
+		   Präferenz des Nutzers (User-Flag, Fallback: Design-Default) wählt
+		   die Ansicht. Die modernen Kontextdaten werden nur im modernen Zweig
+		   aufgebaut (Kosten nur zahlen, wenn die Ansicht aktiv ist). */
+		const modernEnabled = !!game.settings.get('symbaroum', 'modernSheetEnabled');
+		context.renderModern = !!(modernEnabled && getModernSheetUserStyle() === 'modern');
+		if (context.renderModern) {
+			context.modern = this._prepareModernItemContext(getModernSheetEffectiveDesign());
+		}
 		return context;
 	}
 
@@ -291,6 +319,140 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				[`system.power.${newKey}`]: { name: '', description: '', action: '', corruption: '' },
 			},
 		});
+	}
+
+	/* ================================================================
+	 * Item-Sheet-Modernisierung v1: moderne Ansicht der Item-Blätter
+	 * ================================================================ */
+
+	/**
+	 * Kontextdaten des modernisierten fixen Kopfes (Rudolfs Entscheidungen
+	 * 27.10.): Bild + Name immer; Preis kompakt mit Klick -> Währungsdialog
+	 * nur bei Preis-Items (weapon/armor/equipment/container, Teil-3-Integer);
+	 * Gewicht nur bei Gegenständen (die klassische Gewichtsauswahl bleibt als
+	 * select erhalten); Anzahl nur bei Typen mit Anzahl-Verwaltung, die
+	 * ±-Pfeile NUR bei stapelbaren Items (isStackableItem - AP2 v2
+	 * Uniform-Regel), sonst schlichtes Anzeige-Feld. Die Aufteilung des
+	 * Basispreises in Thaler/Schilling/Orteg für den Kopf-Chip folgt dem
+	 * Muster der Aktor-Stammleiste (allocateFromBase).
+	 */
+	_prepareModernItemContext(design) {
+		const item = this.item;
+		const type = item.type;
+		const priceTypes = ['weapon', 'armor', 'equipment', 'container'];
+		const weightTypes = ['weapon', 'armor', 'equipment', 'container', 'artifact'];
+		const numberTypes = ['weapon', 'armor', 'equipment', 'artifact'];
+		const showPrice = priceTypes.includes(type);
+		const showWeight = weightTypes.includes(type);
+		const showNumber = numberTypes.includes(type);
+		const stackable = isStackableItem(item);
+		const price = item.system.price;
+		const priceExists = typeof price === 'number' || typeof price === 'string';
+		const modern = {
+			theme: design?.theme === 'classic' ? 'classic' : 'dark',
+			showPrice,
+			showWeight,
+			showNumber,
+			stackable,
+			showQuantityArrows: showNumber && stackable,
+			priceExists,
+			numberDisplay: Number(item.system.number) > 0 ? item.system.number : 1,
+			weightTooltipKey: type === 'armor' ? 'WEIGHT.TOOLTIP_ARMOR' : 'WEIGHT.TOOLTIP',
+		};
+		/* Kopf-Zeile 2 (Booleans fertig berechnet - A6-Lernweis: Handlebars
+		   hat keinen generischen and-Helper). GM-Referenz mit dem klassischen
+		   UND-Gating (isGM + allowShowReference, wie {{#ifat}} am klassischen
+		   Blatt); Level nur bei Segen/Last; berechnete Kampfwerte nur bei
+		   Waffe/Rüstung; Aktivieren-Button nur bei Fähigkeit/Merkmal/Kraft. */
+		const referenceTypes = ['ability', 'trait', 'mysticalPower', 'boon', 'burden'];
+		modern.showReference =
+			referenceTypes.includes(type) && !!game.user.isGM && !!game.settings.get('symbaroum', 'allowShowReference');
+		modern.showLevel = type === 'boon' || type === 'burden';
+		modern.showComputed = type === 'weapon' || type === 'armor';
+		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
+		if (showPrice && priceExists) {
+			const base = Math.max(0, Math.round(Number(price) || 0));
+			const denoms = getDenominations();
+			const amounts = allocateFromBase(base);
+			modern.price = {
+				thaler: amounts.thaler ?? 0,
+				shilling: amounts.shilling ?? 0,
+				orteg: amounts.orteg ?? 0,
+				abbrThaler: denoms[0]?.abbreviation ?? '',
+				abbrShilling: denoms[1]?.abbreviation ?? '',
+				abbrOrteg: denoms[2]?.abbreviation ?? '',
+			};
+		}
+		return modern;
+	}
+
+	/**
+	 * Theme-Klassen für eigene Dialoge der modernen Item-Ansicht (Muster:
+	 * player.js _modernDialogClasses - das Design wird beim Öffnen gelesen,
+	 * ein laufender Dialog wechselt nicht live mit).
+	 */
+	_modernDialogClasses(...extra) {
+		const theme = getModernSheetEffectiveDesign()?.theme === 'classic' ? 'classic' : 'dark';
+		return ['modern-dialog', `modern-theme-${theme}`, ...extra];
+	}
+
+	/**
+	 * Währungs-Dialog für den kompakten Preis-Chip des fixen Kopfes (Rudolfs
+	 * Anforderung: "Preis wie auf Aktorblättern - kompakte Anzeige, Klick
+	 * öffnet Währungsdialog"). Muster: player.js _openMoneyDialog (A6) -
+	 * Delta-Syntax des <symbaroum-currency>-Elements, Confirm schreibt den
+	 * Basis-Integer. Nur für migrierte Items (priceExists); das Altformat
+	 * {value, denomination} wird bewusst nicht still umgestellt.
+	 */
+	_onOpenPriceDialog(event) {
+		event.preventDefault();
+		if (!this.isEditable || !this.item.isOwner) return;
+		const localize = (key) => game.i18n.localize(key);
+		const price = this.item.system.price;
+		if (typeof price !== 'number' && typeof price !== 'string') return;
+		const currency = Math.max(0, Math.round(Number(price) || 0));
+		const content = `<div class="symbaroum modern-item-money-dialog"><symbaroum-currency value="${currency}"></symbaroum-currency></div>`;
+		symbDialog({
+			title: localize('TITLE.MONEY'),
+			content: content,
+			classes: this._modernDialogClasses('modern-item-money-dialog'),
+			width: 440,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('BUTTON.CONFIRM'),
+					callback: async (html) => {
+						const el = html[0].querySelector('symbaroum-currency');
+						if (!el) return;
+						const total = Math.max(0, Math.round(Number(el.getAttribute('value')) || 0));
+						await this.item.update({ 'system.price': total });
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async (html) => {},
+				},
+			},
+		});
+	}
+
+	/**
+	 * ±-Pfeile der Anzahl im fixen Kopf - NUR bei stapelbaren Items (das
+	 * Template blendet die Pfeile für nicht-stapelbare Items aus). Klemmung
+	 * bei 1 wie der Ausrüstungs-Dialog des Aktorblatts (A6v8/v9: "Übernehmen"
+	 * klemmt getippte Werte auf >= 1; Löschen ist der eigene Weg). Alt-Items
+	 * ohne Anzahl zählen als 1 (AP2-Fallback).
+	 */
+	async _onQuantityAdjust(event, delta) {
+		event.preventDefault();
+		if (!this.isEditable || !this.item.isOwner) return;
+		if (!isStackableItem(this.item)) return;
+		const stored = this.item.system.number;
+		const base = typeof stored === 'number' && stored > 0 ? Math.round(stored) : 1;
+		const next = Math.max(1, base + delta);
+		if (next === base) return;
+		await this.item.update({ 'system.number': next });
 	}
 
 	async sendToChat() {
