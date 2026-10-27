@@ -19,6 +19,14 @@
             </div>
             <div class="m-item-title">
                 <input class="m-name" name="name" id="{{id}}-name" type="text" value="{{item.name}}"/>
+                {{#if modern.showLevel}}
+                {{!-- ItemSheets v3 (Rudolfs Testrunde 3, Punkt 13): Segen/Last-
+                    Stufe zentriert unter dem Namen statt im WERTE-Abschnitt. --}}
+                <div class="m-level-field">
+                    <label for="{{id}}-system.level">{{localize "BOON.LEVEL"}}</label>
+                    <input id="{{id}}-system.level" name="system.level" type="number" value="{{system.level}}" data-dtype="Number"/>
+                </div>
+                {{/if}}
                 <div class="m-subline">{{localize typeLabelKey}}</div>
             </div>
             {{#if modern.showActivate}}
@@ -80,12 +88,6 @@
                 <div class="m-inline-field m-reference-field">
                     <label for="{{id}}-system.reference" data-tooltip="{{localize 'MODERN_ITEM.REFERENCE_TOOLTIP'}}">{{localize "ABILITY.REFERENCE"}}</label>
                     <input id="{{id}}-system.reference" name="system.reference" type="text" value="{{system.reference}}" data-tooltip="{{localize 'MODERN_ITEM.REFERENCE_TOOLTIP'}}"/>
-                </div>
-                {{/if}}
-                {{#if modern.showLevel}}
-                <div class="m-inline-field">
-                    <label for="{{id}}-system.level">{{localize "BOON.LEVEL"}}</label>
-                    <input id="{{id}}-system.level" name="system.level" type="text" value="{{system.level}}" data-dtype="Number"/>
                 </div>
                 {{/if}}
                 {{#if modern.showComputed}}

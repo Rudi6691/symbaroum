@@ -14,7 +14,7 @@ import { SymbaroumItemSheet } from './item.js';
 export class ContainerSheet extends SymbaroumItemSheet {
 	static DEFAULT_OPTIONS = {
 		position: {
-			width: 800,
+			width: 440,
 			height: 640,
 		},
 	};

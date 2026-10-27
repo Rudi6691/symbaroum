@@ -406,7 +406,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   (GM-Referenz/Level/berechnete Kampfwerte). Beide Abschnitte nur
 		   rendern, wenn sie Inhalt haben. */
 		modern.showPossession = showPrice || showWeight || showNumber;
-		modern.showValues = modern.showReference || modern.showLevel || modern.showComputed;
+		/* ItemSheets v3 (Rudolfs Testrunde 3, Punkt 13): Die Segen/Last-Stufe
+		   steht jetzt zentriert unter dem Namen im Kopf (nicht mehr im
+		   WERTE-Abschnitt) - fuer die Abschnitts-Sichtbarkeit zaehlt sie
+		   deshalb nicht mehr mit. */
+		modern.showValues = modern.showReference || modern.showComputed;
 		if (showPrice && priceExists) {
 			const base = Math.max(0, Math.round(Number(price) || 0));
 			const denoms = getDenominations();

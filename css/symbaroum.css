@@ -7821,7 +7821,7 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 }
 
 .symbaroum.sheet.item .modern-root .m-weight-field {
-  flex: 0 1 7rem;
+  flex: 0 1 5.5rem;
 }
 
 .symbaroum.sheet.item .modern-root .m-qty input {
@@ -7968,6 +7968,15 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 .symbaroum.sheet.item .modern-root .m-possess-row .m-qty input {
   height: var(--m-ctrl-h);
   box-sizing: border-box;
+}
+
+/* ItemSheets v3 (Rudolfs Testrunde 3, Punkt 3): Caret-Pfeile der Anzahl
+   auf gleicher Höhe wie das Eingabefeld (Kontrollhöhe der Besitz-Zeile). */
+.symbaroum.sheet.item .modern-root .m-possess-row .m-qty .m-qty-btn {
+  height: var(--m-ctrl-h);
+  width: 1.2rem;
+  border-radius: 0.25rem;
+  align-self: center;
 }
 
 /* Berechnete Kampfwerte (SC/NPC) als reine Anzeige-Chips im Attribut-Chip-
@@ -8126,6 +8135,86 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   width: 2.6rem;
   text-align: center;
   box-sizing: border-box;
+}
+
+/* ---------- ItemSheets v3: Beschreibungs-Editor (Aktorblatt-Muster) -------
+   Rudolfs Testrunde 3, Punkt 11. (a) Pergament-Menüleiste: die klassische
+   Regel .symbaroum .prosemirror menu legt die title.webp-Bannertextur auf
+   die Editor-Menüleiste - im modernen Scope auf die Palette umgestellt.
+   (b) Text unter der Menüleiste: der V14-Core positioniert .editor-content
+   im prose-mirror-Host absolut (inset: 0), der Inhalt scrollt dann oben
+   unter der Menüleiste hervor - Fix wie am Aktorblatt (A6v5): Flex-Kette,
+   Inhalt zurück in den Fluss (static), wächst mit dem Text bis max-height,
+   danach interner Scroll; die Menüleiste überdeckt nichts.
+   (c) Font-Skalierung: Editor-Text auf rem gesetzt - skaliert mit der
+   Foundry-Core-Einstellung zur Schriftgröße. */
+.symbaroum.sheet.item .modern-root .prosemirror menu {
+  background: var(--m-panel2);
+  color: var(--m-ink);
+  font-family: inherit;
+  border-radius: 0.25rem 0.25rem 0 0;
+}
+
+.symbaroum.sheet.item .modern-root prose-mirror {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.symbaroum.sheet.item .modern-root .editor-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.item .modern-root .editor-content {
+  position: static !important;
+  inset: auto !important;
+  height: auto !important;
+  min-height: 8rem !important;
+  max-height: 26rem;
+  overflow-y: auto;
+}
+
+.symbaroum.sheet.item .modern-root .ProseMirror {
+  min-height: 8rem;
+  height: auto;
+  font-size: 0.85rem;
+}
+
+/* ---------- ItemSheets v3: Segen/Last-Stufe unter dem Namen ---------------
+   Rudolfs Testrunde 3, Punkt 13: Stufe zentriert unter dem Namen (nicht
+   mehr im WERTE-Abschnitt). */
+.symbaroum.sheet.item .modern-root .m-level-field {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-level-field label {
+  margin: 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-level-field input {
+  width: 3.2rem;
+  text-align: center;
+}
+
+/* ---------- ItemSheets v3: Erreichte Stufe in der Route markiert ----------
+   Rudolfs Testrunde 3, Punkt 14 (seine Wahl: Route markieren): Bei
+   BESESSENEN Fähigkeiten/Kräften/Merkmalen bekommen die Rail-Icons der
+   bereits erlernten Stufen (system.<stufe>.isActive) Akzent-Rahmen und
+   Akzent-Icon; der aktive Tab bleibt voll gefüllt (Akzent-Hintergrund,
+   Textfarbe --m-bg). */
+.symbaroum.sheet.item .modern-root .modern-rail-btn.m-level-learned {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+.symbaroum.sheet.item .modern-root .modern-rail-btn.m-level-learned.active {
+  color: var(--m-bg);
 }
 
 .symbaroum.sheet.item .modern-root .m-row {
