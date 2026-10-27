@@ -71,12 +71,13 @@
                     </div>
                     <div class="cost">
                         <label>{{localize "WEAPON.COST"}}</label>
-                        {{!-- A38: Preisfeld nur bei migrierten Items (system.price vorhanden),
-                            sonst Migrationshinweis - schützt Alt-Items vor stillschweigender
-                            Vor-Migration beim Abspeichern. --}}
+                        {{!-- Teil 3 (Preisbasis): Basispreis als Ganzzahl in Orteg, editiert im
+                            Geld-Element (wie beim Aktorblatt); nur bei migrierten Items
+                            (system.price = Integer). Altformat {value, denomination} oder
+                            fehlendes Feld => Migrationshinweis, Konvertierung nur per
+                            GM-Makro "Preisbasis-Migration". --}}
                         {{#if (priceExists item)}}
-                        <input type="number" min="0" step="1" data-dtype="Number" name="system.price.value" id="{{id}}-system.price.value" value="{{item.system.price.value}}"/>
-                        <select name="system.price.denomination" id="{{id}}-system.price.denomination">{{{priceDenominations item}}}</select>
+                        <symbaroum-currency value="{{item.system.price}}"{{#unless editable}} readonly{{/unless}}></symbaroum-currency>
                         {{else}}
                         <span class="price-migration-hint">{{localize "PRICE.MIGRATION_HINT"}}</span>
                         {{/if}}

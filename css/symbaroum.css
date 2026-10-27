@@ -5578,11 +5578,13 @@ dialog.symb-dialog.chain-confirm footer button {
 /*# sourceMappingURL=symbaroum.css.map */
 
 /* ============================================================
-   A38v3 — Kostenzeile auf Item-Blättern (Waffe/Rüstung/Ausrüstung):
-   Label halbe Zeilenbreite, Wert- und Währungsfeld je ein Viertel
-   (Rudolfs Wunsch, 25.10.2026). Zeile insgesamt exakt so breit wie
-   die Zeilen darüber — keine flex-Überlauf mehr durch die drei
-   nebeneinanderliegenden Felder.
+   A38v3 / Teil 3 (Preisbasis) — Kostenzeile auf Item-Blättern
+   (Waffe/Rüstung/Ausrüstung/Behälter): Label halbe Zeilenbreite,
+   rechts das Geld-Element (symbaroum-currency, gleiche Bauweise
+   wie auf dem Aktorblatt) mit dem Basispreis in Orteg; die
+   Innenstruktur (.sym-currency-grid/.sym-currency-total) bringt
+   das Element selbst mit (currency.js). Der frühere Wert+Währung-
+   Doppelbereich (je 25%) ist damit entfallen.
    ============================================================ */
 .symbaroum.sheet.item .armor .tab .cost,
 .symbaroum.sheet.item .weapon .tab .stats .cost,
@@ -5599,16 +5601,12 @@ dialog.symb-dialog.chain-confirm footer button {
   width: 50%;
 }
 
-.symbaroum.sheet.item .armor .tab .cost input[type=number],
-.symbaroum.sheet.item .armor .tab .cost select,
-.symbaroum.sheet.item .weapon .tab .stats .cost input[type=number],
-.symbaroum.sheet.item .weapon .tab .stats .cost select,
-.symbaroum.sheet.item .equipment .tab .cost input[type=number],
-.symbaroum.sheet.item .equipment .tab .cost select,
-.symbaroum.sheet.item .container .tab .cost input[type=number],
-.symbaroum.sheet.item .container .tab .cost select {
-  flex: 0 0 25%;
-  width: 25%;
+.symbaroum.sheet.item .armor .tab .cost symbaroum-currency,
+.symbaroum.sheet.item .weapon .tab .stats .cost symbaroum-currency,
+.symbaroum.sheet.item .equipment .tab .cost symbaroum-currency,
+.symbaroum.sheet.item .container .tab .cost symbaroum-currency {
+  flex: 0 0 50%;
+  width: 50%;
   min-width: 0;
 }
 

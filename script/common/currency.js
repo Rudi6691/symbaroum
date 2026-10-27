@@ -256,14 +256,27 @@ export function parseCostString(raw) {
 }
 
 /**
- * Der effektive Basispreis eines Items in Orteg; null, wenn das Item noch
- * kein migriertes Preisfeld hat.
+ * Der effektive Basispreis eines Items in Orteg als Ganzzahl; null, wenn das
+ * Item noch kein migriertes Preisfeld hat.
+ *
+ * Teil 3 (Preisbasis): das Speicherformat ist EINE Ganzzahl in Orteg unter
+ * system.price (Crucible-Modell, kompatibel mit Campaign-Codex-Overrides).
+ * Items, die noch das Altformat {value, denomination} aus A38 tragen
+ * (noch nicht per GM-Makro "Preisbasis-Migration" konvertiert), werden
+ * weiterhin korrekt umgerechnet, damit Gear-Tab/API nie falsche Werte
+ * zeigen - die Blätter zeigen für sie den Migrationshinweis.
  * @param {Item} item
  * @returns {number|null}
  */
 export function getItemPriceBase(item) {
 	const price = item?.system?.price;
 	if (price === undefined || price === null) return null;
+	// Teil 3: Basis-Integer direkt.
+	if (typeof price === 'number' || typeof price === 'string') {
+		const value = Number(price);
+		return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+	}
+	// Altformat {value, denomination} (A38, vor Teil 3 migriert).
 	const value = Number(price.value);
 	if (!Number.isFinite(value)) return 0;
 	const rates = getCurrencyRates();

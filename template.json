@@ -406,7 +406,7 @@
       "description": "",
       "reference": "",
       "cost": "",
-      "price": { "value": 0, "denomination": "orteg" },
+      "price": 0,
       "weight": "none",
       "isArtifact": false,
       "capacity": 0,

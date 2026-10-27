@@ -1,4 +1,3 @@
-import { getDenominations } from './currency.js';
 import { SYMBAROUM } from './config.js';
 
 export const initializeHandlebars = () => {
@@ -161,24 +160,15 @@ function registerHandlebarsHelpers() {
     return aString.toUpperCase();
   });
 
-  // A38 Währungssystem: Helper für die Item-Sheets (weapon/armor/equipment).
-  // priceExists entscheidet, ob das neue Zahl+Einheit-UI gerendert wird oder der
-  // Migrationshinweis (schützt Alt-Items vor stillschweigender Vor-Migration
-  // beim normalen Abspeichern).
+  // A38 Währungssystem / Teil 3 Preisbasis: Helper für die Item-Sheets
+  // (weapon/armor/equipment/container). priceExists entscheidet, ob das
+  // Geld-Element (Basis-Integer) gerendert wird oder der Migrationshinweis
+  // (schützt Items ohne Preisfeld und Items im Altformat {value,
+  // denomination} vor stillschweigender Umstellung beim normalen
+  // Abspeichern - die Konvertierung macht das GM-Makro).
   Handlebars.registerHelper('priceExists', function (item) {
-    return !!(item?.system?.price);
-  });
-
-  // Baut die <option>-Einträge für die Preis-Denomination; Ausgabe als SafeString ({{{ }}}).
-  Handlebars.registerHelper('priceDenominations', function (item) {
-    const current = item?.system?.price?.denomination;
-    const optionsHtml = getDenominations()
-      .map(
-        (d) =>
-          `<option value="${d.id}"${d.id === current ? ' selected' : ''}>${game.i18n.localize(d.label)}</option>`
-      )
-      .join('');
-    return new Handlebars.SafeString(optionsHtml);
+    const price = item?.system?.price;
+    return typeof price === 'number' || typeof price === 'string';
   });
 
   // A39 Belastungssystem (Runde-1-Wunsch): die Gewicht-Zeile wird auf den

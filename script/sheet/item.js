@@ -112,6 +112,21 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			});
 			this.tabs.bind(element);
 		}
+		// Teil 3 (Preisbasis): das Geld-Element im Preisfeld ist bewusst nicht
+		// form-assoziiert (kein stilles Beschreiben von system.price beim
+		// normalen Form-Submit). Änderungen kommen als bubbling change-Event
+		// mit detail.value und werden hier als Basis-Integer (Orteg)
+		// geschrieben. Der Guard verhindert Updates über das Altformat
+		// {value, denomination} hinweg - das zeigt der Migrationshinweis an.
+		const currencyElements = element.querySelectorAll('symbaroum-currency');
+		for (const el of currencyElements) {
+			el.addEventListener('change', (ev) => {
+				if (!this.isEditable || !this.item.isOwner) return;
+				if (typeof this.item.system.price !== 'number' && typeof this.item.system.price !== 'string') return;
+				const total = Math.max(0, Math.round(Number(ev.detail?.value ?? el.getAttribute('value')) || 0));
+				this.item.update({ 'system.price': total });
+			});
+		}
 		// Test round 2, finding 1: Enter/Tab in an input commits via
 		// submitOnChange and the re-rendered .window-content starts scrolled
 		// back to the top - with the restored window scrolling (7.2.8) the

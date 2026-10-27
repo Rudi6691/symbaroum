@@ -593,7 +593,7 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 	// (Duplikate bringen ihr migriertes price bereits mit).
 	if (['weapon', 'armor', 'equipment'].includes(doc.type)) {
 		if (doc.system.price === undefined && String(doc.system.cost ?? '').trim() === '') {
-			doc.updateSource({ 'system.price': { value: 0, denomination: 'orteg' } });
+			doc.updateSource({ 'system.price': 0 });
 		}
 	}
 	// A39 Belastungssystem: Gewichtskategorie "Keine Angabe" (= Nullwert) bei

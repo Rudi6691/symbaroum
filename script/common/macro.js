@@ -1,6 +1,6 @@
 import { prepareRollAttribute } from "../common/dialog.js";
 import { symbDialog } from "../common/symbDialog.js";
-import { getCurrencyRates, getDenominations, parseCostString, getItemPriceBase } from "../common/currency.js";
+import { getCurrencyRates, parseCostString, getItemPriceBase, convertToBase } from "../common/currency.js";
 
 export class SymbaroumMacros {
 	constructor() {}
@@ -1235,6 +1235,15 @@ export class SymbaroumMacros {
 				img: "icons/svg/coins.svg",
 			},
 			{
+				// Teil 3 (Preisbasis): Einmal-Migration der Item-Preise vom
+				// A38-Objektformat {value, denomination} auf den Basis-
+				// Integer (Orteg) - Welt-Items UND alle Inventar-Items
+				// (Rudolfs Bulk-Wunsch)
+				name: game.i18n.localize("MACRO.PRICE_BASE_MIGRATION_NAME"),
+				command: "game.symbaroum.macros.priceBaseMigration();",
+				img: "icons/svg/coins.svg",
+			},
+			{
 				// A39 Belastungssystem: Einmal-Migration der Gewichtskategorien
 				// (Vorschläge aus Waffen-Qualitäten bzw. Rüstungsbehinderung)
 				name: game.i18n.localize("MACRO.WEIGHT_MIGRATION_NAME"),
@@ -1542,10 +1551,12 @@ export class SymbaroumMacros {
 	 * Actor rows: old money values as text, the suggested base total in
 	 * Orteg as an editable input (computed with the configured rates).
 	 * Item rows: old cost free-text (with a warning mark when the parser
-	 * was unsure) plus an editable value/denomination pair.
+	 * was unsure) plus an editable base price in Orteg (integer) - the
+	 * cost text is converted with the configured rates.
 	 *
 	 * One "Accept" button writes everything: actors get system.currency
-	 * (integer, Orteg), items get system.price {value, denomination}. The
+	 * (integer, Orteg), items get system.price (integer, Orteg; Teil 3
+	 * Preisbasis - kein {value, denomination}-Objekt mehr). The
 	 * old fields (system.money, system.cost) are kept untouched - they are
 	 * only hidden; deletion happens in a later release (Rudolf's decision 1).
 	 * Repeatable: already migrated documents no longer show up. GM only.
@@ -1558,7 +1569,6 @@ export class SymbaroumMacros {
 			return;
 		}
 		const rates = getCurrencyRates();
-		const denominations = getDenominations();
 		const warnMark = " &#9888;";
 
 		/* --- Actors: old system.money -> suggested system.currency --- */
@@ -1584,11 +1594,11 @@ export class SymbaroumMacros {
 		   Besitzer-Label für die Anzeige; Welt-Items haben owner null. */
 		const itemEntries = [];
 		for (const item of game.items) {
-			if (["weapon", "armor", "equipment"].includes(item.type)) itemEntries.push({ item, owner: null });
+			if (["weapon", "armor", "equipment", "container"].includes(item.type)) itemEntries.push({ item, owner: null });
 		}
 		for (const actor of game.actors) {
 			for (const item of actor.items) {
-				if (["weapon", "armor", "equipment"].includes(item.type)) itemEntries.push({ item, owner: actor.name });
+				if (["weapon", "armor", "equipment", "container"].includes(item.type)) itemEntries.push({ item, owner: actor.name });
 			}
 		}
 		const allItems = itemEntries.map((e) => e.item);
@@ -1641,18 +1651,20 @@ export class SymbaroumMacros {
 			const item = entry.item;
 			const isSuspect = item.system.price !== undefined;
 			const parsed = parseCostString(item.system.cost);
-			const suggestedValue = isSuspect ? Math.max(0, Math.round(Number(item.system.price.value) || 0)) : (parsed.value ?? 0);
-			const suggestedDenomination = isSuspect ? (item.system.price.denomination ?? "orteg") : (parsed.denomination ?? "orteg");
+			/* Teil 3 Preisbasis: ein editierbarer Basis-Integer in Orteg statt
+			   Wert+Einheit-Paar. Unmigrierte: cost-Freitext über convertToBase
+			   (Denomination aus dem Text, sonst Orteg). Verdachtszeilen: der
+			   aktuelle Basiswert (nach Konvertierung) als Ausgangspunkt. */
+			const suggested = isSuspect
+				? getItemPriceBase(item) ?? 0
+				: convertToBase({ [parsed.denomination ?? "orteg"]: parsed.value ?? 0 });
 			const costText = String(item.system.cost ?? "").trim();
 			const oldCell = costText === "" ? "&mdash;" : foundry.utils.escapeHTML(costText);
 			const displayName = entry.owner ? `${item.name} (${entry.owner})` : item.name;
-			const options = denominations
-				.map((d) => `<option value="${d.id}"${d.id === suggestedDenomination ? " selected" : ""}>${d.abbreviation}</option>`)
-				.join("");
 			itemRows = itemRows.concat(`<tr>
                     <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
                     <td style="padding:2px 6px;">${oldCell}${isSuspect || !parsed.certain ? warnMark : ""}</td>
-                    <td style="padding:2px 6px; white-space:nowrap;"><input style="width:5em; text-align:right;" type="number" min="0" step="1" data-entry-idx="${itemIdx}" class="price-value" value="${suggestedValue}" />&nbsp;<select data-entry-idx="${itemIdx}" class="price-denomination">${options}</select></td>
+                    <td style="padding:2px 6px;"><input style="width:100%; text-align:right;" type="number" min="0" step="1" data-entry-idx="${itemIdx}" class="price-value" value="${suggested}" /></td>
                 </tr>`);
 			itemIdx++;
 		}
@@ -1715,11 +1727,10 @@ export class SymbaroumMacros {
 						let itemCount = 0;
 						for (let i = 0; i < items.length; i++) {
 							const valueInput = root.querySelector(`input.price-value[data-entry-idx="${i}"]`);
-							const denomSelect = root.querySelector(`select.price-denomination[data-entry-idx="${i}"]`);
-							if (!valueInput || !denomSelect) continue;
+							if (!valueInput) continue;
+							/* Teil 3 Preisbasis: system.price ist EIN Integer (Orteg). */
 							const value = Math.max(0, Math.round(Number(valueInput.value) || 0));
-							const denomination = denomSelect.value;
-							await items[i].item.update({ "system.price": { value, denomination } });
+							await items[i].item.update({ "system.price": value });
 							itemCount++;
 						}
 						ui.notifications.info(game.i18n.format("MACRO.CURRENCY_MIGRATION_DONE", { actors: actorCount, items: itemCount }));
@@ -1732,6 +1743,118 @@ export class SymbaroumMacros {
 			default: "Accept",
 		});
 	}
+	/**********************************************
+	 * Teil 3 (Preisbasis): Price Base Migration - one-time conversion of the
+	 * item prices from the A38 object format {value, denomination} into the
+	 * Crucible base format system.price = ONE integer in Orteg.
+	 * Scannt Welt-Items (game.items, Sidebar) UND alle Inventar-Items aller
+	 * Welt-Akteure (Rudolfs Bulk-Wunsch), Typen weapon/armor/equipment/
+	 * container. Rows: alter Wert + Einheit als Text (mit Warnmarke, wenn
+	 * die Einheit unbekannt ist - Fallback Faktor 1) plus der vorgeschlagene
+	 * Basiswert in Orteg als editierbarer Integer (Wert x konfigurierter
+	 * Rate). One "Accept" click writes system.price (integer); the old
+	 * object is fully replaced. Repeatable: items with an integer price no
+	 * longer show up. GM only.
+	 * Run as a script macro or from the console:
+	 * game.symbaroum.macros.priceBaseMigration()
+	 */
+	async priceBaseMigration() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const rates = getCurrencyRates();
+		const warnMark = " &#9888;";
+		const gearTypes = ["weapon", "armor", "equipment", "container"];
+		/* Rudolfs Bulk-Wunsch: Welt-Items (Sidebar) und Inventar-Items aller
+		   Welt-Akteure (Spieler-/Monsterblätter) erfassen; Besitzer-Label für
+		   die Anzeige, Welt-Items haben owner null. */
+		const entries = [];
+		for (const item of game.items) {
+			if (gearTypes.includes(item.type)) entries.push({ item, owner: null });
+		}
+		for (const actor of game.actors) {
+			for (const item of actor.items) {
+				if (gearTypes.includes(item.type)) entries.push({ item, owner: actor.name });
+			}
+		}
+		const total = entries.length;
+		const items = entries
+			.filter((e) => typeof e.item.system.price === "object" && e.item.system.price !== null)
+			.sort(
+				(a, b) =>
+					(a.owner ?? "").localeCompare(b.owner ?? "") ||
+					a.item.name.localeCompare(b.item.name)
+			);
+		if (items.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.PRICE_BASE_MIGRATION_NONE"));
+			return;
+		}
+		let itemRows = "";
+		let itemIdx = 0;
+		for (const entry of items) {
+			const item = entry.item;
+			const price = item.system.price;
+			const oldValue = Math.max(0, Math.round(Number(price.value) || 0));
+			const denomination = price.denomination ?? "orteg";
+			const rate = rates[denomination];
+			const suggested = Math.max(0, Math.round(oldValue * (rate ?? 1)));
+			const oldCell = `${oldValue} ${foundry.utils.escapeHTML(String(denomination))}`;
+			const displayName = entry.owner ? `${item.name} (${entry.owner})` : item.name;
+			itemRows = itemRows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
+                    <td style="padding:2px 6px;">${oldCell}${rate === undefined ? warnMark : ""}</td>
+                    <td style="padding:2px 6px;"><input style="width:100%; text-align:right;" type="number" min="0" step="1" data-entry-idx="${itemIdx}" class="price-value" value="${suggested}" /></td>
+                </tr>`);
+			itemIdx++;
+		}
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.PRICE_BASE_MIGRATION_HEADER")}</p>
+        <p style="margin:0 0 4px 0; font-size:0.9em; opacity:0.8;">${game.i18n.format("MACRO.PRICE_BASE_MIGRATION_ALREADY", {
+			items: total - items.length,
+			itemsTotal: total,
+		})}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th>${game.i18n.localize("MACRO.PRICE_BASE_MIGRATION_OLD")}</th>
+                <th style="text-align:right;">${game.i18n.localize("MACRO.PRICE_BASE_MIGRATION_NEW")}</th>
+            </tr>
+            ${itemRows}
+        </table>
+        </div>
+        </div>`;
+
+		symbDialog({
+			width: 700,
+			title: game.i18n.localize("MACRO.PRICE_BASE_MIGRATION_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Accept: {
+					label: game.i18n.localize("MACRO.PRICE_BASE_MIGRATION_ACCEPT"),
+					callback: async (html) => {
+						const root = html[0];
+						let itemCount = 0;
+						for (let i = 0; i < items.length; i++) {
+							const valueInput = root.querySelector(`input.price-value[data-entry-idx="${i}"]`);
+							if (!valueInput) continue;
+							const value = Math.max(0, Math.round(Number(valueInput.value) || 0));
+							await items[i].item.update({ "system.price": value });
+							itemCount++;
+						}
+						ui.notifications.info(game.i18n.format("MACRO.PRICE_BASE_MIGRATION_DONE", { items: itemCount }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("BUTTON.CANCEL"),
+				},
+			},
+			default: "Accept",
+		});
+	}
+
 
 	/**********************************************
 	 * A39 Belastungssystem: Weight Migration - opens an overview dialog with
