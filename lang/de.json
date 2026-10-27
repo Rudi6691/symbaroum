@@ -1346,6 +1346,14 @@
   "MACRO.CONTAINER_MIGRATION_NONE": "Keine Ausrüstung mit Behälter-Namen gefunden.",
   "MACRO.CONTAINER_MIGRATION_ACCEPT": "Übernehmen",
   "MACRO.CONTAINER_MIGRATION_DONE": "{count} Behälter konvertiert.",
-  "MODERN_ITEM.SECTION_POSSESSION": "Besitz",
-  "MODERN_ITEM.SECTION_VALUES": "Werte"
+  "MODERN_ITEM.SECTION_POSSESSION": "Preis",
+  "MODERN_ITEM.SECTION_VALUES": "Werte",
+  "MODERN_ITEM.BONUS_TITLE": "Modifikatoren",
+  "MODERN_ITEM.BONUS_TOUGHNESS": "Zähigkeit",
+  "MODERN_ITEM.BONUS_PAIN_THRESHOLD": "Schmerzgrenze",
+  "MODERN_ITEM.BONUS_CORRUPTION_THRESHOLD": "Korruptionsschwelle",
+  "MODERN_ITEM.BONUS_CORRUPTION_LIMIT": "Korruptionsgrenze",
+  "MODERN_ITEM.REFERENCE_TOOLTIP": "Technischer RAW-Schlüssel (z. B. „regeneration“), über den Automatiken (Hooks, Kampfwerte, Enricher) dieses Item erkennen. GM setzt ihn bei Custom-/Kompendium-Imports; bei Waffen: Waffenklasse.",
+  "MODERN.BONUS_MINUS": "Wert um 1 verringern",
+  "MODERN.BONUS_PLUS": "Wert um 1 erhöhen"
 }

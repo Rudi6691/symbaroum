@@ -2,7 +2,6 @@
     Kopf mit Level-Feld in Zeile 2, GM-Referenz; Tabs Beschreibung + Bonus
     (klassische Tab-Struktur). --}}
 {{> systems/symbaroum/template/sheet/modern/item/header.hbs typeLabelKey="BOON.NAME"}}
-    <div class="m-main-row">
     <div class="sheet-body m-item-body">
         <div class="tab" data-group="primary" data-tab="description">
             <div class="m-panel">
@@ -11,12 +10,12 @@
             </div>
         </div>
         <div class="tab" data-group="primary" data-tab="bonus">
-            {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
+            {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
-    <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
-        <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
-        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-arrow-up"></i></button>
-    </nav>
     </div>
 </div>
+    <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
+        <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
+        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>
+    </nav>
 </div>

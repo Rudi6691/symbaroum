@@ -81,6 +81,14 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			quantityMinus: function (event) {
 				this._onQuantityAdjust(event, -1);
 			},
+			/* ItemSheets v2.1 (Bonus-Tab-Überarbeitung): Caret-Stepper am
+			   Modifikator-Feld - Klemmung -10/+10 (Rudolfs Vorgabe). */
+			bonusMinus: function (event) {
+				this._onBonusAdjust(event, -1);
+			},
+			bonusPlus: function (event) {
+				this._onBonusAdjust(event, 1);
+			},
 		},
 	};
 
@@ -129,6 +137,28 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		context.renderModern = !!(modernEnabled && getModernSheetUserStyle() === 'modern');
 		if (context.renderModern) {
 			context.modern = this._prepareModernItemContext(getModernSheetEffectiveDesign());
+			/* ItemSheets v2.1 (Bonus-Tab-Überarbeitung, Rudolfs Testrunde 2):
+			   Modifikatoren-Zweispalter - links die 8 Eigenschaften, rechts
+			   die Wertefelder. Bewusst HIER vorbereitet (Booleans fertig in
+			   JS statt Template-Logik, Muster des modernen Kopfes): die
+			   Labels der umbenannten Felder werden auf moderne Keys
+			   umgebogen ("Zäh. Max"->"Zähigkeit", "Zäh. Schmerzgrenze"->
+			   "Schmerzgrenze", "Absolut"->"Korruptionsgrenze"); die Config-
+			   Arrays (script/common/config.js) bleiben unberührt, die
+			   klassische Ansicht zeigt weiter die Original-Labels.
+			   Rüstungen hängen ihr Behinderungs-Feld in armor.js an (nach
+			   super-Aufruf). */
+			const MODERN_BONUS_LABELS = {
+				'system.bonus.toughness.max': 'MODERN_ITEM.BONUS_TOUGHNESS',
+				'system.bonus.toughness.threshold': 'MODERN_ITEM.BONUS_PAIN_THRESHOLD',
+				'system.bonus.corruption.threshold': 'MODERN_ITEM.BONUS_CORRUPTION_THRESHOLD',
+				'system.bonus.corruption.max': 'MODERN_ITEM.BONUS_CORRUPTION_LIMIT',
+			};
+			const withModernLabel = (b) => ({ ...b, label: MODERN_BONUS_LABELS[b.name] ?? b.label });
+			const isAttributeBonus = (b) => ['accurate', 'cunning', 'discreet', 'persuasive', 'quick', 'resolute', 'strong', 'vigilant']
+				.includes(b.name.split('.')[2]);
+			context.modern.bonusAttributes = context.bonuses.filter(isAttributeBonus).map(withModernLabel);
+			context.modern.bonusStats = context.bonuses.filter((b) => !isAttributeBonus(b)).map(withModernLabel);
 		}
 		return context;
 	}
@@ -460,6 +490,25 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		const next = Math.max(1, base + delta);
 		if (next === base) return;
 		await this.item.update({ 'system.number': next });
+	}
+
+	/**
+	 * ItemSheets v2.1 (Bonus-Tab-Überarbeitung): Caret-Stepper für die
+	 * Modifikator-Felder - gleiche Optik wie die Anzahl-Pfeile im Kopf.
+	 * Ober-/Untergrenze: Feld war unbegrenzt, Rudolfs Vorgabe -10/+10
+	 * (Klemmung hier UND min/max-Attribute am Input im Template).
+	 * Alt-Werte undefined/'' zählen als 0 (Foundry rendert sie als 0).
+	 */
+	async _onBonusAdjust(event, delta) {
+		event.preventDefault();
+		if (!this.isEditable || !this.item.isOwner) return;
+		const name = event.currentTarget?.dataset?.name;
+		if (!name || !name.startsWith('system.')) return;
+		const stored = foundry.utils.getProperty(this.item, name);
+		const base = Number.isFinite(Number(stored)) ? Math.round(Number(stored)) : 0;
+		const next = Math.min(10, Math.max(-10, base + delta));
+		if (next === base) return;
+		await this.item.update({ [name]: next });
 	}
 
 	async sendToChat() {

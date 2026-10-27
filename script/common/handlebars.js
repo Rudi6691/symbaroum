@@ -59,6 +59,8 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/modern/item/ritual.hbs',
     'systems/symbaroum/template/sheet/modern/item/trait.hbs',
     'systems/symbaroum/template/sheet/modern/item/weapon.hbs',
+    // ItemSheets v2.1: modernisierter Bonus-Tab (Modifikatoren-Zweispalter)
+    'systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs',
   ];
   return foundry.applications.handlebars.loadTemplates(templatePaths);
 }

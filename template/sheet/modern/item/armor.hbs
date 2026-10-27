@@ -3,7 +3,6 @@
     Gewicht, Anzahl; Stats-Tab mit Basis-/Bonus-Schutz und Qualität; Qualitäten;
     Bonus; Kraft nur bei isArtifact. --}}
 {{> systems/symbaroum/template/sheet/modern/item/header.hbs typeLabelKey="ARMOR.NAME"}}
-    <div class="m-main-row">
     <div class="sheet-body m-item-body">
         <div class="tab" data-group="primary" data-tab="description">
             <div class="m-panel">
@@ -74,17 +73,17 @@
         {{> systems/symbaroum/template/sheet/tab/artifact.hbs}}
         {{/if}}
         <div class="tab" data-group="primary" data-tab="bonus">
-            {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
+            {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
+    </div>
+</div>
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
         <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
-        <button type="button" class="modern-rail-btn" data-tab="stats" data-tooltip="{{localize 'TAB.STATS'}}"><i class="fas fa-gears"></i></button>
+        <button type="button" class="modern-rail-btn" data-tab="stats" data-tooltip="{{localize 'TAB.STATS'}}"><i class="fas fa-gear"></i></button>
         <button type="button" class="modern-rail-btn" data-tab="qualities" data-tooltip="{{localize 'TAB.QUALITIES'}}"><i class="fas fa-check-double"></i></button>
         {{#if system.isArtifact}}
         <button type="button" class="modern-rail-btn" data-tab="power" data-tooltip="{{localize 'TAB.POWER'}}"><i class="fas fa-wand-magic-sparkles"></i></button>
         {{/if}}
-        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-arrow-up"></i></button>
+        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>
     </nav>
-    </div>
-</div>
 </div>

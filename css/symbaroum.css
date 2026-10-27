@@ -7564,14 +7564,37 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 /* ====================================================================== */
 
 /* ---------- Grundlayout + Theme-Variablen (Palette wie Aktorblatt) ------ */
+/* ItemSheets v2.1 (Rudolfs Testrunde 2): Fenster-Pinning nach dem
+   erprobten Aktor-Muster (A6v5). .modern-item-root (Marker-Klasse am
+   Wurzel-Div des klassischen Templates, nur im modernen Zweig gesetzt)
+   wird aus dem Fluss genommen und füllt .window-content komplett
+   (inset: 0) - Form und Zwischen-Wrapper kollabieren harmlos (die
+   benannten Eingabefelder bleiben DOM-Kinder des form, der Form-Submit
+   ist unberührt). .window-content scrollt nie wieder; m-item-body ist
+   der Scroll-Container. Zwei Effekte: die Rail steht über die volle
+   Fensterhöhe am rechten Fensterrand (wie am Aktorblatt), und der grün
+   gemusterte Charakterbogen-Hintergrund (.window-content, Zeile ~747)
+   ist im modernen Zweig komplett verdeckt. :has() greift nur, wenn der
+   moderne Zweig gerendert ist - klassische Item-Blätter bleiben unberührt. */
+.symbaroum.sheet.item .window-content:has(div.modern-item-root) {
+  position: relative;
+  overflow: hidden;
+}
+
+.symbaroum.sheet.item .window-content div.modern-item-root {
+  position: absolute !important;
+  inset: 0 !important;
+  overflow: hidden;
+}
+
 .symbaroum.sheet.item .modern-root {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
   min-height: 0;
   box-sizing: border-box;
-  padding: 0.55rem;
-  gap: 0.45rem;
+  padding: 0;
+  gap: 0;
   font-size: 0.8rem;
   --m-bg: #0f1412;
   --m-panel: #182019;
@@ -7831,17 +7854,32 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   border-color: var(--m-accent);
 }
 
-/* Aktivieren-Button (Fähigkeit/Merkmal/Kraft) */
+/* Aktivieren-Button (Fähigkeit/Merkmal/Kraft). ItemSheets v2.1 (Rudolfs
+   Testrunde 2): so groß wie das Avatar-Bild (64px) statt des kleinen
+   Icon-Buttons. */
 .symbaroum.sheet.item .modern-root .m-activate-btn {
   flex: 0 0 auto;
-  padding: 0.15rem;
+  width: 64px;
+  height: 64px;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   align-self: center;
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-activate-btn:hover {
+  border-color: var(--m-accent);
 }
 
 .symbaroum.sheet.item .modern-root .m-activate-btn img {
   display: block;
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* ---------- Layout v2: Kopf-Abschnitte im Stammleisten-Stil -------------
@@ -7877,6 +7915,59 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   gap: 0.5rem;
   align-items: flex-end;
   margin-top: 0.15rem;
+}
+
+/* ---------- ItemSheets v2.1: Besitz-Zeile (Testrunde 2) --------------------
+   Preis, Gewicht und Anzahl in EINER Zeile (kein Umbruch), ihre Labels im
+   m-sec-label-Stil auf gleicher Höhe über den Feldern; die Steuerungen sind
+   gleich hoch - das Preisfeld ist der Maßstab (Kontrollhöhe --m-ctrl-h). */
+.symbaroum.sheet.item .modern-root .m-possess-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.4rem 1.2rem;
+  align-items: flex-start;
+  margin-top: 0.15rem;
+  --m-ctrl-h: 1.9rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-possess-field {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-possess-field > label.m-sec-label {
+  display: block;
+  margin-bottom: 0.1rem;
+  white-space: nowrap;
+}
+
+.symbaroum.sheet.item .modern-root .m-possess-row .m-price-btn {
+  height: var(--m-ctrl-h);
+  box-sizing: border-box;
+  align-items: center;
+}
+
+.symbaroum.sheet.item .modern-root .m-possess-row .m-price-missing {
+  height: var(--m-ctrl-h);
+  display: inline-flex;
+  align-items: center;
+}
+
+.symbaroum.sheet.item .modern-root .m-possess-row select {
+  height: var(--m-ctrl-h);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.symbaroum.sheet.item .modern-root .m-possess-row .m-qty {
+  height: var(--m-ctrl-h);
+  align-items: center;
+}
+
+.symbaroum.sheet.item .modern-root .m-possess-row .m-qty input {
+  height: var(--m-ctrl-h);
+  box-sizing: border-box;
 }
 
 /* Berechnete Kampfwerte (SC/NPC) als reine Anzeige-Chips im Attribut-Chip-
@@ -7919,12 +8010,21 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   flex: 0 0 auto;
 }
 
-/* ---------- Layout v2: Hauptzeile (Body links | Icon-Route rechts) ----- */
-.symbaroum.sheet.item .modern-root .m-main-row {
+/* ---------- Layout v2.1: Hauptspalte (Kopf + Body) | Icon-Route rechts -- */
+/* ItemSheets v2.1 (Rudolfs Testrunde 2): Die Route ist jetzt direktes Kind
+   von .modern-root (nicht mehr in einer Body-Zeile gewickelt) - sie steht
+   damit über die volle Fensterhöhe am rechten Rand, exakt wie am Aktorblatt.
+   Die Hauptspalte nimmt den Rest; Padding/Gap, die vorher am Root lagen,
+   liegen jetzt hier. */
+.symbaroum.sheet.item .modern-root .m-item-main {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  box-sizing: border-box;
 }
 
 /* Icon-Route rechts - Rudolfs Entscheidung (Testrunde 1): NUR Icons wie
@@ -8002,6 +8102,30 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
   gap: 0.5rem 0.9rem;
+}
+
+/* ---------- ItemSheets v2.1: Bonus-Tab (Modifikatoren, Zweispalter) --------
+   Rudolfs Testrunde 2: sauberer Zweispalter unter der Überschrift - links
+   die 8 Eigenschafts-Boni, rechts die Wertefelder; Eingaben kompakt mit
+   Caret-Steppern (Klassen der Kopf-Anzahl-Pfeile .m-qty/.m-qty-btn). */
+.symbaroum.sheet.item .modern-root .m-bonus-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 1.4rem;
+  align-items: start;
+}
+
+.symbaroum.sheet.item .modern-root .m-bonus-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-bonus-ctrl input {
+  width: 2.6rem;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .symbaroum.sheet.item .modern-root .m-row {

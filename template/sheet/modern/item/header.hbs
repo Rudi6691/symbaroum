@@ -11,6 +11,7 @@
     Muster player-modern.hbs); das Typ-Template liefert Body + Icon-Route
     und schliesst modern-root. --}}
 <div class="modern-root modern-theme-{{modern.theme}}{{#unless editable}} modern-locked{{/unless}}">
+    <div class="m-item-main">
     <div class="m-item-header">
         <div class="m-item-row">
             <div class="m-avatar">
@@ -26,29 +27,37 @@
         </div>
         <div class="m-section-row">
         {{#if modern.showPossession}}
-        <div class="m-item-section">
-            <div class="m-sec-label">{{localize "MODERN_ITEM.SECTION_POSSESSION"}}</div>
-            <div class="m-item-chips">
+        {{!-- ItemSheets v2.1 (Rudolfs Testrunde 2): Die drei Besitz-Felder
+            stehen in EINER Zeile, ihre Labels (Preis/Gewicht/Anzahl) auf
+            gleicher Hoehe ueber den Feldern - der fruehere Abschnitts-Titel
+            "Besitz" ist entfallen, das Preis-Feld traegt sein Label selbst
+            (MODERN_ITEM.SECTION_POSSESSION heisst jetzt "Preis"). Die
+            Felder sind gleich hoch (CSS: einheitliche Steuerungshoehe). --}}
+        <div class="m-item-section m-possess-section">
+            <div class="m-possess-row">
                 {{#if modern.showPrice}}
-                {{#if modern.priceExists}}
-                <button type="button" class="m-price-btn{{#unless editable}} m-readonly{{/unless}}" data-action="openPriceDialog" data-tooltip="{{localize 'MODERN_ITEM.PRICE_HINT'}}">
-                    <span class="mfield"><b>{{modern.price.thaler}}</b><span>{{modern.price.abbrThaler}}</span></span>
-                    <span class="mfield"><b>{{modern.price.shilling}}</b><span>{{modern.price.abbrShilling}}</span></span>
-                    <span class="mfield"><b>{{modern.price.orteg}}</b><span>{{modern.price.abbrOrteg}}</span></span>
-                </button>
-                {{else}}
-                <span class="m-price-missing" data-tooltip="{{localize 'PRICE.MIGRATION_HINT'}}"><i class="fas fa-coins"></i></span>
-                {{/if}}
+                <div class="m-inline-field m-possess-field">
+                    <label class="m-sec-label">{{localize "MODERN_ITEM.SECTION_POSSESSION"}}</label>
+                    {{#if modern.priceExists}}
+                    <button type="button" class="m-price-btn{{#unless editable}} m-readonly{{/unless}}" data-action="openPriceDialog" data-tooltip="{{localize 'MODERN_ITEM.PRICE_HINT'}}">
+                        <span class="mfield"><b>{{modern.price.thaler}}</b><span>{{modern.price.abbrThaler}}</span></span>
+                        <span class="mfield"><b>{{modern.price.shilling}}</b><span>{{modern.price.abbrShilling}}</span></span>
+                        <span class="mfield"><b>{{modern.price.orteg}}</b><span>{{modern.price.abbrOrteg}}</span></span>
+                    </button>
+                    {{else}}
+                    <span class="m-price-missing" data-tooltip="{{localize 'PRICE.MIGRATION_HINT'}}"><i class="fas fa-coins"></i></span>
+                    {{/if}}
+                </div>
                 {{/if}}
                 {{#if modern.showWeight}}
-                <div class="m-inline-field m-weight-field">
-                    <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
+                <div class="m-inline-field m-weight-field m-possess-field">
+                    <label class="m-sec-label" for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
                     <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize modern.weightTooltipKey}}">{{{weightOptions item}}}</select>
                 </div>
                 {{/if}}
                 {{#if modern.showNumber}}
-                <div class="m-inline-field m-qty-field">
-                    <label for="{{id}}-system.number">{{localize "EQUIPMENT.NUMBER"}}</label>
+                <div class="m-inline-field m-qty-field m-possess-field">
+                    <label class="m-sec-label" for="{{id}}-system.number">{{localize "EQUIPMENT.NUMBER"}}</label>
                     <div class="m-qty{{#unless modern.showQuantityArrows}} m-qty-plain{{/unless}}">
                         {{#if modern.showQuantityArrows}}
                         <button type="button" class="m-qty-btn" data-action="quantityMinus" data-tooltip="{{localize 'MODERN.QTY_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
@@ -69,8 +78,8 @@
             <div class="m-item-chips">
                 {{#if modern.showReference}}
                 <div class="m-inline-field m-reference-field">
-                    <label for="{{id}}-system.reference">{{localize "ABILITY.REFERENCE"}}</label>
-                    <input id="{{id}}-system.reference" name="system.reference" type="text" value="{{system.reference}}"/>
+                    <label for="{{id}}-system.reference" data-tooltip="{{localize 'MODERN_ITEM.REFERENCE_TOOLTIP'}}">{{localize "ABILITY.REFERENCE"}}</label>
+                    <input id="{{id}}-system.reference" name="system.reference" type="text" value="{{system.reference}}" data-tooltip="{{localize 'MODERN_ITEM.REFERENCE_TOOLTIP'}}"/>
                 </div>
                 {{/if}}
                 {{#if modern.showLevel}}

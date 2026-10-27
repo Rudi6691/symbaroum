@@ -1,0 +1,42 @@
+{{!-- ItemSheets v2.1 (Rudolfs Testrunde 2, Bonus-Tab-Überarbeitung):
+    Modernisierter Bonus-Tab NUR für den modernen Zweig - die klassische
+    Ansicht bleibt auf tab/bonus.hbs (unverändert). Überschrift
+    "Modifikatoren" statt "Eigenschaften"; sauberer Zweispalter unter der
+    Überschrift: linke Spalte die 8 Eigenschafts-Boni, rechte Spalte die
+    Wertefelder (Verteidigung, Zähigkeit, Schmerzgrenze, Korruptions-
+    schwelle, Korruptionsgrenze, Erfahrung; Rüstung zusätzlich Behinderungs-
+    Abzug - armor.js hängt es an modern.bonusStats an). Umbenannte Labels
+    werden in item.js auf moderne i18n-Keys umgebogen, so dass die Config-
+    Arrays und die klassische Ansicht unberührt bleiben. Eingaben kompakt
+    mit Caret-Steppern (Optik der Kopf-Anzahl-Pfeile, Ausrüstungs-Kontext-
+    menü-Stil); Ober-/Untergrenze -10/+10 als min/max am Input und Klemmung
+    im Handler item.js _onBonusAdjust. --}}
+<div class="m-panel m-bonus">
+    <h1>{{localize "MODERN_ITEM.BONUS_TITLE"}}</h1>
+    <div class="m-bonus-grid">
+        <div class="m-bonus-col">
+            {{#each modern.bonusAttributes as | bonus |}}
+            <div class="m-inline-field m-bonus-field">
+                <label for="{{lookup ../item 'id'}}-{{bonus.name}}">{{localize bonus.label}}</label>
+                <div class="m-qty m-bonus-ctrl">
+                    <button type="button" class="m-qty-btn" data-action="bonusMinus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_MINUS'}}"><i class="fas fa-caret-left"></i></button>
+                    <input id="{{lookup ../item 'id'}}-{{bonus.name}}" name="{{bonus.name}}" type="number" min="-10" max="10" value="{{getProperty ../item bonus.name}}" data-dtype="Number"/>
+                    <button type="button" class="m-qty-btn" data-action="bonusPlus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_PLUS'}}"><i class="fas fa-caret-right"></i></button>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+        <div class="m-bonus-col">
+            {{#each modern.bonusStats as | bonus |}}
+            <div class="m-inline-field m-bonus-field">
+                <label for="{{lookup ../item 'id'}}-{{bonus.name}}">{{localize bonus.label}}</label>
+                <div class="m-qty m-bonus-ctrl">
+                    <button type="button" class="m-qty-btn" data-action="bonusMinus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_MINUS'}}"><i class="fas fa-caret-left"></i></button>
+                    <input id="{{lookup ../item 'id'}}-{{bonus.name}}" name="{{bonus.name}}" type="number" min="-10" max="10" value="{{getProperty ../item bonus.name}}" data-dtype="Number"/>
+                    <button type="button" class="m-qty-btn" data-action="bonusPlus" data-name="{{bonus.name}}" data-tooltip="{{localize 'MODERN.BONUS_PLUS'}}"><i class="fas fa-caret-right"></i></button>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+</div>

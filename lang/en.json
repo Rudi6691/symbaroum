@@ -1346,6 +1346,14 @@
   "MACRO.CONTAINER_MIGRATION_NONE": "No equipment with container names found.",
   "MACRO.CONTAINER_MIGRATION_ACCEPT": "Accept",
   "MACRO.CONTAINER_MIGRATION_DONE": "{count} container(s) converted.",
-  "MODERN_ITEM.SECTION_POSSESSION": "Possessions",
-  "MODERN_ITEM.SECTION_VALUES": "Values"
+  "MODERN_ITEM.SECTION_POSSESSION": "Price",
+  "MODERN_ITEM.SECTION_VALUES": "Values",
+  "MODERN_ITEM.BONUS_TITLE": "Modifiers",
+  "MODERN_ITEM.BONUS_TOUGHNESS": "Toughness",
+  "MODERN_ITEM.BONUS_PAIN_THRESHOLD": "Pain Threshold",
+  "MODERN_ITEM.BONUS_CORRUPTION_THRESHOLD": "Corruption Threshold",
+  "MODERN_ITEM.BONUS_CORRUPTION_LIMIT": "Corruption Limit",
+  "MODERN_ITEM.REFERENCE_TOOLTIP": "Technical RAW key (e.g. „regeneration”) by which automations (hooks, combat values, enricher) recognize this item. Set by the GM on custom/compendium imports; on weapons: weapon class.",
+  "MODERN.BONUS_MINUS": "Decrease value by 1",
+  "MODERN.BONUS_PLUS": "Increase value by 1"
 }

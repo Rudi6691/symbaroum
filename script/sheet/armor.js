@@ -29,6 +29,17 @@ export class ArmorSheet extends SymbaroumItemSheet {
 		context.qualities = game.symbaroum.config.armorQualities;
 		context.compatibilities = game.symbaroum.config.armorCompatibilities;
 		context.bonuses = [...context.bonuses, ...game.symbaroum.config.BONUS_FIELDS_ARMOR];
+		/* ItemSheets v2.1: die Subklassen erweitern context.bonuses NACH dem
+		   super-Aufruf - context.modern ist da schon fertig aufgebaut. Das
+		   Rüstungs-Zusatzfeld (Behinderungs-Abzug) deshalb hier zusätzlich
+		   in die moderne Werte-Spalte des Bonus-Tabs haengen; die klassische
+		   Ansicht laeuft weiter ueber context.bonuses (unten unverändert). */
+		if (context.renderModern) {
+			context.modern.bonusStats = [
+				...context.modern.bonusStats,
+				...game.symbaroum.config.BONUS_FIELDS_ARMOR,
+			];
+		}
 		context.protection_selection = game.symbaroum.config.ARMOR_PROTECTION_SELECTION;
 		return context;
 	}
