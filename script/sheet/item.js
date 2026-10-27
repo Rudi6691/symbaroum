@@ -1,3 +1,5 @@
+import { isStackableItem } from '../common/stacking.js';
+
 const { api, sheets } = foundry.applications;
 
 /**
@@ -92,6 +94,14 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		context.action_types = game.symbaroum.config.ACTION_TYPES;
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;
+		/* AP2 v2 (Uniform-Regel): Effektiver Stapelbar-Zustand für die
+		   Checkboxen der Gear-Blätter (Waffe/Rüstung/Ausrüstung/Artefakt).
+		   Bewusst VORBERECHNET statt im Template entschieden: Ausrüstung
+		   ohne Artefakt-Flag ist bei undefined default STAPELBAR - die
+		   Checkbox muss "checked" zeigen, sonst würde der erste Form-Submit
+		   false schreiben und das Default-Merging abschalten. Umgekehrt
+		   zeigen Waffen/Rüstungen/Artefakte bei undefined "unchecked". */
+		context.stackableChecked = isStackableItem(this.item);
 		return context;
 	}
 

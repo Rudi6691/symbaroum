@@ -21,7 +21,7 @@ import {
 } from '../common/container.js';
 // AP2 Stapeln (Merge-on-Drop): Drops auf Behälterzeilen mergen mit einem
 // identischen Stapel INNERHALB des Behälters, statt ein zweites Item anzulegen.
-import { mergeStackDrop } from '../common/stacking.js';
+import { isStackableItem, mergeStackDrop, splitStackItem } from '../common/stacking.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -546,17 +546,25 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		   Verwaiste Referenzen (Behälter gelöscht) gelten als nicht verpackt. */
 		const packed = (rawItem) =>
 			!!(rawItem?.system?.container && this.actor.items.get(rawItem.system.container)?.type === 'container');
+		/* AP2 v2 (Uniform-Regel): Waffen/Rüstungen können jetzt stapelbar
+		   sein - ihre Zeile zeigt die Anzahl dann wie Ausrüstung/Artefakte
+		   als "× N" im Untertitel (nur ab 2, sonst bleibt der kompakte
+		   Schaden-/Behinderungs-Text unverändert). */
+		const withCount = (base, rawItem) => {
+			const n = Math.max(1, Math.round(Number(rawItem?.system?.number ?? 1) || 1));
+			return n > 1 ? `${base} · × ${n}` : base;
+		};
 		for (const a of live.armors ?? []) {
 			if (packed(itemsById.get(a.id))) continue;
 			if (a.isNoArmor) {
-				gear.armors.push(gearRow(a.id, a.name, a.img, `${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id), { isNoArmor: true }));
+				gear.armors.push(gearRow(a.id, a.name, a.img, withCount(`${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id)), itemsById.get(a.id), { isNoArmor: true }));
 				continue;
 			}
-			gear.armors.push(gearRow(a.id, a.name, a.img, `${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id)));
+			gear.armors.push(gearRow(a.id, a.name, a.img, withCount(`${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id)), itemsById.get(a.id)));
 		}
 		for (const w of live.weapons ?? []) {
 			if (packed(itemsById.get(w.id))) continue;
-			gear.weapons.push(gearRow(w.id, w.name, w.img, `${w.damage?.displayTextShort ?? ''} · ${localize(`${w.attributeLabel}ABBR`)}`, itemsById.get(w.id)));
+			gear.weapons.push(gearRow(w.id, w.name, w.img, withCount(`${w.damage?.displayTextShort ?? ''} · ${localize(`${w.attributeLabel}ABBR`)}`, itemsById.get(w.id)), itemsById.get(w.id)));
 		}
 		for (const item of context.items) {
 			const s = item.system;
@@ -1023,10 +1031,17 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		// Rechtsklick ins Standard-Kontextmenü durch (kein preventDefault).
 		// stopPropagation verhindert die Delegation des CMPowerMenu, dessen
 		// Listener am Blatt-Root hängt.
+		// AP2 v2 (Uniform-Regel + Stapel trennen): Der Dialog gilt jetzt
+		// für ALLE stapelbaren Items - Waffen/Rüstungen/Artefakte mit
+		// Stapelbar-Flag bekommen denselben Dialog (Anzahl ändern, Löschen,
+		// ab Anzahl 2 zusätzlich "Trennen"). Ohne Flag bleiben Waffen/
+		// Rüstungen beim Standard-Kontextmenü (kein Binding, keine
+		// Regression), normale Ausrüstung behält das A6v8-Verhalten.
 		const equipRows = element.querySelectorAll('.m-gear .m-inv-row');
 		for (const row of equipRows) {
 			const item = this.actor.items.get(row.dataset.itemId);
-			if (!item?.system?.isEquipment) continue;
+			if (!item) continue;
+			if (!item.system?.isEquipment && !isStackableItem(item)) continue;
 			row.addEventListener('contextmenu', (ev) => {
 				if (!this.isEditable || !this.actor.isOwner) return;
 				ev.preventDefault();
@@ -1406,9 +1421,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	async _openEquipmentDialog(item) {
 		const localize = (key) => game.i18n.localize(key);
 		const current = Math.max(1, parseInt(item.system.number ?? 1, 10) || 1);
+		/* AP2 v2: "Trennen" nur anbieten, wenn das Item stapelbar UND der
+		   Stapel größer als 1 ist (der Rest-Stapel muss mindestens 1
+		   behalten, sonst ist Trennen dasselbe wie Löschen). */
+		const splittable = isStackableItem(item) && current > 1;
 		const html = await foundry.applications.handlebars.renderTemplate(
 			'systems/symbaroum/template/sheet/modern/equipment-dialog.hbs',
-			{ number: current }
+			{ number: current, splittable }
 		);
 		/* Handle auf den Anzahl-Dialog vorab deklarieren, damit die
 		   Sicherheitsfrage ihn nach dem Bestätigen schließen kann. */
@@ -1447,6 +1466,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				input.value = next;
 			});
 		}
+		/* AP2 v2 (Stapel trennen): Die Trennen-Taste öffnet den Split-
+		   Dialog; die Validierung/Klemmung übernimmt splitStackItem. */
+		root.querySelector('.m-eq-split')?.addEventListener('click', () => {
+			this._openSplitDialog(item, current);
+		});
 		root.querySelector('.m-eq-delete')?.addEventListener('click', () => {
 			/* Sicherheitsfrage (Ja/Nein) - der Item-Name wird über
 			   textContent gesetzt und kann deshalb kein HTML einschleppen. */
@@ -1475,6 +1499,42 @@ export class PlayerSheet extends SymbaroumActorSheet {
 					},
 				},
 			});
+		});
+	}
+
+	/* AP2 v2 (Stapel trennen): Zweiter Dialog hinter der Trennen-Taste des
+	   Anzahl-Dialogs. Fragt die abzutrennende Anzahl (Default 1, Klemmung
+	   1..number-1 in splitStackItem), legt dann eine Kopie mit dieser
+	   Anzahl an und senkt die Anzahl des Quell-Stapels. Die Eingabe wird
+	   im symbDialog-Confirm-Callback aus dem serialisierten Content gelesen
+	   (gleiche Technik wie der Anzahl-Dialog selbst). */
+	async _openSplitDialog(item, current) {
+		const localize = (key) => game.i18n.localize(key);
+		const html = await foundry.applications.handlebars.renderTemplate(
+			'systems/symbaroum/template/sheet/modern/split-dialog.hbs',
+			{ max: Math.max(1, current - 1) }
+		);
+		symbDialog({
+			title: localize('STACK.SPLIT_TITLE'),
+			content: html,
+			classes: this._modernDialogClasses('modern-split-dialog'),
+			width: 380,
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-cut"></i>',
+					label: localize('STACK.SPLIT_LABEL'),
+					callback: async (html) => {
+						const v = parseInt(html[0].querySelector('#meq-split-number')?.value, 10);
+						if (isNaN(v)) return;
+						await splitStackItem(this.actor, item, v);
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.CANCEL'),
+					callback: async () => {},
+				},
+			},
 		});
 	}
 

@@ -57,19 +57,22 @@
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact"/>
                         {{/if}}
                     </div>
-                    {{#if system.isArtifact}}
+                    {{!-- AP2 v2 (Uniform-Regel): Die Stapelbar-Zeile ist jetzt IMMER
+                        sichtbar (nicht mehr nur bei Artefakt-Ausrüstung). Ausrüstung
+                        ohne Artefakt-Flag ist default stapelbar (Merge-on-Drop bleibt
+                        an - Rationen etc.); abwählen = expliziter Opt-out. Artefakt-
+                        Ausrüstung bleibt default NICHT stapelbar, anwählen = Opt-in.
+                        stackableChecked (item.js) zeigt den EFFEKTIVEN Zustand, damit
+                        der erste Form-Submit undefined nicht fälschlich als false
+                        festnagelt. --}}
                     <div class="stackable">
                         <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
-                        {{!-- AP2 Stapeln: Artefakt-Ausrüstung mergt NUR mit explizitem Flag
-                            (Rudolfs Entscheidung - Default aus); normale Ausrüstung stapelt
-                            immer und braucht keine Checkbox. --}}
-                        {{#if system.stackable}}
+                        {{#if stackableChecked}}
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{else}}
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
                     </div>
-                    {{/if}}
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>

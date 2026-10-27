@@ -1,0 +1,13 @@
+{{!-- AP2 v2 (Stapel trennen): Zweiter Dialog hinter der "Trennen"-Taste des
+    Anzahl-Dialogs. Fragt, wie viele Einheiten vom Stapel abgetrennt werden
+    (Eingabe wird in splitStackItem auf 1..number-1 geklemmt - der Rest-
+    Stapel behält mindestens 1). Bestätigt wird über die symbDialog-Tasten,
+    die Eingabe liest der Confirm-Callback direkt aus dem serialisierten
+    Content (gleiche Technik wie der Anzahl-Dialog selbst). --}}
+<div class="symbaroum modern-equip-dialog modern-split-dialog">
+    <h4 class="m-eq-title">{{localize "STACK.SPLIT_TITLE"}}</h4>
+    <p class="m-split-hint">{{localize "STACK.SPLIT_HINT"}}</p>
+    <div class="m-eq-row">
+        <input id="meq-split-number" type="number" value="1" min="1" max="{{max}}" data-dtype="Number" />
+    </div>
+</div>

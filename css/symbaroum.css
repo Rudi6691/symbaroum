@@ -3273,6 +3273,7 @@ Monster Codex Stuff
 .symbaroum.sheet.item .armor .tab .impeding,
 .symbaroum.sheet.item .armor .tab .quality,
 .symbaroum.sheet.item .armor .tab .number,
+.symbaroum.sheet.item .armor .tab .stackable,
 .symbaroum.sheet.item .armor .tab .cost {
   display: flex;
   flex-direction: row;
@@ -3981,6 +3982,7 @@ Monster Codex Stuff
 .symbaroum.sheet.item .weapon .tab .stats .damage,
 .symbaroum.sheet.item .weapon .tab .stats .cost,
 .symbaroum.sheet.item .weapon .tab .stats .number,
+.symbaroum.sheet.item .weapon .tab .stats .stackable,
 .symbaroum.sheet.item .weapon .tab .stats .attribute,
 .symbaroum.sheet.item .weapon .tab .stats .reference {
   display: flex;
@@ -7237,6 +7239,22 @@ dialog.symb-dialog.modern-dialog .hint {
   padding: 0.15rem 0.5rem;
   color: var(--m-bad);
   border-color: var(--m-bad);
+}
+
+/* AP2 v2 (Stapel trennen): Trennen-Taste im Anzahl-Dialog - gleiche
+   Geometrie wie die Löschen-Taste, aber Akzentfarbe statt Warnfarbe. */
+.symbaroum.modern-equip-dialog .m-eq-split {
+  flex: 0 0 auto !important;
+  padding: 0.15rem 0.5rem;
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+/* AP2 v2 (Stapel trennen): Hinweistext im Split-Dialog. */
+.symbaroum.modern-split-dialog .m-split-hint {
+  margin: 0 0 0.6rem 0;
+  color: var(--m-muted);
+  font-size: 0.8rem;
 }
 
 /* Sicherheitsfrage des Ausrüstungs-Dialogs (Ja/Nein-Fenster). */

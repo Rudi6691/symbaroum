@@ -68,6 +68,24 @@
                         <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
                     </div>
+                    {{!-- AP2 v2 (Uniform-Regel): Anzahl-Verwaltung wie am Artefakt-Blatt
+                        (Rüstungen hatten bisher keine Anzahl-Zeile) mit Anzeige-Fallback 1;
+                        Waffen besitzen die Zeile bereits. --}}
+                    <div class="number">
+                        <label for="{{id}}-system.number">{{localize "EQUIPMENT.NUMBER"}}</label>
+                        <input id="{{id}}-system.number" name="system.number" type="number" value="{{#if system.number}}{{system.number}}{{else}}1{{/if}}" data-tooltip="{{localize "STACK.NUMBER_TOOLTIP"}}"/>
+                    </div>
+                    <div class="stackable">
+                        <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
+                        {{!-- AP2 v2 (Uniform-Regel): Rüstungen sind default NICHT stapelbar -
+                            hier wird pro Item explizit opt-in (oder opt-out) entschieden.
+                            stackableChecked (item.js) zeigt den EFFEKTIVEN Zustand. --}}
+                        {{#if stackableChecked}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{else}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{/if}}
+                    </div>
                     <div class="weight">
                         <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
                         {{!-- A39 (Runde-1-Wunsch): Gewicht-Zeile IMMER anzeigen und

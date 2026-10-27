@@ -44,8 +44,9 @@
                         <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
                         {{!-- AP2 Stapeln: Artefakte mergen nur mit explizitem Flag (Rudolfs
                             Entscheidung - Default aus). Mit Flag liegen identische Artefakte
-                            (Typ + Name + Preis + Gewicht) beim Ablegen als EIN Item mit Anzahl. --}}
-                        {{#if system.stackable}}
+                            (Typ + Name + Preis + Gewicht) beim Ablegen als EIN Item mit Anzahl.
+                            stackableChecked (item.js) zeigt den EFFEKTIVEN Zustand. --}}
+                        {{#if stackableChecked}}
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{else}}
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>

@@ -13,7 +13,7 @@ import {
 	changeContainerCurrency,
 } from './container.js';
 // AP2 Stapeln (Merge-on-Drop): öffentliche Stapel-API
-import { isStackableItem, getStackKey, findStackTarget, mergeStackDrop } from './stacking.js';
+import { isStackableItem, getStackKey, findStackTarget, mergeStackDrop, splitStackItem } from './stacking.js';
 
 export class SymbaroumAPI
 {
@@ -46,15 +46,20 @@ export class SymbaroumAPI
         this.removeItemFromContainer = removeItemFromContainer;
         this.changeContainerCurrency = changeContainerCurrency;
         // AP2 Stapeln: Stapel-API — isItemStackable prüft die Regel-Matrix
-        // (Waffe/Rüstung/Behälter nie; Ausrüstung ja; Artefakte nur mit
-        // system.stackable), getStackKey liefert den Identitäts-Schlüssel
-        // (Typ + Name + Preis-Basis + Gewicht), findStackTarget sucht den
-        // Merge-Ziel-Stapel, mergeStackDrop führt einen Merge aus (mit
-        // Rechte-Prüfung; Aufruf durch die Drop-Handler der Blätter).
+        // (v2 Uniform-Regel: Waffe/Rüstung/Ausrüstung/Artefakt über
+        // system.stackable steuerbar, Behälter und Nicht-Gear-Typen nie;
+        // undefined = Typ-Default, Ausrüstung ohne Artefakt-Flag = an),
+        // getStackKey liefert den Identitäts-Schlüssel (Typ + Name +
+        // Preis-Basis + Gewicht), findStackTarget sucht den Merge-Ziel-
+        // Stapel, mergeStackDrop führt einen Merge aus (mit Rechte-
+        // Prüfung; Aufruf durch die Drop-Handler der Blätter).
+        // splitStackItem trennt count Einheiten eines Stapels ab
+        // (Anzahl des Quell-Items sinkt, Kopie mit count entsteht).
         this.isItemStackable = isStackableItem;
         this.getStackKey = getStackKey;
         this.findStackTarget = findStackTarget;
         this.mergeStackDrop = mergeStackDrop;
+        this.splitStackItem = splitStackItem;
     }
 
 

@@ -6,7 +6,11 @@
     _openEquipmentDialog ERST NACH dem Dialog-Render am Fenster verdrahtet:
     DialogV2 serialisiert den Inhalt beim Rendern über den Content-Part -
     Listener am vorbereiteten Element überleben das nicht (Testrunde-8-
-    Fund: die Tasten reagierten nicht). --}}
+    Fund: die Tasten reagierten nicht).
+    AP2 v2 (Stapel trennen): Der Dialog öffnet sich jetzt für ALLE stapel-
+    baren Items (auch Waffen/Rüstungen/Artefakte mit Stapelbar-Flag). Bei
+    Stapeln mit Anzahl > 1 erscheint zusätzlich die Taste "Trennen", die
+    einen zweiten Dialog zur Abtrennung von Einheiten öffnet. --}}
 <div class="symbaroum modern-equip-dialog">
     <h4 class="m-eq-title">{{localize "MODERN.QTY_CHANGE"}}</h4>
     <div class="m-eq-row">
@@ -14,5 +18,8 @@
         <input id="meq-number" type="number" value="{{number}}" data-dtype="Number" />
         <button type="button" class="m-eq-btn" data-dir="1" data-tooltip="{{localize "MODERN.QTY_INCREASE"}}"><i class="fas fa-caret-right"></i></button>
         <button type="button" class="m-eq-delete"><i class="fas fa-trash"></i> {{localize "MODERN.DELETE"}}</button>
+        {{#if splittable}}
+        <button type="button" class="m-eq-split" data-tooltip="{{localize "STACK.SPLIT_HINT"}}"><i class="fas fa-cut"></i> {{localize "STACK.SPLIT_LABEL"}}</button>
+        {{/if}}
     </div>
 </div>

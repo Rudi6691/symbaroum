@@ -617,6 +617,12 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 	// Anzahl = 1 (Last-/Behälter-Summen behandeln fehlende Anzahl als 1).
 	// Die Anzahl am Artefakt-Typ ist Voraussetzung für stapelbare Artefakte:
 	// Der Merge erhöht system.number, das Artefakt-Blatt zeigt/bearbeitet sie.
+	// AP2 v2 (Uniform-Regel): KEIN Default mehr für Ausrüstung - undefined
+	// bedeutet "Typ-Default" (Ausrüstung ohne Artefakt-Flag = stapelbar).
+	// Ein hier gesetztes false würde genau dieses Default-Merging abschalten
+	// und Rationen & Co. beim Ablegen plötzlich als Einzel-Items anlegen.
+	// Waffen/Rüstungen bekommen bewusst KEINEN Default: undefined = nicht
+	// stapelbar, Opt-in passiert beim ersten Speichern des Blatts (Checkbox).
 	if (doc.type === 'artifact') {
 		if (doc.system.stackable === undefined) {
 			doc.updateSource({ 'system.stackable': false });
@@ -624,11 +630,6 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 		if (doc.system.number === undefined) {
 			doc.updateSource({ 'system.number': 1 });
 		}
-	}
-	if (doc.type === 'equipment' && doc.system.stackable === undefined) {
-		// Ausrüstung stapelt immer - das Flag wird nur relevant, wenn das
-		// Artefakt-Flag gesetzt wird (dann entscheidet es über Merge-on-Drop).
-		doc.updateSource({ 'system.stackable': false });
 	}
 });
 
