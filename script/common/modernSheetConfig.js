@@ -107,7 +107,7 @@ export function getModernSheetEffectiveDesign() {
  */
 export function renderAllActorSheets() {
 	const seen = new Set();
-	// Nur Akteursblätter neu rendern - keine anderen offenen Applications
+	// Nur Blätter des Systems neu rendern - keine anderen offenen Applications
 	// (z. B. Würfel-/Einstellungsdialoge, deren Eingaben ein Re-Render verwerfen würde).
 	const isActorSheet = (app) => {
 		try {
@@ -116,9 +116,21 @@ export function renderAllActorSheets() {
 			return false;
 		}
 	};
+	// Item-Sheet-Modernisierung v1: offene Item-Blätter folgen dem Design-
+	// Umschalter ebenfalls live (renderModern wird in _prepareContext je
+	// Render gelesen). Sicheres Merkmal: _prepareModernItemContext sitzt nur
+	// auf den Item-Blättern dieses Systems (SymbaroumItemSheetBase) - fremde
+	// Item-Blätter bleiben unberührt.
+	const isSymbaroumItemSheet = (app) => {
+		try {
+			return typeof app?._prepareModernItemContext === 'function' && app?.document?.documentName === 'Item';
+		} catch {
+			return false;
+		}
+	};
 	const renderIfOpen = (app) => {
 		if (!app || seen.has(app) || typeof app.render !== 'function') return;
-		if (!isActorSheet(app)) return;
+		if (!isActorSheet(app) && !isSymbaroumItemSheet(app)) return;
 		seen.add(app);
 		if (app.rendered === true || app.element) app.render(false);
 	};

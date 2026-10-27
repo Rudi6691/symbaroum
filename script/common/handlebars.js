@@ -43,6 +43,22 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/modern/tab/gear.hbs',
     'systems/symbaroum/template/sheet/modern/tab/bio.hbs',
     'systems/symbaroum/template/sheet/modern/tab/notes.hbs',
+    // Item-Sheet-Modernisierung v1: Partials der modernen Item-Blätter
+    // (gleiche Pflicht-Registrierung wie der A6-Block oben - Foundry
+    // registriert Partials NICHT automatisch; ohne diese Zeilen bricht
+    // das Rendering mit "partial ... could not be found").
+    'systems/symbaroum/template/sheet/modern/item/header.hbs',
+    'systems/symbaroum/template/sheet/modern/item/ability.hbs',
+    'systems/symbaroum/template/sheet/modern/item/armor.hbs',
+    'systems/symbaroum/template/sheet/modern/item/artifact.hbs',
+    'systems/symbaroum/template/sheet/modern/item/boon.hbs',
+    'systems/symbaroum/template/sheet/modern/item/burden.hbs',
+    'systems/symbaroum/template/sheet/modern/item/container.hbs',
+    'systems/symbaroum/template/sheet/modern/item/equipment.hbs',
+    'systems/symbaroum/template/sheet/modern/item/mystical-power.hbs',
+    'systems/symbaroum/template/sheet/modern/item/ritual.hbs',
+    'systems/symbaroum/template/sheet/modern/item/trait.hbs',
+    'systems/symbaroum/template/sheet/modern/item/weapon.hbs',
   ];
   return foundry.applications.handlebars.loadTemplates(templatePaths);
 }
