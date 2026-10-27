@@ -212,6 +212,24 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				{ passive: true }
 			);
 		}
+		// ItemSheets v3.2 (Rudolf's test round 5, findings 3+7): in the
+		// modern layout .window-content no longer scrolls - the scroll
+		// container is .m-item-body. The full re-render after stepper
+		// clicks (bonus tab) and checkbox commits (weapon/armor status
+		// tab) used to reset it to the top of the window. Same
+		// remember/restore logic as the .window-content block above;
+		// the selector stays null in the classic view (no .m-item-body).
+		const itemBody = element.querySelector('.m-item-body');
+		if (itemBody) {
+			itemBody.scrollTop = this._itemBodyScrollTop ?? 0;
+			itemBody.addEventListener(
+				'scroll',
+				() => {
+					this._itemBodyScrollTop = itemBody.scrollTop;
+				},
+				{ passive: true }
+			);
+		}
 		// Test round 2 addendum, V13 parity: the cursor stays in the input
 		// field across a submitOnChange re-render (Rudolf's report: editing
 		// a property of a new power kept the cursor in V13). ApplicationV1

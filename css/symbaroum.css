@@ -8131,30 +8131,52 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   box-sizing: border-box;
 }
 
-/* ---------- ItemSheets v3.1: Beschreibungs-Editor (Aktorblatt-Muster) -----
-   Rudolfs Testrunde 4, Punkt 4. Die v3-Regeln griffen nicht bzw.
-   greiften daneben: (a) Die Pergament-Kiste kam ueberhaupt nicht von der
-   Menueleisten-Regel, sondern von der klassischen V13-Regel
-   .symbaroum.sheet.item .editor-content (Light-DOM-Treffer auch im
-   modernen Scope) - hier explizit auf die moderne Palette umgestellt.
-   (b) Fuer die Menueleiste sind BEIDE moeglichen DOM-Deutungen des
-   V14-Cores abgedeckt (menu als Kind eines .prosemirror-Elements ODER
-   menu.prosemirror selbst) - die globale klassische Regel
-   .symbaroum .prosemirror menu wird im modernen Scope auf die Palette
-   umgebogen, und order:-1 stellt die Menueleiste in der Flex-Kette
-   sicher nach OBEN, egal wo der Core sie einsortiert (Testrunde-4-
-   Beobachtung "Menueleiste hinter/unter dem Editorfeld").
-   (c) Geometrie exakt wie am bewaehrten Aktor-bio-Editor (A6v5): Der
-   Scope ist .modern-root (der klassischen Ansicht fehlt dieser
-   Ancestor, sie behaelt ihr V13-Styling inkl. Pergament) - so greifen
-   die Regeln auch auf Editoren, die Waffe/Ruestung/Ausruestung ueber
-   das SHARED klassische Partial tab/artifact.hbs in den Kraft-Tab
-   laden. Der V14-Core positioniert .editor-content absolut (inset: 0)
-   - zurueck in den Fluss (static), waechst mit dem Text bis max-height,
-   danach interner Scroll. */
+/* ---------- ItemSheets v3.2: Beschreibungs-Editor (3. Anlauf) -------------
+   Rudolfs Testrunde 5, Punkt 2. Beobachtungen und Ursachen:
+   (a) Pergament im Nur-Lese-Zustand NOCH da: Der Nur-Lese-Wrapper des
+   V14-Cores traegt offenbar KEINE der bekannten Klassen (waere er
+   .editor-content, haette der v3.1-Override mit hoeherer Spezifitaet
+   das Pergament ersetzt). Deshalb jetzt Catch-All: prose-mirror > div
+   erfasst JEGLICHEN direkten Wrapper-div des Hosts - egal welche
+   Klasse der Core ihm gibt (Nur-Lese-Wrapper wie .editor-container).
+   (b) Menueleiste hinter dem Editorfeld: Die Toolbar-Klasse des Cores
+   heisst .prosemirror-menu; deshalb bedienen jetzt VIER Selektor-
+   Varianten die Leiste und heben sie mit position/z-index IMMER ueber
+   den statischen Editor-Inhalt (Paint-Order) sowie mit order:-1 IMMER
+   nach OBEN in der Flex-Kette - egal wo der Core sie einsortiert.
+   Die globale klassische Titel-Banner-Regel .symbaroum .prosemirror
+   menu wird damit im modernen Scope uebersteuert.
+   (c) Doppel-Scrollbalken bei langem Text: Der Beschreibungs-Tab
+   fuellt jetzt die feste Hoehe des Sheet-Bodies (Fill-Layout nach dem
+   bewaehrten Aktor-Notiz-Tab-Muster A6v3/A6v5) - nur der Editor
+   scrollt intern, genau EIN Scrollbalken. Alle anderen Tabs
+   (novice/adept/master/stats/qualities/bonus/power) bleiben
+   unveraendert wie bisher.
+   (d) Geometrie-Grundlagen (Host/.editor-container als Flex-Kette,
+   position: static gegen die absolute V14-Positionierung) exakt wie
+   am bewaehrten Aktor-bio-Editor. Klassische Ansicht (ohne
+   .modern-root) und Aktorblatt bleiben unberuehrt. */
+.symbaroum.sheet.item .modern-root prose-mirror > div {
+  background: var(--m-panel2);
+  box-shadow: none;
+  border: none;
+  color: var(--m-ink);
+  font-size: 0.85rem;
+  padding: 0.5rem;
+}
+
+.symbaroum.sheet.item .modern-root .editor-container {
+  padding: 0;
+}
+
+.symbaroum.sheet.item .modern-root .prosemirror-menu,
+.symbaroum.sheet.item .modern-root menu.prosemirror,
 .symbaroum.sheet.item .modern-root .prosemirror menu,
-.symbaroum.sheet.item .modern-root menu.prosemirror {
+.symbaroum.sheet.item .modern-root prose-mirror > menu {
+  position: relative;
+  z-index: 1;
   order: -1;
+  flex: 0 0 auto;
   background: var(--m-panel2);
   color: var(--m-ink);
   font-family: inherit;
@@ -8181,10 +8203,10 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   min-height: 8rem !important;
   max-height: 26rem;
   overflow-y: auto;
-  /* V13-Pergament (Hintergrund + Innenschatten) im modernen Scope ersetzen */
+  border-radius: 0 0.25rem 0.25rem 0.25rem;
   background: var(--m-panel2);
   box-shadow: none;
-  border-radius: 0 0.25rem 0.25rem 0.25rem;
+  border: none;
   color: var(--m-ink);
   font-size: 0.85rem;
   padding: 0.5rem;
@@ -8194,6 +8216,40 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   min-height: 8rem;
   height: auto;
   font-size: 0.85rem;
+}
+
+/* Nur der Beschreibungs-Tab: Fill-Layout (genau EIN Scrollbalken,
+   und zwar im Editor selbst; vgl. Aktor-Notiz-Tab A6v3). */
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] {
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] > .m-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] prose-mirror {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] prose-mirror > div {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] .editor-content {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  max-height: none;
 }
 
 /* ---------- ItemSheets v3: Segen/Last-Stufe unter dem Namen ---------------
