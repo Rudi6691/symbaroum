@@ -8867,3 +8867,65 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 .symbaroum.modern-roll-dialog .freeattack-row > label {
   color: var(--m-ink);
 }
+
+/* ---------- v1.1 (28.10., Rudolfs Testrunde): Checkboxen/Radios im
+   modernen Würfeldialog selbst zeichnen (Option A). Der A6v9-Fensterblock
+   themed `input` pauschal wie Textfelder (Rahmen + Radius + Padding
+   0.15rem 0.3rem + Hintergrund) — auf Checkbox/Radio verschiebt das die
+   Core-Zeichenfläche (Checkbox größer als ihr Rahmen, Radiopunkt nicht
+   konzentrisch; Befund Testrunde 1). Hier: feste 1rem-Geometrie, kein
+   Padding, Glyphen in Theme-Farben (Rezept 7.1.15/7.2.7, theme-gekoppelt
+   über die --m-*-Variablen des Fensters). html-body-Präfix nach dem
+   bewährten klassischen Muster gegen die Core-Form-Kaskade. */
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"],
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 1rem !important;
+  min-width: 1rem !important;
+  height: 1rem !important;
+  min-height: 1rem !important;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  background: var(--m-input-bg) !important;
+  background-image: none !important;
+  border: 0.0625rem solid var(--m-line) !important;
+  outline: none !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"] {
+  border-radius: 0.2rem !important;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
+  border-radius: 50% !important;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]:checked {
+  background-color: var(--m-accent) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 0.8rem 0.8rem !important;
+  border-color: var(--m-accent) !important;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]:checked {
+  background-image: radial-gradient(circle, var(--m-accent) 0 38%, transparent 46% 100%) !important;
+}
+
+/* v1.1: Der Box-Stil der Freier-Angriff-Zeile gilt einheitlich für ALLE
+   Checkbox- und Radio-Zeilen des modernen Würfeldialogs (Rudolfs
+   Testrunde: gleiche Optik für m-roll-check und m-roll-favour). */
+.symbaroum.modern-roll-dialog .m-roll-check,
+.symbaroum.modern-roll-dialog .m-roll-favour {
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0.1rem 0;
+  background: var(--m-panel);
+}

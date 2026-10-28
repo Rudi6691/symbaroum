@@ -3,7 +3,11 @@
     Namen wie das klassische dialog2.hbs - die Callback-Logik in item.js
     liest per ID und bleibt unverändert. Das Fenster-Chrome themet der
     A6-Block (dialog.symb-dialog.modern-dialog); dieses Template liefert nur
-    das Inhalts-Layout (CSS-Block .symbaroum.modern-roll-dialog). --}}
+    das Inhalts-Layout (CSS-Block .symbaroum.modern-roll-dialog).
+    v1.1 (28.10., Rudolfs Testrunde): Zeilenordnung Gunst -> Vorteil ->
+    Freier Angriff; Waffenbereich neu geordnet (Basis-Schaden,
+    Schadensmodifikator, Rüstung ignorieren, Waffenqualität, Fähigkeitsboni,
+    bedingte Zeilen). --}}
 <div class="symbaroum modern-roll-dialog">
   {{#if askWeapon}}
   <div class="m-roll-row">
@@ -14,12 +18,6 @@
         {{/each}}
     </select>
   </div>
-  {{/if}}
-  {{#if isWeaponRoll}}
-    <div class="m-roll-check freeattack-row">
-      <label for="freeattack">{{localize "DIALOG.FREE_ATTACK"}}</label>
-      <input type="checkbox" id="freeattack" unchecked>
-    </div>
   {{/if}}
   {{#if askCastingAttribute}}
   <div class="m-roll-row">
@@ -62,6 +60,18 @@
     <label class="lblfavour">{{radioBoxes groupName choices checked=defaultFavour localize=true}}</label>
   </div>
   {{/if}}
+  {{#if contextualDamage}}
+  <div class="m-roll-check">
+    <label>{{localize "DIALOG.ADVANTAGE"}}</label>
+    <input type="checkbox" id="advantage" unchecked>
+  </div>
+  {{/if}}
+  {{#if isWeaponRoll}}
+    <div class="m-roll-check freeattack-row">
+      <label for="freeattack">{{localize "DIALOG.FREE_ATTACK"}}</label>
+      <input type="checkbox" id="freeattack" unchecked>
+    </div>
+  {{/if}}
   {{#if askImpeding}}
   <div class="m-roll-check">
     <label>{{localize "DIALOG.IMPEDING"}}</label>
@@ -86,42 +96,39 @@
     <input type="checkbox" id="targetCorrupt" checked>
   </div>
   {{/if}}
+  {{!-- Waffenbereich: Basis-Schaden, Schadensmodifikator, Rüstung
+       ignorieren, Waffenqualität (Präzise Waffe) --}}
   {{#if isWeaponRoll}}
+    <div class="m-roll-row">
+      <label for="weapondamage">{{localize "WEAPON.BASE_DAMAGE"}}</label>
+      <div class="m-roll-value">{{weaponDamage}}</div>
+    </div>
+    {{#if contextualDamage}}
+    <div class="m-roll-row">
+      <label>{{localize "DIALOG.DAMAGE_MODIFIER"}}</label>
+      <input id="dammodifier" value="{{defaultDamModifier}}" type="text" data-dtype="Text"/>
+    </div>
+    {{/if}}
+    <div class="m-roll-check">
+      <label>{{localize "DIALOG.IGNORE_ARMOR"}}</label>
+      <input type="checkbox" id="ignarm" {{#if ignoreArmor}}checked{{else}}unchecked{{/if}}>
+    </div>
     {{#if precise}}
       <div class="m-roll-row">
         <label for="precise">{{localize "COMBAT.PARAMS_PRECISE"}}</label>
         <div class="m-roll-value">{{localize "COMBAT.CHAT_MODIFIER"}}1</div>
       </div>
     {{/if}}
+  {{else}}
+    {{#if contextualDamage}}
     <div class="m-roll-row">
-      <label for="weapondamage">{{localize "WEAPON.BASE_DAMAGE"}}</label>
-      <div class="m-roll-value">{{weaponDamage}}</div>
-    </div>
-    <div class="m-roll-check">
-      <label>{{localize "DIALOG.IGNORE_ARMOR"}}</label>
-      <input type="checkbox" id="ignarm" {{#if ignoreArmor}}checked{{else}}unchecked{{/if}}>
-    </div>
-    <div class="m-roll-row">
-      <label>{{localize "DIALOG.USE_POISON"}}</label>
-      <select id="poison">
-        <option value="0">{{localize "DIALOG.NO_POISON"}}</option>
-        <option value="1">{{localize "DIALOG.LIGHT_POISON"}}</option>
-        <option value="2">{{localize "DIALOG.MEDIUM_POISON"}}</option>
-        <option value="3">{{localize "DIALOG.STRONG_POISON"}}</option>
-      </select>
-    </div>
-    {{#if askBackstab}}
-    <div class="m-roll-check">
-      <label>{{localize "DIALOG.BACKSTAB"}}</label>
-      <input type="checkbox" id="usebackstab" unchecked>
+      <label>{{localize "DIALOG.DAMAGE_MODIFIER"}}</label>
+      <input id="dammodifier" value="{{defaultDamModifier}}" type="text" data-dtype="Text"/>
     </div>
     {{/if}}
   {{/if}}
+  {{!-- Fähigkeitsboni: Paket-Radios/Checkboxen + Anführers Ziel --}}
   {{#if contextualDamage}}
-    <div class="m-roll-check">
-      <label>{{localize "DIALOG.ADVANTAGE"}}</label>
-      <input type="checkbox" id="advantage" unchecked>
-    </div>
     {{#each packages as |package|}}
       {{#ife package.type "radio"}}
         <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternatives checked=package.defaultSelect localize=false}}</label></div>
@@ -139,9 +146,23 @@
       <div class="m-roll-value">{{d4}}</div>
     </div>
     {{/if}}
+  {{/if}}
+  {{!-- Bedingte Waffenzeilen: Meucheln, Gift --}}
+  {{#if isWeaponRoll}}
+    {{#if askBackstab}}
+    <div class="m-roll-check">
+      <label>{{localize "DIALOG.BACKSTAB"}}</label>
+      <input type="checkbox" id="usebackstab" unchecked>
+    </div>
+    {{/if}}
     <div class="m-roll-row">
-      <label>{{localize "DIALOG.DAMAGE_MODIFIER"}}</label>
-      <input id="dammodifier" value="{{defaultDamModifier}}" type="text" data-dtype="Text"/>
+      <label>{{localize "DIALOG.USE_POISON"}}</label>
+      <select id="poison">
+        <option value="0">{{localize "DIALOG.NO_POISON"}}</option>
+        <option value="1">{{localize "DIALOG.LIGHT_POISON"}}</option>
+        <option value="2">{{localize "DIALOG.MEDIUM_POISON"}}</option>
+        <option value="3">{{localize "DIALOG.STRONG_POISON"}}</option>
+      </select>
     </div>
   {{/if}}
   {{#if isArmorRoll}}

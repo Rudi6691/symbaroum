@@ -3796,6 +3796,21 @@ export async function modifierDialog(functionStuff) {
             for (const faRow of faSuppress) {
               faRow.style.display = faOn ? "none" : "";
             }
+            // v1.1 (Rudolfs Testrunde): Das Eigenschafts-Dropdown (castAt)
+            // springt bei aktivem Freiem Angriff optisch auf Praezision und
+            // zurueck auf die vorherige Wahl beim Abwaehlen - das harte
+            // Praezision-Override wird so im Dialog sichtbar. Der Callback
+            // oben bleibt autoritativ (castingAttributeName="accurate").
+            const castAtSel = faRoot.querySelector("#castAt");
+            if (castAtSel) {
+              if (faOn) {
+                if (!castAtSel.dataset.faPrev) castAtSel.dataset.faPrev = castAtSel.value;
+                castAtSel.value = "accurate";
+              } else if (castAtSel.dataset.faPrev) {
+                castAtSel.value = castAtSel.dataset.faPrev;
+                delete castAtSel.dataset.faPrev;
+              }
+            }
           };
           faBox.addEventListener("change", faApply);
         },

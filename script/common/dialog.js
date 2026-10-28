@@ -537,9 +537,13 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           if (faBox) {
             const faTitle = postRoot.querySelector(".window-title");
             const faSuppress = postRoot.querySelectorAll(".freeattack-suppress");
+            // v1.1 (Rudolfs Testrunde): Bei aktivem Freiem Angriff zeigt der
+            // Fenstertitel die Eigenschaft Praezision statt der urspruenglichen
+            // Eigenschaft (der Titel IST im Attributsdialog die Eigenschaft).
+            const faPreciseLabel = game.symbaroum.api.getAttributeLabel(actor, "accurate");
             const faApply = () => {
               const faOn = faBox.checked;
-              if (faTitle) faTitle.textContent = baseDialogTitle + (faOn ? " — " + game.i18n.localize("CHAT.CRITICAL_FREEATTACK") : "");
+              if (faTitle) faTitle.textContent = (faOn ? faPreciseLabel : baseDialogTitle) + (faOn ? " — " + game.i18n.localize("CHAT.CRITICAL_FREEATTACK") : "");
               for (const faRow of faSuppress) {
                 faRow.style.display = faOn ? "none" : "";
               }

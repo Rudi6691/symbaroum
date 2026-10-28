@@ -4,7 +4,10 @@
     und bleibt unverändert. Das Fenster-Chrome themet der A6-Block
     (dialog.symb-dialog.modern-dialog); dieses Template liefert nur das
     Inhalts-Layout: Zeilen mit Label statt Textur-Banner (CSS-Block
-    .symbaroum.modern-roll-dialog am Ende von symbaroum.css). --}}
+    .symbaroum.modern-roll-dialog am Ende von symbaroum.css).
+    v1.1 (28.10., Rudolfs Testrunde): Zeilenordnung Gunst -> Vorteil ->
+    Freier Angriff; Waffenbereich neu geordnet (Effektwurf, Schadensmodifikator,
+    Rüstung ignorieren, Waffenqualitäten, Fähigkeitsboni, bedingte Zeilen). --}}
 <div class="symbaroum modern-roll-dialog">
   {{#if askTargetAttribute}}
   <div class="m-roll-row">
@@ -18,30 +21,19 @@
     <label for="modifier-{{did}}">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="modifier-{{did}}" type="number" value="{{roll_defaults.modifier}}" data-dtype="Number"/>
   </div>
+  <div class="m-roll-favour">
+    <label class="lblfavour">{{radioBoxes groupName choices checked=roll_defaults.selectedFavour localize=true}}</label>
+  </div>
   {{#if isWeaponRoll}}
+    <div class="m-roll-check">
+      <label for="advantage-{{did}}">{{localize "DIALOG.ADVANTAGE"}}</label>
+      <input type="checkbox" {{roll_defaults.advantage}} id="advantage-{{did}}" value="1" data-dtype="Number">
+    </div>
     <div class="m-roll-check freeattack-row">
       <label for="freeattack-{{did}}">{{localize "DIALOG.FREE_ATTACK"}}</label>
       <input type="checkbox" id="freeattack-{{did}}" unchecked>
     </div>
-    {{#each weaponModifiers.package as |package|}}
-      {{#ife package.type "default"}}
-        {{#ifgt package.member.length 0}}
-          {{#each package.member as |member|}}
-            {{#ife member.type "attackrollmod"}}
-              <div class="m-roll-row">
-                <label>{{member.label}}</label>
-                <input type="text" value="{{member.modifier}}" data-dtype="Text" disabled/>
-              </div>
-            {{/ife}}
-          {{/each}}
-        {{/ifgt}}
-      {{/ife}}
-    {{/each}}
   {{/if}}
-  <div class="m-roll-favour">
-    <label class="lblfavour">{{radioBoxes groupName choices checked=roll_defaults.selectedFavour localize=true}}</label>
-  </div>
-
   {{#if askImpeding}}
   <div class="m-roll-check">
     <label for="impeding-{{did}}">{{localize "DIALOG.IMPEDING"}}</label>
@@ -56,29 +48,32 @@
   {{/if}}
   {{#if isWeaponRoll}}
     <div class="m-roll-sec">{{localize "WEAPON.HEADER"}}</div>
-    <div class="m-roll-check">
-      <label for="advantage-{{did}}">{{localize "DIALOG.ADVANTAGE"}}</label>
-      <input type="checkbox" {{roll_defaults.advantage}} id="advantage-{{did}}" value="1" data-dtype="Number">
-    </div>
     <div class="m-roll-row">
       <label for="weapondamage-{{did}}">{{localize "DIALOG.WEAPON_DAMAGE"}}</label>
       <input id="weapondamage-{{did}}" disabled type="text" value="{{weaponDamage}}" data-dtype="Text"/>
     </div>
-    {{#if askBastardGrip}}
-      <div class="m-roll-favour">
-        <label class="lblfavour">{{radioBoxes "bripType" gripChoices checked=defaultGrip localize=true}}</label>
-      </div>
-    {{/if}}
+    <div class="m-roll-row">
+      <label for="dammodifier-{{did}}">{{localize "DIALOG.DAMAGE_MODIFIER"}}</label>
+      <input id="dammodifier-{{did}}" value="{{roll_defaults.additionalModifier}}" type="text" data-dtype="Text"/>
+    </div>
     {{#if askIgnoreArmor}}
       <div class="m-roll-check">
         <label for="ignarm-{{did}}">{{localize "DIALOG.IGNORE_ARMOR"}}</label>
         <input type="checkbox" id="ignarm-{{did}}" {{#if ignoreArm}}checked{{else}}unchecked{{/if}}>
       </div>
     {{/if}}
+    {{!-- Waffenqualitäten: feste Anzeige-Zeilen aus den Default-Paketen
+         (Angriffs- und Schadensmodifikatoren, DoT-/Korruptions-Effekte) --}}
     {{#each weaponModifiers.package as |package|}}
       {{#ife package.type "default"}}
         {{#ifgt package.member.length 0}}
           {{#each package.member as |member|}}
+            {{#ife member.type "attackrollmod"}}
+              <div class="m-roll-row">
+                <label>{{member.label}}</label>
+                <input type="text" value="{{member.modifier}}" data-dtype="Text" disabled/>
+              </div>
+            {{/ife}}
             {{#ife member.type "damagemodifier"}}
               <div class="m-roll-row">
                 <label for="dm-{{../did}}-{{member.id}}-fixedmodifier">{{member.label}}</label>
@@ -100,6 +95,9 @@
           {{/each}}
         {{/ifgt}}
       {{/ife}}
+    {{/each}}
+    {{!-- Fähigkeitsboni: Paket-Radios und Paket-Checkboxen --}}
+    {{#each weaponModifiers.package as |package|}}
       {{#ife package.type "radio"}}
         <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternatives checked=package.defaultSelect localize=false}}</label></div>
       {{/ife}}
@@ -110,10 +108,11 @@
         </div>
       {{/ife}}
     {{/each}}
-    <div class="m-roll-row">
-      <label for="dammodifier-{{did}}">{{localize "DIALOG.DAMAGE_MODIFIER"}}</label>
-      <input id="dammodifier-{{did}}" value="{{roll_defaults.additionalModifier}}" type="text" data-dtype="Text"/>
-    </div>
+    {{#if askBastardGrip}}
+      <div class="m-roll-favour">
+        <label class="lblfavour">{{radioBoxes "bripType" gripChoices checked=defaultGrip localize=true}}</label>
+      </div>
+    {{/if}}
     {{#if askAttackNb}}
       <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes attNbRadio weaponModifiers.radioAttacks localize=false}}</label></div>
     {{/if}}
