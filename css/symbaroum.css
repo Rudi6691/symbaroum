@@ -8614,3 +8614,135 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   margin-top: 0.4rem;
   min-height: 10rem;
 }
+
+/* ---------- ItemSheets v3.7: Editor-Feinschliff (Testrunde 9) --------------
+   Rudolfs Testrunde 9 (Konsolen-Messungen, beide Modi, Beschreibungs-Tab
+   mit langem Text) hat das Editor-Geometriemodell VOLLSTAENDIG geklaert
+   und alle frueeren Theorien (Flex-Stauchung, --min-height, absolute
+   Core-Positionierung im Aktiven Modus) widerlegt:
+   - Der prose-mirror-HOST ist in BEIDEN Modi display: block (Core) -
+     unsere v3.2-Regel display: flex (~8186) wird verdraengt. Die
+     Flex-Stauchungs-Architektur am Host war damit nie wirksam; das
+     funktionierende Nur-Lese-Verhalten kommt vom Core-Default
+     overflow-y: auto, NICHT von unserem Fill-Layout.
+   - Der Nur-Lese-Modus scrollt intern (Host 303px, Inhalt 342px,
+     ovY: auto = Core) -> genau EIN Balken. Der AKTIVE Modus bricht:
+     Core setzt dort ovY: visible -> der Inhalt (Menue 61px + Editor
+     341px = 402px) laeuft aus dem 303px-Host, der Tab clippt
+     (overflow: hidden, v3.2-Fill) -> kein Balken, Text unerreichbar.
+     Der v3.6-Fix (--min-height: 18rem) war wirkungslos: Die Variable
+     kam in allen Messungen an, der Core nutzt sie hier aber nicht.
+   (1) Punkt 4-Fix: overflow-y: auto am AKTIVEN Host im Beschreibungs-
+       Tab - spiegelt exakt das Core-Nur-Lese-Verhalten (der Host
+       scrollt, genau EIN Balken im Editor). Restrisiko: Setzt der
+       Core overflow-y MIT !important, greift die Layer-Falle (gelayerte
+       Core-!important schlaegt ungelayerte eigene Regeln) - dann
+       inline-Style-Fallback in item.js nachziehen. Kontrolle nach
+       Installation: ovY am aktiven Host muss "auto" zeigen.
+       Bewusst OHNE sticky-Menueleiste: Die Leiste ist seit v3.4
+       transparent, sticky wuerde den Text beim Durchlaufen hinter
+       ihr sichtbar durchscheinen lassen. Falls Rudolf die Leiste
+       beim Scrollen fixiert haben will: menu-container auf position:
+       sticky top 0 + eigenen Hintergrund stellen (naechste Runde).
+   (2) Stufen-Tabs (Doppel-Scroll): Die globale v3.2-Regel
+       .editor-content mit max-height: 26rem und overflow-y: auto erzeugt
+       ab 26rem Texthoehe einen ZWEITEN Balken neben dem aeusseren
+       .m-item-body-Balken (ovY: auto). Rudolfs Beschluss Option B: In
+       allen Nicht-Beschreibungs-Tabs (Stufen novice/adept/master,
+       Artefakt-Kraft-Tab) waechst der Editor natuerlich, nur der
+       aeussere Balken scrollt. Der Beschreibungs-Tab behaelt das
+       Fill-Layout (Balken im Editor selbst). */
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] prose-mirror.prosemirror.active {
+  overflow-y: auto;
+}
+
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active:not([data-tab='description']) .editor-content {
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* (3) Menueleisten-Vereinheitlichung: Das Item-Blatt formatiert die
+       Editor-Menueleiste seit v3.2 (position: relative, z-index 1,
+       font-family: inherit, border-radius oben 0.25rem); das Aktorblatt
+       bekam in v3.5 nur background: none + Farbe. Rudolfs Beschluss:
+       Aktorblatt im Item-Stil (OHNE die toten order/flex-Deklarationen
+       aus v3.2 - sie braeuchten ein Flex-Layout am Host, das der Core
+       nicht liefert). background: none + color: var(--m-ink) laufen aus
+       der v3.5-Regel mit. Klassische Aktoransicht unberuehrt. */
+.symbaroum.sheet.actor .modern-root .prosemirror menu,
+.symbaroum.sheet.actor .modern-root menu.prosemirror,
+.symbaroum.sheet.actor .modern-root .prosemirror-menu,
+.symbaroum.sheet.actor .modern-root prose-mirror > menu {
+  position: relative;
+  z-index: 1;
+  font-family: inherit;
+  border-radius: 0.25rem 0.25rem 0 0;
+}
+
+/* (4) Editor-Headings h1-h6, Rudolfs Beschluss Variante 2 (einheitliche
+       Editor-Typografie): Die dunklen Texturbanner der Editor-Headings
+       kommen NICHT aus dem Core, sondern von den klassischen Fenster-
+       Titel-Regeln, die als blanke Nachfahren-Selektoren auf JEDES h1/h2
+       im Blatt durchschlagen (Aktor-h1 ~539: height 30px/line-height
+       30px/16px/600; Item-h1 ~766: 2em/1.2em; Item-h2 ~779: 1.5em/1em -
+       allesamt title.webp + var(--color-title) + zentriert; der Aktor
+       hat KEINE h2-Regel -> dort h2-h6 im hellen Design unlesbar hell).
+       Fix im modernen Scope von Item UND Aktor: Banner weg
+       (background: none), Farbe theme-gekoppelt (color: inherit -
+       die .editor-content traegt var(--m-ink): dunkle Schrift im
+       hellen Design, helle im dunklen, Designwechsel schaltet
+       automatisch), Hoehe/Zeilenhoehe automatisch (gegen 30px/2em/
+       1.5em), linksbuendig (gegen center), einheitliche Schrift-
+       groessen-Hierarchie in beiden Blaettern (rem, nicht em - damit
+       Item-1.2em und Aktor-16px-Altlasten endgueltig egal sind).
+       Spezifitaet (0,5,1) bzw. (0,4,1) je Stufe schlaegt die
+       klassischen Regeln (0,3,1); ungelagert schlaegt Core-normal.
+       Klassische Ansichten unberuehrt (.modern-root-Grenze). */
+.symbaroum.sheet.item .modern-root .editor-content :is(h1, h2, h3, h4, h5, h6),
+.symbaroum.sheet.actor .modern-root .editor-content :is(h1, h2, h3, h4, h5, h6) {
+  background: none;
+  color: inherit;
+  height: auto;
+  min-height: 0;
+  line-height: 1.2;
+  width: auto;
+  text-align: start;
+  font-family: inherit;
+  margin: 0.6em 0 0.3em;
+}
+
+.symbaroum.sheet.item .modern-root .editor-content h1,
+.symbaroum.sheet.actor .modern-root .editor-content h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.symbaroum.sheet.item .modern-root .editor-content h2,
+.symbaroum.sheet.actor .modern-root .editor-content h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.symbaroum.sheet.item .modern-root .editor-content h3,
+.symbaroum.sheet.actor .modern-root .editor-content h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.symbaroum.sheet.item .modern-root .editor-content h4,
+.symbaroum.sheet.actor .modern-root .editor-content h4 {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.symbaroum.sheet.item .modern-root .editor-content h5,
+.symbaroum.sheet.actor .modern-root .editor-content h5 {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.symbaroum.sheet.item .modern-root .editor-content h6,
+.symbaroum.sheet.actor .modern-root .editor-content h6 {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
