@@ -126,6 +126,33 @@ export function modernDialogClasses(...extra) {
 }
 
 /**
+ * Automatisierungspaket 1 v1.2 (Rudolfs Testrunde 2, Punkt 7): schließt die
+ * offenen WÜRFELDIALOGE DES EIGENEN NUTZERS. Template-Wahl (modern/klassisch)
+ * und Theme-Klassen werden beim Öffnen gelesen - ein offener Dialog wechselt
+ * nicht live mit. Rudolfs Entscheidung: beim Design-/Ansichtswechsel werden
+ * offene Würfeldialoge stattdessen geschlossen (Neuöffnen zeigt den neuen
+ * Stand). Die Würfeldialoge tragen die Marker-Klassen 'symb-roll-dialog' und
+ * 'symb-roll-user-<userId>' am Fenster-Root; andere Nutzer und andere
+ * Dialoge (Item-/Ausrüstungs-/Geld-Dialoge) bleiben unberührt.
+ */
+export function closeOpenRollDialogs() {
+	try {
+		const instances = foundry.applications?.instances;
+		const userId = game.user?.id;
+		if (!instances || !userId) return;
+		const apps = instances instanceof Map ? [...instances.values()] : Object.values(instances);
+		for (const app of apps) {
+			const el = app?.element;
+			if (!el?.classList?.contains?.('symb-roll-dialog')) continue;
+			if (!el.classList.contains(`symb-roll-user-${userId}`)) continue;
+			app.close?.();
+		}
+	} catch (err) {
+		game.symbaroum.log?.('closeOpenRollDialogs failed', err);
+	}
+}
+
+/**
  * Rendert alle offenen Akteursblätter neu (nach Setting-/Design-Änderungen).
  * Testrunde-2-Fund: `Object.values(ui.windows)` lieferte in V14 KEINE
  * Applications mehr (die Registry ist dort iterierbar, kein plain Object) -
@@ -252,11 +279,13 @@ export class ModernSheetConfig extends HandlebarsApplicationMixin(Application) {
 				notes: clean(formFields.icons?.notes, MODERN_SHEET_DEFAULT_DESIGN.icons.notes),
 			},
 		});
+		closeOpenRollDialogs();
 		renderAllActorSheets();
 	}
 
 	static async _onResetDefaults(event, target) {
 		await game.settings.set('symbaroum', 'modernSheetDesign', foundry.utils.deepClone(MODERN_SHEET_DEFAULT_DESIGN));
+		closeOpenRollDialogs();
 		renderAllActorSheets();
 		this.render(true);
 	}

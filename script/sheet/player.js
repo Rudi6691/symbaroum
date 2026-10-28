@@ -6,7 +6,7 @@ import { symbDialog } from '../common/symbDialog.js';
 import { getEncumbranceData, formatGE } from '../common/encumbrance.js';
 // A6 Blatt-Überarbeitung: alternative (modernisierte) Ansicht - Design-Settings
 // (GM-Dialog) und die individuelle Nutzer-Präferenz (User-Flag, welt-weit).
-import { getModernSheetEffectiveDesign, getModernSheetUserStyle, renderAllActorSheets } from '../common/modernSheetConfig.js';
+import { closeOpenRollDialogs, getModernSheetEffectiveDesign, getModernSheetUserStyle, renderAllActorSheets } from '../common/modernSheetConfig.js';
 // A38 Währungssystem: Anzeige-Aufteilung des Orteg-Basiswerts für die Stammleiste
 import { allocateFromBase, getDenominations, getItemPriceBase, formatCurrency } from '../common/currency.js';
 // Behältersystem (Projekt "Behälter" v1): Struktur, Summen, Ein-/Auslagern, Geld
@@ -179,6 +179,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 	async _toggleModernView() {
 		const next = getModernSheetUserStyle() === 'modern' ? 'classic' : 'modern';
 		await game.user.setFlag('symbaroum', 'modernSheetStyle', next);
+		closeOpenRollDialogs();
 		renderAllActorSheets();
 	}
 
@@ -193,6 +194,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		const current = getModernSheetEffectiveDesign().theme;
 		const next = current === 'dark' ? 'classic' : 'dark';
 		await game.user.setFlag('symbaroum', 'modernSheetTheme', next);
+		closeOpenRollDialogs();
 		renderAllActorSheets();
 	}
 

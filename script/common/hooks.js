@@ -8,7 +8,7 @@ import { SymbaroumCommsListener } from './symbcomms.js';
 import { SymbaroumMacros } from './macro.js';
 import { SymbaroumConfig } from './symbaroumConfig.js';
 // A6 Blatt-Überarbeitung: alternative (modernisierte) Blätter + Designeinstellungen
-import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, renderAllActorSheets } from './modernSheetConfig.js';
+import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, renderAllActorSheets } from './modernSheetConfig.js';
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
@@ -343,7 +343,12 @@ Hooks.once('init', () => {
 		restricted: true,
 		// Blätter lesen das Setting LIVE im Blattkontext (A39-Lernweis: Kontext-Klon
 		// friert Derived-Daten ein) - nach der Änderung offene Blätter neu rendern.
-		onChange: () => renderAllActorSheets(),
+		onChange: () => {
+			// Automatisierungspaket 1 v1.2: offene Würfeldialoge schließen (Design-Stand
+			// wird erst beim Neuöffnen gelesen).
+			closeOpenRollDialogs();
+			renderAllActorSheets();
+		},
 	});
 	game.settings.register('symbaroum', 'modernSheetDesign', {
 		name: 'Modern sheet design',

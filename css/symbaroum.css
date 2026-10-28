@@ -8891,7 +8891,11 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
   flex: 0 0 auto;
   background: var(--m-input-bg) !important;
   background-image: none !important;
-  border: 0.0625rem solid var(--m-line) !important;
+  /* v1.2 (Testrunde 2, Rudolfs Fund): --m-line ist im dunklen Design
+     (#37443a auf Panel #182019) kaum sichtbar - der Rahmen der ungeprüften
+     Checkbox/Radio steht auf --m-muted und bleibt damit in beiden Themes
+     klar erkennbar. */
+  border: 0.0625rem solid var(--m-muted) !important;
   outline: none !important;
   mask-image: none !important;
   -webkit-mask-image: none !important;
@@ -8907,7 +8911,10 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
 
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]:checked {
   background-color: var(--m-accent) !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  /* v1.2: Häkchen im dunklen Design DUNKEL statt weiß - weiß auf Gold
+     (#c9a227) war kaum erkennbar (Rudolfs Testrunde 2). Das helle Design
+     überschreibt unten zurück auf weiß (sein Akzent #8a6d1c ist dunkel). */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%230f1412' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: center !important;
   background-size: 0.8rem 0.8rem !important;
@@ -8915,7 +8922,16 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"
 }
 
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]:checked {
-  background-image: radial-gradient(circle, var(--m-accent) 0 38%, transparent 46% 100%) !important;
+  /* v1.2: Radiopunkt vergrößert (38 % -> 48 % Füllung) - gut erkennbar
+     auch im dunklen Design; Rahmen auf Akzent wie bei der Checkbox. */
+  background-image: radial-gradient(circle, var(--m-accent) 0 48%, transparent 56% 100%) !important;
+  border-color: var(--m-accent) !important;
+}
+
+/* v1.2: Helles Design - Akzent #8a6d1c ist DUNKEL, deshalb weißes Häkchen
+   (Theme-Klasse am Fenster-Root, A6v9-Muster). */
+html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog input[type="checkbox"]:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
 }
 
 /* v1.1: Der Box-Stil der Freier-Angriff-Zeile gilt einheitlich für ALLE

@@ -452,6 +452,16 @@ export class SymbaroumItem extends Item {
       id: this.id,
       label: this.name,
       reference: this.system.reference,
+      // Automatisierungspaket 1 v1.2 (Rudolfs Testrunde 2, Punkt 4 -
+      // Eisenfaust-Adept-Fund): Mitglieder, die eine FÄHIGKEIT/ein
+      // MERKMAL/eine KRAFT selbst erzeugt (isPower deckt traits, abilities,
+      // mystical powers, rituals, burdens, boons ab), erhalten dieses
+      // Herkunfts-Flag. Werden sie (wie bei Eisenfaust Novize/Adept) ins
+      // Default-Paket (Paket 0) einer Waffe geschoben, rendert der moderne
+      // Würfeldialog sie sonst fälschlich zwischen den Waffenqualitäten.
+      // Waffen-/Rüstungs-Items bleiben ohne Flag (Waffenqualitäten-Block).
+      // Klassische Templates ignorieren das Flag (unverändertes Rendering).
+      abilityMod: !!(this.system?.isPower),
     };
   }
 
@@ -3526,8 +3536,11 @@ export async function modifierDialog(functionStuff) {
   let dialog = symbDialog({
     title: title,
     content: html,
-    // Automatisierungspaket 1: modernes Fenster-Chrome (A6v9-Muster)
-    classes: modernRoll ? modernDialogClasses("modern-roll-dialog") : [],
+    // Automatisierungspaket 1: modernes Fenster-Chrome (A6v9-Muster).
+    // v1.2: Marker-Klassen 'symb-roll-dialog' + Nutzer-ID, damit beim
+    // Design-/Ansichtswechsel die offenen Würfeldialoge dieses Nutzers
+    // geschlossen werden können (closeOpenRollDialogs).
+    classes: [`symb-roll-dialog`, `symb-roll-user-${game.user.id}`, ...(modernRoll ? modernDialogClasses("modern-roll-dialog") : [])],
     buttons: {
       roll: {
         icon: '<i class="fas fa-check"></i>',

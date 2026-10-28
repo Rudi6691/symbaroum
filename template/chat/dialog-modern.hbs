@@ -63,11 +63,14 @@
       </div>
     {{/if}}
     {{!-- Waffenqualitäten: feste Anzeige-Zeilen aus den Default-Paketen
-         (Angriffs- und Schadensmodifikatoren, DoT-/Korruptions-Effekte) --}}
+         (Angriffs- und Schadensmodifikatoren, DoT-/Korruptions-Effekte).
+         v1.2: NUR Mitglieder OHNE abilityMod-Flag (Fähigkeits-Mitglieder
+         wie Eisenfaust-Adept +1d4 wandern zu den Fähigkeitsboni) --}}
     {{#each weaponModifiers.package as |package|}}
       {{#ife package.type "default"}}
         {{#ifgt package.member.length 0}}
           {{#each package.member as |member|}}
+            {{#ifn member.abilityMod}}
             {{#ife member.type "attackrollmod"}}
               <div class="m-roll-row">
                 <label>{{member.label}}</label>
@@ -91,6 +94,44 @@
                 <label>{{member.label}}</label>
                 <input type="text" value="{{member.value}}" data-dtype="Text" disabled/>
               </div>
+            {{/ife}}
+            {{/ifn}}
+          {{/each}}
+        {{/ifgt}}
+      {{/ife}}
+    {{/each}}
+    {{!-- Fähigkeitsboni (v1.2): von Fähigkeiten/Merkmalen ins Default-Paket
+         geschobene Mitglieder (abilityMod-Flag, z. B. Eisenfaust-Adept
+         "+1d4") - feste Anzeige-Zeilen VOR den Paket-Radios/Checkboxen --}}
+    {{#each weaponModifiers.package as |package|}}
+      {{#ife package.type "default"}}
+        {{#ifgt package.member.length 0}}
+          {{#each package.member as |member|}}
+            {{#ife member.abilityMod true}}
+            {{#ife member.type "attackrollmod"}}
+              <div class="m-roll-row">
+                <label>{{member.label}}</label>
+                <input type="text" value="{{member.modifier}}" data-dtype="Text" disabled/>
+              </div>
+            {{/ife}}
+            {{#ife member.type "damagemodifier"}}
+              <div class="m-roll-row">
+                <label for="dm-{{../did}}-{{member.id}}-fixedmodifier">{{member.label}}</label>
+                <input id="dm-{{../did}}-{{member.id}}-fixedmodifier" disabled type="text" value="{{member.value}}" data-dtype="Text"/>
+              </div>
+            {{/ife}}
+            {{#ife member.type "statusDoT"}}
+              <div class="m-roll-row">
+                <label>{{member.label}}</label>
+                <input type="text" value="{{member.value}}" data-dtype="Text" disabled/>
+              </div>
+            {{/ife}}
+            {{#ife member.type "corruptingattack"}}
+              <div class="m-roll-row">
+                <label>{{member.label}}</label>
+                <input type="text" value="{{member.value}}" data-dtype="Text" disabled/>
+              </div>
+            {{/ife}}
             {{/ife}}
           {{/each}}
         {{/ifgt}}

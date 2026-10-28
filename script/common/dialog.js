@@ -177,8 +177,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   const dialog = symbDialog({
     title: baseDialogTitle,
     content: dialoghtml,
-    // Automatisierungspaket 1: modernes Fenster-Chrome (A6v9-Muster)
-    classes: modernRoll ? modernDialogClasses('modern-roll-dialog') : [],
+    // Automatisierungspaket 1: modernes Fenster-Chrome (A6v9-Muster).
+    // v1.2: Marker-Klassen 'symb-roll-dialog' + Nutzer-ID, damit beim
+    // Design-/Ansichtswechsel die offenen Würfeldialoge dieses Nutzers
+    // geschlossen werden können (closeOpenRollDialogs).
+    classes: [`symb-roll-dialog`, `symb-roll-user-${game.user.id}`, ...(modernRoll ? modernDialogClasses('modern-roll-dialog') : [])],
     buttons: {
       roll: {
         icon: '<i class="fas fa-check"></i>',
