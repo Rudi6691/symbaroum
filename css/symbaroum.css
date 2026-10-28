@@ -8336,6 +8336,39 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   color: var(--m-ink);
 }
 
+/* ---------- ItemSheets v3.5: Aktor-Editor-Transparenz (Bio/Notizen) ---------
+   Rudolfs Testrunde 8: In den MODERNEN Aktor- und Monsterblaettern zeigen
+   die Editorfelder der Tabs Biographie und Notizen noch die dunkle
+   title.webp-Textur - (a) hinter dem Stift-Icon im Nur-Lese-Zustand und
+   (b) hinter/auf der Menueleiste im Bearbeitungsmodus.
+   Root causes (reine CSS-Analyse, kein Screenshot noetig):
+   (a) Die globale V13-Button-Regel ".symbaroum.sheet.actor button"
+       (ca. Zeile 564) malt background: var(--title-color) repeat auf
+       ALLE Buttons des Aktorblatts - auch auf den prose-mirror-Toggle-
+       Button UND auf die Buttons der editor-Menueleiste.
+   (b) Die Global-Regel ".symbaroum .prosemirror menu" (ca. Zeile 1386)
+       trifft den modernen Host (Klasse .prosemirror) und texturiert die
+       editor-Menueleiste selbst.
+   Die klassischen .editor-Regeln der Bio/Notizen (".player .bio .editor",
+   ".player .note .wrapper .editor", ca. Zeilen 2334/3150) treffen das
+   moderne Markup NICHT (keine .player-Vorfahren) - sie sind unschuldig.
+   Fix nur im modernen Scope und konsistent mit v3.4 Punkt 7 (Editor ohne
+   eigene Hintergrundflaeche, wie im Aktor-Tab Biographie): background:
+   none statt Titeltextur/moderner Panelfarbe. Die KLASSISCHE Aktoransicht
+   behaelt die title-Texturen wie bisher (.modern-root-Grenze). */
+.symbaroum.sheet.actor .modern-root prose-mirror button {
+  background: none;
+  color: var(--m-ink);
+}
+
+.symbaroum.sheet.actor .modern-root .prosemirror menu,
+.symbaroum.sheet.actor .modern-root menu.prosemirror,
+.symbaroum.sheet.actor .modern-root .prosemirror-menu,
+.symbaroum.sheet.actor .modern-root prose-mirror > menu {
+  background: none;
+  color: var(--m-ink);
+}
+
 /* ---------- ItemSheets v3: Segen/Last-Stufe unter dem Namen ---------------
    Rudolfs Testrunde 3, Punkt 13: Stufe zentriert unter dem Namen (nicht
    mehr im WERTE-Abschnitt). */
