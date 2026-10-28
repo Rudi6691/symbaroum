@@ -351,8 +351,16 @@ async function doBaseRoll(actor, actingAttributeName, targetActor, targetAttribu
         rolls.push(secondRoll);
         secondRollResult = secondRoll.total;
         //critGood and critBad below are again from the attacker perspective.
-        critGood = (critGood && (secondRoll.total <= diceTarget) && !resistRoll) || (critGood && (secondRoll.total > diceTarget) && resistRoll);
-        critBad = (critBad && (secondRoll.total > diceTarget) && !resistRoll) || (critBad && (secondRoll.total <= diceTarget) && resistRoll);
+        // Automatisierungspaket "Zweihandkraft" v1.1 (Rudolfs Testrunde 1,
+        // Befund 8): die Bestaetigung ist RAW (APG "seltene Kritische
+        // Ergebnisse") eine ERNEUTE natuerliche 1 bzw. 20 - nicht
+        // "Zweitwurf schlaegt die Zielschwelle" (die bisherige Formel
+        // bestaetigte z.B. eine Nat-1 mit dem Zweitwurf 2). Kritischer
+        // Erfolg: nur zweite 1; Kritischer Patzer: nur zweite 20 - jeweils
+        // aus der Perspektive des Wuerfelnden (im resistRoll-Fluss wuerfelt
+        // der Verteidiger: dort ist "gut" die 20, "schlecht" die 1)
+        critGood = (critGood && secondRoll.total === 1 && !resistRoll) || (critGood && secondRoll.total === 20 && resistRoll);
+        critBad = (critBad && secondRoll.total === 20 && !resistRoll) || (critBad && secondRoll.total === 1 && resistRoll);
         let css = `${critGood?"critical":critBad?"fumble":"normal"}`;
         diceBreakdown = formatDice(attributeRoll.terms,"+", css);
         diceBreakdown = `${diceBreakdown} &amp; <span class="symba-rolls roll d20 ${css}">${secondRoll.total}</span>`;

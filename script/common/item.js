@@ -3487,6 +3487,15 @@ export async function modifierDialog(functionStuff) {
     targetAttributeName = functionStuff.targetData.resistAttributeName;
   }
   createLineDisplay(functionStuff, functionStuff.attackFromPC);
+  // Automatisierungspaket "Zweihandkraft" v1.1 (Rudolfs Testrunde 1, Befund 6):
+  // die "Ruestung ignorieren"-Checkbox ist initial angehakt, wenn dieser
+  // Angriff eine Ruestung ignorierende Quelle hat (Zweihandkraft-Meister
+  // mit schwerer Waffe, GRW) - beide Dialogvarianten rendern den Haken aus
+  // functionStuff.ignoreArm; der RAW-Zwang im Callback (siehe unten bei
+  // #ignarm) bleibt als Absicherung erhalten
+  if (isWeaponRoll && isHeavyWeapon(functionStuff.weapon) && getActorAbilityLevel(functionStuff.actor, "twohandedforce") >= 3) {
+    functionStuff.ignoreArm = true;
+  }
   // Automatisierungspaket 1 (28.10.): Würfeldialog im modernen Design, wenn
   // der Nutzer die modernen Blätter nutzt (pro User GLOBAL) - gleiche
   // Feld-IDs, nur das Layout ist neu
