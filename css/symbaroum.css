@@ -8369,6 +8369,42 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   color: var(--m-ink);
 }
 
+/* ---------- ItemSheets v3.6: Bearbeitungsmodus-Geometrie (Punkt 4) --------
+   Rudolfs Computed-Styles-Messung (28.10., Beschreibungs-Tab mit langem
+   Text, AKTIVER Modus) - Auswertung:
+   - .editor-content: pos: ABSOLUTE, h: 56px - trotz unserer v3.2-Regel
+     position: static !important / height: auto !important. Gleichzeitig
+     minH: 0px - unsere Beschreibungs-Tab-Regel min-height: 0 !important
+     WIRKT. D.h.: Die Core-Geometrie (foundry2.css, @layer
+     exceptions.prosemirror, Selektoren mit .prosemirror/.ProseMirror -
+     greifen NUR im aktiven Modus) setzt position/inset/height MIT
+     !important und schlaegt unsere ungelayerten !important-Overrides
+     (Kaskadenregel: bei !important gewinnt die gelayerte Core-Regel
+     gegen ungelayerte System-Regeln - das Layer-Modell der v3.4-Analyse
+     ist damit empirisch bestaetigt). Eigenschaften, die Core NICHT
+     zementiert (min-height am .editor-content), kontrollieren
+     weiterhin unsere Regeln.
+   - Folge: Host nur 60px hoch (Core min-height: var(--min-height) am
+     Host ist ohne --min-height "auto"; der Container haelt Core-
+     min-height 3.75rem = 60px; Host height: auto waechst mit -> der
+     ganze Editor bleibt bei 60px, der Rest laeuft aus dem Panel).
+   Fix: Wir beliefern die Core-Konfigurations-Variable --min-height
+   (extern verifiziert: foundry2.css nutzt min-height:
+   var(--min-height) am prose-mirror-Host; Symbaroum setzt sie
+   nirgends -> Leerlauf). Mit --min-height: 18rem heben Core-Regeln
+   Host UND Container auf 288px, das absolute .editor-content fuellt
+   den Container (inset: 0) und scrollt INTERN (ovY: auto,
+   Core-gewartet) -> genau EIN Scrollbalken, im Editor selbst - ohne
+   Kampf gegen die Core-!important-Geometrie.
+   Grenzen des Fixes: nur im AKTIVEN Modus (Selektor .prosemirror -
+   die Klasse traegt der Host nur im Bearbeitungsmodus) und nur im
+   Beschreibungs-Tab. Nur-Lese-Fuelllayout und klassische Ansicht
+   bleiben unberuehrt. Die Hoehe ist der Wert 18rem - bei Bedarf
+   einfach hier anpassen (z.B. 22rem fuer groessere Editoren). */
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] prose-mirror.prosemirror {
+  --min-height: 18rem;
+}
+
 /* ---------- ItemSheets v3: Segen/Last-Stufe unter dem Namen ---------------
    Rudolfs Testrunde 3, Punkt 13: Stufe zentriert unter dem Namen (nicht
    mehr im WERTE-Abschnitt). */
