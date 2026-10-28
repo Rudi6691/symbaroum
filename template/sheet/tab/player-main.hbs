@@ -244,7 +244,9 @@
                             <!-- End of Full Automation -->
                         </div>
                         <!-- </div> -->
-                        <button type="button" class="item-edit">{{item.name}}</button>
+                        <!-- Bestienkunde v1.1 (Rudolfs Testrunde 1): Titel
+                            anzeigeseitig um die Spezialisierung erweitert -->
+                        <button type="button" class="item-edit">{{item.name}}{{lookup @root.beastloreTitleSuffix item.id}}</button>
                     </div>
                     <div class="actions" data-tooltip="{{localize "TOOLTIP.POWER_ACTIONS"}}">{{item.system.actions}}</div>
                 </div>

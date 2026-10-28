@@ -3684,7 +3684,12 @@ export async function modifierDialog(functionStuff) {
           if (!isWeaponRoll && functionStuff.hasDamage && !functionStuff.isReturnSwing) {
             const beastlorePowerBonus = getBeastloreDamageBonus(functionStuff.actor, functionStuff.targetData?.actor);
             if (beastlorePowerBonus) {
-              functionStuff.dmgModifier += " " + beastlorePowerBonus.damageMod;
+              // Bestienkunde v1.1 (Rudolfs Testrunde 1, Befund 5): derselbe
+              // Flavor-Tag wie auf dem Waffen-Pfad (damageRollWithDiceParams),
+              // damit der Zusatzschaden-Wuerfel in der Karte als
+              // "+1d4[Bestienkunde]" erscheint - simpleDamageRoll haengt
+              // dmgModifier unverarbeitet an die Formel
+              functionStuff.dmgModifier += " " + beastlorePowerBonus.damageMod + "[" + game.i18n.localize("ABILITY_LABEL.BEAST_LORE") + "]";
               functionStuff.dmgModifierNPC = (functionStuff.dmgModifierNPC ?? 0) + beastlorePowerBonus.damageModNPC;
               functionStuff.autoParams += beastlorePowerBonus.label + ", ";
             }

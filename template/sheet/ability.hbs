@@ -70,6 +70,14 @@
                             {{selectOptions action_types selected=system.adept.action labelAttr="label"}}
                         </select>
                     </div>
+                    {{!-- Bestienkunde v1.1 (Rudolfs Testrunde 1): Dropdown in
+                        EIGENE Zeile UNTER Aktion und Erlernt --}}
+                    {{#if isOwned}}
+                    <div class="active">
+                        <label for="{{id}}-system.adept.isActive">{{localize "ABILITY.ACTIVE"}}</label>
+                        <input id="{{id}}-system.adept.isActive" name="system.adept.isActive" type="checkbox" value="active" {{checked system.adept.isActive}}/>
+                    </div>
+                    {{/if}}
                     {{#if isBeastlore}}
                     {{!-- Bestienkunde v1 (28.10.): RAW waehlt der Adept die
                         Kategorie, gegen die Adept/Meister-Bonus wirkt; die
@@ -79,12 +87,6 @@
                         <select id="{{id}}-system.beastloreCategory" name="system.beastloreCategory">
                             {{selectOptions beastlore_category_selection selected=system.beastloreCategory labelAttr="label" valueAttr="id"}}
                         </select>
-                    </div>
-                    {{/if}}
-                    {{#if isOwned}}
-                    <div class="active">
-                        <label for="{{id}}-system.adept.isActive">{{localize "ABILITY.ACTIVE"}}</label>
-                        <input id="{{id}}-system.adept.isActive" name="system.adept.isActive" type="checkbox" value="active" {{checked system.adept.isActive}}/>
                     </div>
                     {{/if}}
                     <prose-mirror toggled name="system.adept.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.adept.description}}">{{{system.adept.description}}}</prose-mirror>

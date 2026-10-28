@@ -275,6 +275,20 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		});
 
 		context.items = items;
+		// Bestienkunde v1.1 (Rudolfs Testrunde 1, Freigabe): Titel-Erweiterung
+		// "Bestienkunde [Spezialisierung]" - REIN anzeigeseitig auf dem
+		// Aktor-Blatt (klassische Liste, moderne Kacheln, Kampf-Favoriten).
+		// Der gespeicherte Item-Name bleibt unveraendert (die Bestienkunde-
+		// Logik sucht nach system.reference, nicht nach dem Namen); keine
+		// oder leere Kategorie = kein Suffix.
+		const beastloreTitleSuffix = {};
+		for (const item of items) {
+			const cat = item.system?.beastloreCategory;
+			if (!cat || item.system?.reference !== 'beastlore') continue;
+			const sel = game.symbaroum.config.CREATURE_CATEGORY_SELECTION[cat];
+			if (sel) beastloreTitleSuffix[item.id] = ' [' + game.i18n.localize(sel.label) + ']';
+		}
+		context.beastloreTitleSuffix = beastloreTitleSuffix;
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;
 		// A38 Währungssystem: Basiswert (Orteg) für das <symbaroum-currency>-Element.
@@ -483,7 +497,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			if (!s?.isPower) continue;
 			const entry = {
 				id: item.id,
-				name: item.name,
+				name: item.name + (context.beastloreTitleSuffix?.[item.id] ?? ''),
 				img: item.img,
 				hasScript: !!s.hasScript,
 				isIntegrated: !!s.isIntegrated,
@@ -682,7 +696,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			if (packed(item)) continue; // verpackte Teile kämpfen nicht (Status-Zwang)
 			if (s.isPower) {
 				const entry = powerEntryById[item.id];
-				if (entry) favorites.push({ id: item.id, name: item.name, img: item.img, kind: 'power', hasScript: entry.hasScript, sub: entry.sub });
+				// Bestienkunde v1.1: Favorit uebernimmt den erweiterten Titel
+				// aus dem powers-Eintrag (Suffix bereits in entry.name)
+				if (entry) favorites.push({ id: item.id, name: entry.name, img: item.img, kind: 'power', hasScript: entry.hasScript, sub: entry.sub });
 			} else if (s.isGear) {
 				// Aktive Waffen/Rüstungen erscheinen ohnehin immer im Kampf-Tab
 				if ((s.isWeapon || s.isArmor) && s.isActive) continue;
