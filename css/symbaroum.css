@@ -8252,6 +8252,27 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   max-height: none;
 }
 
+/* ---------- ItemSheets v3.3: Editor-Host neutralisiert ----------------------
+   Rudolfs Konsolen-Messung (Testrunde 6): Der prose-mirror-HOST traegt
+   selbst die Klasse .editor - die klassische Regel
+   .symbaroum.sheet.item .editor (Pergament-Hintergrund, inset-Schatten,
+   border, margin 5px, height 250px) traf damit DIREKT den Host und war
+   die letzte uebrig gebliebene Pergament-Quelle: Alle frueheren Fixes
+   (v3/v3.1/v3.2) erfassten nur die KINDER des Hosts (.editor-content,
+   Catch-All prose-mirror > div, .editor-container, Menues). Der Host
+   selbst wird jetzt im modernen Scope komplett neutralisiert:
+   transparent, rahmen- und randlos, Hoehe folgt dem Inhalt (im
+   Beschreibungs-Tab fuellt die Flex-Kette den Host ohnehin). Die
+   Kinder behalten ihre panel2-Flaechen; die klassische Ansicht (kein
+   .modern-root-Ancestor) behaelt ihr V13-Styling inkl. Pergament. */
+.symbaroum.sheet.item .modern-root prose-mirror.editor {
+  background: none;
+  box-shadow: none;
+  border: none;
+  margin: 0;
+  height: auto;
+}
+
 /* ---------- ItemSheets v3: Segen/Last-Stufe unter dem Namen ---------------
    Rudolfs Testrunde 3, Punkt 13: Stufe zentriert unter dem Namen (nicht
    mehr im WERTE-Abschnitt). */
