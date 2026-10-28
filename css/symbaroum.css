@@ -8273,6 +8273,69 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   height: auto;
 }
 
+/* ---------- ItemSheets v3.4: Testrunde-7-Anpassungen -------------------------
+   (a) Editor-Flaechen transparent (Rudolfs Punkt 7): Der Editor soll KEINE
+   eigene Hintergrundfarbe haben, wie im Aktorblatt-Tab Biographie - die
+   panel2-Flaechen aus v3.2 (Catch-All-Wrapper, .editor-content,
+   Menueleiste) werden auf transparent gesetzt. Der Editor wirkt damit
+   als Textflaeche direkt im Panel; Pergament/Schatten bleiben weiterhin
+   neutralisiert (v3.2/v3.3-Regeln laufen unveraendert mit).
+   (b) Menue-Container im Beschreibungs-Tab darf nicht mitwachsen
+   (Punkt 4, nur Bearbeitungsmodus): Der v3.2-Catch-All
+   prose-mirror > div gab dem menu-container flex: 1 - im Widerspruch
+   zum bewaehrten Aktor-Muster (dort waechst ausschliesslich
+   .editor-container, der Menue-Container bleibt bei seiner
+   Naturhoehe). flex: 0 0 auto stellt das Item-Blatt auf das
+   Aktor-Muster um.
+   (c) Aktion-Feld der Stufen-Tabs als einzeiliges Label/Dropdown-Paar
+   (Punkt 8): Label und Select nebeneinander, horizontal mit der
+   Erlernt-Zeile ausgerichtet (neue Klasse m-action-field in den
+   Templates ability/mystical-power/trait; das Material-Feld im
+   Beschreibungs-Tab der mystischen Kraft bleibt Spaltenfeld).
+   (d) Aufgeklappte Dropdown-Listen im Theme (Punkt 9): Native option-
+   Elemente sind weiss mit hellgrauer Schrift; Hintergrund/Schrift
+   folgen jetzt den Theme-Variablen (dunkel: panel2/ink, klassisches
+   Design liefert automatisch die hellen Werte mit) - gilt fuer die
+   modernen Item- UND Aktorblaetter. */
+.symbaroum.sheet.item .modern-root prose-mirror > div,
+.symbaroum.sheet.item .modern-root .editor-content,
+.symbaroum.sheet.item .modern-root .prosemirror-menu,
+.symbaroum.sheet.item .modern-root menu.prosemirror,
+.symbaroum.sheet.item .modern-root .prosemirror menu,
+.symbaroum.sheet.item .modern-root prose-mirror > menu {
+  background: none;
+}
+
+.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] prose-mirror > .menu-container {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.symbaroum.sheet.item .modern-root .m-inline-field.m-action-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-action-field label {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-action-field select {
+  flex: 1 1 auto;
+  max-width: 18rem;
+}
+
+.symbaroum.sheet.item .modern-root select option,
+.symbaroum.sheet.actor .modern-root select option {
+  background-color: var(--m-panel2);
+  color: var(--m-ink);
+}
+
 /* ---------- ItemSheets v3: Segen/Last-Stufe unter dem Namen ---------------
    Rudolfs Testrunde 3, Punkt 13: Stufe zentriert unter dem Namen (nicht
    mehr im WERTE-Abschnitt). */
