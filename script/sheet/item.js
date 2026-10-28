@@ -117,6 +117,16 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			allowShowReference: game.settings.get('symbaroum', 'allowShowReference'),
 		};
 		context.action_types = game.symbaroum.config.ACTION_TYPES;
+		// Bestienkunde v1 (Rudolfs Freigabe 28.10.): Kategorie-Dropdown nur
+		// auf Bestienkunde-Items (Adept-Tab, klassisch + modern); die Labels
+		// werden vorlokalisiert, damit selectOptions ohne localize-Helper
+		// arbeitet (gleiche Liste wie der A36-Monsterkategorien-Dialog,
+		// inklusive Flora/Phaenomen und der leeren "keine Kategorie"-Option)
+		context.isBeastlore = this.item.system.reference === "beastlore";
+		context.beastlore_category_selection = Object.values(game.symbaroum.config.CREATURE_CATEGORY_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;
 		/* AP2 v2 (Uniform-Regel): Effektiver Stapelbar-Zustand für die

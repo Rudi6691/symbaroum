@@ -533,6 +533,15 @@ export async function damageRollWithDiceParams(functionStuff, critSuccess, attac
     damageAutoParams += ", " + game.i18n.localize('COMBAT.CHAT_DMG_PARAMS_HALLOWED');
     damageModNPC += 2;
   }
+  // Bestienkunde v1 (Rudolfs Freigabe 28.10.): Adept/Meister-Bonus, gesetzt
+  // in attackResult nur gegen die gewaehlte Kategorie des Ziels; NPC
+  // statisch (Adept +2 / Meister +3). Gilt fuer jeden Angriff der Aktion
+  // (auch Angriff 2+, anders als dmgModifierAttackSupp).
+  if(functionStuff.beastloreDamageMod){
+    damageModFormula += " " + functionStuff.beastloreDamageMod + "[" + game.i18n.localize("ABILITY_LABEL.BEAST_LORE") + "]";
+    damageAutoParams += ", " + functionStuff.beastloreLabel;
+    damageModNPC += functionStuff.beastloreDamageModNPC;
+  }
   if(critSuccess) {
     //critSuccess is in the attackers perspective, so it always add damage.
     damageModFormula += " +1d6[crit.]";

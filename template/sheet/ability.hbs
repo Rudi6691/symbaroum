@@ -70,6 +70,17 @@
                             {{selectOptions action_types selected=system.adept.action labelAttr="label"}}
                         </select>
                     </div>
+                    {{#if isBeastlore}}
+                    {{!-- Bestienkunde v1 (28.10.): RAW waehlt der Adept die
+                        Kategorie, gegen die Adept/Meister-Bonus wirkt; die
+                        Pruefung gegen das Ziel laeuft automatisch (A36) --}}
+                    <div class="action">
+                        <label for="{{id}}-system.beastloreCategory">{{localize "ABILITY.BEASTLORE_CATEGORY"}}</label>
+                        <select id="{{id}}-system.beastloreCategory" name="system.beastloreCategory">
+                            {{selectOptions beastlore_category_selection selected=system.beastloreCategory labelAttr="label" valueAttr="id"}}
+                        </select>
+                    </div>
+                    {{/if}}
                     {{#if isOwned}}
                     <div class="active">
                         <label for="{{id}}-system.adept.isActive">{{localize "ABILITY.ACTIVE"}}</label>

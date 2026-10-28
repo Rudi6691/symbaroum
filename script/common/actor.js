@@ -1,4 +1,4 @@
-import { modifierDialog, confirmPowerDialog } from "./item.js";
+import { modifierDialog, confirmPowerDialog, getActorAbilityLevel, isHeavyWeapon } from "./item.js";
 import { prepareRollAttribute } from "../common/dialog.js";
 import { baseRoll } from "./roll.js";
 // A39 Belastungssystem: Last-Berechnung (optionale APG-Regeln)
@@ -1129,7 +1129,13 @@ export class SymbaroumActor extends Actor {
 			targetText: game.i18n.localize("ABILITY.CHAT_TARGET_VICTIM"),
 			resistRollText: "",
 			corruptingattack: "",
-			ignoreArm: false,
+			// Zweihandkraft v1.2 (Rudolfs Testrunde 2, 28.10.): die "Ruestung
+			// ignorieren"-Checkbox ist im EC-Dialog GLEICH angehakt, wenn der
+			// Angreifer eine Ruestung ignorierende Quelle hat (schwere Waffe +
+			// Zweihandkraft-Meister, GRW) - dialog.js rendert den Haken
+			// datengetrieben aus ecData.ignoreArm, der Callback macht ihn
+			// abwaehlbar (Rudolfs Entscheidung: nur Vorbelegung, kein Zwang)
+			ignoreArm: isHeavyWeapon(weapon) && getActorAbilityLevel(this, "twohandedforce") >= 3,
 			castingAttributeName: weapon.attribute,
 			weapon: weapon,
 			damageOverTime: [],

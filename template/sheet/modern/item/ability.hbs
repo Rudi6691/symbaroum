@@ -39,6 +39,14 @@
                             {{selectOptions action_types selected=system.adept.action labelAttr="label"}}
                         </select>
                     </div>
+                    {{#if isBeastlore}}
+                    <div class="m-inline-field m-action-field">
+                        <label for="{{id}}-system.beastloreCategory">{{localize "ABILITY.BEASTLORE_CATEGORY"}}</label>
+                        <select id="{{id}}-system.beastloreCategory" name="system.beastloreCategory">
+                            {{selectOptions beastlore_category_selection selected=system.beastloreCategory labelAttr="label" valueAttr="id"}}
+                        </select>
+                    </div>
+                    {{/if}}
                     {{#if isOwned}}
                     <div class="m-inline-field m-check">
                         <label for="{{id}}-system.adept.isActive">{{localize "ABILITY.ACTIVE"}}</label>

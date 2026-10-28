@@ -919,46 +919,14 @@ export class SymbaroumItem extends Item {
   }
 
   getItemModifierBeastlore(combatMods, armors, weapons, abilities) {
-    let lvl = this.getLevel();
-    if (lvl.level < 2) return;
-
-    for (let i = 0; i < weapons.length; i++) {
-      if (weapons[i].system.alternativeDamage !== "none") {
-        continue;
-      }
-      let pack = this._getPackageFormat();
-      let damageMod = "+1d" + (lvl.level * 2).toString();
-      let base = this._getBaseFormat();
-      base.type = game.symbaroum.config.DAM_MOD;
-      base.value = damageMod;
-      base.alternatives = [
-        {
-          damageMod: damageMod,
-          damageModNPC: lvl.level,
-        },
-      ];
-      pack.member.push(base);
-      this.system.isIntegrated = true;
-      combatMods.weapons[weapons[i].id].package.push(pack);
-    }
-    for (let i = 0; i < abilities.length; i++) {
-      if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].hasDamage) {
-        let pack = this._getPackageFormat();
-        let damageMod = "+1d" + (lvl.level * 2).toString();
-        let base = this._getBaseFormat();
-        base.type = game.symbaroum.config.DAM_MOD;
-        base.value = damageMod;
-        base.alternatives = [
-          {
-            damageMod: damageMod,
-            damageModNPC: lvl.level,
-          },
-        ];
-        pack.member.push(base);
-        this.system.isIntegrated = true;
-        combatMods.abilities[abilities[i].id].package.push(pack);
-      }
-    }
+    // Bestienkunde v1 (Rudolfs Freigabe 28.10.): KEINE Pauschal-Pakete mehr
+    // (frueher: manuelle Dialog-Checkbox "+1d4/+1d6" auf alle Waffen und
+    // schadensverursachenden Kraeften, ohne Kategorie-Pruefung). Der Bonus
+    // laeuft jetzt vollautomatisch NUR gegen die auf dem Item-Blatt
+    // gewaehlte Kategorie des anvisierten Ziels - Verbraucher:
+    // getBeastloreDamageBonus (Waffen: attackResult/Beide Pfade, Kraefte:
+    // modifierDialog-Callback). Novize unberuehrt (SL-Wissensprobe).
+    return;
   }
 
   getItemModifierBerserker(combatMods, armors, weapons, abilities) {
@@ -3708,17 +3676,25 @@ export async function modifierDialog(functionStuff) {
               functionStuff.dmgModifierNPC = damModifierNPC;
             }
           }
+          // Bestienkunde v1 (Rudolfs Freigabe 28.10.): Bonus fuer KRAEFTE mit
+          // Schaden - vollautomatisch nur gegen die auf dem Item-Blatt
+          // gewaehlte Kategorie des anvisierten Ziels (der Waffen-Bonus
+          // sitzt stattdessen in attackResult, damit BEIDE Dialogpfade
+          // abgedeckt sind - hier ist isWeaponRoll false, keine Dopplung)
+          if (!isWeaponRoll && functionStuff.hasDamage && !functionStuff.isReturnSwing) {
+            const beastlorePowerBonus = getBeastloreDamageBonus(functionStuff.actor, functionStuff.targetData?.actor);
+            if (beastlorePowerBonus) {
+              functionStuff.dmgModifier += " " + beastlorePowerBonus.damageMod;
+              functionStuff.dmgModifierNPC = (functionStuff.dmgModifierNPC ?? 0) + beastlorePowerBonus.damageModNPC;
+              functionStuff.autoParams += beastlorePowerBonus.label + ", ";
+            }
+          }
           if (isWeaponRoll) {
             functionStuff.ignoreArm = html[0].querySelector("#ignarm").checked;
-            // Automatisierungspaket "Zweihandkraft" (Rudolf, 28.10.): Meister-
-            // Abstufung (GRW) - Treffer mit schweren Waffen ignorieren die
-            // Ruestung des Ziels vollstaendig. RAW-zwingend, daher als Override
-            // NACH der Checkbox gesetzt: der Meister kann die Ruestung nicht
-            // versehentlich anrechnen lassen (Rudolfs Freigabe
-            // "auto-ignoreArm auf heavy-Waffen")
-            if (isHeavyWeapon(functionStuff.weapon) && getActorAbilityLevel(functionStuff.actor, "twohandedforce") >= 3) {
-              functionStuff.ignoreArm = true;
-            }
+            // Zweihandkraft v1.2 (Rudolfs Testrunde 2): KEIN Zwang mehr -
+            // bei schwerer Waffe + Zweihandkraft-Meister ist die Checkbox nur
+            // vorbelegt (siehe Vorbelegung vor dem renderTemplate); die
+            // Checkbox gewinnt, der Meister kann abwaehlen
             if (functionStuff.ignoreArm) functionStuff.autoParams += game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_IGN_ARMOR") + ", ";
             functionStuff.poison = Number(html[0].querySelector("#poison").value);
           }
@@ -5372,15 +5348,37 @@ async function mathDamageProt(targetActor, damage, damageType = {}) {
    Auswahlrunde): Stufe der Fähigkeit im Actor suchen - Ability-Items tragen
    die system.reference ("twohandedforce"), getLevel() liefert Novize=1,
    Adept=2, Meister=3, nicht erlernt=0 */
-function getActorAbilityLevel(actor, reference) {
+export function getActorAbilityLevel(actor, reference) {
   const ability = actor?.items?.find((i) => i.system?.reference === reference);
   return ability?.getLevel?.().level ?? 0;
 }
 
 /* schwere Waffe in beiden Waffen-Formen erkennen - die vorverarbeitete
    EC-Struktur (.reference) und das Item (.system.reference) */
-function isHeavyWeapon(weapon) {
+export function isHeavyWeapon(weapon) {
   return (weapon?.reference ?? weapon?.system?.reference) === "heavy";
+}
+
+/* Bestienkunde v1 (Rudolfs Freigabe 28.10., Auswahlrunde): Bonus-Objekt,
+   wenn der Angreifer Bestienkunde Adept/Meister hat, auf dem Item-Blatt
+   eine Kategorie gewaehlt hat UND das anvisierte Ziel genau diese
+   Kategorie traegt (A36: system.creatureCategory) - sonst null.
+   Adept: +1d4 (NPC statisch +2), Meister: +1d6 (NPC statisch +3). */
+export function getBeastloreDamageBonus(actor, targetActor) {
+  const ability = actor?.items?.find((i) => i.system?.reference === "beastlore");
+  const lvl = ability?.getLevel?.().level ?? 0;
+  if (lvl < 2) return null;
+  const category = ability?.system?.beastloreCategory ?? "";
+  if (!category || !targetActor || game.symbaroum.config.getCreatureCategory(targetActor) !== category) {
+    return null;
+  }
+  const isMaster = lvl >= 3;
+  const categoryLabel = game.i18n.localize(game.symbaroum.config.CREATURE_CATEGORY_SELECTION[category]?.label ?? "");
+  return {
+    damageMod: isMaster ? "+1d6" : "+1d4",
+    damageModNPC: lvl,
+    label: game.i18n.localize("ABILITY_LABEL.BEAST_LORE") + " " + (isMaster ? "+1d6" : "+1d4") + " (" + categoryLabel + ")",
+  };
 }
 
 async function attackResult(rollData, functionStuff) {
@@ -5413,6 +5411,18 @@ async function attackResult(rollData, functionStuff) {
   // erste Fehlschlag pro Angriffsaktion); die Ausfuehrung folgt am Ende von
   // attackResult, nachdem die Karte des urspruenglichen Angriffs liegt
   let returnSwingFired = false;
+  // Bestienkunde v1 (Rudolfs Freigabe 28.10.): vollautomatischer
+  // Adept/Meister-Bonus nur gegen die auf dem Item-Blatt gewaehlte
+  // Kategorie des Ziels (attackResult deckt den EC- UND den klassischen
+  // Waffenpfad ab); Verbraucher ist damageRollWithDiceParams (roll.js).
+  // Alternative-Schaden-Waffen bleiben draussen wie beim alten Paket.
+  const beastloreBonus =
+    functionStuff.weapon && !functionStuff.isAlternativeDamage ? getBeastloreDamageBonus(functionStuff.actor, functionStuff.targetData?.actor) : null;
+  if (beastloreBonus) {
+    functionStuff.beastloreDamageMod = beastloreBonus.damageMod;
+    functionStuff.beastloreDamageModNPC = beastloreBonus.damageModNPC;
+    functionStuff.beastloreLabel = beastloreBonus.label;
+  }
 
   for (let rollDataElement of rollData) {
     rolls = rolls.concat(rollDataElement.rolls);
@@ -5807,6 +5817,12 @@ async function attackResult(rollData, functionStuff) {
       hasAdvantage: false,
       hallowedBonus: false,
       freeAttack: false,
+      // Bestienkunde v1: auch der Bestienkunde-Bonus gehoert zu den Boni,
+      // die der Rueckwaertsschwung nicht erhaelt (Rudolfs Runde-1-Festlegung
+      // "fix 1W8, keine Boni")
+      beastloreDamageMod: null,
+      beastloreDamageModNPC: 0,
+      beastloreLabel: "",
     });
     // purer 1W8: NPC-Angreifer rechnen statisch (max/2 = 4), die
     // Qualitaets-Effekte der Waffe sind fuer den Rueckwaertsschwung aus
