@@ -7,9 +7,11 @@ import {
   getOwnerPlayer,
   createModifyTokenChatButton,
   createResistRollChatButton,
+  getRollResultLevelKey,
 } from "./roll.js";
 import { createLineDisplay } from "./dialog.js";
 import { symbDialog } from "./symbDialog.js";
+import { isModernDialogActive, modernDialogClasses } from "./modernSheetConfig.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3288,6 +3290,11 @@ export function formatRollResult(rollDataElement) {
   if (rollDataElement.secondRollResult) {
     rollResult += " - " + game.i18n.localize("ABILITY.SECOND_ROLL_RESULT") + rollDataElement.secondRollResult.toString();
   }
+  // Automatisierungspaket 1 (28.10.): 6-stufige Benennung - additives Feld
+  // resultLevelKey (aus doBaseRoll) haengt die Wirkungsstufe an
+  if (rollDataElement.resultLevelKey) {
+    rollResult += " - " + game.i18n.localize(rollDataElement.resultLevelKey);
+  }
   return rollResult;
 }
 
@@ -3470,7 +3477,11 @@ export async function modifierDialog(functionStuff) {
     targetAttributeName = functionStuff.targetData.resistAttributeName;
   }
   createLineDisplay(functionStuff, functionStuff.attackFromPC);
-  const html = await foundry.applications.handlebars.renderTemplate("systems/symbaroum/template/chat/dialog2.hbs", {
+  // Automatisierungspaket 1 (28.10.): Würfeldialog im modernen Design, wenn
+  // der Nutzer die modernen Blätter nutzt (pro User GLOBAL) - gleiche
+  // Feld-IDs, nur das Layout ist neu
+  const modernRoll = isModernDialogActive();
+  const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
     askCastingAttribute: functionStuff.askCastingAttribute,
     askTargetAttribute: functionStuff.askTargetAttribute,
@@ -3511,9 +3522,12 @@ export async function modifierDialog(functionStuff) {
   } else {
     title = functionStuff.weapon.name;
   }
+  const baseDialogTitle = title;
   let dialog = symbDialog({
     title: title,
     content: html,
+    // Automatisierungspaket 1: modernes Fenster-Chrome (A6v9-Muster)
+    classes: modernRoll ? modernDialogClasses("modern-roll-dialog") : [],
     buttons: {
       roll: {
         icon: '<i class="fas fa-check"></i>',
@@ -3536,6 +3550,23 @@ export async function modifierDialog(functionStuff) {
           // acting attribute for d20roll
           if (functionStuff.askCastingAttribute) {
             functionStuff.castingAttributeName = html[0].querySelector("#castAt").value;
+          }
+
+          // Automatisierungspaket 1 (Rudolf, 28.10.): "Freier Angriff"-
+          // Toggle - die RAW-Auslöser bleiben SL-Buchhaltung, der Toggle
+          // markiert die AUSFÜHRUNG: hartes Präzision-Override (gilt auch
+          // gegen Fähigkeiten, die andere Eigenschaften erlauben) und
+          // Unterdrückung aktiver PACK_CHECK-Pakete (RAW: passive ja,
+          // aktive nein). Muss NACH askWeapon/askCastingAttribute greifen.
+          let isFreeAttack = false;
+          if (isWeaponRoll) {
+            const faBox = html[0].querySelector("#freeattack");
+            isFreeAttack = !!(faBox && faBox.checked);
+          }
+          if (isFreeAttack) {
+            functionStuff.castingAttributeName = "accurate";
+            functionStuff.freeAttack = true;
+            functionStuff.autoParams += game.i18n.localize("CHAT.CRITICAL_FREEATTACK") + ", ";
           }
 
           //resist attribute for d20roll
@@ -3633,6 +3664,9 @@ export async function modifierDialog(functionStuff) {
             }
             for (let pack of functionStuff.package) {
               if (pack.type === game.symbaroum.config.PACK_CHECK) {
+                // Automatisierungspaket 1: aktive Pakete sind beim Freien
+                // Angriff unterdrückt (RAW: passive ja, aktive nein)
+                if (isFreeAttack) continue;
                 // Find if the box is checked
                 let ticked = html[0].querySelector(`#${pack.id}`);
                 if (ticked.length > 0 && ticked[0].checked) {
@@ -3741,6 +3775,36 @@ export async function modifierDialog(functionStuff) {
     },
     default: "roll",
   });
+  // Automatisierungspaket 1: Freier-Angriff-Toggle - Fenstertitel-Suffix
+  // und das Ausblenden der aktiven Paket-Checkboxen folgen live dem Häkchen
+  // (Muster A30: symbDialog startet das Rendern selbst; das erneute await
+  // rendert sichtbar identisch und hängt die Listener erst danach an). Die
+  // Callback-seitige Auswertung oben ist autoritativ, das hier ist Anzeige.
+  if (isWeaponRoll) {
+    try {
+      Promise.resolve(dialog.render({ force: true })).then(
+        () => {
+          const faRoot = dialog.element;
+          if (!faRoot) return;
+          const faBox = faRoot.querySelector("#freeattack");
+          if (!faBox) return;
+          const faTitle = faRoot.querySelector(".window-title");
+          const faSuppress = faRoot.querySelectorAll(".freeattack-suppress");
+          const faApply = () => {
+            const faOn = faBox.checked;
+            if (faTitle) faTitle.textContent = baseDialogTitle + (faOn ? " — " + game.i18n.localize("CHAT.CRITICAL_FREEATTACK") : "");
+            for (const faRow of faSuppress) {
+              faRow.style.display = faOn ? "none" : "";
+            }
+          };
+          faBox.addEventListener("change", faApply);
+        },
+        () => {}
+      );
+    } catch (err) {
+      game.symbaroum.log("Auto1: free-attack live display unavailable");
+    }
+  }
 }
 
 export async function buildRolls(functionStuff) {
@@ -5288,13 +5352,15 @@ async function attackResult(rollData, functionStuff) {
 
     rollDataElement.finalText = "";
     rollDataElement.resultText = functionStuff.actingCharName + game.i18n.localize("COMBAT.CHAT_SUCCESS") + functionStuff.targetData.name;
-    if (rollDataElement.critSuccess) {
-      if (functionStuff.resistRoll) {
-        //critSuccess is in the attackers perspective.
-        rollDataElement.resultText += " - " + game.i18n.localize("CHAT.CRITICAL_FAILURE");
-      } else {
-        rollDataElement.resultText += " - " + game.i18n.localize("CHAT.CRITICAL_SUCCESS");
-      }
+    // Automatisierungspaket 1 (28.10.): 6-stufige Benennung - das Etikett
+    // folgt der Wirkungsstufe (Kritischer Erfolg/Außergewöhnlicher Erfolg/
+    // Patzer) statt der schlichten Krit-Flag; die resistRoll-Perspektiv-
+    // drehung (Etikett gehoert dem Wuerfelnden) steckt in
+    // getRollResultLevelKey (roll.js). Der schlichte Erfolg/Fehlschlag
+    // bleibt ohne Zusatzetikett.
+    const faLevelKey = getRollResultLevelKey(rollDataElement, functionStuff.resistRoll);
+    if (faLevelKey !== "CHAT.SUCCEED" && faLevelKey !== "CHAT.FAILED") {
+      rollDataElement.resultText += " - " + game.i18n.localize(faLevelKey);
     }
     if (functionStuff.weapon.qualities.jointed && !rollDataElement.trueActorSucceeded && rollDataElement.diceResult % 2 != 0) {
       rollDataElement.resultText = game.i18n.localize("COMBAT.CHAT_JOINTED_SECONDARY");
@@ -5359,12 +5425,19 @@ async function attackResult(rollData, functionStuff) {
       }
     } else {
       rollDataElement.resultText = functionStuff.actingCharName + game.i18n.localize("COMBAT.CHAT_FAILURE");
-      if (rollDataElement.critFail) {
-        //critFail is in the attackers perspective, so it means the defenser gets a free attack
-        if (functionStuff.resistRoll) {
-          rollDataElement.resultText += " - " + game.i18n.localize("CHAT.CRITICAL_SUCCESS") + " : " + game.i18n.localize("CHAT.CRITICAL_FREEATTACK");
-        } else {
-          rollDataElement.resultText += " - " + game.i18n.localize("CHAT.CRITICAL_FAILURE") + " : " + game.i18n.localize("CHAT.CRITICAL_FAILURE_FREEATTACK");
+      // Automatisierungspaket 1: 6-stufige Benennung (siehe oben) - der
+      // Freier-Angriff-Hinweis haengt nur an der bestätigten Krit-Stufe,
+      // Patzer/Außergewöhnlicher Erfolg (unbestätigt) bleiben ohne Effekt
+      const faLevelKey = getRollResultLevelKey(rollDataElement, functionStuff.resistRoll);
+      if (faLevelKey !== "CHAT.SUCCEED" && faLevelKey !== "CHAT.FAILED") {
+        rollDataElement.resultText += " - " + game.i18n.localize(faLevelKey);
+        if (rollDataElement.critFail) {
+          //critFail is in the attackers perspective, so it means the defenser gets a free attack
+          if (functionStuff.resistRoll) {
+            rollDataElement.resultText += " : " + game.i18n.localize("CHAT.CRITICAL_FREEATTACK");
+          } else {
+            rollDataElement.resultText += " : " + game.i18n.localize("CHAT.CRITICAL_FAILURE_FREEATTACK");
+          }
         }
       }
     }

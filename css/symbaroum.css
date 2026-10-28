@@ -8746,3 +8746,124 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   font-size: 0.8125rem;
   font-weight: 500;
 }
+
+/* ---------- Würfeldialoge im modernen Design (Automatisierungspaket 1,
+   Rudolf, 28.10.) ------------------------------------------------------------
+   Die modernen Varianten (dialog-modern.hbs / dialog2-modern.hbs) nutzen
+   dieselben Feld-IDs wie die klassischen Templates; das Fenster-Chrome
+   (Kopf/Inhalt/Buttons/Inputs/Checkboxen) themet der A6v9-Block
+   (dialog.symb-dialog.modern-dialog, inklusive Theme-Klassen dunkel/hell).
+   Hier folgt nur das Inhalts-Layout: Zeilen mit linksbündigem Label statt
+   der klassischen Textur-Banner (.symbaroum.dialog label greift nicht,
+   die modernen Templates tragen die Klasse nicht). */
+.symbaroum.modern-roll-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.35rem 0.1rem 0.1rem;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-row > label {
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 600;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-row input[type="number"],
+.symbaroum.modern-roll-dialog .m-roll-row input[type="text"],
+.symbaroum.modern-roll-dialog .m-roll-row select,
+.symbaroum.modern-roll-dialog .m-roll-row .m-roll-value {
+  flex: 0 0 9rem;
+  width: 9rem;
+  box-sizing: border-box;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-check > label {
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-check input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-favour {
+  display: flex;
+  justify-content: center;
+  padding: 0.1rem 0;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-favour label.lblfavour,
+.symbaroum.modern-roll-dialog label.lblfavour {
+  background: none;
+  color: var(--m-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  width: auto;
+  min-width: 0;
+  text-align: center;
+  padding: 0.1rem 0.4rem;
+  display: inline-flex;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-sec {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--m-muted);
+  border-bottom: 0.0625rem solid var(--m-line);
+  padding-bottom: 0.15rem;
+  margin-top: 0.25rem;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-value {
+  font-weight: 600;
+  color: var(--m-accent);
+  text-align: center;
+}
+
+.symbaroum.modern-roll-dialog .m-roll-note {
+  color: var(--m-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.2rem 0;
+}
+
+/* Freier-Angriff-Zeile: prägnanter Akzentrahmen, damit der neue Toggle
+   nicht in der Feldliste untergeht */
+.symbaroum.modern-roll-dialog .freeattack-row {
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0.1rem 0;
+  background: var(--m-panel);
+}
+
+.symbaroum.modern-roll-dialog .freeattack-row input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+.symbaroum.modern-roll-dialog .freeattack-row > label {
+  color: var(--m-ink);
+}

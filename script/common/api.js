@@ -186,6 +186,12 @@ export class SymbaroumAPI
         if(rollDataElement.secondRollResult){
             rollResult += " - " + game.i18n.localize('ABILITY.SECOND_ROLL_RESULT') + rollDataElement.secondRollResult.toString();
         }
+        // Automatisierungspaket 1 (28.10.): 6-stufige Benennung - wenn der
+        // Wurf eine Wirkungsstufe mitbringt (additives Feld resultLevelKey aus
+        // doBaseRoll), haengt sie an die Ergebniszeile an
+        if(rollDataElement.resultLevelKey){
+            rollResult += " - " + game.i18n.localize(rollDataElement.resultLevelKey);
+        }
         return rollResult;
     }
 

@@ -1,13 +1,18 @@
 <div class="symbaroum dialog">
   {{#if askWeapon}}
   <div class="attribute">
-    <label>Choose weapon</label>
+    <label>{{localize "DIALOG.CHOOSE_WEAPON"}}</label>
     <select id="weapon">
         {{#each weapons}}
-        <option value={{this.id}}>{{this.name}} | Attribut: {{this.system.attribute}} </option>
+        <option value={{this.id}}>{{this.name}} | {{this.system.attribute}} </option>
         {{/each}}
     </select>
   </div>
+  {{/if}}
+  {{#if isWeaponRoll}}
+    <div class="simplebox freeattack-row">
+      <label>{{localize "DIALOG.FREE_ATTACK"}}</label><span class="lblfavour"><input type="checkbox" id="freeattack" unchecked></span>
+    </div>
   {{/if}}
   {{#if askCastingAttribute}}
   <div class="attribute">
@@ -111,8 +116,8 @@
       {{#ife package.type "radio"}}
         <div class="favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternatives checked=package.defaultSelect localize=false}}</label></div>
       {{/ife}}
-      {{#ife package.type "checkbox"}}          
-        <div class="advantage"><label for="{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="{{package.id}}" value="{{package.value}}" data-dtype="Text" ><input for="{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
+      {{#ife package.type "checkbox"}}
+        <div class="advantage freeattack-suppress"><label for="{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="{{package.id}}" value="{{package.value}}" data-dtype="Text" ><input for="{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
       {{/ife}}
     {{/each}}
     {{#if leaderTarget}}

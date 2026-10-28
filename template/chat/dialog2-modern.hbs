@@ -1,0 +1,186 @@
+{{!-- Automatisierungspaket 1 (Rudolf, 28.10.): moderne Variante des
+    Kräfte-/Fähigkeits-Würfeldialogs (modifierDialog). Gleiche Feld-IDs und
+    Namen wie das klassische dialog2.hbs - die Callback-Logik in item.js
+    liest per ID und bleibt unverändert. Das Fenster-Chrome themet der
+    A6-Block (dialog.symb-dialog.modern-dialog); dieses Template liefert nur
+    das Inhalts-Layout (CSS-Block .symbaroum.modern-roll-dialog). --}}
+<div class="symbaroum modern-roll-dialog">
+  {{#if askWeapon}}
+  <div class="m-roll-row">
+    <label>{{localize "DIALOG.CHOOSE_WEAPON"}}</label>
+    <select id="weapon">
+        {{#each weapons}}
+        <option value={{this.id}}>{{this.name}} | {{this.system.attribute}} </option>
+        {{/each}}
+    </select>
+  </div>
+  {{/if}}
+  {{#if isWeaponRoll}}
+    <div class="m-roll-check freeattack-row">
+      <label for="freeattack">{{localize "DIALOG.FREE_ATTACK"}}</label>
+      <input type="checkbox" id="freeattack" unchecked>
+    </div>
+  {{/if}}
+  {{#if askCastingAttribute}}
+  <div class="m-roll-row">
+    <label>{{localize "DIALOG.CASTING_ATTRIBUTE"}}</label>
+    <select id="castAt">
+      <option value="accurate">{{localize "ATTRIBUTE.ACCURATE"}}</option>
+      <option value="cunning">{{localize "ATTRIBUTE.CUNNING"}}</option>
+      <option value="discreet">{{localize "ATTRIBUTE.DISCREET"}}</option>
+      <option value="persuasive">{{localize "ATTRIBUTE.PERSUASIVE"}}</option>
+      <option value="quick">{{localize "ATTRIBUTE.QUICK"}}</option>
+      <option value="resolute" selected>{{localize "ATTRIBUTE.RESOLUTE"}}</option>
+      <option value="strong">{{localize "ATTRIBUTE.STRONG"}}</option>
+      <option value="vigilant">{{localize "ATTRIBUTE.VIGILANT"}}</option>
+      <option value="defense">{{localize "ARMOR.DEFENSE"}}</option>
+    </select>
+  </div>
+  {{/if}}
+  {{#if askTargetAttribute}}
+  <div class="m-roll-row">
+    <label>{{localize "DIALOG.RESIST_ATTRIBUTE"}}</label>
+    <select id="resistAtt">
+      <option value="accurate">{{localize "ATTRIBUTE.ACCURATE"}}</option>
+      <option value="cunning">{{localize "ATTRIBUTE.CUNNING"}}</option>
+      <option value="discreet">{{localize "ATTRIBUTE.DISCREET"}}</option>
+      <option value="persuasive">{{localize "ATTRIBUTE.PERSUASIVE"}}</option>
+      <option value="quick">{{localize "ATTRIBUTE.QUICK"}}</option>
+      <option value="resolute" selected>{{localize "ATTRIBUTE.RESOLUTE"}}</option>
+      <option value="strong">{{localize "ATTRIBUTE.STRONG"}}</option>
+      <option value="vigilant">{{localize "ATTRIBUTE.VIGILANT"}}</option>
+      <option value="defense">{{localize "ARMOR.DEFENSE"}}</option>
+    </select>
+  </div>
+  {{/if}}
+  {{#if hasRoll}}
+  <div class="m-roll-row">
+    <label>{{localize "DIALOG.MODIFIER"}}</label>
+    <input id="bonus" type="number" value="{{defaultModifier}}" data-dtype="Number"/>
+  </div>
+  <div class="m-roll-favour">
+    <label class="lblfavour">{{radioBoxes groupName choices checked=defaultFavour localize=true}}</label>
+  </div>
+  {{/if}}
+  {{#if askImpeding}}
+  <div class="m-roll-check">
+    <label>{{localize "DIALOG.IMPEDING"}}</label>
+    <input type="checkbox" id="impeding" checked>
+  </div>
+  {{/if}}
+  {{#if targetImpeding}}
+  <div class="m-roll-check">
+    <label>{{localize "ARMOR.IMPEDING_TARGET"}}</label>
+    <input type="checkbox" id="impTarget" checked>
+  </div>
+  {{/if}}
+  {{#if askCorruptedTargetDefaultNo}}
+  <div class="m-roll-check">
+    <label>{{localize "DIALOG.ASK_CORRUPTION"}}</label>
+    <input type="checkbox" id="targetCorrupt" unchecked>
+  </div>
+  {{/if}}
+  {{#if askCorruptedTargetDefaultYes}}
+  <div class="m-roll-check">
+    <label>{{localize "DIALOG.ASK_CORRUPTION"}}</label>
+    <input type="checkbox" id="targetCorrupt" checked>
+  </div>
+  {{/if}}
+  {{#if isWeaponRoll}}
+    {{#if precise}}
+      <div class="m-roll-row">
+        <label for="precise">{{localize "COMBAT.PARAMS_PRECISE"}}</label>
+        <div class="m-roll-value">{{localize "COMBAT.CHAT_MODIFIER"}}1</div>
+      </div>
+    {{/if}}
+    <div class="m-roll-row">
+      <label for="weapondamage">{{localize "WEAPON.BASE_DAMAGE"}}</label>
+      <div class="m-roll-value">{{weaponDamage}}</div>
+    </div>
+    <div class="m-roll-check">
+      <label>{{localize "DIALOG.IGNORE_ARMOR"}}</label>
+      <input type="checkbox" id="ignarm" {{#if ignoreArmor}}checked{{else}}unchecked{{/if}}>
+    </div>
+    <div class="m-roll-row">
+      <label>{{localize "DIALOG.USE_POISON"}}</label>
+      <select id="poison">
+        <option value="0">{{localize "DIALOG.NO_POISON"}}</option>
+        <option value="1">{{localize "DIALOG.LIGHT_POISON"}}</option>
+        <option value="2">{{localize "DIALOG.MEDIUM_POISON"}}</option>
+        <option value="3">{{localize "DIALOG.STRONG_POISON"}}</option>
+      </select>
+    </div>
+    {{#if askBackstab}}
+    <div class="m-roll-check">
+      <label>{{localize "DIALOG.BACKSTAB"}}</label>
+      <input type="checkbox" id="usebackstab" unchecked>
+    </div>
+    {{/if}}
+  {{/if}}
+  {{#if contextualDamage}}
+    <div class="m-roll-check">
+      <label>{{localize "DIALOG.ADVANTAGE"}}</label>
+      <input type="checkbox" id="advantage" unchecked>
+    </div>
+    {{#each packages as |package|}}
+      {{#ife package.type "radio"}}
+        <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternatives checked=package.defaultSelect localize=false}}</label></div>
+      {{/ife}}
+      {{#ife package.type "checkbox"}}
+        <div class="m-roll-check freeattack-suppress">
+          <label for="{{package.id}}">{{package.label}}</label>
+          <input class="checkbox" type="checkbox" id="{{package.id}}" value="{{package.value}}" data-dtype="Text" >
+        </div>
+      {{/ife}}
+    {{/each}}
+    {{#if leaderTarget}}
+    <div class="m-roll-row">
+      <label for="weapondamage">{{localize "COMBAT.CHAT_DMG_PARAMS_LEADER"}}</label>
+      <div class="m-roll-value">{{d4}}</div>
+    </div>
+    {{/if}}
+    <div class="m-roll-row">
+      <label>{{localize "DIALOG.DAMAGE_MODIFIER"}}</label>
+      <input id="dammodifier" value="{{defaultDamModifier}}" type="text" data-dtype="Text"/>
+    </div>
+  {{/if}}
+  {{#if isArmorRoll}}
+  <div class="m-roll-check">
+    <label>{{localize "DIALOG.DISADVANTAGE"}}</label>
+    <input type="checkbox" {{defaultAdvantage}} id="advantage" value="1" data-dtype="Number">
+  </div>
+  {{/if}}
+  {{#if checkMaintain}}
+  <div class="m-roll-favour">
+    <label class="lblfavour">{{radioBoxes "maintain" maintainChoices checked=defaultMaintain localize=true}}</label>
+  </div>
+  {{/if}}
+  {{#if medicus}}
+    {{#if hasTarget}}
+      <div class="m-roll-check">
+        <label>{{localize "DIALOG.MEDICUS_EXAM"}}</label>
+        <input type="checkbox" id="exam" unchecked>
+      </div>
+      <div class="m-roll-check">
+        <label>{{localize "ABILITY_MEDICUS.HERBALCURE"}}</label>
+        <input type="checkbox" id="herbalcure" unchecked>
+      </div>
+      <div class="m-roll-row">
+        <label>{{localize "DIALOG.CUSTOM_HEALING_MODIFIER"}}</label>
+        <input id="customhealing" value="" type="text" data-dtype="Text"/>
+      </div>
+      {{else}}
+      <div class="m-roll-note">{{localize "ABILITY_MEDICUS.NO_TARGET"}}</div>
+    {{/if}}
+  {{/if}}
+  {{#if poisoner}}
+  <div class="m-roll-row">
+    <label>{{localize "DIALOG.USE_POISON"}}</label>
+    <select id="poisoner">
+      <option value="1">{{localize "DIALOG.LIGHT_POISON"}}</option>
+      <option value="2">{{localize "DIALOG.MEDIUM_POISON"}}</option>
+      <option value="3">{{localize "DIALOG.STRONG_POISON"}}</option>
+  </select>
+  </div>
+  {{/if}}
+</div>

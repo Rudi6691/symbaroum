@@ -97,6 +97,35 @@ export function getModernSheetEffectiveDesign() {
 }
 
 /**
+ * Automatisierungspaket 1 (28.10.): Würfeldialoge im modernen Design.
+ * Aktiv, wenn dieselben Bedingungen wie für die modernen Blätter gelten:
+ * Welt-Setting 'modernSheetEnabled' UND der Nutzer steht auf 'modern'
+ * ( Rudolfs Entscheidung: pro User GLOBAL - auch Makro-/Chat-Würfe folgen
+ * der Blatt-Ansicht des Nutzers). Gibt null zurück, wenn das klassische
+ * Dialog-Design gilt.
+ * @returns {boolean}
+ */
+export function isModernDialogActive() {
+	try {
+		return !!(game.settings.get('symbaroum', 'modernSheetEnabled') && getModernSheetUserStyle() === 'modern');
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Automatisierungspaket 1: Fenster-Klassen für moderne symbDialog-Fenster -
+ * dasselbe Muster wie player.js/item.js _modernDialogClasses: das Theme wird
+ * beim Öffnen gelesen (ein offener Dialog wechselt nicht live mit).
+ * @param {...string} extra weitere Marker-Klassen am Fenster-Root
+ * @returns {string[]}
+ */
+export function modernDialogClasses(...extra) {
+	const theme = getModernSheetEffectiveDesign()?.theme === 'classic' ? 'classic' : 'dark';
+	return ['modern-dialog', `modern-theme-${theme}`, ...extra];
+}
+
+/**
  * Rendert alle offenen Akteursblätter neu (nach Setting-/Design-Änderungen).
  * Testrunde-2-Fund: `Object.values(ui.windows)` lieferte in V14 KEINE
  * Applications mehr (die Registry ist dort iterierbar, kein plain Object) -

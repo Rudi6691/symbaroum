@@ -1,6 +1,7 @@
 import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './roll.js';
 import { buildRolls } from './item.js';
 import { symbDialog } from './symbDialog.js';
+import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 
 let roll_defaults = {};
 
@@ -145,7 +146,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     label: game.i18n.localize(`WEAPON.NONE`),
   };
   const did = `${actor.id}${foundry.utils.randomID(20)}`; // dialogue ID - ensured unique IDs in form
-  const dialoghtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/dialog.hbs', {
+  // Automatisierungspaket 1 (28.10.): Würfeldialog im modernen Design, wenn
+  // der Nutzer die modernen Blätter nutzt (pro User GLOBAL, Rudolfs
+  // Entscheidung) - gleiche Feld-IDs, nur das Layout ist neu
+  const modernRoll = isModernDialogActive();
+  const dialoghtml = await foundry.applications.handlebars.renderTemplate(modernRoll ? 'systems/symbaroum/template/chat/dialog-modern.hbs' : 'systems/symbaroum/template/chat/dialog.hbs', {
     "did":did,
     "askTargetAttribute": askTargetAttribute,
     "askPoison": askPoison,
@@ -168,9 +173,12 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "defaultGrip": defaultGrip
   });
 
+  const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName);
   const dialog = symbDialog({
-    title: game.symbaroum.api.getAttributeLabel(actor, attributeName),
+    title: baseDialogTitle,
     content: dialoghtml,
+    // Automatisierungspaket 1: modernes Fenster-Chrome (A6v9-Muster)
+    classes: modernRoll ? modernDialogClasses('modern-roll-dialog') : [],
     buttons: {
       roll: {
         icon: '<i class="fas fa-check"></i>',
@@ -207,6 +215,20 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               if(ecData.askBackstab && ecData.actor.system.attributes.discreet.total > ecData.actor.system.attributes[ecData.castingAttributeName].total){
                   ecData.castingAttributeName = "discreet";
               }
+          }
+          // Automatisierungspaket 1 (Rudolf, 28.10.): "Freier Angriff"-
+          // Toggle. Die RAW-Auslöser (Langwaffe, Vorbeirennen/Flüchten,
+          // Verpatzte Verteidigung ...) bleiben SL-Buchhaltung - der Toggle
+          // markiert die AUSFÜHRUNG: hartes Präzision-Override (Rudolfs
+          // Festlegung: gilt auch gegen Fähigkeiten, die für Angriffe eine
+          // andere Eigenschaft erlauben) und Unterdrückung aktiver
+          // PACK_CHECK-Pakete (RAW: passive ja, aktive nein)
+          const hasFreeAttack = weapon !== null && !!(html[0].querySelector("#freeattack-"+did)?.checked);
+          if(hasFreeAttack){
+            attributeName = "accurate";
+            ecData.castingAttributeName = "accurate";
+            ecData.freeAttack = true;
+            ecData.autoParams += game.i18n.localize('CHAT.CRITICAL_FREEATTACK') + ", ";
           }
           // TODO Not unique ID
           let hasDamModifier = html[0].querySelector("#dammodifier-"+did)?.value.length > 0;
@@ -329,6 +351,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
                   }
                 }
               } else if(pack.type === game.symbaroum.config.PACK_CHECK) {
+                // Automatisierungspaket 1: aktive Pakete sind beim Freien
+                // Angriff unterdrückt (RAW: passive ja, aktive nein)
+                if(hasFreeAttack) continue;
                 // Find if the box is checked
                 let ticked = html[0].querySelector(`#pgkid-${did}-${pack.id}`);              
                 if( ticked?.checked ){
@@ -485,28 +510,47 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     default: 'roll',
   });
 
-  if (askBastardGrip) {
-    // A30: live-update the damage formula field when the grip radio changes.
+  if (weapon !== null) {
+    // A30 + Automatisierungspaket 1: gemeinsame Nach-Render-Verdrahtung.
     // symbDialog already kicked off the render; re-awaiting it here attaches
-    // the listeners afterwards without a visible re-render. If the element is
-    // not reachable on this platform version the field simply keeps the
-    // default-grip formula - the roll itself always uses the selected grip
+    // the listeners afterwards without a visible re-render (a second
+    // render({force:true}) elsewhere would otherwise orphan these listeners).
+    // A30: live-update of the damage formula field when the grip radio
+    // changes (kept exactly as before).
+    // Auto1: Freier-Angriff-Toggle - Fenstertitel-Suffix und das Ausblenden
+    // der aktiven Paket-Checkboxen folgen live dem Häkchen (die Callback-
+    // seitige Auswertung in 'roll' ist autoritativ, das hier ist Anzeige).
     try {
       Promise.resolve(dialog.render({ force: true })).then(
         () => {
-          const a30Root = dialog.element;
-          if (!a30Root) return;
-          const a30DmgInput = a30Root.querySelector(`#weapondamage-${did}`);
-          for (let r of a30Root.querySelectorAll("input[name='bripType']")) {
-            r.addEventListener("change", (ev) => {
-              if (a30DmgInput) a30DmgInput.value = ev.target.value === "one" ? weaponDamage1H : weaponDamage2H;
-            });
+          const postRoot = dialog.element;
+          if (!postRoot) return;
+          if (askBastardGrip) {
+            const a30DmgInput = postRoot.querySelector(`#weapondamage-${did}`);
+            for (let r of postRoot.querySelectorAll("input[name='bripType']")) {
+              r.addEventListener("change", (ev) => {
+                if (a30DmgInput) a30DmgInput.value = ev.target.value === "one" ? weaponDamage1H : weaponDamage2H;
+              });
+            }
+          }
+          const faBox = postRoot.querySelector(`#freeattack-${did}`);
+          if (faBox) {
+            const faTitle = postRoot.querySelector(".window-title");
+            const faSuppress = postRoot.querySelectorAll(".freeattack-suppress");
+            const faApply = () => {
+              const faOn = faBox.checked;
+              if (faTitle) faTitle.textContent = baseDialogTitle + (faOn ? " — " + game.i18n.localize("CHAT.CRITICAL_FREEATTACK") : "");
+              for (const faRow of faSuppress) {
+                faRow.style.display = faOn ? "none" : "";
+              }
+            };
+            faBox.addEventListener("change", faApply);
           }
         },
         () => {}
       );
     } catch (err) {
-      game.symbaroum.log("A30: grip display live-update unavailable");
+      game.symbaroum.log("A30/Auto1: grip/free-attack live display unavailable");
     }
   }
 

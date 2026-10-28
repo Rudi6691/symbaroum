@@ -1,4 +1,31 @@
 
+/* Automatisierungspaket 1 (Rudolf, 28.10.): 6-stufige Wurf-Ergebnisbenennung.
+   Reine BENENNUNG - die Wurf-Mechanik (inklusive Bestätigungsnachwurf bei
+   "Seltenen kritischen Würfen") bleibt unverändert. Die Wirkungsstufe wird
+   aus den bereits bestehenden Flags abgeleitet:
+   - Erfolg / Fehlschlag                    (normales Ergebnis)
+   - Kritischer Erfolg / Kritischer Patzer  (1/20 MIT Effekten: Krits an,
+                                             oder seltene Krits bestätigt)
+   - Außergewöhnlicher Erfolg / Patzer      (1/20 OHNE Effekte: seltene
+                                             Krits an, Nachwurf nicht
+                                             bestätigt)
+   resistRoll dreht die Perspektive: critSuccess/critFail sind angreifer-
+   bezogen, das Etikett gehört aber dem Würfelnden (bei resistRoll ist das
+   der Verteidiger) - deshalb werden die Flags gespiegelt. */
+export function getRollResultLevelKey(rollResult, resistRoll = false) {
+  const rareCrit = game.settings.get('symbaroum', 'optionalRareCrit');
+  const critOk = resistRoll ? !!rollResult.critFail : !!rollResult.critSuccess;
+  const critBad = resistRoll ? !!rollResult.critSuccess : !!rollResult.critFail;
+  if (rollResult.hasSucceed) {
+    if (critOk) return 'CHAT.CRITICAL_SUCCESS';
+    if (rareCrit && rollResult.diceResult === 1) return 'CHAT.OUTSTANDING_SUCCESS';
+    return 'CHAT.SUCCEED';
+  }
+  if (critBad) return 'CHAT.CRITICAL_FAILURE';
+  if (rareCrit && rollResult.diceResult === 20) return 'CHAT.FUMBLE';
+  return 'CHAT.FAILED';
+}
+
 export async function rollAttribute(actor, actingAttributeName, targetActor, targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier) {
   const api = game.symbaroum.api;
   let dam = "";	
@@ -67,6 +94,11 @@ export async function rollAttribute(actor, actingAttributeName, targetActor, tar
   if( !hasWeapon && !hasArmor && !game.settings.get('symbaroum', 'critsApplyToAllTests') ) {
     rollResults.critSuccess = rollResults.critFail = false;
   } 
+  // Automatisierungspaket 1: 6-stufige Benennung - das Etikett wird NACH
+  // dem critsApplyToAllTests-Clearing abgeleitet, damit die Anzeige exakt
+  // der Mechanik folgt (Plain-Proben ohne Krit-Flag heißen schlicht Erfolg/
+  // Fehlschlag, selbst bei roher 1/20)
+  const resultLevelLabel = game.i18n.localize(getRollResultLevelKey(rollResults, false));
   
   let finalMod = modifier - getAttributeValue(targetActor, targetAttributeName) + 10;
 
@@ -86,7 +118,8 @@ export async function rollAttribute(actor, actingAttributeName, targetActor, tar
     armor: armorResults,
     weapon: weaponResults,
     critSuccess: rollResults.critSuccess,
-    critFail: rollResults.critFail
+    critFail: rollResults.critFail,
+    resultLevelLabel: resultLevelLabel
   };
   const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/roll.hbs', rollData);
 
@@ -327,6 +360,15 @@ async function doBaseRoll(actor, actingAttributeName, targetActor, targetAttribu
     }
   }
 
+  // Automatisierungspaket 1: 6-stufige Benennung - der abgeleitete i18n-Key
+  // (Wirkungsstufe aus Nat-Wurf x Bestätigungsflag, Perspektive des
+  // Würfelnden) reist als additives Feld mit; formatRollResult hängt das
+  // Etikett an die Wurf-Ergebniszeile der Karten an
+  const resultLevelKey = getRollResultLevelKey(
+    {hasSucceed: hasSucceed, diceResult: attributeRoll.total, critSuccess: critGood, critFail: critBad},
+    resistRoll
+  );
+
   return({
     actingAttributeValue: actingAttributeValue,
     actingAttributeLabel: actingAttributeLabel,
@@ -340,12 +382,13 @@ async function doBaseRoll(actor, actingAttributeName, targetActor, targetAttribu
     favour: favour,
     modifier: modifier,
     dicesResult: dicesResult,
-    rollResult: game.symbaroum.api.formatRollResult({favour: favour, diceResult: attributeRoll.total, dicesResult: dicesResult, secondRollResult: secondRollResult}),
+    rollResult: game.symbaroum.api.formatRollResult({favour: favour, diceResult: attributeRoll.total, dicesResult: dicesResult, secondRollResult: secondRollResult, resultLevelKey: resultLevelKey}),
     rolls: rolls,
     toolTip: new Handlebars.SafeString(await attributeRoll.getTooltip()),
     diceBreakdown: diceBreakdown,    
     critSuccess: critGood,
-    critFail: critBad
+    critFail: critBad,
+    resultLevelKey: resultLevelKey
   });
 }
 

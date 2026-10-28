@@ -12,6 +12,9 @@
     <input id="modifier-{{did}}" type="number" value="{{roll_defaults.modifier}}" data-dtype="Number"/>
   </div>
   {{#if isWeaponRoll}}
+    <div class="simplebox freeattack-row">
+      <label for="freeattack-{{did}}">{{localize "DIALOG.FREE_ATTACK"}}</label><span class="lblfavour"><input type="checkbox" id="freeattack-{{did}}" unchecked></span>
+    </div>
     {{#each weaponModifiers.package as |package|}}
       {{#ife package.type "default"}}
         {{#ifgt package.member.length 0}}
@@ -89,8 +92,8 @@
       {{#ife package.type "radio"}}
         <div class="favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternatives checked=package.defaultSelect localize=false}}</label></div>
       {{/ife}}
-      {{#ife package.type "checkbox"}}          
-        <div class="advantage"><label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" ><input for="pgkid-{{../did}}-{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
+      {{#ife package.type "checkbox"}}
+        <div class="advantage freeattack-suppress"><label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" ><input for="pgkid-{{../did}}-{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
       {{/ife}}
     {{/each}}
       <div class="damagemodifier">
