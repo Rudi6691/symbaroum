@@ -8901,6 +8901,27 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
   -webkit-mask-image: none !important;
 }
 
+/* v1.3 (Testrunde 3, Rudolfs Befund "vom Häkchen bleibt nur ein schwarzer
+   oder weißer Punkt, der Rest ist grau oder silber"): Der Core malt per
+   Pseudo-Element eine EIGENE zweite Markierung auf die geprüfte Checkbox
+   (grau/silbern) OBEN AUF unser SVG-Häkchen - appearance:none entfernt
+   nur das native Zeichnen, nicht die Pseudo-Element-Markierung. Der
+   klassische Dialog hat genau diese Guard-Regel (css ~4441, Muster
+   "prevents the core from painting a second mark on top"), der moderne
+   Würfeldialog bekam sie in v1.1/v1.2 nie. Hiermit nachgereicht - nach
+   Rudolfs Freigabe vom 28.10.: v1.3 = NUR diese Guard-Regel, damit er
+   das unverstellte v1.2-Glyph (dunkles Häkchen auf Gold, weiß im hellen
+   Design) erstmals beurteilen kann; Design-Entscheidung danach. */
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]::before,
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]::after,
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]::before,
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]::after {
+  content: none !important;
+  background: none !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"] {
   border-radius: 0.2rem !important;
 }
