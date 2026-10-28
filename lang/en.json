@@ -306,6 +306,7 @@
   "COMBAT.DAMAGE": "Inflicted damage: ",
   "COMBAT.BLEED": "Bleed",
   "COMBAT.CHAT_INTRO": " attacks with ",
+  "COMBAT.CHAT_RETURNSWING": " — Return Swing (Two-handed Force)",
   "COMBAT.CHAT_SUCCESS": " hits ",
   "COMBAT.CHAT_FAILURE": " miss.",
   "COMBAT.CHAT_BLEED": " bleeds and loses toughness each round: ",

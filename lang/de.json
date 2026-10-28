@@ -306,6 +306,7 @@
   "COMBAT.DAMAGE": "Verursachter Schaden: ",
   "COMBAT.BLEED": "Blutung",
   "COMBAT.CHAT_INTRO": " greift an mit ",
+  "COMBAT.CHAT_RETURNSWING": " — Rückwärtsschwung (Zweihandkraft)",
   "COMBAT.CHAT_SUCCESS": " trifft ",
   "COMBAT.CHAT_FAILURE": " verfehlt.",
   "COMBAT.CHAT_BLEED": " blutet und verliert jede Runde Zähigkeit: ",

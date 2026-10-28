@@ -3701,6 +3701,15 @@ export async function modifierDialog(functionStuff) {
           }
           if (isWeaponRoll) {
             functionStuff.ignoreArm = html[0].querySelector("#ignarm").checked;
+            // Automatisierungspaket "Zweihandkraft" (Rudolf, 28.10.): Meister-
+            // Abstufung (GRW) - Treffer mit schweren Waffen ignorieren die
+            // Ruestung des Ziels vollstaendig. RAW-zwingend, daher als Override
+            // NACH der Checkbox gesetzt: der Meister kann die Ruestung nicht
+            // versehentlich anrechnen lassen (Rudolfs Freigabe
+            // "auto-ignoreArm auf heavy-Waffen")
+            if (isHeavyWeapon(functionStuff.weapon) && getActorAbilityLevel(functionStuff.actor, "twohandedforce") >= 3) {
+              functionStuff.ignoreArm = true;
+            }
             if (functionStuff.ignoreArm) functionStuff.autoParams += game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_IGN_ARMOR") + ", ";
             functionStuff.poison = Number(html[0].querySelector("#poison").value);
           }
@@ -5350,6 +5359,21 @@ async function mathDamageProt(targetActor, damage, damageType = {}) {
   return { damage: finalDamage, text: infoText };
 }
 
+/* Automatisierungspaket "Zweihandkraft" (Rudolf, 28.10., Freigabe per
+   Auswahlrunde): Stufe der Fähigkeit im Actor suchen - Ability-Items tragen
+   die system.reference ("twohandedforce"), getLevel() liefert Novize=1,
+   Adept=2, Meister=3, nicht erlernt=0 */
+function getActorAbilityLevel(actor, reference) {
+  const ability = actor?.items?.find((i) => i.system?.reference === reference);
+  return ability?.getLevel?.().level ?? 0;
+}
+
+/* schwere Waffe in beiden Waffen-Formen erkennen - die vorverarbeitete
+   EC-Struktur (.reference) und das Item (.system.reference) */
+function isHeavyWeapon(weapon) {
+  return (weapon?.reference ?? weapon?.system?.reference) === "heavy";
+}
+
 async function attackResult(rollData, functionStuff) {
   let namesForText = { actorname: functionStuff.actingCharName, targetname: functionStuff.targetData?.name ?? "" };
   let damage;
@@ -5374,6 +5398,12 @@ async function attackResult(rollData, functionStuff) {
     targetValue = getAttributeValue(functionStuff.targetData.actor, functionStuff.alternativeDamageAttribute);
   }
   let rolls = [];
+  // Automatisierungspaket "Zweihandkraft" (Rudolf, 28.10.): Rueckwaertsschwung-
+  // Sammler - der ERSTE verfehlte Angriff dieser Angriffsaktion mit einer
+  // schweren Waffe loest den Adept-Effekt aus (Rudolfs Auswahlrunde: nur der
+  // erste Fehlschlag pro Angriffsaktion); die Ausfuehrung folgt am Ende von
+  // attackResult, nachdem die Karte des urspruenglichen Angriffs liegt
+  let returnSwingFired = false;
 
   for (let rollDataElement of rollData) {
     rolls = rolls.concat(rollDataElement.rolls);
@@ -5467,6 +5497,27 @@ async function attackResult(rollData, functionStuff) {
             rollDataElement.resultText += " : " + game.i18n.localize("CHAT.CRITICAL_FAILURE_FREEATTACK");
           }
         }
+      }
+      // Automatisierungspaket "Zweihandkraft" (GRW-Adept, Rudolfs
+      // Auswahlrunde 28.10.): verfehlter Angriff mit schwerer Waffe ->
+      // Rueckwaertsschwung. KEIN Rueckwaertsschwung bei Rohwurf 20 (Patzer
+      // und Kritischer Patzer, Rudolfs Festlegung), beim Freien Angriff
+      // (Rudolfs Festlegung: nur reguliere Angriffsaktionen), bei
+      // alternativem Schaden und im Widerstandsprobe-Fluss (der Ziel-Spieler
+      // wuerfelt selbst, asynchroner Button-Pfad) - und nie fuer den
+      // Rueckwaertsschwung selbst (Rekursionssperre). Nur der ERSTE
+      // Fehlschlag pro Angriffsaktion zaehlt.
+      if (
+        !returnSwingFired &&
+        !functionStuff.isReturnSwing &&
+        !functionStuff.freeAttack &&
+        !functionStuff.isAlternativeDamage &&
+        !functionStuff.resistRoll &&
+        rollDataElement.diceResult !== 20 &&
+        isHeavyWeapon(functionStuff.weapon) &&
+        getActorAbilityLevel(functionStuff.actor, "twohandedforce") >= 2
+      ) {
+        returnSwingFired = true;
       }
     }
   }
@@ -5722,6 +5773,52 @@ async function attackResult(rollData, functionStuff) {
   let NewMessage = await ChatMessage.create(chatData);
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
+  }
+
+  // Automatisierungspaket "Zweihandkraft" (GRW-Adept, Rudolfs Auswahlrunde
+  // 28.10.): der gesammelte Rueckwaertsschwung laeuft NACH der Karte des
+  // urspruenglichen Angriffs - identische Angriffsprobe (Eigenschaft,
+  // Favorit, Modifikator, Zielwiderstand), Schaden FIX 1W8 ohne Boni und
+  // ohne Waffenqualitaets-Effekte (Gift/Bluten/mystisch aus, Rekursions-
+  // sperre per isReturnSwing). Die Ruestung greift normal, ab Meister wird
+  // sie automatisch ignoriert (functionStuff.ignoreArm aus dem
+  // modifierDialog-Override vererbt). Kritischer Erfolg auf dem
+  // Rueckwaertsschwung wuerfelt den Krit-Bonus mit (+1d6, RAW-Stufe).
+  if (returnSwingFired && !functionStuff.isReturnSwing) {
+    const fsSwing = Object.assign({}, functionStuff, {
+      isReturnSwing: true,
+      numberofAttacks: 1,
+      poison: 0,
+      damageOverTime: [],
+      corruptingattack: "",
+      dmgModifier: "",
+      dmgModifierNPC: 0,
+      dmgModifierAttackSupp: "",
+      dmgModifierAttackSuppNPC: 0,
+      hasAdvantage: false,
+      hallowedBonus: false,
+      freeAttack: false,
+    });
+    // purer 1W8: NPC-Angreifer rechnen statisch (max/2 = 4), die
+    // Qualitaets-Effekte der Waffe sind fuer den Rueckwaertsschwung aus
+    fsSwing.weapon = Object.assign({}, functionStuff.weapon, {
+      damage: Object.assign({}, functionStuff.weapon.damage, { base: "1d8", npcBase: 4 }),
+      qualities: {},
+    });
+    if (fsSwing.weapon.system) fsSwing.weapon.system = Object.assign({}, functionStuff.weapon.system, { qualities: {} });
+    // Leader-Bonus gehoert nicht zum puren 1W8 (Rudolf: keine Boni)
+    fsSwing.targetData = Object.assign({}, functionStuff.targetData, { leaderTarget: false });
+    fsSwing.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_RETURNSWING");
+    const rdSwing = await baseRoll(
+      functionStuff.actor,
+      functionStuff.castingAttributeName,
+      functionStuff.targetData.actor,
+      functionStuff.targetData.resistAttributeName,
+      functionStuff.favour,
+      functionStuff.modifier,
+      false
+    );
+    await attackResult([rdSwing], fsSwing);
   }
   return templateData;
 }
