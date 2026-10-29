@@ -6167,6 +6167,14 @@ async function attackResult(rollData, functionStuff) {
     const fsCheapshotFA = Object.assign({}, functionStuff, {
       isCheapshotFreeAttack: true,
       freeAttack: true,
+      // v1.1-Hotfix (vorgefundener Fix im selben Fluss): NSC-Angriff auf
+      // SC trägt resistRoll = true — der Freie Angriff ist ein EIGENER,
+      // einseitig gewürfelter Angriff (baseRoll mit resistRoll false);
+      // geerbt würde die FA-Karte als Verteidigungswurf des Ziels
+      // dargestellt (Etiketten + resistRollText). Wie bei der Riposte
+      // neutralisiert.
+      resistRoll: false,
+      resistRollText: "",
       cheapshotNovice: false,
       numberofAttacks: 1,
       poison: 0,
@@ -6223,23 +6231,31 @@ async function attackResult(rollData, functionStuff) {
     );
     await attackResult([rdSecond], fsSecond);
   }
-  // Dreckiger Kampf v1 (Meister, Rudolfs Auswahlrunde 29.10.): blutige
-  // Riposte — jeder Meister erleidet sie "direkt nach jedem Angriff", also
-  // feuert sie JEDEM Nahkampf-Angriffsaufruf gegen ihn nach (auch nach
-  // Treffern UND Fehlschlägen, auch nach FA/2. Doppelschlag-Schlag, RAW
-  // "nach jedem Angriff"). Volle Automatik (Rudolfs Reaktions-Option A,
-  // 28.10.): eigene Karte mit Perspektiv-Dreher — der VERTEIDIGER würfelt
-  // Präzision gegen die VTD des Angreifers (Rudolfs Festlegung), purer
-  // 1W6-Schaden der Rüstung ignoriert (ignoreArm). Rekursions-Sperre per
-  // isRiposte: die Riposte selbst ist kein triggerbarer "Angriff" mehr
-  // (kein Ping-Pong bei beidseitigen Meistern, kein Rückwärtsschwung aus
-  // der Riposte — freeAttack-Sperre wie beim FA).
+  // Dreckiger Kampf v1.1 (Meister, Rudolfs Auswahlrunde 29.10. + Hotfix
+  // 29.10.): blutige Riposte — jeder Meister erleidet sie "direkt nach
+  // jedem Angriff", also feuert sie JEDEM Nahkampf-Angriffsaufruf gegen
+  // ihn nach (auch nach Treffern UND Fehlschlägen, auch nach FA/2.
+  // Doppelschlag-Schlag, RAW "nach jedem Angriff"). v1.1-Hotfix (Rudolfs
+  // Testrunde 1): feuert AUCH im Verteidigungswurf-Fluss — wenn ein NSC
+  // einen SC-Meister angreift, würfelt das System die Verteidigung
+  // automatisch (resistRoll = true, Setting playerResistButton aus) bzw.
+  // der Spieler per Button (Setting an); der v1-Guard !resistRoll ließ die
+  // Riposte dort nie laufen (Rudolfs Befund: Monster mit natürlicher
+  // Waffe gegen SC-Meister). Stolpern/FA bleiben im resistRoll-Fluss
+  // bewusst unterdrückt — deren Ausschluss ist RAW-vertretbar (Rudolfs
+  // Auswahlrunde-Entscheidung 4), die "nach jedem Angriff"-Riposte nicht.
+  // Volle Automatik (Rudolfs Reaktions-Option A, 28.10.): eigene Karte
+  // mit Perspektiv-Dreher — der VERTEIDIGER würfelt Präzision gegen die
+  // VTD des Angreifers (Rudolfs Festlegung), purer 1W6-Schaden der
+  // Rüstung ignoriert (ignoreArm). Rekursions-Sperre per isRiposte: die
+  // Riposte selbst ist kein triggerbarer "Angriff" mehr (kein Ping-Pong
+  // bei beidseitigen Meistern, kein Rückwärtsschwung aus der Riposte —
+  // freeAttack-Sperre wie beim FA).
   if (
     functionStuff.weapon &&
     functionStuff.weapon.isMelee &&
     !functionStuff.isRiposte &&
     !functionStuff.isAlternativeDamage &&
-    !functionStuff.resistRoll &&
     functionStuff.targetData?.hasTarget &&
     functionStuff.targetData.actor !== functionStuff.actor &&
     getActorAbilityLevel(functionStuff.targetData.actor, "cheapshot") >= 3
@@ -6248,6 +6264,14 @@ async function attackResult(rollData, functionStuff) {
     const fsRiposte = Object.assign({}, functionStuff, {
       isRiposte: true,
       freeAttack: true,
+      // v1.1-Hotfix: der Original-Angriff kann im Verteidigungswurf-Fluss
+      // resistRoll = true tragen (NSC -> SC) — die Riposte ist aber ein
+      // EIGENER, einseitig gewürfelter Angriff (baseRoll mit resistRoll
+      // false). Geerbt waere das Flag falsch: Krit-Etiketten-Perspektive
+      // (getRollResultLevelKey) und resistRollText (Karte) wuerden die
+      // Riposte als Verteidigungswurf des ANGREIFERS darstellen.
+      resistRoll: false,
+      resistRollText: "",
       cheapshotNovice: false,
       axeArtistNovice: false,
       axeArtistDouble: false,
