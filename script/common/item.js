@@ -6234,6 +6234,28 @@ async function attackResult(rollData, functionStuff) {
     );
     await attackResult([rdSecond], fsSecond);
   }
+  // Pfeil-Stoß v1.1 (Rudolfs Festlegung aus Testrunde 1, Punkt 8 — Freigabe
+  // 29.10.): pro Angriff maximal EINE Reaktionsattacke, Priorität
+  // Pfeil-Stoß > Dreckiger-Kampf-Riposte. Vollständige Vorhersage des
+  // Stich-Triggers (identische Bedingungen inkl. Loop-Guards wie der
+  // Stich-Block unten), damit die Riposte nur entfällt, wenn der Stich
+  // WIRKLICH feuert — feuert der Stich nicht (z. B. nach Freien Angriffen,
+  // !freeAttack-Guard, oder ohne aktiven Bogen), ripostiert der
+  // Dreckiger-Kampf-Meister weiterhin.
+  const jabDefender = functionStuff.targetData;
+  const jabLevel = getActorAbilityLevel(jabDefender?.actor, "arrowjab");
+  const jabBow = (jabDefender?.actor?.system?.weapons ?? []).find((w) => w.isActive && w.reference === "ranged");
+  const arrowJabWillFire =
+    Boolean(jabBow) &&
+    functionStuff.weapon &&
+    functionStuff.weapon.isMelee &&
+    !functionStuff.isRiposte &&
+    !functionStuff.freeAttack &&
+    !functionStuff.isArrowJab &&
+    !functionStuff.isAlternativeDamage &&
+    functionStuff.targetData?.hasTarget &&
+    functionStuff.targetData.actor !== functionStuff.actor &&
+    jabLevel >= 1;
   // Dreckiger Kampf v1.1 (Meister, Rudolfs Auswahlrunde 29.10. + Hotfix
   // 29.10.): blutige Riposte — jeder Meister erleidet sie "direkt nach
   // jedem Angriff", also feuert sie JEDEM Nahkampf-Angriffsaufruf gegen
@@ -6261,6 +6283,7 @@ async function attackResult(rollData, functionStuff) {
     !functionStuff.isAlternativeDamage &&
     functionStuff.targetData?.hasTarget &&
     functionStuff.targetData.actor !== functionStuff.actor &&
+    !arrowJabWillFire &&
     getActorAbilityLevel(functionStuff.targetData.actor, "cheapshot") >= 3
   ) {
     const defender = functionStuff.targetData;
@@ -6324,11 +6347,14 @@ async function attackResult(rollData, functionStuff) {
     const rdRiposte = await baseRoll(defender.actor, "accurate", functionStuff.actor, "defense", 0, 0, false);
     await attackResult([rdRiposte], fsRiposte);
   }
-  // Pfeil-Stoß v1 (Rudolfs Freigabe 29.10. via Auswahlrunde): Reaktion auf
-  // JEDEN Nahkampfangriff gegen den Charakter (auch bei Fehlschlag des
+  // Pfeil-Stoß v1 (Rudolfs Freigabe 29.10. via Auswahlrunde) / v1.1
+  // (Rudolfs Festlegung Testrunde-1-Punkt 8): Reaktion auf JEDEN
+  // Nahkampfangriff gegen den Charakter (auch bei Fehlschlag des
   // Angreifers, Riposte-Präzedenz) — feuert in BEIDEN Flüssen, der Guard
   // darf resistRoll NICHT ausschließen (NSC->SC läuft immer im
   // Verteidigungswurf-Fluss, v1.1/v1.2-Lernweis Dreckiger Kampf).
+  // v1.1: gewinnt der Stich, entfällt die Dreckiger-Kampf-Riposte (Guard
+  // arrowJabWillFire am Riposte-Trigger, s. Vorberechnung oben).
   // Loop-Sperre (Rudolfs Auswahlrunde-Entscheidung 4): keine Reaktion auf
   // Riposten oder Freie Angriffe. RAW: "mit jeder Art von Bogen oder
   // Armbrust" -> EC-Filter reference === "ranged" schließt Wurfwaffen
@@ -6347,9 +6373,8 @@ async function attackResult(rollData, functionStuff) {
     functionStuff.targetData.actor !== functionStuff.actor &&
     getActorAbilityLevel(functionStuff.targetData.actor, "arrowjab") >= 1
   ) {
-    const jabDefender = functionStuff.targetData;
-    const jabLevel = getActorAbilityLevel(jabDefender.actor, "arrowjab");
-    const jabBow = (jabDefender.actor.system.weapons ?? []).find((w) => w.isActive && w.reference === "ranged");
+    // v1.1: jabDefender/jabLevel/jabBow sind oberhalb des Riposte-Blocks
+    // vorberechnet (Reaktions-Priorität) — hier nur noch verbrauchen.
     if (jabBow) {
       const fsArrowJab = Object.assign({}, functionStuff, {
         isArrowJab: true,
