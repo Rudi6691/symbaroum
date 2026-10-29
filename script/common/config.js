@@ -383,6 +383,7 @@ SYMBAROUM.scriptedAbilities = [
   "alchemy",
   "acrobatics",
   "artifactcrafting",
+  "axeartist",
   "beastlore",
   "berserker",
   "blacksmith",
@@ -504,7 +505,7 @@ SYMBAROUM.weaponQualities = [
   "mystical",
 ];
 
-SYMBAROUM.weaponCompatibilities = ["staffFightingCompatibility", "swordSaintCompatibility", "knifePlayCompatibility", "staffMagicCompatibility"];
+SYMBAROUM.weaponCompatibilities = ["staffFightingCompatibility", "swordSaintCompatibility", "knifePlayCompatibility", "staffMagicCompatibility", "axeArtistCompatibility"];
 
 // A30 (GO1, Rudolfs Wahl = Empfehlung): a bastard weapon wielded one-handed
 // rolls its damage die one step down - W12→W10→W8→W6→W4, W4 is the floor.

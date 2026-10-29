@@ -542,6 +542,14 @@ export async function damageRollWithDiceParams(functionStuff, critSuccess, attac
     damageAutoParams += ", " + functionStuff.beastloreLabel;
     damageModNPC += functionStuff.beastloreDamageModNPC;
   }
+  // Axtkünstler v1 (Meister, Rudolfs Freigabe 29.10.): +1d4 nur auf den
+  // ERSTEN Treffer der Kampfaktion (attackNumber 1, RAW-Lesart) — das
+  // Flag wird in attackResult je Aufruf neu gesetzt, Klone neutralisieren.
+  if(functionStuff.axeArtistDamageMod && attackNumber === 1){
+    damageModFormula += " +1d4[" + game.i18n.localize("ABILITY_LABEL.AXE_ARTIST") + "]";
+    damageAutoParams += ", " + game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_AXEARTIST");
+    damageModNPC += functionStuff.axeArtistDamageModNPC ?? 2;
+  }
   if(critSuccess) {
     //critSuccess is in the attackers perspective, so it always add damage.
     damageModFormula += " +1d6[crit.]";

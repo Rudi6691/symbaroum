@@ -1087,7 +1087,7 @@ export class SymbaroumActor extends Actor {
 		return prepareRollAttribute(this, attributeName, null, null);
 	}
 
-	async enhancedAttackRoll(weapon) {
+	async enhancedAttackRoll(weapon, presets = {}) {
 		const api = game.symbaroum.api;
 		let actingToken = api.getActorToken(this);
 		let targetData;
@@ -1140,6 +1140,10 @@ export class SymbaroumActor extends Actor {
 			weapon: weapon,
 			damageOverTime: [],
 		};
+		// Axtkünstler v1 (Rudolfs Freigabe 29.10.): Preset-Marker (z. B.
+		// axeArtistNovice/axeArtistDouble aus dem Fähigkeits-Trigger)
+		// reisen mit dem functionStuff durch den EC-Dialog bis attackResult.
+		Object.assign(functionStuff, presets ?? {});
 		let poisoner = this.items.filter((item) => item.system?.reference === "poisoner" || item.system?.reference === "poisonous");
 		functionStuff.askPoison = poisoner.length != 0;
 		return prepareRollAttribute(this, weapon.attribute, null, weapon, functionStuff);

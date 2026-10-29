@@ -2980,6 +2980,18 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  abilitySetupAxeartist(base) {
+    // Axtkünstler v1 (Rudolfs Freigabe 29.10.): der Fähigkeits-Button
+    // startet die Technik-Kette (Novize: Kurzer Hieb, Adept: Doppelschlag)
+    // als EC-Waffenangriff mit Preset-Markern; der Dialog bleibt der
+    // gewohnte Würfeldialog. Meister ist passiv (+1d4, in attackResult).
+    base.isScripted = true;
+    base.preDialogFunction = async function (functionStuff) {
+      await axeArtistPreDialog(functionStuff);
+    };
+    return base;
+  }
+
   abilitySetupBerserker(base) {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
@@ -5369,6 +5381,120 @@ export function isHeavyWeapon(weapon) {
    eine Kategorie gewaehlt hat UND das anvisierte Ziel genau diese
    Kategorie traegt (A36: system.creatureCategory) - sonst null.
    Adept: +1d4 (NPC statisch +2), Meister: +1d6 (NPC statisch +3). */
+/* Axtkünstler v1 (Rudolfs Freigabe 29.10.): Waffen-Flag "geeignet für
+   Axtkünstler" (system.qualities.axeArtistCompatibility, Qualitäten-Tab
+   der Waffe) — deckt beide Waffenformen ab: die vorbereitete EC-Struktur
+   (.qualities direkt, actor.system.weapons) und das Item (.system.qualities). */
+export function isAxeArtistWeapon(weapon) {
+  return !!(weapon?.qualities?.axeArtistCompatibility ?? weapon?.system?.qualities?.axeArtistCompatibility);
+}
+
+/* Axtkünstler v1 (Adept): Würfelstufe eine Stufe niedriger — Leiter
+   1W12→1W10→1W8→1W6→1W4 (Boden 1W4), NPC-Wert = halbe Stufe aufgerundet.
+   Liefert {base, npcBase} oder null bei nicht passendem Wurf-Format. */
+export function stepDownDamageDie(formula) {
+  const match = /^(\d*)d(\d+)$/.exec((formula ?? "").toString().trim());
+  if (!match) return null;
+  const ladder = [4, 6, 8, 10, 12];
+  const idx = ladder.indexOf(parseInt(match[2]));
+  if (idx <= 0) return null;
+  const newDie = ladder[idx - 1];
+  const count = match[1] === "" ? 1 : parseInt(match[1]);
+  // jeder Würfel eine Stufe niedriger; NPC-Statik = Anzahl × halbe Stufe
+  return { base: count + "d" + newDie, npcBase: count * Math.ceil(newDie / 2) };
+}
+
+/* Axtkünstler v1 (Rudolfs Freigabe 29.10., Auswahlrunde): Trigger vor dem
+   Dialog — prüft aktive Waffen mit dem Flag "geeignet für Axtkünstler",
+   fragt bei mehreren Waffen nach der Wahl, ab Adept nach der Technik
+   (Kurzer Hieb/Doppelschlag, Novize geht direkt auf Kurzer Hieb) und
+   startet dann den EC-Waffenangriff mit Preset-Markern. EC zwingend
+   (combatAutomation AN, Rudolfs Setup); der klassische Pfad bekommt eine
+   klare Meldung. Die vorbereiteten Waffen (actor.system.weapons) tragen
+   die Qualitäts-Flags direkt (item.system.qualities wird durchgereicht). */
+async function axeArtistPreDialog(functionStuff) {
+  if (!game.settings.get("symbaroum", "combatAutomation")) {
+    ui.notifications.warn(game.i18n.localize("ERROR.AXEARTIST_NEEDS_EC"));
+    return;
+  }
+  const actor = functionStuff.actor;
+  const flagged = (actor.system.weapons ?? []).filter((w) => w.isActive && w.qualities?.axeArtistCompatibility);
+  if (flagged.length === 0) {
+    ui.notifications.warn(game.i18n.format("ERROR.NO_AXEARTIST_WEAPON", { name: functionStuff.abilityName ?? "" }));
+    return;
+  }
+  let weapon = flagged[0];
+  if (flagged.length > 1) {
+    weapon = (await axeArtistChooseWeapon(flagged)) ?? null;
+    if (!weapon) return;
+  }
+  const lvl = functionStuff.powerLvl?.level ?? getActorAbilityLevel(actor, "axeartist");
+  let useDouble = false;
+  if (lvl >= 2) {
+    const choice = await axeArtistChooseAction();
+    if (choice === null) return;
+    useDouble = choice === "double";
+  }
+  const presets = useDouble ? { axeArtistDouble: true } : { axeArtistNovice: true };
+  await actor.enhancedAttackRoll(weapon, presets);
+}
+
+async function axeArtistChooseWeapon(weapons) {
+  return new Promise((resolve) => {
+    const radios = weapons
+      .map(
+        (w, i) =>
+          `<div class="simplebox"><label class="lblfavour"><input type="radio" name="axeArtistWeapon" value="${i}" ${i === 0 ? "checked" : ""}> ${game.symbaroum.htmlEscape(w.name)}</label></div>`
+      )
+      .join("");
+    symbDialog({
+      title: game.i18n.localize("DIALOG.CHOOSE_WEAPON"),
+      content: `<div class="symbaroum dialog">${radios}</div>`,
+      buttons: {
+        yes: {
+          icon: "<i class='fas fa-check'></i>",
+          label: game.i18n.localize("DIALOG.OK"),
+          callback: (html) => {
+            const idx = parseInt(html[0].querySelector("input[name='axeArtistWeapon']:checked")?.value ?? "0");
+            resolve(weapons[idx] ?? null);
+          },
+        },
+        no: {
+          icon: "<i class='fas fa-times'></i>",
+          label: game.i18n.localize("DIALOG.CANCEL"),
+          callback: () => resolve(null),
+        },
+      },
+      default: "yes",
+    });
+  });
+}
+
+async function axeArtistChooseAction() {
+  return new Promise((resolve) => {
+    symbDialog({
+      title: game.i18n.localize("DIALOG.AXEARTIST_ACTION"),
+      content: `<div class="symbaroum dialog">
+        <div class="simplebox"><label class="lblfavour"><input type="radio" name="axeArtistAction" value="shortend" checked> ${game.i18n.localize("DIALOG.AXEARTIST_SHORTEND")}</label></div>
+        <div class="simplebox"><label class="lblfavour"><input type="radio" name="axeArtistAction" value="double"> ${game.i18n.localize("DIALOG.AXEARTIST_DOUBLE")}</label></div>
+      </div>`,
+      buttons: {
+        yes: {
+          icon: "<i class='fas fa-check'></i>",
+          label: game.i18n.localize("DIALOG.OK"),
+          callback: (html) => resolve(html[0].querySelector("input[name='axeArtistAction']:checked")?.value ?? null),
+        },
+        no: {
+          icon: "<i class='fas fa-times'></i>",
+          label: game.i18n.localize("DIALOG.CANCEL"),
+          callback: () => resolve(null),
+        },
+      },
+      default: "yes",
+    });
+  });
+}
+
 export function getBeastloreDamageBonus(actor, targetActor) {
   const ability = actor?.items?.find((i) => i.system?.reference === "beastlore");
   const lvl = ability?.getLevel?.().level ?? 0;
@@ -5421,12 +5547,70 @@ async function attackResult(rollData, functionStuff) {
   // Kategorie des Ziels (attackResult deckt den EC- UND den klassischen
   // Waffenpfad ab); Verbraucher ist damageRollWithDiceParams (roll.js).
   // Alternative-Schaden-Waffen bleiben draussen wie beim alten Paket.
+  // Vorgefundener Fix (29.10.): isReturnSwing-Sperre — sonst wuerde der
+  // pur-1W8-Rueckwaertsschwung-Klon den Bonus rechnerisch zurueckholen.
   const beastloreBonus =
-    functionStuff.weapon && !functionStuff.isAlternativeDamage ? getBeastloreDamageBonus(functionStuff.actor, functionStuff.targetData?.actor) : null;
+    functionStuff.weapon && !functionStuff.isAlternativeDamage && !functionStuff.isReturnSwing
+      ? getBeastloreDamageBonus(functionStuff.actor, functionStuff.targetData?.actor)
+      : null;
   if (beastloreBonus) {
     functionStuff.beastloreDamageMod = beastloreBonus.damageMod;
     functionStuff.beastloreDamageModNPC = beastloreBonus.damageModNPC;
     functionStuff.beastloreLabel = beastloreBonus.label;
+  }
+  // Axtkünstler v1 (Rudolfs Freigabe 29.10., Auswahlrunde): Kurzer Hieb
+  // (Novize) = purer 1W6-Schaden (kurzes Ende, keine Boni — Rueckwaertsschwung-
+  // Präzedenz), Doppelschlag (Adept) = beide Schlaege eine Wuerfelstufe
+  // niedriger; Meister-Bonus +1d4 nur auf den ERSTEN Treffer der Aktion
+  // (Rudolfs RAW-Lesart) — nicht beim Kurzer-Hieb-Angriff (pur) und nicht
+  // im 2. Doppelschlag-Schlag (Else-Zweig nullt Stale-Werte in Klonen).
+  // attackResult deckt den EC- und den klassischen Pfad ab.
+  const axeArtistOriginalWeapon = functionStuff.axeArtistNovice ? functionStuff.weapon : null;
+  if (functionStuff.axeArtistNovice) {
+    functionStuff.weapon = Object.assign({}, functionStuff.weapon, {
+      damage: Object.assign({}, functionStuff.weapon.damage, { base: "1d6", npcBase: 3 }),
+      qualities: {},
+    });
+    if (functionStuff.weapon.system) functionStuff.weapon.system = Object.assign({}, functionStuff.weapon.system, { qualities: {} });
+    functionStuff.poison = 0;
+    functionStuff.damageOverTime = [];
+    functionStuff.corruptingattack = "";
+    functionStuff.dmgModifier = "";
+    functionStuff.dmgModifierNPC = 0;
+    functionStuff.dmgModifierAttackSupp = "";
+    functionStuff.dmgModifierAttackSuppNPC = 0;
+    functionStuff.hasAdvantage = false;
+    functionStuff.hallowedBonus = false;
+    functionStuff.beastloreDamageMod = null;
+    functionStuff.beastloreDamageModNPC = 0;
+    functionStuff.beastloreLabel = "";
+    functionStuff.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_AXEARTIST_SHORT_END");
+  }
+  if (functionStuff.axeArtistDouble && !functionStuff.isDoubleSecond) {
+    const steppedDie = stepDownDamageDie(functionStuff.weapon.damage.base);
+    if (steppedDie) {
+      functionStuff.weapon = Object.assign({}, functionStuff.weapon, {
+        damage: Object.assign({}, functionStuff.weapon.damage, steppedDie),
+      });
+    }
+    functionStuff.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_AXEARTIST_DOUBLE");
+  }
+  const axeArtistMasterBonus =
+    functionStuff.weapon &&
+    !functionStuff.isAlternativeDamage &&
+    !functionStuff.axeArtistNovice &&
+    !functionStuff.isReturnSwing &&
+    !functionStuff.isDoubleSecond &&
+    getActorAbilityLevel(functionStuff.actor, "axeartist") >= 3 &&
+    isAxeArtistWeapon(functionStuff.weapon)
+      ? true
+      : false;
+  if (axeArtistMasterBonus) {
+    functionStuff.axeArtistDamageMod = "+1d4";
+    functionStuff.axeArtistDamageModNPC = 2;
+  } else {
+    functionStuff.axeArtistDamageMod = null;
+    functionStuff.axeArtistDamageModNPC = 0;
   }
 
   for (let rollDataElement of rollData) {
@@ -5629,6 +5813,13 @@ async function attackResult(rollData, functionStuff) {
     poisonChatIntro: "",
     poisonChatResult: "",
     poisonToolTip: "",
+    // Axtkünstler v1 (Novize): Betäubungs-Probe [Präzision<-Willenskraft]
+    // läuft INLINE in derselben Karte (Gift-Muster)
+    printAxeArtistStun: false,
+    axeArtistStunIntro: "",
+    axeArtistStunRollString: "",
+    axeArtistStunChat: "",
+    axeArtistStunToolTip: "",
     printBleed: false,
     bleedChat: "",
     printFlaming: false,
@@ -5665,6 +5856,29 @@ async function attackResult(rollData, functionStuff) {
     rolls.push(poisonRes.roll);
     if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
     templateData = Object.assign(templateData, poisonRes);
+  }
+  // Axtkünstler v1 (Novize, Rudolfs Freigabe 29.10. — "vollautomatische
+  // Kette"): nach einem TREFFER des Kurzen Hiebs läuft die Betäubungs-Probe
+  // [Präzision<-Willenskraft] automatisch INLINE in derselben Karte
+  // (Gift-Muster); Modifikator/Gunst pur (RAW nennt keine), kein resistRoll.
+  // Bei Erfolg folgt am Ende der Karte der automatische Freie Angriff.
+  let axeArtistStunned = false;
+  if (
+    functionStuff.axeArtistNovice &&
+    !functionStuff.isAxeArtistFreeAttack &&
+    functionStuff.targetData.hasTarget &&
+    rollData.some((r) => r.trueActorSucceeded)
+  ) {
+    const axeArtistProbe = await baseRoll(functionStuff.actor, "accurate", functionStuff.targetData.actor, "resolute", 0, 0, false);
+    rolls.push(...axeArtistProbe.rolls);
+    axeArtistStunned = axeArtistProbe.trueActorSucceeded;
+    templateData.printAxeArtistStun = true;
+    templateData.axeArtistStunIntro = game.i18n.localize("COMBAT.CHAT_AXEARTIST_STUN_INTRO");
+    templateData.axeArtistStunRollString = await formatRollString(axeArtistProbe, true, 0);
+    templateData.axeArtistStunChat =
+      functionStuff.targetData.name +
+      (axeArtistStunned ? game.i18n.localize("COMBAT.CHAT_AXEARTIST_STUNNED") : game.i18n.localize("COMBAT.CHAT_AXEARTIST_NOT_STUNNED"));
+    templateData.axeArtistStunToolTip = axeArtistProbe.toolTip;
   }
   for (let doTime of functionStuff.damageOverTime) {
     if (doTime.effectIcon?.id === "bleeding" && !targetDies && damageTot > 0) {
@@ -5812,6 +6026,11 @@ async function attackResult(rollData, functionStuff) {
     const fsSwing = Object.assign({}, functionStuff, {
       isReturnSwing: true,
       numberofAttacks: 1,
+      // Axtkünstler v1: die Schwung-Klon-Marker neutralisieren — sonst
+      // wuerde der pur-1W8-Schwung erneut gestuft oder als Kurzer Hieb
+      // gefuehrt (Klon erbt die Felder per Spread)
+      axeArtistNovice: false,
+      axeArtistDouble: false,
       poison: 0,
       damageOverTime: [],
       corruptingattack: "",
@@ -5849,6 +6068,77 @@ async function attackResult(rollData, functionStuff) {
       false
     );
     await attackResult([rdSwing], fsSwing);
+  }
+  // Axtkünstler v1 (Novize, Rudolfs Freigabe 29.10.): automatischer Freier
+  // Angriff nach erfolgreicher Betäubungs-Probe — läuft als eigene Karte
+  // NACH der Kurzer-Hieb-Karte. Präzision-Override wie beim FA-Toggle
+  // (AP1-Festlegung), identische Gunst/Modifikator des Angriffs
+  // (Rückwärtsschwung-Muster), die ECHTE Waffe (nicht der 1W6-Pur-Klon).
+  // Der Meister-Bonus +1d4 greift auch auf diesen Treffer (Kurzer Hieb pur
+  // verbraucht nichts — dokumentierte Lesart). Rekursions-Sperre per
+  // isAxeArtistFreeAttack.
+  if (functionStuff.axeArtistNovice && axeArtistStunned && !functionStuff.isAxeArtistFreeAttack && axeArtistOriginalWeapon) {
+    const fsFreeAttack = Object.assign({}, functionStuff, {
+      isAxeArtistFreeAttack: true,
+      freeAttack: true,
+      axeArtistNovice: false,
+      numberofAttacks: 1,
+      poison: 0,
+      damageOverTime: [],
+      corruptingattack: "",
+      dmgModifier: "",
+      dmgModifierNPC: 0,
+      dmgModifierAttackSupp: "",
+      dmgModifierAttackSuppNPC: 0,
+      hasAdvantage: false,
+      hallowedBonus: false,
+      beastloreDamageMod: null,
+      beastloreDamageModNPC: 0,
+      beastloreLabel: "",
+      castingAttributeName: "accurate",
+      weapon: axeArtistOriginalWeapon,
+    });
+    fsFreeAttack.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_AXEARTIST_FREE_ATTACK");
+    const rdFreeAttack = await baseRoll(
+      functionStuff.actor,
+      "accurate",
+      functionStuff.targetData.actor,
+      functionStuff.targetData.resistAttributeName,
+      functionStuff.favour,
+      functionStuff.modifier,
+      false
+    );
+    await attackResult([rdFreeAttack], fsFreeAttack);
+  }
+  // Axtkünstler v1 (Adept, Rudolfs Freigabe 29.10.): Doppelschlag — der
+  // zweite Schlag läuft als eigene Karte nach dem ersten Angriff, mit
+  // identischen Modifikatoren (Rückwärtsschwung-Muster) und der bereits
+  // gestuften Waffe (Klon erbt sie), AUCH bei Fehlschlag des ersten Schlags
+  // (RAW: 2 Angriffe pro Kampfhandlung). Gift/DoT wirken pro Schlag mit;
+  // der Meister-Bonus bleibt auf den ersten Schlag beschränkt
+  // (isDoubleSecond-Sperre).
+  if (functionStuff.axeArtistDouble && !functionStuff.isDoubleSecond) {
+    const fsSecond = Object.assign({}, functionStuff, {
+      isDoubleSecond: true,
+      numberofAttacks: 1,
+      // Zweihandkraft-Interaktion: hat der erste Schlag der Aktion den
+      // Rueckwaertsschwung bereits ausgeloest, darf der zweite keinen
+      // weiteren feuern ("nur der erste Fehlschlag pro Angriffsaktion") -
+      // freeAttack ist genau die Trigger-Sperre dafuer. Trifft der erste
+      // Schlag, darf ein Fehlschlag des zweiten den Schwung noch ausloesen.
+      freeAttack: returnSwingFired ? true : functionStuff.freeAttack,
+    });
+    fsSecond.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_AXEARTIST_DOUBLE_SECOND");
+    const rdSecond = await baseRoll(
+      functionStuff.actor,
+      functionStuff.castingAttributeName,
+      functionStuff.targetData.actor,
+      functionStuff.targetData.resistAttributeName,
+      functionStuff.favour,
+      functionStuff.modifier,
+      false
+    );
+    await attackResult([rdSecond], fsSecond);
   }
   return templateData;
 }

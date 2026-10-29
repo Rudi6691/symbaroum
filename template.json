@@ -338,7 +338,8 @@
         "mystical": false,
         "staffFightingCompatibility": false,
         "swordSaintCompatibility": false,
-        "knifePlayCompatibility": false
+        "knifePlayCompatibility": false,
+        "axeArtistCompatibility": false
       },
       "cost": "",
       "number": 1,

@@ -1259,6 +1259,14 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.containerMigration();",
 				img: "systems/symbaroum/asset/image/container.svg",
 			},
+			{
+				// Axtkünstler v1 (Rudolfs Freigabe 29.10.): Bulk-Zuweisung des
+				// Waffen-Flags "geeignet für Axtkünstler" über alle Waffen
+				// (Sidebar + Actor-Inventare), Checkbox "Ändern" pro Waffe
+				name: game.i18n.localize("MACRO.AXEARTIST_FLAG_NAME"),
+				command: "game.symbaroum.macros.bulkAssignAxeArtistCompatibility();",
+				img: "icons/svg/sword.svg",
+			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro
@@ -2008,6 +2016,89 @@ export class SymbaroumMacros {
 	 *  - Wiederholbar: Bereits konvertierte Items sind Typ "container" und
 	 *    tauchen nicht mehr in der Liste auf; Kompendien bleiben außen vor.
 	 */
+	// Axtkünstler v1 (Rudolfs Freigabe 29.10.): SL-Bulk-Makro — listet ALLE
+	// Waffen (Welt-Items der Sidebar und alle Actor-Inventare) mit dem
+	// aktuellen Status des Flags "geeignet für Axtkünstler"
+	// (system.qualities.axeArtistCompatibility); pro Waffe setzt der SL
+	// die Checkbox "Ändern", "Anwenden" toggelt das Flag aller angehakten
+	// Waffen (Muster: Behälter-Makro). Wiederholbar, Kompendien bleiben
+	// unberührt.
+	async bulkAssignAxeArtistCompatibility() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const entries = [];
+		for (const item of game.items) {
+			if (item.type === "weapon") entries.push({ item, owner: null });
+		}
+		for (const actor of game.actors) {
+			for (const item of actor.items) {
+				if (item.type === "weapon") entries.push({ item, owner: actor.name });
+			}
+		}
+		entries.sort((a, b) => (a.owner ?? "").localeCompare(b.owner ?? "") || a.item.name.localeCompare(b.item.name));
+
+		if (entries.length === 0) {
+			ui.notifications.info(game.i18n.localize("MACRO.AXEARTIST_FLAG_NONE"));
+			return;
+		}
+
+		let rows = "";
+		for (let i = 0; i < entries.length; i++) {
+			const { item, owner } = entries[i];
+			const displayName = owner ? `${item.name} (${owner})` : item.name;
+			const current = !!item.system.qualities?.axeArtistCompatibility;
+			const statusLabel = game.i18n.localize(current ? "MACRO.AXEARTIST_FLAG_STATUS_YES" : "MACRO.AXEARTIST_FLAG_STATUS_NO");
+			rows = rows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
+                    <td style="padding:2px 6px;">${statusLabel}</td>
+                    <td style="padding:2px 6px; text-align:center;"><input type="checkbox" data-entry-idx="${i}" class="axeartist-change" /></td>
+                </tr>`);
+		}
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("MACRO.AXEARTIST_FLAG_HEADER")}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th style="text-align:left;">${game.i18n.localize("MACRO.AXEARTIST_FLAG_STATUS")}</th>
+                <th style="text-align:center;">${game.i18n.localize("MACRO.AXEARTIST_FLAG_CHANGE")}</th>
+            </tr>
+            ${rows}
+        </table>
+        </div>
+        </div>`;
+		symbDialog({
+			width: 600,
+			title: game.i18n.localize("MACRO.AXEARTIST_FLAG_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Accept: {
+					label: game.i18n.localize("MACRO.AXEARTIST_FLAG_APPLY"),
+					callback: async (html) => {
+						const root = html[0];
+						let count = 0;
+						for (let i = 0; i < entries.length; i++) {
+							const box = root.querySelector(`input.axeartist-change[data-entry-idx="${i}"]`);
+							if (!box?.checked) continue;
+							const { item } = entries[i];
+							const current = !!item.system.qualities?.axeArtistCompatibility;
+							await item.update({ "system.qualities.axeArtistCompatibility": !current });
+							count++;
+						}
+						ui.notifications.info(game.i18n.format("MACRO.AXEARTIST_FLAG_DONE", { number: count }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("DIALOG.CANCEL"),
+				},
+			},
+			default: "Accept",
+		});
+	}
+
 	async containerMigration() {
 		if (!game.user.isGM) {
 			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
