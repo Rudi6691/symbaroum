@@ -5890,6 +5890,10 @@ async function attackResult(rollData, functionStuff) {
   // GM-Karte, Muster Pain-Effekt). NICHT bei Technik-Angriffen
   // (Fieser Schlag/Kurzer Hieb), nicht bei Freiem Angriff,
   // Rückwärtsschwung, Riposte oder alternativem Schaden.
+  // v1.2 (Rudolfs Testrunde-2-Entscheidung 29.10.): feuert JETZT AUCH im
+  // NSC→SC-Fluss (resistRoll) — Guard entfernt, konsistent mit dem
+  // Axtkünstler-Betäubungs-Block; feuert also nach Auto-Auflösung bzw.
+  // nach Spieler-Klick auf die Resist-Schaltfläche.
   if (
     functionStuff.weapon &&
     functionStuff.weapon.isMelee &&
@@ -5899,7 +5903,6 @@ async function attackResult(rollData, functionStuff) {
     !functionStuff.isReturnSwing &&
     !functionStuff.isRiposte &&
     !functionStuff.isAlternativeDamage &&
-    !functionStuff.resistRoll &&
     functionStuff.targetData?.hasTarget &&
     damageTot > 0 &&
     rollData.some((r) => r.trueActorSucceeded) &&
