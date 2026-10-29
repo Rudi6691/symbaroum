@@ -71,6 +71,16 @@
                 </div>
             </div>
         {{/if}}
+        {{#if printCheapshotProne}}
+            <h4>{{removeMarkup cheapshotProneIntro}}</h4>
+            <div class="finalTxt">{{removeMarkup cheapshotProneRollString}}</div>
+            <div class="finalTxt">
+                <div class="tooltip">
+                    <p>{{removeMarkup cheapshotProneChat}}</p>
+                    <span class="tooltiptext">{{cheapshotProneToolTip}}</span>
+                </div>
+            </div>
+        {{/if}}
         {{#if printCorruption}}
         <div class="finalTxt">
             <div class="tooltip">

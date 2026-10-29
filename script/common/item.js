@@ -2981,13 +2981,26 @@ export class SymbaroumItem extends Item {
   }
 
   abilitySetupAxeartist(base) {
-    // Axtkünstler v1 (Rudolfs Freigabe 29.10.): der Fähigkeits-Button
-    // startet die Technik-Kette (Novize: Kurzer Hieb, Adept: Doppelschlag)
-    // als EC-Waffenangriff mit Preset-Markern; der Dialog bleibt der
-    // gewohnte Würfeldialog. Meister ist passiv (+1d4, in attackResult).
+    // Axtkünstler v1.1 (Rudolfs Testrunde 1, 29.10.): Der Angriff läuft
+    // über die AKTIVIERUNG DER WAFFE — die Technik-Auswahl sitzt als
+    // Radio-Block im Würfeldialog (Einfach/Kurzer Hieb/Doppelschlag,
+    // dialog.js). Der Fähigkeits-Button informiert nur noch über Status
+    // und Weg; Meister (+1d4) läuft passiv in attackResult.
     base.isScripted = true;
     base.preDialogFunction = async function (functionStuff) {
-      await axeArtistPreDialog(functionStuff);
+      await axeArtistButtonInfo(functionStuff);
+    };
+    return base;
+  }
+
+  // Dreckiger Kampf v1 (Rudolfs Auswahlrunde 29.10.): gleiche Architektur
+  // wie Axtkünstler v1.1 — Novizen-Technik (Fieser Schlag) im Würfeldialog
+  // der Nahkampfwaffe, Adept (Stolpern) und Meister (Riposte) laufen passiv
+  // in attackResult. Der Button informiert nur über Status und Weg.
+  abilitySetupCheapshot(base) {
+    base.isScripted = true;
+    base.preDialogFunction = async function (functionStuff) {
+      await cheapshotButtonInfo(functionStuff);
     };
     return base;
   }
@@ -5404,15 +5417,12 @@ export function stepDownDamageDie(formula) {
   return { base: count + "d" + newDie, npcBase: count * Math.ceil(newDie / 2) };
 }
 
-/* Axtkünstler v1 (Rudolfs Freigabe 29.10., Auswahlrunde): Trigger vor dem
-   Dialog — prüft aktive Waffen mit dem Flag "geeignet für Axtkünstler",
-   fragt bei mehreren Waffen nach der Wahl, ab Adept nach der Technik
-   (Kurzer Hieb/Doppelschlag, Novize geht direkt auf Kurzer Hieb) und
-   startet dann den EC-Waffenangriff mit Preset-Markern. EC zwingend
-   (combatAutomation AN, Rudolfs Setup); der klassische Pfad bekommt eine
-   klare Meldung. Die vorbereiteten Waffen (actor.system.weapons) tragen
-   die Qualitäts-Flags direkt (item.system.qualities wird durchgereicht). */
-async function axeArtistPreDialog(functionStuff) {
+/* Axtkünstler v1.1 (Rudolfs Testrunde 1, 29.10.): Der Angriff läuft über
+   die AKTIVIERUNG DER WAFFE (analog Zweihandkraft) — die Technik-Auswahl
+   (Einfach/Kurzer Hieb/Doppelschlag) sitzt als Radio-Block im Würfeldialog
+   (dialog.js), die Ausführungskette läuft automatisch in attackResult.
+   Der Fähigkeits-Button informiert nur noch über Status und Weg. */
+async function axeArtistButtonInfo(functionStuff) {
   if (!game.settings.get("symbaroum", "combatAutomation")) {
     ui.notifications.warn(game.i18n.localize("ERROR.AXEARTIST_NEEDS_EC"));
     return;
@@ -5423,76 +5433,24 @@ async function axeArtistPreDialog(functionStuff) {
     ui.notifications.warn(game.i18n.format("ERROR.NO_AXEARTIST_WEAPON", { name: functionStuff.abilityName ?? "" }));
     return;
   }
-  let weapon = flagged[0];
-  if (flagged.length > 1) {
-    weapon = (await axeArtistChooseWeapon(flagged)) ?? null;
-    if (!weapon) return;
-  }
-  const lvl = functionStuff.powerLvl?.level ?? getActorAbilityLevel(actor, "axeartist");
-  let useDouble = false;
-  if (lvl >= 2) {
-    const choice = await axeArtistChooseAction();
-    if (choice === null) return;
-    useDouble = choice === "double";
-  }
-  const presets = useDouble ? { axeArtistDouble: true } : { axeArtistNovice: true };
-  await actor.enhancedAttackRoll(weapon, presets);
+  ui.notifications.info(game.i18n.localize("DIALOG.AXEARTIST_INFO"));
 }
 
-async function axeArtistChooseWeapon(weapons) {
-  return new Promise((resolve) => {
-    const radios = weapons
-      .map(
-        (w, i) =>
-          `<div class="simplebox"><label class="lblfavour"><input type="radio" name="axeArtistWeapon" value="${i}" ${i === 0 ? "checked" : ""}> ${game.symbaroum.htmlEscape(w.name)}</label></div>`
-      )
-      .join("");
-    symbDialog({
-      title: game.i18n.localize("DIALOG.CHOOSE_WEAPON"),
-      content: `<div class="symbaroum dialog">${radios}</div>`,
-      buttons: {
-        yes: {
-          icon: "<i class='fas fa-check'></i>",
-          label: game.i18n.localize("DIALOG.OK"),
-          callback: (html) => {
-            const idx = parseInt(html[0].querySelector("input[name='axeArtistWeapon']:checked")?.value ?? "0");
-            resolve(weapons[idx] ?? null);
-          },
-        },
-        no: {
-          icon: "<i class='fas fa-times'></i>",
-          label: game.i18n.localize("DIALOG.CANCEL"),
-          callback: () => resolve(null),
-        },
-      },
-      default: "yes",
-    });
-  });
-}
-
-async function axeArtistChooseAction() {
-  return new Promise((resolve) => {
-    symbDialog({
-      title: game.i18n.localize("DIALOG.AXEARTIST_ACTION"),
-      content: `<div class="symbaroum dialog">
-        <div class="simplebox"><label class="lblfavour"><input type="radio" name="axeArtistAction" value="shortend" checked> ${game.i18n.localize("DIALOG.AXEARTIST_SHORTEND")}</label></div>
-        <div class="simplebox"><label class="lblfavour"><input type="radio" name="axeArtistAction" value="double"> ${game.i18n.localize("DIALOG.AXEARTIST_DOUBLE")}</label></div>
-      </div>`,
-      buttons: {
-        yes: {
-          icon: "<i class='fas fa-check'></i>",
-          label: game.i18n.localize("DIALOG.OK"),
-          callback: (html) => resolve(html[0].querySelector("input[name='axeArtistAction']:checked")?.value ?? null),
-        },
-        no: {
-          icon: "<i class='fas fa-times'></i>",
-          label: game.i18n.localize("DIALOG.CANCEL"),
-          callback: () => resolve(null),
-        },
-      },
-      default: "yes",
-    });
-  });
+/* Dreckiger Kampf v1 (Rudolfs Auswahlrunde 29.10.): Fähigkeits-Button =
+   reine Info (Muster axeArtistButtonInfo) — die Novizen-Technik wird im
+   Würfeldialog der Nahkampfwaffe gewählt, Adept/Meister laufen passiv. */
+async function cheapshotButtonInfo(functionStuff) {
+  if (!game.settings.get("symbaroum", "combatAutomation")) {
+    ui.notifications.warn(game.i18n.localize("ERROR.AXEARTIST_NEEDS_EC"));
+    return;
+  }
+  const actor = functionStuff.actor;
+  const melee = (actor.system.weapons ?? []).filter((w) => w.isActive && w.isMelee);
+  if (melee.length === 0) {
+    ui.notifications.warn(game.i18n.format("ERROR.NO_MELEE_WEAPON", { name: functionStuff.abilityName ?? "" }));
+    return;
+  }
+  ui.notifications.info(game.i18n.localize("DIALOG.CHEAPSHOT_INFO"));
 }
 
 export function getBeastloreDamageBonus(actor, targetActor) {
@@ -5558,14 +5516,17 @@ async function attackResult(rollData, functionStuff) {
     functionStuff.beastloreDamageModNPC = beastloreBonus.damageModNPC;
     functionStuff.beastloreLabel = beastloreBonus.label;
   }
-  // Axtkünstler v1 (Rudolfs Freigabe 29.10., Auswahlrunde): Kurzer Hieb
-  // (Novize) = purer 1W6-Schaden (kurzes Ende, keine Boni — Rueckwaertsschwung-
-  // Präzedenz), Doppelschlag (Adept) = beide Schlaege eine Wuerfelstufe
-  // niedriger; Meister-Bonus +1d4 nur auf den ERSTEN Treffer der Aktion
-  // (Rudolfs RAW-Lesart) — nicht beim Kurzer-Hieb-Angriff (pur) und nicht
-  // im 2. Doppelschlag-Schlag (Else-Zweig nullt Stale-Werte in Klonen).
+  // Axtkünstler v1.1 (Rudolfs Testrunde 1, 29.10.): Technik-Auswahl kommt
+  // jetzt aus dem Würfeldialog des Waffenangriffs (Marker axeArtistNovice
+  // bzw. axeArtistDouble). Kurzer Hieb = purer 1W6-Schaden (kurzes Ende,
+  // keine Boni — Rückwärtsschwung-Präzedenz), Doppelschlag = beide Schläge
+  // eine Würfelstufe niedriger. Meister-Bonus +1d4 auf den ERSTEN TREFFER
+  // der Kampfaktion (Rudolfs RAW-Lesart, Testrunde-1-Korrektur): egal
+  // welche Technik — auch der Pur-Kurzhieb und der 2. Doppelschlag-Schlag
+  // (wenn der 1. verfehlte) zählen, verbraucht pro Aktion (Consumed-Marker,
+  // gesetzt erst bei real Damage-Roll im Verbraucher, Klone erben ihn).
   // attackResult deckt den EC- und den klassischen Pfad ab.
-  const axeArtistOriginalWeapon = functionStuff.axeArtistNovice ? functionStuff.weapon : null;
+  const axeArtistOriginalWeapon = functionStuff.weapon;
   if (functionStuff.axeArtistNovice) {
     functionStuff.weapon = Object.assign({}, functionStuff.weapon, {
       damage: Object.assign({}, functionStuff.weapon.damage, { base: "1d6", npcBase: 3 }),
@@ -5598,11 +5559,10 @@ async function attackResult(rollData, functionStuff) {
   const axeArtistMasterBonus =
     functionStuff.weapon &&
     !functionStuff.isAlternativeDamage &&
-    !functionStuff.axeArtistNovice &&
     !functionStuff.isReturnSwing &&
-    !functionStuff.isDoubleSecond &&
+    !functionStuff.axeArtistDamageConsumed &&
     getActorAbilityLevel(functionStuff.actor, "axeartist") >= 3 &&
-    isAxeArtistWeapon(functionStuff.weapon)
+    isAxeArtistWeapon(axeArtistOriginalWeapon)
       ? true
       : false;
   if (axeArtistMasterBonus) {
@@ -5611,6 +5571,35 @@ async function attackResult(rollData, functionStuff) {
   } else {
     functionStuff.axeArtistDamageMod = null;
     functionStuff.axeArtistDamageModNPC = 0;
+  }
+  // Dreckiger Kampf v1 (Novize, Rudolfs Auswahlrunde 29.10.): "Fieser
+  // Schlag" (Gossenkuss/Goblin-Quetsche) — purer 1W6-Schaden (Pur-Klon
+  // Muster Kurzer Hieb: keine Waffenboni, Gift/DoT/Boni neutralisiert),
+  // bei SCHADEN folgt am Karten-Ende der automatische Freie Angriff mit
+  // der ECHTEN Waffe (Präzision-Override, Rudolfs FA-Regel) — OHNE Probe
+  // (anders als Axtkünstler-Betäubung; RAW: Schaden reicht). XOR zur
+  // Axtkünstler-Technik: sind beide Radios gesetzt, gewinnt der Kurze
+  // Hieb (strengeres Pur-Konzept, dokumentierte Festlegung).
+  const cheapshotOriginalWeapon = functionStuff.weapon;
+  if (functionStuff.cheapshotNovice && !functionStuff.axeArtistNovice) {
+    functionStuff.weapon = Object.assign({}, functionStuff.weapon, {
+      damage: Object.assign({}, functionStuff.weapon.damage, { base: "1d6", npcBase: 3 }),
+      qualities: {},
+    });
+    if (functionStuff.weapon.system) functionStuff.weapon.system = Object.assign({}, functionStuff.weapon.system, { qualities: {} });
+    functionStuff.poison = 0;
+    functionStuff.damageOverTime = [];
+    functionStuff.corruptingattack = "";
+    functionStuff.dmgModifier = "";
+    functionStuff.dmgModifierNPC = 0;
+    functionStuff.dmgModifierAttackSupp = "";
+    functionStuff.dmgModifierAttackSuppNPC = 0;
+    functionStuff.hasAdvantage = false;
+    functionStuff.hallowedBonus = false;
+    functionStuff.beastloreDamageMod = null;
+    functionStuff.beastloreDamageModNPC = 0;
+    functionStuff.beastloreLabel = "";
+    functionStuff.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_CHEAPSHOT_STRIKE");
   }
 
   for (let rollDataElement of rollData) {
@@ -5719,6 +5708,11 @@ async function attackResult(rollData, functionStuff) {
         !returnSwingFired &&
         !functionStuff.isReturnSwing &&
         !functionStuff.freeAttack &&
+        // Axtkünstler v1.1 (Rudolfs Testrunde 1, Punkt 6): der Rückwärtsschwung
+        // bleibt dem EINFACHEN Schlag vorbehalten — Kurzer Hieb und
+        // Doppelschlag (inkl. 2. Schlag, Marker wird vererbt) lösen ihn nie aus
+        !functionStuff.axeArtistNovice &&
+        !functionStuff.axeArtistDouble &&
         !functionStuff.isAlternativeDamage &&
         !functionStuff.resistRoll &&
         rollDataElement.diceResult !== 20 &&
@@ -5820,6 +5814,13 @@ async function attackResult(rollData, functionStuff) {
     axeArtistStunRollString: "",
     axeArtistStunChat: "",
     axeArtistStunToolTip: "",
+    // Dreckiger Kampf v1 (Adept): Stolpern/Grätsche-Probe
+    // [Scharfsinn←Gewandtheit] läuft INLINE in derselben Karte
+    printCheapshotProne: false,
+    cheapshotProneIntro: "",
+    cheapshotProneRollString: "",
+    cheapshotProneChat: "",
+    cheapshotProneToolTip: "",
     printBleed: false,
     bleedChat: "",
     printFlaming: false,
@@ -5879,6 +5880,48 @@ async function attackResult(rollData, functionStuff) {
       functionStuff.targetData.name +
       (axeArtistStunned ? game.i18n.localize("COMBAT.CHAT_AXEARTIST_STUNNED") : game.i18n.localize("COMBAT.CHAT_AXEARTIST_NOT_STUNNED"));
     templateData.axeArtistStunToolTip = axeArtistProbe.toolTip;
+  }
+  // Dreckiger Kampf v1 (Adept, Rudolfs Auswahlrunde 29.10. — "nur bei
+  // NORMALEM Nahkampf-Angriff mit Schaden"): nach einem schaden-
+  // verursachenden normalen Nahkampfangriff läuft die Stolpern/Grätsche-
+  // Probe [Scharfsinn←Gewandtheit] automatisch INLINE in derselben Karte
+  // (Betäubungs-Probe-Muster), Modifikator/Gunst pur (RAW nennt keine).
+  // Bei Erfolg fällt das Ziel zu Boden (prone via flagDataArray →
+  // GM-Karte, Muster Pain-Effekt). NICHT bei Technik-Angriffen
+  // (Fieser Schlag/Kurzer Hieb), nicht bei Freiem Angriff,
+  // Rückwärtsschwung, Riposte oder alternativem Schaden.
+  if (
+    functionStuff.weapon &&
+    functionStuff.weapon.isMelee &&
+    !functionStuff.cheapshotNovice &&
+    !functionStuff.axeArtistNovice &&
+    !functionStuff.freeAttack &&
+    !functionStuff.isReturnSwing &&
+    !functionStuff.isRiposte &&
+    !functionStuff.isAlternativeDamage &&
+    !functionStuff.resistRoll &&
+    functionStuff.targetData?.hasTarget &&
+    damageTot > 0 &&
+    rollData.some((r) => r.trueActorSucceeded) &&
+    getActorAbilityLevel(functionStuff.actor, "cheapshot") >= 2
+  ) {
+    const cheapshotProneProbe = await baseRoll(functionStuff.actor, "cunning", functionStuff.targetData.actor, "quick", 0, 0, false);
+    rolls.push(...cheapshotProneProbe.rolls);
+    const cheapshotProne = cheapshotProneProbe.trueActorSucceeded;
+    templateData.printCheapshotProne = true;
+    templateData.cheapshotProneIntro = game.i18n.localize("COMBAT.CHAT_CHEAPSHOT_PRONE_INTRO");
+    templateData.cheapshotProneRollString = await formatRollString(cheapshotProneProbe, true, 0);
+    templateData.cheapshotProneChat =
+      functionStuff.targetData.name +
+      (cheapshotProne ? game.i18n.localize("COMBAT.CHAT_CHEAPSHOT_PRONE") : game.i18n.localize("COMBAT.CHAT_CHEAPSHOT_STABLE"));
+    templateData.cheapshotProneToolTip = cheapshotProneProbe.toolTip;
+    if (cheapshotProne && !targetDies) {
+      flagDataArray.push({
+        tokenId: functionStuff.targetData.tokenId,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "prone")),
+        effectDuration: 1,
+      });
+    }
   }
   for (let doTime of functionStuff.damageOverTime) {
     if (doTime.effectIcon?.id === "bleeding" && !targetDies && damageTot > 0) {
@@ -6069,13 +6112,15 @@ async function attackResult(rollData, functionStuff) {
     );
     await attackResult([rdSwing], fsSwing);
   }
-  // Axtkünstler v1 (Novize, Rudolfs Freigabe 29.10.): automatischer Freier
-  // Angriff nach erfolgreicher Betäubungs-Probe — läuft als eigene Karte
-  // NACH der Kurzer-Hieb-Karte. Präzision-Override wie beim FA-Toggle
-  // (AP1-Festlegung), identische Gunst/Modifikator des Angriffs
-  // (Rückwärtsschwung-Muster), die ECHTE Waffe (nicht der 1W6-Pur-Klon).
-  // Der Meister-Bonus +1d4 greift auch auf diesen Treffer (Kurzer Hieb pur
-  // verbraucht nichts — dokumentierte Lesart). Rekursions-Sperre per
+  // Axtkünstler v1.1 (Novize, Rudolfs Freigabe 29.10. + Testrunde 1):
+  // automatischer Freier Angriff nach erfolgreicher Betäubungs-Probe —
+  // läuft als eigene Karte NACH der Kurzer-Hieb-Karte. Präzision-Override
+  // wie beim FA-Toggle (AP1-Festlegung), identische Gunst/Modifikator des
+  // Angriffs (Rückwärtsschwung-Muster), die ECHTE Waffe (nicht der
+  // 1W6-Pur-Klon). Meister-Bonus: der Kurzhieb-Treffer hat das +1d4 beim
+  // Schadenswurf bereits verbraucht (Consumed-Marker wird vererbt), der
+  // Freie Angriff geht daher leer aus — "+1d4 auf den ersten Treffer der
+  // Kampfaktion, einmal pro Aktion". Rekursions-Sperre per
   // isAxeArtistFreeAttack.
   if (functionStuff.axeArtistNovice && axeArtistStunned && !functionStuff.isAxeArtistFreeAttack && axeArtistOriginalWeapon) {
     const fsFreeAttack = Object.assign({}, functionStuff, {
@@ -6110,23 +6155,61 @@ async function attackResult(rollData, functionStuff) {
     );
     await attackResult([rdFreeAttack], fsFreeAttack);
   }
-  // Axtkünstler v1 (Adept, Rudolfs Freigabe 29.10.): Doppelschlag — der
-  // zweite Schlag läuft als eigene Karte nach dem ersten Angriff, mit
-  // identischen Modifikatoren (Rückwärtsschwung-Muster) und der bereits
-  // gestuften Waffe (Klon erbt sie), AUCH bei Fehlschlag des ersten Schlags
-  // (RAW: 2 Angriffe pro Kampfhandlung). Gift/DoT wirken pro Schlag mit;
-  // der Meister-Bonus bleibt auf den ersten Schlag beschränkt
-  // (isDoubleSecond-Sperre).
+  // Dreckiger Kampf v1 (Novize, Rudolfs Auswahlrunde 29.10.): automatischer
+  // Freier Angriff, sobald der Fiese Schlag SCHADEN verursacht hat (RAW:
+  // "wenn der Gegner Schaden erleidet" — kein Treffer-Bonus, keine Probe;
+  // Rüstungsreduktion muss > 0 bleiben). Läuft als eigene Karte nach der
+  // Fieser-Schlag-Karte, mit der ECHTEN Waffe (nicht der 1W6-Pur-Klon) und
+  // Präzision-Override (Rudolfs FA-Regel, AP1-Festlegung), identische
+  // Gunst/Modifikator des Angriffs (Rückwärtsschwung-Muster).
+  // Rekursions-Sperre per isCheapshotFreeAttack.
+  if (functionStuff.cheapshotNovice && !functionStuff.isCheapshotFreeAttack && damageTot > 0 && cheapshotOriginalWeapon) {
+    const fsCheapshotFA = Object.assign({}, functionStuff, {
+      isCheapshotFreeAttack: true,
+      freeAttack: true,
+      cheapshotNovice: false,
+      numberofAttacks: 1,
+      poison: 0,
+      damageOverTime: [],
+      corruptingattack: "",
+      dmgModifier: "",
+      dmgModifierNPC: 0,
+      dmgModifierAttackSupp: "",
+      dmgModifierAttackSuppNPC: 0,
+      hasAdvantage: false,
+      hallowedBonus: false,
+      beastloreDamageMod: null,
+      beastloreDamageModNPC: 0,
+      beastloreLabel: "",
+      castingAttributeName: "accurate",
+      weapon: cheapshotOriginalWeapon,
+    });
+    fsCheapshotFA.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_CHEAPSHOT_FREE_ATTACK");
+    const rdCheapshotFA = await baseRoll(
+      functionStuff.actor,
+      "accurate",
+      functionStuff.targetData.actor,
+      functionStuff.targetData.resistAttributeName,
+      functionStuff.favour,
+      functionStuff.modifier,
+      false
+    );
+    await attackResult([rdCheapshotFA], fsCheapshotFA);
+  }
+  // Axtkünstler v1.1 (Adept, Rudolfs Freigabe 29.10. + Testrunde 1):
+  // Doppelschlag — der zweite Schlag läuft als eigene Karte nach dem
+  // ersten Angriff, mit identischen Modifikatoren (Rückwärtsschwung-
+  // Muster) und der bereits gestuften Waffe (Klon erbt sie), AUCH bei
+  // Fehlschlag des ersten Schlags (RAW: 2 Angriffe pro Kampfhandlung).
+  // Gift/DoT wirken pro Schlag mit. Meister-Bonus über den Consumed-
+  // Marker: trifft Schlag 1, verbraucht er das +1d4 und Schlag 2 geht
+  // leer aus; verfehlt Schlag 1, erbt Schlag 2 den Bonus (erster
+  // TREFFER der Aktion). isDoubleSecond ist Rekursions-Sperre und
+  // blockt seinerseits die Stufung ein zweites Mal.
   if (functionStuff.axeArtistDouble && !functionStuff.isDoubleSecond) {
     const fsSecond = Object.assign({}, functionStuff, {
       isDoubleSecond: true,
       numberofAttacks: 1,
-      // Zweihandkraft-Interaktion: hat der erste Schlag der Aktion den
-      // Rueckwaertsschwung bereits ausgeloest, darf der zweite keinen
-      // weiteren feuern ("nur der erste Fehlschlag pro Angriffsaktion") -
-      // freeAttack ist genau die Trigger-Sperre dafuer. Trifft der erste
-      // Schlag, darf ein Fehlschlag des zweiten den Schwung noch ausloesen.
-      freeAttack: returnSwingFired ? true : functionStuff.freeAttack,
     });
     fsSecond.introText = functionStuff.introText + game.i18n.localize("COMBAT.CHAT_AXEARTIST_DOUBLE_SECOND");
     const rdSecond = await baseRoll(
@@ -6139,6 +6222,80 @@ async function attackResult(rollData, functionStuff) {
       false
     );
     await attackResult([rdSecond], fsSecond);
+  }
+  // Dreckiger Kampf v1 (Meister, Rudolfs Auswahlrunde 29.10.): blutige
+  // Riposte — jeder Meister erleidet sie "direkt nach jedem Angriff", also
+  // feuert sie JEDEM Nahkampf-Angriffsaufruf gegen ihn nach (auch nach
+  // Treffern UND Fehlschlägen, auch nach FA/2. Doppelschlag-Schlag, RAW
+  // "nach jedem Angriff"). Volle Automatik (Rudolfs Reaktions-Option A,
+  // 28.10.): eigene Karte mit Perspektiv-Dreher — der VERTEIDIGER würfelt
+  // Präzision gegen die VTD des Angreifers (Rudolfs Festlegung), purer
+  // 1W6-Schaden der Rüstung ignoriert (ignoreArm). Rekursions-Sperre per
+  // isRiposte: die Riposte selbst ist kein triggerbarer "Angriff" mehr
+  // (kein Ping-Pong bei beidseitigen Meistern, kein Rückwärtsschwung aus
+  // der Riposte — freeAttack-Sperre wie beim FA).
+  if (
+    functionStuff.weapon &&
+    functionStuff.weapon.isMelee &&
+    !functionStuff.isRiposte &&
+    !functionStuff.isAlternativeDamage &&
+    !functionStuff.resistRoll &&
+    functionStuff.targetData?.hasTarget &&
+    functionStuff.targetData.actor !== functionStuff.actor &&
+    getActorAbilityLevel(functionStuff.targetData.actor, "cheapshot") >= 3
+  ) {
+    const defender = functionStuff.targetData;
+    const fsRiposte = Object.assign({}, functionStuff, {
+      isRiposte: true,
+      freeAttack: true,
+      cheapshotNovice: false,
+      axeArtistNovice: false,
+      axeArtistDouble: false,
+      numberofAttacks: 1,
+      actor: defender.actor,
+      token: defender.token,
+      tokenId: defender.tokenId,
+      actingCharName: defender.name,
+      actingCharImg: defender.token?.img ?? defender.actor.img,
+      castingAttributeName: "accurate",
+      favour: 0,
+      modifier: 0,
+      poison: 0,
+      damageOverTime: [],
+      corruptingattack: "",
+      dmgModifier: "",
+      dmgModifierNPC: 0,
+      dmgModifierAttackSupp: "",
+      dmgModifierAttackSuppNPC: 0,
+      hasAdvantage: false,
+      hallowedBonus: false,
+      ignoreArm: true,
+      isMystical: false,
+      beastloreDamageMod: null,
+      beastloreDamageModNPC: 0,
+      beastloreLabel: "",
+      attackFromPC: defender.actor.type !== "monster" || functionStuff.actor.type === "monster",
+      targetData: {
+        hasTarget: true,
+        token: functionStuff.token,
+        actor: functionStuff.actor,
+        name: functionStuff.actingCharName,
+        tokenId: functionStuff.tokenId,
+        resistAttributeName: "defense",
+        leaderTarget: false,
+        autoParams: "",
+        isCorrupted: game.symbaroum.config.isThoroughlyCorruptTarget(functionStuff.actor),
+      },
+      weapon: Object.assign({}, functionStuff.weapon, {
+        damage: Object.assign({}, functionStuff.weapon.damage, { base: "1d6", npcBase: 3 }),
+        qualities: {},
+      }),
+    });
+    if (fsRiposte.weapon.system) fsRiposte.weapon.system = Object.assign({}, functionStuff.weapon.system, { qualities: {} });
+    fsRiposte.introText =
+      defender.name + game.i18n.localize("COMBAT.CHAT_INTRO") + game.i18n.localize("COMBAT.CHAT_CHEAPSHOT_RIPOSTE");
+    const rdRiposte = await baseRoll(defender.actor, "accurate", functionStuff.actor, "defense", 0, 0, false);
+    await attackResult([rdRiposte], fsRiposte);
   }
   return templateData;
 }

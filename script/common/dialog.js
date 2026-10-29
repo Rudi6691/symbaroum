@@ -1,5 +1,5 @@
 import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './roll.js';
-import { buildRolls } from './item.js';
+import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel } from './item.js';
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 
@@ -131,6 +131,69 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     weaponDamage1H = attackFromPC ? oneHanded.base : oneHanded.npcBase.toString();
     if (defaultGrip === "one") weaponDamage = weaponDamage1H;
   }
+  // Axtkünstler v1.1 (Rudolfs Testrunde 1, 29.10.): Die Technik-Auswahl
+  // läuft NICHT mehr über den Fähigkeits-Button, sondern als Radio-Block
+  // direkt im Würfeldialog des Waffenangriffs (analog Zweihandkraft,
+  // "Einfach" als Standard). Nur wenn die Waffe das Flag "geeignet für
+  // Axtkünstler" trägt UND der Akteur die Fähigkeit gelernt hat;
+  // "Doppelschlag" erst ab Stufe 2 (Adept).
+  let askAxeArtist = false;
+  let axeArtistChoices = [];
+  if (ecOn && weapon !== null && isAxeArtistWeapon(weapon)) {
+    const axeArtistLvl = getActorAbilityLevel(actor, "axeartist");
+    if (axeArtistLvl >= 1) {
+      askAxeArtist = true;
+      axeArtistChoices = [
+        {
+          value: "simple",
+          checked: true,
+          label: game.i18n.localize("DIALOG.AXEARTIST_SIMPLE"),
+          hint: game.i18n.localize("DIALOG.AXEARTIST_SIMPLE_HINT"),
+        },
+        {
+          value: "shortend",
+          checked: false,
+          label: game.i18n.localize("DIALOG.AXEARTIST_SHORTEND"),
+          hint: game.i18n.localize("DIALOG.AXEARTIST_SHORTEND_HINT"),
+        },
+      ];
+      if (axeArtistLvl >= 2) {
+        axeArtistChoices.push({
+          value: "double",
+          checked: false,
+          label: game.i18n.localize("DIALOG.AXEARTIST_DOUBLE"),
+          hint: game.i18n.localize("DIALOG.AXEARTIST_DOUBLE_HINT"),
+        });
+      }
+    }
+  }
+  // Dreckiger Kampf v1 (Rudolfs Auswahlrunde 29.10.): Fiese-Schläge-Angriff
+  // als Technik-Radio im Würfeldialog der Nahkampfwaffe (Muster Axtkünstler
+  // v1.1). Gilt für JEDE aktive Nahkampfwaffe inkl. "Waffenloser Kampf"
+  // (unarmed ∈ meleeWeapons, Vault Waffenlos.md) — KEIN Waffen-Flag nötig.
+  // Adept (Stolpern) und Meister (Riposte) laufen passiv in attackResult.
+  let askCheapshot = false;
+  let cheapshotChoices = [];
+  if (ecOn && weapon !== null && weapon.isMelee) {
+    const cheapshotLvl = getActorAbilityLevel(actor, "cheapshot");
+    if (cheapshotLvl >= 1) {
+      askCheapshot = true;
+      cheapshotChoices = [
+        {
+          value: "simple",
+          checked: true,
+          label: game.i18n.localize("DIALOG.AXEARTIST_SIMPLE"),
+          hint: game.i18n.localize("DIALOG.AXEARTIST_SIMPLE_HINT"),
+        },
+        {
+          value: "strike",
+          checked: false,
+          label: game.i18n.localize("DIALOG.CHEAPSHOT_STRIKE"),
+          hint: game.i18n.localize("DIALOG.CHEAPSHOT_STRIKE_HINT"),
+        },
+      ];
+    }
+  }
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
   targetAttribute_selection.defense = {
     id: "defense",
@@ -170,7 +233,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "targetAttribute_selection":targetAttribute_selection,
     "askBastardGrip": askBastardGrip,
     "gripChoices": { "two": "DIALOG.TWOHANDED", "one": "DIALOG.ONEHANDED" },
-    "defaultGrip": defaultGrip
+    "defaultGrip": defaultGrip,
+    "askAxeArtist": askAxeArtist,
+    "axeArtistChoices": axeArtistChoices,
+    "askCheapshot": askCheapshot,
+    "cheapshotChoices": cheapshotChoices
   });
 
   const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName);
@@ -469,6 +536,43 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           if(askCorruptedTarget){
             ecData.targetFullyCorrupted = html[0].querySelector("#targetCorrupt-"+did).checked;
           }
+          // Axtkünstler v1.1: Technik-Radio aus dem Würfeldialog lesen und
+          // als Marker ins functionStuff schreiben - die Ausführungskette
+          // (pur 1W6, Betäubungs-Probe, Freier Angriff, Doppelschlag,
+          // Meister-Bonus) läuft komplett automatisch in attackResult
+          if(askAxeArtist){
+            let axeArtistTechnique = "simple";
+            let axeArtistRadioSelection = html[0].querySelectorAll("input[name='axeArtistTechnique']");
+            for( let f of axeArtistRadioSelection) {
+              if( f.checked ){
+                axeArtistTechnique = f.value;
+              }
+            }
+            if(axeArtistTechnique === "shortend"){
+              ecData.axeArtistNovice = true;
+              ecData.autoParams += game.i18n.localize('DIALOG.AXEARTIST_SHORTEND') + ", ";
+            } else if(axeArtistTechnique === "double"){
+              ecData.axeArtistDouble = true;
+              ecData.autoParams += game.i18n.localize('DIALOG.AXEARTIST_DOUBLE') + ", ";
+            }
+          }
+          // Dreckiger Kampf v1 (Novize): Fiese-Schläge-Angriff — Radio
+          // aus dem Würfeldialog lesen, Marker ins functionStuff
+          // (ecData); die Kette (pur 1W6, Freier Angriff bei Schaden)
+          // läuft automatisch in attackResult
+          if(askCheapshot){
+            let cheapshotTechnique = "simple";
+            let cheapshotRadioSelection = html[0].querySelectorAll("input[name='cheapshotTechnique']");
+            for( let f of cheapshotRadioSelection) {
+              if( f.checked ){
+                cheapshotTechnique = f.value;
+              }
+            }
+            if(cheapshotTechnique === "strike"){
+              ecData.cheapshotNovice = true;
+              ecData.autoParams += game.i18n.localize('DIALOG.CHEAPSHOT_STRIKE') + ", ";
+            }
+          }
           if(weapon && game.settings.get('symbaroum', 'combatAutomation')){
             attackFromPC = actor.type !== "monster" || ecData.targetData.actor.type === "monster";
             if(damModifier.length > 0) {
@@ -663,16 +767,22 @@ export function createLineDisplay(weaponModifiers, attackFromPC)
         let member= pack.member[0];
         if(member.type === game.symbaroum.config.DAM_RADIO){
           let radioAlternatives = {};
-          
-          for(let j = 0; j < member.alternatives.length; j++) 
+          // Axtkünstler-Testrunde 1 (Rudolf, 29.10.): Der moderne Dialog
+          // zeigt den Fähigkeits-Namen als Rahmen-Label - die Radios dort
+          // tragen nur noch den Effekt (z. B. "+1d8")
+          let radioAlternativesShort = {};
+          for(let j = 0; j < member.alternatives.length; j++)
           {
             if(attackFromPC){
               radioAlternatives[`${member.alternatives[j].damageMod}`] = `${member.alternatives[j].label} ${member.alternatives[j].damageMod}`;
+              radioAlternativesShort[`${member.alternatives[j].damageMod}`] = `${member.alternatives[j].damageMod}`;
             } else {
               radioAlternatives[`${member.alternatives[j].damageModNPC}`] = `${member.alternatives[j].label} ${member.alternatives[j].damageModNPC}`;
+              radioAlternativesShort[`${member.alternatives[j].damageModNPC}`] = `${member.alternatives[j].damageModNPC}`;
             }
           }
           pack.radioAlternatives = radioAlternatives;
+          pack.radioAlternativesShort = radioAlternativesShort;
           if(pack.defaultSelect === undefined || pack.defaultSelect === null) {
             if(attackFromPC) {
               pack.defaultSelect = `${member.alternatives[0].damageMod}`;

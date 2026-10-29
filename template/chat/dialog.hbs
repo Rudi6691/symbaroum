@@ -96,6 +96,27 @@
         <div class="advantage freeattack-suppress"><label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" ><input for="pgkid-{{../did}}-{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
       {{/ife}}
     {{/each}}
+    {{!-- Axtkünstler v1.1 (Rudolfs Testrunde 1): Technik-Auswahl im
+         Würfeldialog des Waffenangriffs - klassische Variante als schlichte
+         Radio-Zeile (der Rahmen-Umbau ist nur fürs moderne Design) --}}
+    {{#if askAxeArtist}}
+      <div class="favour">
+        <label class="lblfavour">{{localize "ABILITY_LABEL.AXE_ARTIST"}}:</label>
+        {{#each axeArtistChoices as |choice|}}
+        <label class="lblfavour" title="{{choice.hint}}"><input type="radio" name="axeArtistTechnique" value="{{choice.value}}" {{#if choice.checked}}checked{{/if}}> {{choice.label}}</label>
+        {{/each}}
+      </div>
+    {{/if}}
+    {{!-- Dreckiger Kampf v1 (Rudolfs Auswahlrunde 29.10.): klassische
+         Radio-Zeile, Muster Axtkünstler --}}
+    {{#if askCheapshot}}
+      <div class="favour">
+        <label class="lblfavour">{{localize "ABILITY_LABEL.CHEAP_SHOT"}}:</label>
+        {{#each cheapshotChoices as |choice|}}
+        <label class="lblfavour" title="{{choice.hint}}"><input type="radio" name="cheapshotTechnique" value="{{choice.value}}" {{#if choice.checked}}checked{{/if}}> {{choice.label}}</label>
+        {{/each}}
+      </div>
+    {{/if}}
       <div class="damagemodifier">
         <label for="dammodifier-{{did}}">{{localize "DIALOG.DAMAGE_MODIFIER"}}</label> <input id="dammodifier-{{did}}" value="{{roll_defaults.additionalModifier}}" type="text" data-dtype="Text"/> 
       </div>

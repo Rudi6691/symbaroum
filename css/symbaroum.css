@@ -6999,6 +6999,34 @@ dialog.symb-dialog.chain-confirm footer button {
   opacity: 0.8;
 }
 
+/* ---------- Kosmetik 2 (Dreckiger-Kampf-Paket, Rudolfs Testrunde 2):
+   Biographie-Tab bei Limited-Zugriff im DUNKLEN Design: Schrift in den
+   Feldern erschien schwarz (kaum Kontrast auf dunklem Panel). Explizite
+   Regeln für den modern-locked-Zustand statt Vererbung: native Felder
+   (input/select/textarea) und die prose-mirror-Flächen (Aussehen-Text)
+   bekommen die Input-Palette des dunklen Themes. Ungelayert und mit
+   hoher Spezifität - schlägt die gelayerten Core-Form-Regeln; das
+   Core-!important-Geometriepaket (exceptions.prosemirror) greift nur im
+   AKTIVEN Bearbeitungsmodus (.prosemirror-Host), nicht im deaktivierten
+   Limited-Zustand. Bewusst NUR dark: das klassische Design bleibt bei
+   seinen hellen Werten. Exakter Core-Verursacher ohne Live-Blatt nicht
+   messbar - Mess-Snippet im Testplan der Auslieferung. */
+.symbaroum.sheet.actor .modern-root.modern-theme-dark.modern-locked input,
+.symbaroum.sheet.actor .modern-root.modern-theme-dark.modern-locked select,
+.symbaroum.sheet.actor .modern-root.modern-theme-dark.modern-locked textarea {
+  color: var(--m-input-ink);
+  background: var(--m-input-bg);
+  border-color: var(--m-line);
+  opacity: 1;
+}
+
+.symbaroum.sheet.actor .modern-root.modern-theme-dark.modern-locked prose-mirror,
+.symbaroum.sheet.actor .modern-root.modern-theme-dark.modern-locked .editor-content,
+.symbaroum.sheet.actor .modern-root.modern-theme-dark.modern-locked .ProseMirror,
+.symbaroum.sheet.actor .modern-root.modern-theme-dark.modern-locked .m-prose {
+  color: var(--m-input-ink);
+}
+
 /* ---------- Dialoge (neues Design, klassik-unabhängig) ----------------------
    A6v3 (Testrunde 2): Die modernen Dialoge (Eigenschaften/Erfahrung/Geld)
    erschienen im Foundry-Standard-Chrome ("klassisches Design"). symbDialog
@@ -8439,6 +8467,26 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   color: var(--m-bg);
 }
 
+/* ---------- Kosmetik 3 (Dreckiger-Kampf-Paket, Rudolfs Testrunde 2):
+   Stufen-Markierung im HELLEN (klassischen) Design kaum erkennbar -
+   das Theme-Akzent (#8a6d1c) verschwindet auf dem hellen Panel.
+   Rudolfs Wunsch: ORANGE. Override nur für modern-theme-classic; das
+   dunkle Design behält sein Gold-Akzent (--m-accent wird GLOBAL nicht
+   angefasst - es tragen es auch Chips, Hover-Zustände u.v.m.). Orange
+   #b45309 mit dezenter Tint-Fläche für gelernte (nicht aktive) Stufen;
+   der aktive Tab füllt sich wie bisher voll (nur eben orange). */
+.symbaroum.sheet.item .modern-root.modern-theme-classic .modern-rail-btn.m-level-learned {
+  color: #b45309;
+  border-color: #b45309;
+  background: rgba(180, 83, 9, 0.12);
+}
+
+.symbaroum.sheet.item .modern-root.modern-theme-classic .modern-rail-btn.m-level-learned.active {
+  color: var(--m-bg);
+  background: #b45309;
+  border-color: #b45309;
+}
+
 .symbaroum.sheet.item .modern-root .m-row {
   display: flex;
   flex-wrap: wrap;
@@ -8865,6 +8913,62 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 }
 
 .symbaroum.modern-roll-dialog .freeattack-row > label {
+  color: var(--m-ink);
+}
+
+/* ---------- Axtkünstler v1.1 (29.10., Rudolfs Testrunde 1 Punkt 10):
+   Fähigkeiten-Block im modernen Würfeldialog — pro Fähigkeit ein Rahmen
+   (fieldset.m-ability-frame) mit dem Fähigkeitsnamen als kleinem Label
+   oben im Rahmen (legend.m-ability-label). Betrifft rückwirkend auch die
+   Paket-Radios (Eisenfaust) und die Bastardwaffe-Griff-Radios, die jetzt
+   innerhalb ihres Rahmens nur noch den Effekt nennen. */
+.symbaroum.modern-roll-dialog fieldset.m-ability-frame {
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem 0.4rem;
+  margin: 0.15rem 0;
+  background: var(--m-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.symbaroum.modern-roll-dialog legend.m-ability-label {
+  float: none;
+  width: auto;
+  padding: 0 0.3rem;
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--m-muted);
+  background: var(--m-panel);
+}
+
+.symbaroum.modern-roll-dialog fieldset.m-ability-frame label.lblfavour {
+  margin: 0;
+  color: var(--m-ink);
+}
+
+/* ---------- Kosmetik 1 (Dreckiger-Kampf-Paket, Rudolfs Testrunde 2):
+   Selects im modernen Würfeldialog themen — Gift-Dropdown (#poison-) und
+   Zielattribut-Select liefen im Browser-Default (weiße Fläche, graue
+   Options-Schrift aus der Fenster-Textfarbe, kaum Kontrast). Rezept wie
+   .modern-root select (Item-Blatt): Palette über die --m-*-Variablen des
+   Fensters; option bekommt Hintergrund/Farbe explizit, weil die
+   Aufklapp-Liste sonst den System-Default behält. */
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog select {
+  background: var(--m-input-bg);
+  color: var(--m-input-ink);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.8rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog select option {
+  background: var(--m-panel);
   color: var(--m-ink);
 }
 

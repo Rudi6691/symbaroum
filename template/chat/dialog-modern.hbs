@@ -100,6 +100,17 @@
         {{/ifgt}}
       {{/ife}}
     {{/each}}
+    {{!-- Axtkünstler-Testrunde 1 (Rudolf, 29.10.): Bastardwaffe ist eine
+         WAFFENQUALITÄT - der Griff-Radioblock gehört unter die
+         Qualitäten-Zeilen, in einem Rahmen mit Qualitäts-Label --}}
+    {{#if askBastardGrip}}
+      <fieldset class="m-ability-frame">
+        <legend class="m-ability-label">{{localize "QUALITY.BASTARD"}}</legend>
+        <div class="m-roll-favour">
+          <label class="lblfavour">{{radioBoxes "bripType" gripChoices checked=defaultGrip localize=true}}</label>
+        </div>
+      </fieldset>
+    {{/if}}
     {{!-- Fähigkeitsboni (v1.2): von Fähigkeiten/Merkmalen ins Default-Paket
          geschobene Mitglieder (abilityMod-Flag, z. B. Eisenfaust-Adept
          "+1d4") - feste Anzeige-Zeilen VOR den Paket-Radios/Checkboxen --}}
@@ -137,10 +148,18 @@
         {{/ifgt}}
       {{/ife}}
     {{/each}}
-    {{!-- Fähigkeitsboni: Paket-Radios und Paket-Checkboxen --}}
+    {{!-- Fähigkeitsboni: Paket-Radios und Paket-Checkboxen.
+         Axtkünstler-Testrunde 1 (Rudolf, 29.10.): Jede Fähigkeit bekommt
+         ihren eigenen Rahmen mit dem Fähigkeits-Namen als kleinem Label
+         oben - die Radios tragen nur noch den Effekt (radioAlternativesShort),
+         der Fähigkeits-Name steht im Rahmen-Label (rückwirkend für
+         Eisenfaust und alle künftigen Radio-Pakete) --}}
     {{#each weaponModifiers.package as |package|}}
       {{#ife package.type "radio"}}
-        <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternatives checked=package.defaultSelect localize=false}}</label></div>
+        <fieldset class="m-ability-frame">
+          <legend class="m-ability-label">{{package.label}}</legend>
+          <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternativesShort checked=package.defaultSelect localize=false}}</label></div>
+        </fieldset>
       {{/ife}}
       {{#ife package.type "checkbox"}}
         <div class="m-roll-check freeattack-suppress">
@@ -149,10 +168,31 @@
         </div>
       {{/ife}}
     {{/each}}
-    {{#if askBastardGrip}}
-      <div class="m-roll-favour">
-        <label class="lblfavour">{{radioBoxes "bripType" gripChoices checked=defaultGrip localize=true}}</label>
-      </div>
+    {{!-- Axtkünstler v1.1 (Rudolfs Testrunde 1): Technik-Auswahl als
+         Radio-Block im Würfeldialog des Waffenangriffs (unter dem
+         Fähigkeiten-Block); "Einfach" ist Standard, "Doppelschlag" nur
+         ab Adept. Die Zusatzinfos stehen als Hover über den Optionen --}}
+    {{#if askAxeArtist}}
+      <fieldset class="m-ability-frame">
+        <legend class="m-ability-label">{{localize "ABILITY_LABEL.AXE_ARTIST"}}</legend>
+        <div class="m-roll-favour">
+          {{#each axeArtistChoices as |choice|}}
+          <label class="lblfavour" title="{{choice.hint}}"><input type="radio" name="axeArtistTechnique" value="{{choice.value}}" {{#if choice.checked}}checked{{/if}}> {{choice.label}}</label>
+          {{/each}}
+        </div>
+      </fieldset>
+    {{/if}}
+    {{!-- Dreckiger Kampf v1 (Rudolfs Auswahlrunde 29.10.): Fiese-Schläge-
+         Technik als eigener Rahmen, Muster Axtkünstler --}}
+    {{#if askCheapshot}}
+      <fieldset class="m-ability-frame">
+        <legend class="m-ability-label">{{localize "ABILITY_LABEL.CHEAP_SHOT"}}</legend>
+        <div class="m-roll-favour">
+          {{#each cheapshotChoices as |choice|}}
+          <label class="lblfavour" title="{{choice.hint}}"><input type="radio" name="cheapshotTechnique" value="{{choice.value}}" {{#if choice.checked}}checked{{/if}}> {{choice.label}}</label>
+          {{/each}}
+        </div>
+      </fieldset>
     {{/if}}
     {{#if askAttackNb}}
       <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes attNbRadio weaponModifiers.radioAttacks localize=false}}</label></div>

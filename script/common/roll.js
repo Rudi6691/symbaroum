@@ -542,13 +542,18 @@ export async function damageRollWithDiceParams(functionStuff, critSuccess, attac
     damageAutoParams += ", " + functionStuff.beastloreLabel;
     damageModNPC += functionStuff.beastloreDamageModNPC;
   }
-  // Axtkünstler v1 (Meister, Rudolfs Freigabe 29.10.): +1d4 nur auf den
-  // ERSTEN Treffer der Kampfaktion (attackNumber 1, RAW-Lesart) — das
-  // Flag wird in attackResult je Aufruf neu gesetzt, Klone neutralisieren.
-  if(functionStuff.axeArtistDamageMod && attackNumber === 1){
+  // Axtkünstler v1.1 (Meister, Rudolfs Testrunde 1 Punkt 5): +1d4 auf den
+  // ersten TREFFER der Kampfaktion — egal welcher Technik-Schlag trifft
+  // (Einfach, Kurzer-Hieb-Pur, Doppelschlag-Schlag 1 oder 2, wenn Schlag 1
+  // verfehlt). Der Verbraucher laeuft nur bei Treffern, daher markiert der
+  // Consumed-Flag hier den ersten Treffer; functionStuff ist das mutierbare
+  // Shared-Objekt, alle spaeteren Klonaufrufe (FA, 2. Doppelschlag-Schlag)
+  // erben den Marker und gehen leer aus. Rohling 1/10: einmal pro Aktion.
+  if(functionStuff.axeArtistDamageMod && !functionStuff.axeArtistDamageConsumed){
     damageModFormula += " +1d4[" + game.i18n.localize("ABILITY_LABEL.AXE_ARTIST") + "]";
     damageAutoParams += ", " + game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_AXEARTIST");
     damageModNPC += functionStuff.axeArtistDamageModNPC ?? 2;
+    functionStuff.axeArtistDamageConsumed = true;
   }
   if(critSuccess) {
     //critSuccess is in the attackers perspective, so it always add damage.

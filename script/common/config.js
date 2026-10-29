@@ -387,6 +387,10 @@ SYMBAROUM.scriptedAbilities = [
   "beastlore",
   "berserker",
   "blacksmith",
+  // Dreckiger Kampf v1 (Rudolfs Freigabe 29.10.): Skript-Badge für die
+  // APG-Fähigkeit "Cheap Shot" (Novizen-Technik-Radio im Würfeldialog,
+  // Adept-Stolpern, Meister-Riposte)
+  "cheapshot",
   "dominate",
   "leader",
   "loremaster",
