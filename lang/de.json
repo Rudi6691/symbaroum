@@ -370,6 +370,8 @@
   "COMBAT.CHAT_CHEAPSHOT_PRONE": " ist zu Boden gestürzt!",
   "COMBAT.CHAT_CHEAPSHOT_STABLE": " bleibt stehen.",
   "COMBAT.CHAT_CHEAPSHOT_RIPOSTE": "Riposte (Dreckiger Kampf)",
+  "COMBAT.CHAT_ARROWJAB": "Pfeil-Stoß",
+  "COMBAT.CHAT_ARROWJAB_FA": "Freier Angriff mit dem Bogen (Pfeil-Stoß)",
   "COMBAT.CHAT_DAMAGE_NUL": " wird von der Rüstung geschützt.",
   "COMBAT.CHAT_DAMAGE_DYING": " ist schwer verwundet.",
   "COMBAT.CHAT_DAMAGE": " erleidet Schaden : ",

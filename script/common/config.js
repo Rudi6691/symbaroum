@@ -384,6 +384,11 @@ SYMBAROUM.scriptedAbilities = [
   "acrobatics",
   "artifactcrafting",
   "axeartist",
+  // Pfeil-Stoß v1 (Rudolfs Freigabe 29.10., Auswahlrunde): Skript-Badge für
+  // die APG-Fähigkeit "Arrow Jab" — reine Reaktionsfähigkeit auf alle drei
+  // Stufen (kein Dialog-Radio, kein Button): Pfeil-Stich nach jedem
+  // Nahkampfangriff gegen den Charakter, Meister mit Freiem Bogen-Angriff
+  "arrowjab",
   "beastlore",
   "berserker",
   "blacksmith",

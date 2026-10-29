@@ -370,6 +370,8 @@
   "COMBAT.CHAT_CHEAPSHOT_PRONE": " falls prone!",
   "COMBAT.CHAT_CHEAPSHOT_STABLE": " keeps their footing.",
   "COMBAT.CHAT_CHEAPSHOT_RIPOSTE": "Riposte (Cheap Shot)",
+  "COMBAT.CHAT_ARROWJAB": "Arrow Jab",
+  "COMBAT.CHAT_ARROWJAB_FA": "Free attack with the bow (Arrow Jab)",
   "COMBAT.CHAT_DAMAGE_NUL": " is protected by armor.",
   "COMBAT.CHAT_DAMAGE_DYING": " is fataly wounded.",
   "COMBAT.CHAT_DAMAGE": " endures damage : ",

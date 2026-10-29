@@ -6324,6 +6324,110 @@ async function attackResult(rollData, functionStuff) {
     const rdRiposte = await baseRoll(defender.actor, "accurate", functionStuff.actor, "defense", 0, 0, false);
     await attackResult([rdRiposte], fsRiposte);
   }
+  // Pfeil-Stoß v1 (Rudolfs Freigabe 29.10. via Auswahlrunde): Reaktion auf
+  // JEDEN Nahkampfangriff gegen den Charakter (auch bei Fehlschlag des
+  // Angreifers, Riposte-Präzedenz) — feuert in BEIDEN Flüssen, der Guard
+  // darf resistRoll NICHT ausschließen (NSC->SC läuft immer im
+  // Verteidigungswurf-Fluss, v1.1/v1.2-Lernweis Dreckiger Kampf).
+  // Loop-Sperre (Rudolfs Auswahlrunde-Entscheidung 4): keine Reaktion auf
+  // Riposten oder Freie Angriffe. RAW: "mit jeder Art von Bogen oder
+  // Armbrust" -> EC-Filter reference === "ranged" schließt Wurfwaffen
+  // ("thrown") aus. Rüstung greift normal ab (Entscheidung 1, kein pur),
+  // Qualitäten: KEINE Bogen-Qualitäten (Entscheidung 2) — RAW meint die
+  // Eigenschaften des GESCHOSSSES; die Spezialpfeil-Qualitäten werden erst
+  // mit dem Munitions-Paket verdrahtet (Qualitäts-Hook dann hier am Klon).
+  if (
+    functionStuff.weapon &&
+    functionStuff.weapon.isMelee &&
+    !functionStuff.isRiposte &&
+    !functionStuff.freeAttack &&
+    !functionStuff.isArrowJab &&
+    !functionStuff.isAlternativeDamage &&
+    functionStuff.targetData?.hasTarget &&
+    functionStuff.targetData.actor !== functionStuff.actor &&
+    getActorAbilityLevel(functionStuff.targetData.actor, "arrowjab") >= 1
+  ) {
+    const jabDefender = functionStuff.targetData;
+    const jabLevel = getActorAbilityLevel(jabDefender.actor, "arrowjab");
+    const jabBow = (jabDefender.actor.system.weapons ?? []).find((w) => w.isActive && w.reference === "ranged");
+    if (jabBow) {
+      const fsArrowJab = Object.assign({}, functionStuff, {
+        isArrowJab: true,
+        freeAttack: true,
+        // v1.1-Lernweis Dreckiger Kampf: der Original-Angriff kann im
+        // Verteidigungswurf-Fluss resistRoll = true tragen — der Stich ist
+        // ein EIGENER, einseitig gewürfelter Angriff; geerbtes Flag würde
+        // Etiketten-Perspektive und Kartentext verfälschen.
+        resistRoll: false,
+        resistRollText: "",
+        cheapshotNovice: false,
+        axeArtistNovice: false,
+        axeArtistDouble: false,
+        numberofAttacks: 1,
+        actor: jabDefender.actor,
+        token: jabDefender.token,
+        tokenId: jabDefender.tokenId,
+        actingCharName: jabDefender.name,
+        actingCharImg: jabDefender.token?.img ?? jabDefender.actor.img,
+        castingAttributeName: jabBow.attribute ?? "accurate",
+        favour: 0,
+        modifier: 0,
+        poison: 0,
+        damageOverTime: [],
+        corruptingattack: "",
+        dmgModifier: "",
+        dmgModifierNPC: 0,
+        dmgModifierAttackSupp: "",
+        dmgModifierAttackSuppNPC: 0,
+        hasAdvantage: false,
+        hallowedBonus: false,
+        ignoreArm: false,
+        isMystical: false,
+        beastloreDamageMod: null,
+        beastloreDamageModNPC: 0,
+        beastloreLabel: "",
+        attackFromPC: jabDefender.actor.type !== "monster" || functionStuff.actor.type === "monster",
+        targetData: {
+          hasTarget: true,
+          token: functionStuff.token,
+          actor: functionStuff.actor,
+          name: functionStuff.actingCharName,
+          tokenId: functionStuff.tokenId,
+          resistAttributeName: "defense",
+          leaderTarget: false,
+          autoParams: "",
+          isCorrupted: game.symbaroum.config.isThoroughlyCorruptTarget(functionStuff.actor),
+        },
+        weapon: Object.assign({}, jabBow, {
+          damage: Object.assign({}, jabBow.damage, jabLevel >= 2 ? { base: "1d8", npcBase: 4 } : { base: "1d6", npcBase: 3 }),
+          qualities: {},
+        }),
+      });
+      if (fsArrowJab.weapon.system) fsArrowJab.weapon.system = Object.assign({}, jabBow.system, { qualities: {} });
+      fsArrowJab.introText =
+        jabDefender.name + game.i18n.localize("COMBAT.CHAT_INTRO") + game.i18n.localize("COMBAT.CHAT_ARROWJAB");
+      const rdArrowJab = await baseRoll(jabDefender.actor, fsArrowJab.castingAttributeName, functionStuff.actor, "defense", 0, 0, false);
+      await attackResult([rdArrowJab], fsArrowJab);
+      // Meister: Freier Angriff mit dem Bogen, wenn der Stich trifft —
+      // NORMALER Fernkampfangriff (baseDamage/Qualitäten des Bogens,
+      // Rüstung greift normal), NICHT der Stub-1W8.
+      if (jabLevel >= 3 && rdArrowJab.trueActorSucceeded) {
+        const fsArrowJabFA = Object.assign({}, fsArrowJab, {
+          isArrowJab: false,
+          isArrowJabFA: true,
+          introText:
+            jabDefender.name + game.i18n.localize("COMBAT.CHAT_INTRO") + game.i18n.localize("COMBAT.CHAT_ARROWJAB_FA"),
+          weapon: Object.assign({}, jabBow, {
+            damage: Object.assign({}, jabBow.damage),
+            qualities: Object.assign({}, jabBow.qualities),
+          }),
+        });
+        if (fsArrowJabFA.weapon.system) fsArrowJabFA.weapon.system = Object.assign({}, jabBow.system);
+        const rdArrowJabFA = await baseRoll(jabDefender.actor, fsArrowJabFA.castingAttributeName, functionStuff.actor, "defense", 0, 0, false);
+        await attackResult([rdArrowJabFA], fsArrowJabFA);
+      }
+    }
+  }
   return templateData;
 }
 
