@@ -1300,6 +1300,7 @@
   "MODERN.CHIP_EXPERIENCE": "Erfahrung",
   "MODERN.ACTIVE_ARMOR": "Aktive Rüstung",
   "MODERN.ACTIVE_WEAPONS": "Aktive Waffen",
+  "MODERN.ATTR_EDIT": "Eigenschaften bearbeiten (Basis, Modifikator, Bonus)",
   "MODERN.FAVORITES": "Favoriten",
   "MODERN.FAVORITES_EMPTY": "Noch keine Favoriten – Stern auf einem Item setzen (gilt pro Charakter).",
   "MODERN.FAVORITE_TOGGLE": "Favorit für den Kampf-Tab",

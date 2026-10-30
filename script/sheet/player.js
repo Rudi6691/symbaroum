@@ -428,7 +428,8 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			abbrOrteg: denoms[2].abbreviation,
 		};
 
-		/* --- Eigenschaften-Chips (2x4; Klick = Eigenschaften-Dialog) --- */
+		/* --- Eigenschaften-Chips (2x4; Klick = Würfeldialog der Eigenschaft,
+		   Kosmetik v1; Einstelldialog über Gear-Zeile) --- */
 		const attributes = [];
 		for (const [key, a] of Object.entries(live.attributes)) {
 			if (!a?.label) continue;
@@ -964,12 +965,34 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			this.modernTabs.bind(element);
 		}
 
-		// A6: Eigenschaften-Chip (Stammleiste) -> Basis/Modifikator/Bonus-Dialog
-		// (Testrunde-2-Fix: Der Selektor muss zur Chip-Klasse .m-attr-chip aus
-		// sidebar.hbs passen - .modern-attr-chip traf nichts, der Dialog
-		// öffnete deshalb nicht.)
+		// Kosmetik v1 (Rudolfs Wunsch, 30.10.): Der Eigenschaften-CHIP in der
+		// Stammleiste öffnet jetzt den WÜRFELDIALOG der angeklickten
+		// Eigenschaft - exakt wie die .roll-attribute-Buttons des klassischen
+		// Blatts (player-main.hbs) statt des Einstelldialogs. Der
+		// Einstelldialog (Basis/Modifikator/Bonus) hängt jetzt an der
+		// Titelzeile mit Gear-Rad (siehe .m-attr-edit unten). Der Drag-Start
+		// der Chips (Makro-Support, _onDragStart) bleibt unberührt.
+		// (Testrunde-2-Fix-Historie: Der Selektor muss zur Chip-Klasse
+		// .m-attr-chip aus sidebar.hbs passen.)
 		const attrChips = element.querySelectorAll('.m-attr-chip');
 		for (const s of attrChips) {
+			s.addEventListener('click', (ev) => {
+				ev.preventDefault();
+				// ApplicationV2-Vorsicht (v1.2-Lernweis): Element-Daten nie
+				// über event.currentTarget lesen - der Chip steckt über
+				// ev.target.closest sicher.
+				const chip = ev.target.closest?.('.m-attr-chip');
+				const attributeName = chip?.dataset.attribute;
+				if (attributeName) {
+					prepareRollAttribute(this.actor, attributeName, null, null);
+				}
+			});
+		}
+		// Kosmetik v1: Titelzeile "Eigenschaften" + Gear-Rad (nur für
+		// Besitzer/GM gerendert, sidebar.hbs {{#if editable}}) -> Einstell-
+		// dialog (Basis/Modifikator/Bonus). Klick auf die GANZE Zeile wirkt.
+		const attrEdit = element.querySelectorAll('.m-attr-edit');
+		for (const s of attrEdit) {
 			s.addEventListener('click', (ev) => {
 				ev.preventDefault();
 				this._openAttributesDialog(true);

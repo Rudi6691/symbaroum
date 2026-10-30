@@ -96,7 +96,20 @@
         </div>
     </div>
 
+    {{!-- Kosmetik v1 (Rudolfs Wunsch, 30.10.): Die Chip-Klicks WÜRFELN die
+        angeklickte Eigenschaft; der Einstelldialog (Basis/Modifikator/Bonus)
+        hängt an der Titelzeile mit Gear-Rad - Vorbild ist die klassische
+        Ansicht (player-main.hbs: "Eigenschaften"-Titel + Zahnrad-Button).
+        Die GANZE Zeile (Titel + Gear) ist klickbar; nur für Besitzer/GM
+        gerendert (editable), Beobachter/Limited sehen das reine Label. --}}
+    {{#if editable}}
+    <button type="button" class="m-sec-label m-attr-edit" data-tooltip="{{localize 'MODERN.ATTR_EDIT'}}">
+        <span>{{localize "TITLE.ATTRIBUTES"}}</span>
+        <i class="fas fa-gear"></i>
+    </button>
+    {{else}}
     <div class="m-sec-label">{{localize "TITLE.ATTRIBUTES"}}</div>
+    {{/if}}
     <div class="m-attrs">
         {{#each modern.attributes as |a|}}
         <button type="button" class="m-attr-chip attrDragM" data-attribute="{{a.key}}" data-tooltip="{{{a.tooltip}}}">

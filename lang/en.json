@@ -1300,6 +1300,7 @@
   "MODERN.CHIP_EXPERIENCE": "Experience",
   "MODERN.ACTIVE_ARMOR": "Active Armor",
   "MODERN.ACTIVE_WEAPONS": "Active Weapons",
+  "MODERN.ATTR_EDIT": "Edit attributes (base, modifier, bonus)",
   "MODERN.FAVORITES": "Favorites",
   "MODERN.FAVORITES_EMPTY": "No favorites yet – click the star on an item (per character).",
   "MODERN.FAVORITE_TOGGLE": "Favorite for the combat tab",

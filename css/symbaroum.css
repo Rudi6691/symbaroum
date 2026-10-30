@@ -4985,6 +4985,22 @@ html body .symbaroum.sheet.item input[type='checkbox']:checked {
   background: transparent;
 }
 
+/*  4b) Kosmetik v1 (Rudolfs Meldung, 30.10.): Im ANSICHTSMODUS zeigte  */
+/*      das Wide-Journal nur die erste Seite, der Rest war geclippt -  */
+/*      kein Scrollen möglich (im Bearbeitungsmodus ging es). Das ist  */
+/*      die bereits zweimal verifizierte V14-Core-Falle (7.2.8 für     */
+/*      Item-Blätter, A37-Export v1.2 für eigene ApplicationV2-        */
+/*      Fenster): Core clippt .application .window-content auf         */
+/*      overflow: hidden, und eigene ApplicationV2-Fenster brauchen    */
+/*      deshalb EIGENE overflow-y: auto-Regeln - die eigene Regel ist  */
+/*      ungelagert und schlägt die Core-Regel normal. Die Inhalts-      */
+/*      spalte (Titelleiste + alle Seiten) scrollt damit wieder; im     */
+/*      Bearbeitungsmodus ist das neutral (Inhalt passt oder scrollt    */
+/*      weiter wie bisher).                                            */
+.symbaroum-mod.journal-sheet .window-content {
+  overflow-y: auto;
+}
+
 /*  5) Sidebar: deliberately NO overrides. The V14 core journal         */
 /*     sidebar is styled for exactly the V13 look: white text           */
 /*     (color: var(--color-light-1)) on the dark window background,     */
@@ -6008,6 +6024,45 @@ dialog.symb-dialog.chain-confirm footer button {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--m-muted);
+}
+
+/* Kosmetik v1 (Rudolfs Wunsch, 30.10.): Titelzeile "Eigenschaften" + Gear-Rad
+   als klickbare Fläche (öffnet den Einstelldialog, sidebar.hbs rendert sie
+   NUR für Besitzer/GM als <button>). Voller Reset gegen die globale
+   V13-Button-Regel .symbaroum.sheet.actor button (title.webp-Textur, 14px,
+   fett - v3.5-Lernweis: globale Button-Regeln treffen JEDEEN neuen Button,
+   also hier explizit neutralisieren), Typografie aus der m-sec-label-Regel;
+   Gear stumm, Hover-Akzent wie bei den Chips. */
+.symbaroum.sheet.actor .modern-root button.m-sec-label.m-attr-edit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0.35rem 0 0 0;
+  font-size: 0.62rem;
+  font-weight: inherit;
+  font-family: inherit;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--m-muted);
+  cursor: pointer;
+}
+
+.symbaroum.sheet.actor .modern-root button.m-sec-label.m-attr-edit i {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.symbaroum.sheet.actor .modern-root button.m-sec-label.m-attr-edit:hover,
+.symbaroum.sheet.actor .modern-root button.m-sec-label.m-attr-edit:hover i,
+.symbaroum.sheet.actor .modern-root button.m-sec-label.m-attr-edit:focus-visible {
+  color: var(--m-accent);
 }
 
 /* ---------- Vitalwerte ---------------------------------------------------- */

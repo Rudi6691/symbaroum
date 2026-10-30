@@ -9,6 +9,7 @@
  *     buttons: { <key>: { icon, label, callback(html) } },
  *     default: <key of the default button>,
  *     width: <number>  (default 400, matching the V1 Dialog)
+ *     resizable: <boolean> (Kosmetik v1; opt-in, default false)
  *   }
  *
  * and creates, renders and returns a foundry.applications.api.DialogV2 instance.
@@ -23,11 +24,23 @@
  *  - V1 dialogs were rendered by calling `render(true)`; DialogV2 instances are
  *    rendered by this helper.
  *
+ * Kosmetik v1 (Rudolfs Wunsch, 30.10., gilt zentral fuer ALLE System-Dialoge):
+ * Die Dialogbreite skaliert mit der Foundry-Core-Schriftgroesse (Client-Setting
+ * "Schriftgroesse", core.fontSize, Slider 1-10 mit Default 5). Das Setting setzt
+ * die Root-Schriftgroesse des Dokuments (8/10/12/14/16/18/20/24/28/32 px, Index
+ * 5 = 16 px), alle fixen Pixel-Fensterbreiten bleiben aber unskaliert - bei
+ * grosser Schrift bricht der Dialoginhalt daher um bzw. wird geclippt. Die
+ * Breite wird hier mit dem effektiven Faktor (Root-px / 16 px) multipliziert:
+ * Bei Schriftgroesse 5 (Rudolfs Referenz) ist der Faktor exakt 1, die
+ * bisherigen Breiten bleiben also unveraendert. getComputedStyle misst den
+ * wirklich wirksamen Wert - das ist robust gegen kuenftige Core-Aenderungen
+ * des Settings und braucht die Slider-Semantik nicht zu kennen.
+ *
  * The V1 `close` callback option is intentionally not supported (all previous uses
  * in this system were empty no-ops).
  */
 export function symbDialog(options = {}) {
-  const { title, content, buttons = {}, default: defaultAction, width } = options;
+  const { title, content, buttons = {}, default: defaultAction, width, resizable } = options;
   let dialog = null;
 
   const v2Buttons = Object.entries(buttons).map(([action, button]) => ({
@@ -68,14 +81,26 @@ export function symbDialog(options = {}) {
     // A25 (optics): call sites can pass further marker classes - the chain
     // confirmation dialog adds .chain-confirm for its smaller Ja/Nein buttons
     classes: ["symb-dialog", ...(options.classes ?? [])],
-    window: { title: title ?? '' },
+    window: {
+      title: title ?? '',
+      // Kosmetik v1 (Rudolfs Wunsch): Wuerfeldialoge etc. per Opt-in
+      // groessenveraenderbar - ApplicationV2 liefert den Resize-Handle und
+      // speichert die Fenstergroesse pro User (Muster: DEFAULT_OPTIONS der
+      // Blatter, window.resizable - siehe player.js/item.js).
+      ...(resizable ? { resizable: true } : {}),
+    },
     content: domContent,
     buttons: v2Buttons,
   };
   // The legacy V1 Dialog rendered with a default window width of 400px; ApplicationV2
   // defaults to "auto" which stretches the flex rows of the roll dialogs. Restore the
   // previous look unless the call site requests an explicit width.
-  config.position = { width: width ?? 400 };
+  // Kosmetik v1: width is scaled with the core font size factor (see header
+  // comment) so the dialog geometry follows the client's font size setting.
+  const baseWidth = width ?? 400;
+  const rootFontSizePx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const fontScale = rootFontSizePx / 16;
+  config.position = { width: Math.round(baseWidth * fontScale) };
 
   dialog = new foundry.applications.api.DialogV2(config);
   dialog.render({ force: true });
