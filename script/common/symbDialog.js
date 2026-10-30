@@ -9,7 +9,8 @@
  *     buttons: { <key>: { icon, label, callback(html) } },
  *     default: <key of the default button>,
  *     width: <number>  (default 400, matching the V1 Dialog)
- *     resizable: <boolean> (Kosmetik v1; opt-in, default false)
+ *     resizable: <boolean> (Kosmetik v1.1; default true, opt-out via
+ *               `resizable: false`)
  *   }
  *
  * and creates, renders and returns a foundry.applications.api.DialogV2 instance.
@@ -24,23 +25,30 @@
  *  - V1 dialogs were rendered by calling `render(true)`; DialogV2 instances are
  *    rendered by this helper.
  *
- * Kosmetik v1 (Rudolfs Wunsch, 30.10., gilt zentral fuer ALLE System-Dialoge):
+ * Kosmetik v1.1 (Rudolfs Wunsch, gilt zentral fuer ALLE System-Dialoge):
  * Die Dialogbreite skaliert mit der Foundry-Core-Schriftgroesse (Client-Setting
- * "Schriftgroesse", core.fontSize, Slider 1-10 mit Default 5). Das Setting setzt
- * die Root-Schriftgroesse des Dokuments (8/10/12/14/16/18/20/24/28/32 px, Index
- * 5 = 16 px), alle fixen Pixel-Fensterbreiten bleiben aber unskaliert - bei
- * grosser Schrift bricht der Dialoginhalt daher um bzw. wird geclippt. Die
- * Breite wird hier mit dem effektiven Faktor (Root-px / 16 px) multipliziert:
+ * "Schriftgroesse", core.fontSize, Slider 1-10 mit Default 5). LERNWEIS V14:
+ * Das Setting setzt NICHT mehr die Root-Schriftgroesse des Dokuments - das
+ * war die Mechanik bis Core V12. Core V13/V14 skalieren stattdessen eine
+ * rem-basierte Typo-Skala (--font-size-N-Variablen auf body); documentElement
+ * bleibt konstant 16 px. Die Kosmetik-v1-Messung am Root lieferte daher immer
+ * Faktor 1 (Rudolfs Testrunde: Dialogtext wächst, Fensterbreite nicht). Der
+ * Faktor wird jetzt in _coreFontScale() aus dem Setting selbst abgeleitet
+ * (Slider-Index -> px-Tabelle [8/10/12/14/16/18/20/24/28/32], Index 5 =
+ * 16 px), mit der gemessenen Root-px als Fallback-Kette fuer alte Core-
+ * Versionen und Module, die die Root-Schriftgroesse doch direkt setzen.
  * Bei Schriftgroesse 5 (Rudolfs Referenz) ist der Faktor exakt 1, die
- * bisherigen Breiten bleiben also unveraendert. getComputedStyle misst den
- * wirklich wirksamen Wert - das ist robust gegen kuenftige Core-Aenderungen
- * des Settings und braucht die Slider-Semantik nicht zu kennen.
+ * bisherigen Breiten bleiben also unveraendert.
+ *
+ * Kosmetik v1.1 (Rudolfs Wunsch aus der Testrunde): Dialoge sind per Default
+ * groessenveraenderbar (vorher Opt-in). ApplicationV2 liefert den Resize-
+ * Handle und speichert die Fenstergroesse pro User.
  *
  * The V1 `close` callback option is intentionally not supported (all previous uses
  * in this system were empty no-ops).
  */
 export function symbDialog(options = {}) {
-  const { title, content, buttons = {}, default: defaultAction, width, resizable } = options;
+  const { title, content, buttons = {}, default: defaultAction, width, resizable = true } = options;
   let dialog = null;
 
   const v2Buttons = Object.entries(buttons).map(([action, button]) => ({
@@ -83,11 +91,12 @@ export function symbDialog(options = {}) {
     classes: ["symb-dialog", ...(options.classes ?? [])],
     window: {
       title: title ?? '',
-      // Kosmetik v1 (Rudolfs Wunsch): Wuerfeldialoge etc. per Opt-in
-      // groessenveraenderbar - ApplicationV2 liefert den Resize-Handle und
-      // speichert die Fenstergroesse pro User (Muster: DEFAULT_OPTIONS der
-      // Blatter, window.resizable - siehe player.js/item.js).
-      ...(resizable ? { resizable: true } : {}),
+      // Kosmetik v1.1 (Rudolfs Wunsch aus der Testrunde): ALLE symbDialoge
+      // sind per Default groessenveraenderbar (vorher Opt-in) - Geld,
+      // Erfahrung, Eigenschaften, Ausruestung, Behaelter-Kontextmenue-Dialoge
+      // usw. sind damit abgedeckt, ohne die 42 Aufrufstellen einzeln anzufassen.
+      // Opt-out fuer einzelne Stellen: `resizable: false`.
+      ...(resizable === false ? {} : { resizable: true }),
     },
     content: domContent,
     buttons: v2Buttons,
@@ -95,16 +104,45 @@ export function symbDialog(options = {}) {
   // The legacy V1 Dialog rendered with a default window width of 400px; ApplicationV2
   // defaults to "auto" which stretches the flex rows of the roll dialogs. Restore the
   // previous look unless the call site requests an explicit width.
-  // Kosmetik v1: width is scaled with the core font size factor (see header
-  // comment) so the dialog geometry follows the client's font size setting.
+  // Kosmetik v1.1: width is scaled with the core font size factor (see header
+  // comment and _coreFontScale) so the dialog geometry follows the client's
+  // font size setting.
   const baseWidth = width ?? 400;
-  const rootFontSizePx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  const fontScale = rootFontSizePx / 16;
-  config.position = { width: Math.round(baseWidth * fontScale) };
+  config.position = { width: Math.round(baseWidth * _coreFontScale()) };
 
   dialog = new foundry.applications.api.DialogV2(config);
   dialog.render({ force: true });
   return dialog;
+}
+
+/**
+ * Kosmetik v1.1: effective core font size scale (factor relative to 16 px),
+ * used to scale all system dialog widths.
+ *
+ * Core V13/V14 changed how the "font size" client setting (core.fontSize,
+ * slider 1-10, default 5) takes effect: it no longer touches the document
+ * root font size (that was the pre-V13 mechanic and still is some modules')
+ * but scales a rem-based type scale (--font-size-N variables on body).
+ * Measuring the root element therefore always yields 16 px under V14
+ * (v1 test result: dialog text grows, window width does not).
+ *
+ * Chain:
+ *  1. If the measured root font size deviates from 16 px (old core or a
+ *     module applying the legacy mechanic), use it - robust fallback.
+ *  2. Otherwise derive the factor from the setting itself via the
+ *     documented pixel table. Index 5 = 16 px = factor 1.
+ * Diagnostic: if a future core update drifts from the table, compare
+ * `game.settings.get("core", "fontSize")` with the computed font size of a
+ * dialog element (getComputedStyle) - see the delivery doc, section 6.
+ *
+ * @returns {number}
+ */
+const CORE_FONT_SIZE_PX = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
+function _coreFontScale() {
+  const rootFontSizePx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  if (Math.abs(rootFontSizePx - 16) > 0.25) return rootFontSizePx / 16;
+  const index = Number(game?.settings?.get?.("core", "fontSize")) || 5;
+  return (CORE_FONT_SIZE_PX[index - 1] ?? 16) / 16;
 }
 
 /**

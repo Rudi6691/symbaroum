@@ -3543,10 +3543,9 @@ export async function modifierDialog(functionStuff) {
     // Design-/Ansichtswechsel die offenen Würfeldialoge dieses Nutzers
     // geschlossen werden können (closeOpenRollDialogs).
     classes: [`symb-roll-dialog`, `symb-roll-user-${game.user.id}`, ...(modernRoll ? modernDialogClasses("modern-roll-dialog") : [])],
-    // Kosmetik v1 (Rudolfs Wunsch): Würfeldialog größenveränderbar
-    // (symbDialog-Opt-in; Breite folgt zusätzlich der Core-Schriftgröße,
-    // siehe symbDialog.js).
-    resizable: true,
+    // Kosmetik v1.1: größenveränderbar und Breiten-Skalierung sind
+    // jetzt symbDialog-Defaults (siehe symbDialog.js) - hier nicht mehr
+    // pro Aufrufstelle nötig.
     buttons: {
       roll: {
         icon: '<i class="fas fa-check"></i>',
