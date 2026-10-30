@@ -25,20 +25,22 @@
  *  - V1 dialogs were rendered by calling `render(true)`; DialogV2 instances are
  *    rendered by this helper.
  *
- * Kosmetik v1.1 (Rudolfs Wunsch, gilt zentral fuer ALLE System-Dialoge):
+ * Kosmetik v1.2 (Rudolfs Wunsch, gilt zentral fuer ALLE System-Dialoge):
  * Die Dialogbreite skaliert mit der Foundry-Core-Schriftgroesse (Client-Setting
- * "Schriftgroesse", core.fontSize, Slider 1-10 mit Default 5). LERNWEIS V14:
- * Das Setting setzt NICHT mehr die Root-Schriftgroesse des Dokuments - das
- * war die Mechanik bis Core V12. Core V13/V14 skalieren stattdessen eine
- * rem-basierte Typo-Skala (--font-size-N-Variablen auf body); documentElement
- * bleibt konstant 16 px. Die Kosmetik-v1-Messung am Root lieferte daher immer
- * Faktor 1 (Rudolfs Testrunde: Dialogtext wächst, Fensterbreite nicht). Der
- * Faktor wird jetzt in _coreFontScale() aus dem Setting selbst abgeleitet
- * (Slider-Index -> px-Tabelle [8/10/12/14/16/18/20/24/28/32], Index 5 =
- * 16 px), mit der gemessenen Root-px als Fallback-Kette fuer alte Core-
- * Versionen und Module, die die Root-Schriftgroesse doch direkt setzen.
- * Bei Schriftgroesse 5 (Rudolfs Referenz) ist der Faktor exakt 1, die
- * bisherigen Breiten bleiben also unveraendert.
+ * "Schriftgroesse", Slider 1-10 mit Default 5). LERNWEIS V13/V14 (am V14-Client-
+ * Quellcode verifiziert und per Konsolenmessung bestätigt, 30.10.): Der
+ * Setting-Key heisst seit V13 NICHT mehr core.fontSize, sondern
+ * core.uiConfig.fontScale (Objekt-Setting des UI-Menues); game.configureUI()
+ * loest fontScale ueber die px-Tabelle [8/10/12/14/16/18/20/24/28/32] auf und
+ * schreibt das Ergebnis ALS INLINE-STYLE auf documentElement.style.fontSize -
+ * die Root-Messung ist unter V13/V14 also autoritativ (Messwerte: Setting 5
+ * -> root '16px', Setting 8 -> root '24px', Wuerfeldialog 600px = 400*24/16).
+ * Die v1.1-Fallback-Lesung des toten V12-Keys core.fontSize WARF dagegen
+ * ("... is not a registered game setting") und crashte JEDES symbDialog bei
+ * Schriftgroesse 5 - deshalb v1.2: Root prim, NEUER Key uiConfig.fontScale
+ * als Fallback, komplett try/catch-gesichert (ein Dialog kann wegen der
+ * Skalierung nie wieder crashen). Bei Schriftgroesse 5 (Rudolfs Referenz)
+ * ist der Faktor exakt 1, die bisherigen Breiten bleiben unveraendert.
  *
  * Kosmetik v1.1 (Rudolfs Wunsch aus der Testrunde): Dialoge sind per Default
  * groessenveraenderbar (vorher Opt-in). ApplicationV2 liefert den Resize-
@@ -104,7 +106,7 @@ export function symbDialog(options = {}) {
   // The legacy V1 Dialog rendered with a default window width of 400px; ApplicationV2
   // defaults to "auto" which stretches the flex rows of the roll dialogs. Restore the
   // previous look unless the call site requests an explicit width.
-  // Kosmetik v1.1: width is scaled with the core font size factor (see header
+  // Kosmetik v1.2: width is scaled with the core font size factor (see header
   // comment and _coreFontScale) so the dialog geometry follows the client's
   // font size setting.
   const baseWidth = width ?? 400;
@@ -116,24 +118,33 @@ export function symbDialog(options = {}) {
 }
 
 /**
- * Kosmetik v1.1: effective core font size scale (factor relative to 16 px),
+ * Kosmetik v1.2: effective core font size scale (factor relative to 16 px),
  * used to scale all system dialog widths.
  *
- * Core V13/V14 changed how the "font size" client setting (core.fontSize,
- * slider 1-10, default 5) takes effect: it no longer touches the document
- * root font size (that was the pre-V13 mechanic and still is some modules')
- * but scales a rem-based type scale (--font-size-N variables on body).
- * Measuring the root element therefore always yields 16 px under V14
- * (v1 test result: dialog text grows, window width does not).
+ * Verified V13/V14 mechanism (V14 client source + console measurements,
+ * 30.10.): the client setting "core.uiConfig" holds the field fontScale
+ * (slider 1-10, initial 5); game.configureUI() resolves it via the pixel
+ * table and writes it as an INLINE STYLE to
+ * document.documentElement.style.fontSize (16px at scale 5, 24px at 8).
+ * The root measurement is therefore authoritative under V13/V14 as well as
+ * for pre-V13 cores and modules that set the root font directly.
+ *
+ * The legacy setting key "core.fontSize" NO LONGER EXISTS since V13 -
+ * reading it throws ("... is not a registered game setting"). The v1.1
+ * fallback used that dead key and crashed every symbDialog at font size 5
+ * (root exactly 16px skips the early return). Fixed in v1.2: the fallback
+ * reads the V13+ key "core.uiConfig".fontScale instead, and the whole
+ * fallback is wrapped in try/catch so a dialog can never crash over
+ * scaling again.
  *
  * Chain:
- *  1. If the measured root font size deviates from 16 px (old core or a
- *     module applying the legacy mechanic), use it - robust fallback.
- *  2. Otherwise derive the factor from the setting itself via the
- *     documented pixel table. Index 5 = 16 px = factor 1.
- * Diagnostic: if a future core update drifts from the table, compare
- * `game.settings.get("core", "fontSize")` with the computed font size of a
- * dialog element (getComputedStyle) - see the delivery doc, section 6.
+ *  1. Root measurement (inline style from configureUI): use it whenever it
+ *     deviates from 16 px by more than 0.25 px.
+ *  2. Fallback for root exactly 16px: read core.uiConfig.fontScale and map
+ *     it through the pixel table. Index 5 = 16 px = factor 1.
+ *  3. Any read error: factor 1 (no scaling, dialog still opens).
+ * Diagnostic: compare `game.settings.get("core", "uiConfig").fontScale`
+ * with the computed font size of a dialog element - delivery doc, section 6.
  *
  * @returns {number}
  */
@@ -141,8 +152,13 @@ const CORE_FONT_SIZE_PX = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
 function _coreFontScale() {
   const rootFontSizePx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   if (Math.abs(rootFontSizePx - 16) > 0.25) return rootFontSizePx / 16;
-  const index = Number(game?.settings?.get?.("core", "fontSize")) || 5;
-  return (CORE_FONT_SIZE_PX[index - 1] ?? 16) / 16;
+  try {
+    const fontScale = Number(game?.settings?.get?.("core", "uiConfig")?.fontScale) || 5;
+    return (CORE_FONT_SIZE_PX[fontScale - 1] ?? 16) / 16;
+  } catch (err) {
+    // Setting unreadable (future core changes): never crash a dialog over scaling.
+    return 1;
+  }
 }
 
 /**
