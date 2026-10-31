@@ -9333,6 +9333,24 @@ dialog.symb-dialog.modern-dialog select option {
   color: var(--m-ink);
 }
 
+/* Übergabe v1.5 (Testrunde 4): Die Empfängerliste des Geben-Dialogs
+   gliedert optgroups ("Anwesende (aktive Szene)" / je Spieler,
+   give-dialog.hbs). Deren Label-Rows im nativen Popup folgen keiner
+   Options-Regel und blieben Browser-Default - helle Trenn-Rows
+   zwischen den jetzt dunklen Options-Blöcken (Rudolfs Befund:
+   "Separatoren passen nicht"). Gleiche solide Palette wie die
+   Option-Rows darunter; Label-Schrift gedämpft wie die Rahmen-
+   Überschriften im Würfeldialog (legend.m-ability-label: muted +
+   halbfett) - auch hier koppelt der Browser das Popup nicht an
+   color-scheme, explizite solide Farben sind der einzige Weg.
+   Chromium rendert background-color/color/font-weight am optgroup
+   im Popup wie an option. */
+dialog.symb-dialog.modern-dialog select optgroup {
+  background-color: var(--m-panel);
+  color: var(--m-muted);
+  font-weight: 600;
+}
+
 /* Übergabe v1.2: Icon-Klick am Zeilenkopf des Gear-Tabs öffnet den
    Geben-Dialog (Drag&Drop der Zeile bleibt parallel nutzbar) -
    Zeiger-Cursor statt reiner Drag-Andeutung, der Tooltip am Icon
