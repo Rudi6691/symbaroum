@@ -20,7 +20,7 @@
         {{#ifgt package.member.length 0}}
           {{#each package.member as |member|}}
             {{#ife member.type "attackrollmod"}}
-              <div class="bonus">
+              <div class="bonus{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}">
                 <label>{{member.label}}</label>
                 <input type="text" value="{{member.modifier}}" data-dtype="Text" disabled/>
               </div>
@@ -72,16 +72,16 @@
         {{#ifgt package.member.length 0}}
           {{#each package.member as |member|}}
             {{#ife member.type "damagemodifier"}}
-              <div class="damagemodifier"><label for="dm-{{../did}}-{{member.id}}-fixedmodifier">{{member.label}}</label><input id="dm-{{../did}}-{{member.id}}-fixedmodifier" disabled type="text" value="{{member.value}}" data-dtype="Text"/></div>
+              <div class="damagemodifier{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}"><label for="dm-{{../did}}-{{member.id}}-fixedmodifier">{{member.label}}</label><input id="dm-{{../did}}-{{member.id}}-fixedmodifier" disabled type="text" value="{{member.value}}" data-dtype="Text"/></div>
             {{/ife}}
             {{#ife member.type "statusDoT"}}
-              <div class="bonus">
+              <div class="bonus{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}">
                 <label>{{member.label}}</label>
                 <input type="text" value="{{member.value}}" data-dtype="Text" disabled/>
               </div>
             {{/ife}}
             {{#ife member.type "corruptingattack"}}
-              <div class="bonus">
+              <div class="bonus{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}">
                 <label>{{member.label}}</label>
                 <input type="text" value="{{member.value}}" data-dtype="Text" disabled/>
               </div>

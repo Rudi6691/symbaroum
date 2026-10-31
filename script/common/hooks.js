@@ -1306,6 +1306,18 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							// deprecated V14 Combat#getCombatantByToken call
 							await applyDeadOverlay(actor);
 						}
+						// Ressourcen v1.4 (Rudolfs Entscheidung, 31.10.): Eine tatsaechlich
+						// angewandte Heilung (toughnessChange > 0) stabilisiert sterbende
+						// Charaktere GENERISCH - die Todesproben-Marker
+						// (nbrOfFailedDeathRoll) werden auf 0 zurueckgesetzt, egal welcher
+						// Heilungspfad (Medicus, Handauflegen, Erholung) die Heilung
+						// ausgeliefert hat. Duplikat-Schutz: nur wenn Marker ueberhaupt
+						// gesetzt sind; die Notification nennt den Namen. Der direkte
+						// confirmDialog-Pfad in item.js spiegelt dieselbe Regel.
+						if (flagData.toughnessChange > 0 && actor.system.nbrOfFailedDeathRoll > 0) {
+							await actor.update({ 'system.nbrOfFailedDeathRoll': 0 });
+							ui.notifications.info(game.i18n.format('CHAT.STABILIZED', { name: token?.name ?? actor.name ?? '' }));
+						}
 					}
 					if (flagData.attributeChange) {
 						let newMod = actor.system.attributes[flagData.attributeName].temporaryMod + flagData.attributeChange;

@@ -209,6 +209,24 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     label: game.i18n.localize(`WEAPON.NONE`),
   };
   const did = `${actor.id}${foundry.utils.randomID(20)}`; // dialogue ID - ensured unique IDs in form
+  // Ressourcen v1.4 (A30-Live, Rudolfs Sammel-Fix): Bei Bastardwaffen werden
+  // die einhändig unterdrueckten Qualitaets-Zeilen (Durchschlagend/Praezise/
+  // Massiv) im Dialog mit der Markierungsklasse a30-grip-suppress versehen,
+  // damit der Griff-Radio sie live ein-/ausblenden kann. Bewusst nur eine
+  // TIEFE KOPIE fuer den Template-Kontext - der Submit liest weiterhin aus
+  // dem Original (dessen member-Filter und Clone-Logik unangetastet bleiben).
+  let weaponModifiersCtx = weaponModifiers;
+  if (askBastardGrip && weaponModifiers) {
+    weaponModifiersCtx = foundry.utils.deepClone(weaponModifiers);
+    const a30Suppressed = game.symbaroum.config.bastardOneHandedQualities ?? [];
+    for (let pack of weaponModifiersCtx.package ?? []) {
+      if (pack.type == game.symbaroum.config.PACK_DEFAULT) {
+        for (let member of pack.member ?? []) {
+          member.a30GripSuppress = a30Suppressed.includes(member.qualityRef);
+        }
+      }
+    }
+  }
   // Automatisierungspaket 1 (28.10.): Würfeldialog im modernen Design, wenn
   // der Nutzer die modernen Blätter nutzt (pro User GLOBAL, Rudolfs
   // Entscheidung) - gleiche Feld-IDs, nur das Layout ist neu
@@ -221,7 +239,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "weaponDamage" : weaponDamage,
     "askIgnoreArmor" : askIgnoreArmor,
     "ignoreArm": ignoreArm,
-    "weaponModifiers" : weaponModifiers,
+    "weaponModifiers" : weaponModifiersCtx,
     "isArmorRoll" : armor !== null,
     "askImpeding" : askImpeding,
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
@@ -637,11 +655,20 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           if (!postRoot) return;
           if (askBastardGrip) {
             const a30DmgInput = postRoot.querySelector(`#weapondamage-${did}`);
+            // Ressourcen v1.4 (A30-Live): Die einhändig unterdrueckten
+            // Qualitaets-Zeilen (.a30-grip-suppress, siehe Template-Kontext-
+            // Markierung oben) blenden live mit dem Griff-Radio ein und aus;
+            // der Initial-Aufruf mit defaultGrip blendet sie bei gemerktem
+            // Einhaendig-Zustand sofort aus, ohne das Radio anzufassen.
+            const a30Rows = postRoot.querySelectorAll(".a30-grip-suppress");
+            const a30Apply = (grip) => {
+              if (a30DmgInput) a30DmgInput.value = grip === "one" ? weaponDamage1H : weaponDamage2H;
+              for (const a30Row of a30Rows) a30Row.style.display = grip === "one" ? "none" : "";
+            };
             for (let r of postRoot.querySelectorAll("input[name='bripType']")) {
-              r.addEventListener("change", (ev) => {
-                if (a30DmgInput) a30DmgInput.value = ev.target.value === "one" ? weaponDamage1H : weaponDamage2H;
-              });
+              r.addEventListener("change", (ev) => a30Apply(ev.target.value));
             }
+            a30Apply(defaultGrip);
           }
           const faBox = postRoot.querySelector(`#freeattack-${did}`);
           if (faBox) {

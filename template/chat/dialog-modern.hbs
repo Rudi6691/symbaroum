@@ -72,25 +72,25 @@
           {{#each package.member as |member|}}
             {{#ifn member.abilityMod}}
             {{#ife member.type "attackrollmod"}}
-              <div class="m-roll-row">
+              <div class="m-roll-row{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}">
                 <label>{{member.label}}</label>
                 <input type="text" value="{{member.modifier}}" data-dtype="Text" disabled/>
               </div>
             {{/ife}}
             {{#ife member.type "damagemodifier"}}
-              <div class="m-roll-row">
+              <div class="m-roll-row{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}">
                 <label for="dm-{{../did}}-{{member.id}}-fixedmodifier">{{member.label}}</label>
                 <input id="dm-{{../did}}-{{member.id}}-fixedmodifier" disabled type="text" value="{{member.value}}" data-dtype="Text"/>
               </div>
             {{/ife}}
             {{#ife member.type "statusDoT"}}
-              <div class="m-roll-row">
+              <div class="m-roll-row{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}">
                 <label>{{member.label}}</label>
                 <input type="text" value="{{member.value}}" data-dtype="Text" disabled/>
               </div>
             {{/ife}}
             {{#ife member.type "corruptingattack"}}
-              <div class="m-roll-row">
+              <div class="m-roll-row{{#if member.a30GripSuppress}} a30-grip-suppress{{/if}}">
                 <label>{{member.label}}</label>
                 <input type="text" value="{{member.value}}" data-dtype="Text" disabled/>
               </div>

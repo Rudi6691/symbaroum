@@ -3782,20 +3782,23 @@ export async function modifierDialog(functionStuff) {
                   ui.notifications.warn(game.i18n.localize("RESOURCE.ERR_NONE_LEFT_MEDICUS"));
                 }
               }
-              // Ressourcen v1.3 (Bandagen-Runde, 31.10.): Verbandsmaterial
-              // ist notwendig beim Behandeln von Wunden - gilt fuer die
-              // VOLLE Behandlung UND fuer „Erste Hilfe" (medicusExam), der
-              // Spieler waehlt nichts. Vorhanden: 1 Einheit wird beim Submit
-              // abgebucht (unabhaengig vom Wurfergebnis, wie Kraeuterarznei;
-              // auch bei Erste Hilfe - Rudolfs Entscheidung). Fehlt es:
-              // automatischer −1 auf den Wurf, keine Abbuchung. Der Abzug
-              // landet hier NACH dem #bonus-Read (der das Feld angibt und
-              // functionStuff.modifier UEBERSCHREIBT) und VOR dem Ziel-
-              // widerstand - er bleibt also in jedem Fall wirksam und
-              // additiv. resourceConsumed bleibt Kraeuterarznei-vorbehalten
-              // (die Basis-Heilung bei Fehlschlag ist die Arznei-Wirkung,
-              // NICHT die des Verbandsmaterials).
-              if (isResourceConsumptionEnabled()) {
+              // Ressourcen v1.3/v1.4 (Bandagen-Runde): Verbandsmaterial ist
+              // notwendig beim Behandeln von Wunden - der Spieler waehlt
+              // nichts. v1.4 (Diagnose-Entscheidung, 31.10.): Die Gilt-
+              // Bereich ist NUR noch die VOLLE Behandlung; die umbenannte
+              // Option „Diagnose" (medicusExam) verbraucht KEIN Verbands-
+              // material und nimmt KEINEN −1 in Kauf (Diagnose ist die
+              // reine Untersuchung, die Wunde wird nicht versorgt).
+              // Volle Behandlung, Verbandsmaterial vorhanden: 1 Einheit
+              // wird beim Submit abgebucht (unabhaengig vom Wurfergebnis,
+              // wie Kraeuterarznei). Fehlt es: automatischer −1 auf den
+              // Wurf, keine Abbuchung. Der Abzug landet hier NACH dem
+              // #bonus-Read (der das Feld angibt und functionStuff.modifier
+              // UEBERSCHREIBT) und VOR dem Zielwiderstand - er bleibt also
+              // in jedem Fall wirksam und additiv. resourceConsumed bleibt
+              // Kraeuterarznei-vorbehalten (die Basis-Heilung bei Fehlschlag
+              // ist die Arznei-Wirkung, NICHT die des Verbandsmaterials).
+              if (!functionStuff.medicusExam && isResourceConsumptionEnabled()) {
                 const consumedBandage = await consumeBandage(functionStuff.actor);
                 if (consumedBandage) {
                   functionStuff.autoParams += consumedBandage.label + ", ";
@@ -3819,7 +3822,18 @@ export async function modifierDialog(functionStuff) {
                 }
               } else functionStuff.subText += ", " + game.i18n.localize("ABILITY_MEDICUS.NOHERBALCURE");
               if (!functionStuff.medicusExam) {
-                functionStuff.removeTargetEffect = ["icons/svg/blood.svg"];
+                // Ressourcen v1.4 (Rudolfs Nachfrage, 31.10.): Die VOLLE
+                // Behandlung (nicht die Diagnose) entfernt bei erfolgreicher
+                // Medicus-Probe die zusaetzlich zum Aderlass auch die
+                // Vergiftung des Ziels - beide als echte CONFIG-Objekte
+                // (Muster mysticPowerSetupLayonhands): Der alte String-
+                // Eintrag "icons/svg/blood.svg" war KEIN gueltiger Status-
+                // Effekt (die Verarbeitung liest effect.id), deshalb wurde
+                // Aderlass bislang nie entfernt.
+                functionStuff.removeTargetEffect = [
+                  foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bleeding")),
+                  foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison")),
+                ];
                 functionStuff.introText = game.i18n.localize("ABILITY_MEDICUS.CHAT_INTRO");
                 functionStuff.resultTextFail = game.i18n.localize("ABILITY_MEDICUS.CHAT_FAILURE");
                 functionStuff.resultTextSuccess = game.i18n.localize("ABILITY_MEDICUS.CHAT_SUCCESS");
@@ -3927,6 +3941,34 @@ export async function modifierDialog(functionStuff) {
       );
     } catch (err) {
       game.symbaroum.log("Auto1: free-attack live display unavailable");
+    }
+  }
+  // Ressourcen v1.4 (Diagnose-Runde, Rudolfs Wahl B - live gekoppelt): Die
+  // Verbandsmaterial-Statuszeile im Medicus-Dialog ist LIVE an die
+  // Diagnose-Checkbox (#exam) gekoppelt - beim Anhaken verschwindet die
+  // Zeile (Diagnose verbraucht kein Verbandsmaterial und nimmt keinen −1
+  // in Kauf), beim Abwaehlen kehrt sie zurueck. Der Submit-Code oben ist
+  // autoritativ, das hier ist Anzeige. Ohne Ressourcenverbrauch-Setting
+  // existiert die Zeile nicht - der Listener laeuft dann ins Leere.
+  if (medicus && hasTarget) {
+    try {
+      Promise.resolve(dialog.render({ force: true })).then(
+        () => {
+          const diagRoot = dialog.element;
+          if (!diagRoot) return;
+          const examBox = diagRoot.querySelector("#exam");
+          if (!examBox) return;
+          const bandageRows = diagRoot.querySelectorAll(".bandage-status");
+          if (!bandageRows.length) return;
+          const examApply = () => {
+            for (const row of bandageRows) row.style.display = examBox.checked ? "none" : "";
+          };
+          examBox.addEventListener("change", examApply);
+        },
+        () => {}
+      );
+    } catch (err) {
+      game.symbaroum.log("v1.4: bandage status live coupling unavailable");
     }
   }
 }
@@ -6952,6 +6994,16 @@ async function standardPowerResult(rollData, functionStuff) {
         if (healedActor) {
           let newToughness = Math.max(0, Math.min(healedActor.system.health.toughness.max, healedActor.system.health.toughness.value + healResult.healed));
           await healedActor.update({ "system.health.toughness.value": newToughness });
+          // Ressourcen v1.4 (Rudolfs Entscheidung, 31.10.): Eine tatsaechlich
+          // angewandte Heilung stabilisiert sterbende Charaktere GENERISCH -
+          // die Todesproben-Marker (nbrOfFailedDeathRoll) werden auf 0
+          // zurueckgesetzt, egal welcher Heilungspfad (Medicus, Handauflegen,
+          // Erholung) die Heilung ausgeliefert hat. Duplikat-Schutz wie im
+          // hooks.js-Pfad: nur wenn ueberhaupt geheilt und Marker > 0.
+          if (healResult.healed > 0 && healedActor.system.nbrOfFailedDeathRoll > 0) {
+            await healedActor.update({ "system.nbrOfFailedDeathRoll": 0 });
+            ui.notifications.info(game.i18n.format("CHAT.STABILIZED", { name: healedActor.name ?? "" }));
+          }
         }
       } else {
         flagDataArray.push(healResult.flagData);
@@ -7278,7 +7330,7 @@ async function preDialogLayonHands(functionStuff) {
     <h1> ${game.i18n.localize("POWER_LAYONHANDS.DIALOG")} </h1>
     `;
   symbDialog({
-    title: game.i18n.localize("POWER_LABEL.LAY_ON_HAND"),
+    title: game.i18n.localize("POWER_LABEL.LAY_ON_HANDS"),
     content: layHandsDialogTemplate,
     buttons: {
       touch: {
