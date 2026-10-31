@@ -1,6 +1,4 @@
 const { HandlebarsApplicationMixin: HandlebarsApplicationMixin$5, Application: Application$2 } = foundry.applications.api;
-// Ressourcen v1: Schalter-Leser für den GM-Abschnitt „Ressourcenverbrauch"
-import { isResourceConsumptionEnabled } from './resources.js';
 export class SymbaroumConfig extends HandlebarsApplicationMixin$5(Application$2) {
 	static get getDefaults() {
 		return {
@@ -90,10 +88,12 @@ export class SymbaroumConfig extends HandlebarsApplicationMixin$5(Application$2)
 		} else {
 			newData['chatBGColour'] = '#deb887';
 		}
-		// Ressourcen v1: GM-Abschnitt „Ressourcenverbrauch" - Schalter
-		// (scope world, restricted) nur für GM sichtbar/änderbar
-		newData['isGM'] = !!game.user.isGM;
-		newData['resourceConsumption'] = isResourceConsumptionEnabled();
+		// Ressourcen v1 (Rudolfs Testrunde 1): Der Schalter
+		// „Ressourcenverbrauch" ist aus diesem Design-Dialog ENTFERNT und
+		// liegt jetzt eine Ebene hoeher in der Foundry-Einstellungsliste
+		// direkt unter den Loot-Settings (config:true in resources.js -
+		// Registration nach registerLootSettings). Kein Kontext-Feld und
+		// kein Submit-Zweig mehr noetig.
 		return newData;
 	}
 
@@ -152,17 +152,10 @@ export class SymbaroumConfig extends HandlebarsApplicationMixin$5(Application$2)
 			await game.settings.set('symbaroum', 'switchNoNEditableColour', formFields.nonEditableImage);
 		}
 
-		// Ressourcen v1 (Rudolfs Runde-2-Entscheidung): Schalter
-		// „Ressourcenverbrauch" (Medicus bucht Kräuterarznei beim Wurf ab)
-		// lebt hier auf der GM-Seite des System-Konfigurationsdialogs, NICHT
-		// als eigene Zeile in der Foundry-Einstellungsliste. GM-only: Der
-		// Abschnitt ist für Spieler ausgeblendet (template), ein Spieler-
-		// Submit erreicht diesen Zweig nie (expandObject kennt das Feld
-		// dann schlicht nicht - doppelte Absicherung).
-		if (game.user.isGM) {
-			await game.settings.set('symbaroum', 'resourceConsumption', formFields.resourceConsumption === 'on');
-		}
-
+		// Ressourcen v1 (Rudolfs Testrunde 1): Der Schalter
+		// „Ressourcenverbrauch" wird hier NICHT mehr gespeichert - er
+		// liegt jetzt in der Foundry-Einstellungsliste unter den
+		// Loot-Settings (config:true, Foundry speichert selbst).
 		location.reload();
 	}
 

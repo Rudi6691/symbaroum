@@ -558,8 +558,15 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		if (!this.isEditable || !this.item.isOwner) return;
 		if (!isStackableItem(this.item)) return;
 		const stored = this.item.system.number;
-		const base = typeof stored === 'number' && stored > 0 ? Math.round(stored) : 1;
-		const next = Math.max(1, base + delta);
+		/* Ressourcen v1, Testrunde 1 (Rudolfs Punkt-4-Kommentar): Der
+		 * Stepper darf bei physischen Items BIS 0 herunterzaehlen - Menge 0
+		 * ist ein gueltiger Zustand (verbrauchte Ressource, Zeile bleibt
+		 * stehen). Klemmung daher >= 0 statt >= 1; 0 selbst bleibt bei Minus
+		 * stehen (kein Durchfallen ins Negative), Plus zaehlt von 0 wieder
+		 * hoch. Ungespeicherte/nicht-numerische Alt-Werte starten wie bisher
+		 * bei 1 (Anzeige-Fallback). */
+		const base = typeof stored === 'number' && stored >= 0 ? Math.round(stored) : 1;
+		const next = Math.max(0, base + delta);
 		if (next === base) return;
 		await this.item.update({ 'system.number': next });
 	}

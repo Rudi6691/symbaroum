@@ -48,6 +48,11 @@
                         <label for="{{id}}-system.quality">{{localize "WEAPON.QUALITY"}}</label>
                         <input id="{{id}}-system.quality" name="system.quality" type="text" value="{{system.quality}}"/>
                     </div>
+                    {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
+                        Punkt 3): Artefakt- und Stapelbar-Checkbox sind
+                        SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
+                        - für Spieler ausgeblendet, der WERT bleibt erhalten. --}}
+                    {{#if isGM}}
                     <div class="m-inline-field m-check">
                         <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
@@ -60,6 +65,7 @@
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
                     </div>
+                    {{/if}}
                 </div>
             </div>
         </div>

@@ -75,18 +75,24 @@ export const RESOURCE_CONSUMERS = {
 export function registerResourceSettings() {
 	// Ressourcen v1: Automatischer Verbrauch kategorisierter Ressourcen
 	// (Medicus bucht Kraeuterarznei beim Wurf ab, Checkbox ausgegraut, wenn
-	// keine im Inventar). NICHT per config:true in die Foundry-Einstellungs-
-	// liste gelegt - Rudolfs Entscheidung: Sichtbarkeit auf der
-	// symbaroumConfig-GM-Seite (template/symbaroumSettings.hbs + submit
-	// handler dort); das Kontextmenue „Ressource verbrauchen" bleibt davon
-	// UNABHAENGIG immer verfuegbar (manueller Weg, kein Regel-Eingriff).
+	// keine im Inventar). Rudolfs Testrunde-1-Wunsch (31.10.): Der Schalter
+	// liegt NICHT mehr im Design-Dialog, sondern EINE EBENE HOEHER in der
+	// Foundry-Einstellungsliste - DIREKT UNTER den Loot-Settings (gleiche
+	// Liste wie lootEnabledOnDeath/lootDeleteEmptyPiles; Registration-
+	// reihenfolge in hooks.js: registerLootSettings() → registerResource-
+	// Settings()). Damit entfällt auch der Defekt aus Testrunde 1: Der
+	// Design-Dialog-Submit castet Checkboxen mit data-dtype Boolean zu
+	// Boolean (FormDataExtended), der alte Handler verglich gegen den
+	// String 'on' und speicherte dadurch IMMER false. Das Kontextmenue
+	// „Ressource verbrauchen" bleibt vom Setting UNABHAENGIG immer
+	// verfuegbar (manueller Weg, kein Regel-Eingriff).
 	game.settings.register('symbaroum', 'resourceConsumption', {
 		name: 'RESOURCE.SETTING_ENABLED',
 		hint: 'RESOURCE.SETTING_ENABLED_HINT',
 		scope: 'world',
 		type: Boolean,
 		default: false,
-		config: false,
+		config: true,
 		restricted: true,
 	});
 }

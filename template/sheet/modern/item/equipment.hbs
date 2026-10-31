@@ -9,6 +9,11 @@
             <div class="m-panel">
                 <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                 <div class="m-row">
+                    {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
+                        Punkt 3): Artefakt- und Stapelbar-Checkbox sind
+                        SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
+                        - für Spieler ausgeblendet, der WERT bleibt erhalten. --}}
+                    {{#if isGM}}
                     <div class="m-inline-field m-check">
                         <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
@@ -21,6 +26,7 @@
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
                     </div>
+                    {{/if}}
                     {{!-- Ressourcen v1: Ressourcen-Kategorie (GM-only) - additives
                         Feld system.resourceCategory statt Flags; steuert den
                         kategoriebasierten Verbrauch (Medicus bucht Kraeuterarznei

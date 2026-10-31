@@ -71,10 +71,16 @@
                         <span class="price-migration-hint">{{localize "PRICE.MIGRATION_HINT"}}</span>
                         {{/if}}
                     </div>
+                    {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
+                        Punkt 3): Artefakt- und Stapelbar-Checkbox sind
+                        SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
+                        - für Spieler ausgeblendet, der WERT bleibt erhalten. --}}
+                    {{#if isGM}}
                     <div class="number">
                         <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
                     </div>
+                    {{/if}}
                     {{!-- AP2 v2 (Uniform-Regel): Anzahl-Verwaltung wie am Artefakt-Blatt
                         (Rüstungen hatten bisher keine Anzahl-Zeile) mit Anzeige-Fallback 1;
                         Waffen besitzen die Zeile bereits. --}}
@@ -82,6 +88,7 @@
                         <label for="{{id}}-system.number">{{localize "EQUIPMENT.NUMBER"}}</label>
                         <input id="{{id}}-system.number" name="system.number" type="number" value="{{#if system.number}}{{system.number}}{{else}}1{{/if}}" data-tooltip="{{localize "STACK.NUMBER_TOOLTIP"}}"/>
                     </div>
+                    {{#if isGM}}
                     <div class="stackable">
                         <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
                         {{!-- AP2 v2 (Uniform-Regel): Rüstungen sind default NICHT stapelbar -
@@ -93,6 +100,7 @@
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
                     </div>
+                    {{/if}}
                     <div class="weight">
                         <label for="{{id}}-system.weight">{{localize "WEIGHT.LABEL"}}</label>
                         {{!-- A39 (Runde-1-Wunsch): Gewicht-Zeile IMMER anzeigen und
