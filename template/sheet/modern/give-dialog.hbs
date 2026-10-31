@@ -1,0 +1,74 @@
+{{!-- Übergabe v1 (spielimmersive Aktionen): Dialog für Item- und Geld-
+    Übergabe. Rudolfs Entscheidungen (31.10.): Quelle fix = offenes Blatt
+    ("Von: <Name>"), Empfänger über EIN gegliedertes select (optgroup
+    "Anwesende" der aktiven Szene, danach die Charaktere der Spieler als
+    Fallback für token-loses Erzählen - ersetzt den besprochenen Zwei-
+    Stufen-Wizard, weil Rudolfs Kernziel weniger Klicks sind), stapelbare
+    Items Default 1 (Stepper-Feld, max = Anzahl), Behälter ohne Stepper
+    mit Inhalts-Zusammenfassung, Geld über das <symbaroum-currency>-Element
+    (A38-Delta-Syntax wie im Währungsdialog), Radios Öffentlich (Default)
+    / Flüstern. Muster: attributes-dialog.hbs / split-dialog.hbs
+    (renderTemplate mit vollem Pfad, kein Partial). --}}
+<div class="symbaroum modern-give-dialog">
+    <div class="m-give-from" data-tooltip="{{localize 'GIVE.FROM'}}">{{localize "GIVE.FROM"}}: <b>{{sourceName}}</b></div>
+
+    {{#if item}}
+    <div class="m-give-item">
+        {{#if item.img}}<img class="m-give-img" src="{{item.img}}" alt=""/>{{/if}}
+        <span class="m-give-name">{{item.name}}</span>
+    </div>
+    {{/if}}
+
+    <label class="m-sec-label" for="give-target">{{localize "GIVE.RECIPIENT"}}</label>
+    <select id="give-target" class="m-give-target">
+        {{#if recipients.tokens.length}}
+        <optgroup label="{{localize 'GIVE.GROUP_SCENE'}}">
+            {{#each recipients.tokens as |r|}}
+            <option value="{{r.value}}">{{r.name}}</option>
+            {{/each}}
+        </optgroup>
+        {{/if}}
+        {{#each recipients.groups as |g|}}
+        <optgroup label="{{g.label}}">
+            {{#each g.actors as |a|}}
+            <option value="{{a.value}}">{{a.name}}</option>
+            {{/each}}
+        </optgroup>
+        {{/each}}
+    </select>
+
+    {{#if item}}
+    {{#if item.isContainer}}
+    <div class="m-give-note">
+        <i class="fas fa-box-archive"></i>
+        <span>{{localize "GIVE.CONTAINER_NOTE"}}</span>
+        <span class="m-give-summary">{{item.summary}}</span>
+    </div>
+    {{else if item.stackable}}
+    <label class="m-sec-label" for="give-quantity">{{localize "GIVE.QUANTITY"}}</label>
+    <input id="give-quantity" class="m-give-quantity" type="number" min="1" max="{{item.max}}" value="1" data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+    {{/if}}
+    {{/if}}
+
+    {{#if money}}
+    <div class="m-give-currency">
+        <symbaroum-currency value="0"></symbaroum-currency>
+    </div>
+    <div class="m-give-note m-give-moneyhint">
+        <i class="fas fa-coins"></i>
+        <span>{{money.hint}}</span>
+    </div>
+    {{/if}}
+
+    <div class="m-give-vis">
+        <span class="m-sec-label">{{localize "GIVE.VISIBILITY"}}</span>
+        <label class="m-give-vis-option">
+            <input type="radio" name="give-vis" value="public" checked/>
+            <span>{{localize "GIVE.VISIBILITY_PUBLIC"}}</span>
+        </label>
+        <label class="m-give-vis-option">
+            <input type="radio" name="give-vis" value="whisper"/>
+            <span>{{localize "GIVE.VISIBILITY_WHISPER"}}</span>
+        </label>
+    </div>
+</div>

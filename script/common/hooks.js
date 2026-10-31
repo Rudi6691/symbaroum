@@ -18,6 +18,9 @@ import { createRollData, getAttributeValue } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
 // DialogV2 compatibility helper
 import { symbDialog } from './symbDialog.js';
+// Übergabe v1 (spielimmersive Aktionen): Socket-Handler des Item-/Geld-
+// transfers (Consent-Prompt am Empfänger, Ausführung beim Ziel-Besitzer)
+import { transferSocketHandler } from './transfer.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -523,6 +526,9 @@ Hooks.once('ready', () => {
 	// A29: maintain-reminder dialogs/answers ride the same system socket channel
 	// as the established comms (symbcomms.js ignores unknown message types)
 	game.socket.on('system.symbaroum', a29SocketHandler);
+	// Übergabe v1: Consent- und Execute-Nachrichten des Item-/Geldtransfers
+	// auf demselben System-Kanal (disjunkte Nachrichtentypen 'transfer*')
+	game.socket.on('system.symbaroum', transferSocketHandler);
 	setup3PartySettings();
 	// A35 (Befund 10): German core status names - at ready all system
 	// translations are loaded (the A34-Fix1 init-time patch never ran)

@@ -1,0 +1,10 @@
+{{!-- Übergabe v1: Chat-Karte der Übergabe (öffentlich oder als Flüster-
+    Nachricht an Empfänger-Besitzer + GMs). GM-Info ist damit in beiden
+    Sichtbarkeitsmodi garantiert (Rudolfs Entscheidung 31.10.). --}}
+<div class="symbaroum give-card">
+    <div class="give-card-line">
+        {{#if img}}<img class="give-card-img" src="{{img}}" alt=""/>{{/if}}
+        <span class="give-card-text"><b>{{source}}</b> {{localize "GIVE.CHAT_GIVES"}} <b>{{target}}</b></span>
+    </div>
+    <div class="give-card-detail">{{description}}</div>
+</div>

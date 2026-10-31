@@ -22,6 +22,10 @@ import {
 // AP2 Stapeln (Merge-on-Drop): Drops auf Behälterzeilen mergen mit einem
 // identischen Stapel INNERHALB des Behälters, statt ein zweites Item anzulegen.
 import { isStackableItem, mergeStackDrop, splitStackItem } from '../common/stacking.js';
+// Übergabe v1 (spielimmersive Aktionen): Item-/Geldtransfer an anwesende
+// Tokens, Charaktere der Spieler oder NSC - Dialog, Consent und Socket-
+// Ausführung liegen komplett in transfer.js.
+import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/transfer.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -79,9 +83,16 @@ class CMPowerMenu extends foundry.applications.ux.ContextMenu {
 		// render() WITHOUT their visible functions: the base calls visible
 		// itself - with the target HTMLElement - and would filter everything
 		// out a second time.
-		this.menuItems = (item ? this.originalMenuItems.filter((elem) => elem.visible(item)) : this.originalMenuItems).map(
-			({ visible, ...entry }) => entry
-		);
+		// Übergabe v1: Einträge können ZUSÄTZLICH eine optionale visibleEl-
+		// Property definieren, die das Ziel-HTMLElement bekommt - der Geben-
+		// Eintrag gehört nur in den Ausrüstungs-Tab (modern .m-gear /
+		// klassisch .gear, Rudolfs Vorgabe: nie Kampf- oder Kräfte-Tab), und
+		// .symbaroum-contextmenu sitzt auf Zeilen MEHRERER Tabs.
+		this.menuItems = (
+			item
+				? this.originalMenuItems.filter((elem) => elem.visible(item) && elem.visibleEl?.(target, item) !== false)
+				: this.originalMenuItems
+		).map(({ visible, ...entry }) => entry);
 		return super.render(target, options);
 	}
 }
@@ -1132,6 +1143,32 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		this.powerMenu ??= new CMPowerMenu(element, '.symbaroum-contextmenu', this._getPowerMenuItems(), {
 			parent: this,
 		});
+		// Übergabe v1: Behälterzeilen tragen NICHT .symbaroum-contextmenu (das
+		// reguläre Menü wäre dort teils deplatziert - Löschen liesse den Inhalt
+		// verwaist zurück). Sie bekommen die eigene Klasse .giveable und ein
+		// Mini-Kontextmenü mit NUR dem Geben-Eintrag; da die Selektoren
+		// disjunkt sind, öffnet nie ein zweites Popover auf derselben Zeile.
+		this.containerGiveMenu ??= new CMPowerMenu(element, '.m-container-row.giveable', this._getContainerGiveMenuItems(), {
+			parent: this,
+		});
+	}
+
+	/**
+	 * Übergabe v1: Menü für Behälterzeilen (nur Geben - der Transfer nimmt
+	 * den kompletten Teilbaum inkl. Inhalt und Behälter-Geld mit, siehe
+	 * transfer.js).
+	 */
+	_getContainerGiveMenuItems() {
+		return [
+			{
+				label: 'TOOLTIP.GIVE_ITEM',
+				icon: `<i class="fa-solid fa-gift"></i>`,
+				visible: (elem) => elem?.type === 'container',
+				onClick: (event, elem) => {
+					openGiveDialog(this.actor, elem);
+				},
+			},
+		];
 	}
 
 	_getPowerMenuItems() {
@@ -1221,6 +1258,21 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				},
 				onClick: (event, elem) => {
 					this._itemEdit(elem);
+				},
+			},
+			{
+				// Übergabe v1: Item an Anwesenden/Charakter/NPC übergeben - nur im
+				// Ausrüstungs-Tab (visibleEl prüft die Zeile im DOM) und nur für
+				// physische Typen; aktive Waffen bleiben übertragbar (landen am
+				// Ziel inaktiv). Behälter haben eigene Zeilen mit Mini-Menü.
+				label: 'TOOLTIP.GIVE_ITEM',
+				icon: `<i class="fa-solid fa-gift"></i>`,
+				visible: (elem) => {
+					return elem?.type !== 'container' && GIVE_TYPES.includes(elem?.type) && elem != game.symbaroum.config.noArmorID;
+				},
+				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					openGiveDialog(this.actor, elem);
 				},
 			},
 			{
@@ -1614,6 +1666,17 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						if (!el) return;
 						const total = Math.max(0, Math.round(Number(el.getAttribute('value')) || 0));
 						await this.actor.update({ 'system.currency': total });
+					},
+				},
+				// Übergabe v1: Geld an Anwesenden/Charakter/NPC übergeben - öffnet
+				// den Geld-Übergabe-Dialog (transfer.js); der hier eingestellte
+				// Wert wird dafür bewusst NICHT übernommen (der Übergabe-Betrag
+				// wird separat über das Währungs-Element gewählt).
+				give: {
+					icon: '<i class="fas fa-gift"></i>',
+					label: localize('TOOLTIP.GIVE_MONEY'),
+					callback: async () => {
+						openGiveMoneyDialog(this.actor);
 					},
 				},
 				cancel: {

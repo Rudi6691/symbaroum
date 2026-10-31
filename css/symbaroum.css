@@ -9125,3 +9125,163 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog 
   margin: 0.1rem 0;
   background: var(--m-panel);
 }
+
+/* ================================================================
+   Übergabe v1 (spielimmersive Aktionen): Item-/Geldtransfer
+   Rudolfs Entscheidungen 31.10.2026 - Geben an Anwesende/Charaktere.
+   Einstiegspunkte: Gear-Tab-Kontextmenü, Behälter-Zeilen (Mini-Menü),
+   Item-Kopf-Button, "Geben an ..."-Button im Währungsdialog.
+   ================================================================ */
+
+/* Geben-Button der Item-Titelzeile: gleiche Geometrie wie der
+   Aktivieren-Button (ItemSheets v2.1), Icon statt Bild. */
+.symbaroum.sheet.item .modern-root .m-give-btn {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  font-size: 1.5rem;
+  color: var(--m-accent);
+  background: var(--m-panel2);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-give-btn:hover {
+  border-color: var(--m-accent);
+}
+
+/* Übergabe-Dialog (Vorbild: moderne Dialoge, A6v9 Theme-Klasse liefert
+   die Farbvariablen; Input/Select-Basisstile erbt .modern-dialog). */
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-from {
+  color: var(--m-ink);
+  margin-bottom: 0.5rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  background: var(--m-panel);
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-img {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  border: none;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-name {
+  color: var(--m-ink);
+  font-weight: bold;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-target {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-quantity {
+  width: 5rem;
+  margin-bottom: 0.5rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  background: var(--m-panel);
+  color: var(--m-ink);
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-summary {
+  color: var(--m-dim, var(--m-ink));
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-vis {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* Sichtbarkeits-Radios: Box-Optik der Würfeldialog-Zeilen (v1.1/v1.2) */
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-vis-option {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  background: var(--m-panel);
+  color: var(--m-ink);
+}
+
+/* Consent-Prompt am Empfänger (Spieler-Sicht) */
+html body dialog.symb-dialog .symbaroum.modern-give-request .give-prompt-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--m-ink);
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-request .give-prompt-img {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  border: none;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-request .give-prompt-detail {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  background: var(--m-panel);
+  color: var(--m-ink);
+  font-weight: bold;
+}
+
+/* Chat-Karte der Übergabe (öffentlich oder Flüstern an Besitzer+GM) */
+.symbaroum.give-card {
+  border: 0.0625rem solid var(--m-line, #726e5c);
+  border-left: 0.25rem solid var(--m-accent, #b2925e);
+  border-radius: 0.35rem;
+  background: var(--m-panel, #2c2b28);
+  padding: 0.35rem 0.5rem;
+  margin: 0.25rem 0;
+}
+
+.symbaroum.give-card .give-card-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.symbaroum.give-card .give-card-img {
+  width: 1.75rem;
+  height: 1.75rem;
+  object-fit: contain;
+  border: none;
+}
+
+.symbaroum.give-card .give-card-detail {
+  margin-top: 0.25rem;
+  padding-left: 0.1rem;
+  font-weight: bold;
+}

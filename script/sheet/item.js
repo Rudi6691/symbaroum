@@ -1,4 +1,6 @@
 import { isStackableItem } from '../common/stacking.js';
+// Übergabe v1: Geben-Button der Titelzeile (Dialog/Consent/Socket in transfer.js)
+import { openGiveDialog } from '../common/transfer.js';
 // Item-Sheet-Modernisierung v1: die moderne Ansicht der Item-Blätter folgt
 // dem GLOBALEN Umschalter pro Nutzer (Rudolfs Entscheidung 27.10.) - schaltet
 // ein Nutzer sein Spieler-/Monsterblatt um, gelten ALLE seiner Blätter
@@ -80,6 +82,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			},
 			quantityMinus: function (event) {
 				this._onQuantityAdjust(event, -1);
+			},
+			// Übergabe v1: Item an Anwesenden/Charakter/NPC übergeben (transfer.js)
+			giveItem: function (event) {
+				this._onGiveItem(event);
 			},
 			/* ItemSheets v2.1 (Bonus-Tab-Überarbeitung): Caret-Stepper am
 			   Modifikator-Feld - Klemmung -10/+10 (Rudolfs Vorgabe). */
@@ -428,6 +434,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		modern.showLevel = type === 'boon' || type === 'burden';
 		modern.showComputed = type === 'weapon' || type === 'armor';
 		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
+		/* Übergabe v1: Geben-Button in der Titelzeile nur bei physischen,
+		   gehaltenen Items. Kollisionsfrei zum Aktivieren-Button, weil
+		   showActivate die disjunkten Typen Fähigkeit/Merkmal/Kraft betrifft
+		   (verifiziert 31.10.) - die Titelzeile ist bei Waffe/Rüstung/
+		   Ausrüstung/Artefakt sonst button-frei. Behälter nutzen das
+		   klassische Container-Template ohne diesen Header. */
+		modern.showGive = ['weapon', 'armor', 'equipment', 'artifact'].includes(type) && !!item.isOwned;
 		/* Layout v2 (Rudolfs Entscheidungen 27.10., Testrunde 1): Der Kopf ist
 		   in Abschnitts-Bloecke mit m-sec-label gegliedert (Stammleisten-
 		   Stil) - BESITZ (Preis/Gewicht/Anzahl, nur Gegenstaende) und WERTE
@@ -537,6 +550,19 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		const next = Math.max(1, base + delta);
 		if (next === base) return;
 		await this.item.update({ 'system.number': next });
+	}
+
+	/**
+	 * Übergabe v1: Geben-Button der Titelzeile öffnet den Übergabe-Dialog
+	 * für das gehaltene Item (Quelle = besitzender Aktor). Nur über
+	 * gehaltene Items (Kompendiums-Items haben keinen Aktor); Rechte und
+	 * Consent-Flow prüft transfer.js.
+	 */
+	_onGiveItem(event) {
+		event.preventDefault();
+		const actor = this.item?.actor;
+		if (!actor || !this.item.isOwned) return;
+		openGiveDialog(actor, this.item);
 	}
 
 	/**

@@ -36,6 +36,14 @@
             {{#if modern.showActivate}}
             <button type="button" class="m-activate-btn" data-action="activateAbility" data-tooltip="{{item.name}}"><img src="icons/vtt-512.png" alt=""/></button>
             {{/if}}
+            {{!-- Übergabe v1: Geben-Button nur bei physischen, gehaltenen Items
+                (Waffe/Rüstung/Ausrüstung/Artefakt) - der Aktivieren-Button
+                betrifft die disjunkten Typen Fähigkeit/Merkmal/Kraft, die
+                Titelzeile ist bei diesen Typen sonst button-frei (verifiziert
+                31.10.; Rudolfs Freigabe v1). --}}
+            {{#if modern.showGive}}
+            <button type="button" class="m-give-btn" data-action="giveItem" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}"><i class="fa-solid fa-gift"></i></button>
+            {{/if}}
         </div>
         <div class="m-section-row">
         {{#if modern.showPossession}}
