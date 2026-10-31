@@ -19,7 +19,13 @@
     </div>
     {{else if stackable}}
     <label class="m-sec-label" for="pile-quantity">{{localize "GIVE.QUANTITY"}}</label>
-    <input id="pile-quantity" class="m-give-quantity" type="number" min="1" max="{{max}}" value="1" data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+    {{!-- Loot v1.2 (Ausbaustelle 4b): Pfeil-Stepper wie im Loot-Dialog
+         (Muster Ausrüstungs-Kontextmenü), Klemmung 1..Bestand. --}}
+    <div class="m-qty m-loot-qty-wrap">
+        <button type="button" class="m-qty-btn" data-pile-qty-minus="1" data-tooltip="{{localize 'MODERN.QTY_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
+        <input id="pile-quantity" class="m-give-quantity" type="number" min="1" max="{{max}}" value="1" data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+        <button type="button" class="m-qty-btn" data-pile-qty-plus="1" data-tooltip="{{localize 'MODERN.QTY_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
+    </div>
     {{/if}}
 
     <div class="m-give-note">

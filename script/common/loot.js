@@ -19,7 +19,7 @@
  *    Ownership am NSC - der Popup-Kontext wird GM-seitig gebaut und über
  *    den System-Socket zugestellt, Claims laufen GM-arbitriert (system.json
  *    "socket": true ist gesetzt).
- *  - enabledOnDeath-Automatik in v1 (Symbaroum-HP-Pfad system.toughness.
+ *  - enabledOnDeath-Automatik in v1 (Symbaroum-HP-Pfad system.health.
  *    value <= 0, nur aktiver GM, nur NSC-Aktoren).
  *  - Behälter lootbar inkl. Inhalt (Teilbaum-Logik der Übergabe v1 wird
  *    wiederverwendet), Behälter-Geld reist mit.
@@ -58,8 +58,15 @@ const TOKEN_FLAG = 'tokenInventory';
 const PILE_FLAG = 'lootPile';
 const TEMPLATE_FLAG = 'lootPileTemplate';
 
-/** Symbaroum-HP-Pfad für die enabledOnDeath-Automatik. */
-const DEATH_HP_PATH = 'system.toughness.value';
+/**
+ * Symbaroum-HP-Pfad für die enabledOnDeath-Automatik.
+ * Loot v1.2 (Testrunde 1, Punkt 9): Der v1-Pfad system.toughness.value war
+ * FALSCH - Zähigkeit liegt unter system.health (Belege am System-Code:
+ * hooks.js updateData['system.health.toughness.value'], player.js,
+ * template.json). Lernweis: Datenpfade am System-Code verifizieren,
+ * nie aus Notizen übernehmen.
+ */
+const DEATH_HP_PATH = 'system.health.toughness.value';
 
 /* ----------------------------------------------------------------
  *  Welt-Settings (Registrierung im init-Hook, hooks.js)
@@ -148,6 +155,27 @@ export function getLootEntries(tokenActor) {
 		if (isInsideContainer(tokenActor, item)) continue;
 		const isContainer = item.type === 'container';
 		const stackable = !isContainer && isStackableItem(item);
+		// Loot v1.2 (Ausbaustelle 5): Containerinhalt eingerückt unter der
+		// Behälterzeile anzeigen. Reine ANZEIGE - der Claim nimmt den
+		// Behälter als Ganzes (Teilbaum reist über die transfer-Pipeline).
+		// collectContainerSubtree liefert die Wurzel zuerst, Kinder danach;
+		// die Wurzel ist der Behälter selbst und wird übersprungen.
+		let children = [];
+		if (isContainer) {
+			children = collectContainerSubtree(tokenActor, item)
+				.slice(1)
+				.map((child) => {
+					const quantity = Math.max(1, Math.round(Number(child.system?.number ?? 1) || 1));
+					// Label vorgefertigt im JS (kein Template-Helpers-Risiko).
+					return {
+						id: child.id,
+						name: child.name,
+						img: child.img,
+						quantity,
+						quantityLabel: quantity > 1 ? `× ${quantity}` : null,
+					};
+				});
+		}
 		entries.push({
 			id: item.id,
 			name: item.name,
@@ -157,6 +185,7 @@ export function getLootEntries(tokenActor) {
 			stackable,
 			quantity: Math.max(1, Math.round(Number(item.system?.number ?? 1) || 1)),
 			summary: isContainer ? describeTransfer(tokenActor, item, 1, null) : null,
+			children,
 		});
 	}
 	entries.sort((a, b) => a.name.localeCompare(b.name));
@@ -309,7 +338,11 @@ export async function createLootPile({ item, payload, scene, x, y, snap = true }
 	if (typeof item?.img === 'string' && item.img) {
 		tokenDoc.updateSource({ 'texture.src': item.img });
 	}
-	const [created] = await tokenDoc.constructor.create(tokenDoc, { parent: scene });
+	// Loot v1.1 (Testrunde 1, Fix): Document.create() liefert in V14 EIN
+	// Dokument (nicht iterierbar - "is not iterable" beim Destrukturieren);
+	// das Core-Muster (TokenLayer#_onDropActorData) ist createDocuments()
+	// mit Array-Eingabe, das die erwartete Liste zurückgibt.
+	const [created] = await tokenDoc.constructor.createDocuments([tokenDoc], { parent: scene });
 	if (!created) return null;
 	if (payload) await applyAtTarget(created.actor, payload);
 	return created;
@@ -364,7 +397,12 @@ export async function openLootDialog(tokenDoc, contextData) {
 		tokenName,
 		tokenImg,
 		entries,
+		// Loot v1.2 (Ausbaustelle 6a): Geld-Default = MAXIMALBETRAG. Das
+		// <symbaroum-currency>-Element ist absolut: value = Total befüllt
+		// die Felder mit der Aufteilung des Gesamtbetrags, jede Änderung
+		// rechnet total neu, der Claim liest getAttribute('value').
 		money: money > 0 ? { hint: F('GIVE.MONEY_HINT', { money: formatCurrency(money) }) } : null,
+		moneyTotal: money > 0 ? money : 0,
 		recipients,
 		isGM,
 	});
@@ -375,6 +413,19 @@ export async function openLootDialog(tokenDoc, contextData) {
 		for (const box of element.querySelectorAll('input[data-loot-item]')) {
 			box.checked = master.checked;
 		}
+	});
+	// Loot v1.2 (Ausbaustelle 4b): Pfeil-Stepper um die Mengen-Felder,
+	// Optik-Muster des Ausrüstungs-Kontextmenüs (.m-qty-btn). Klemmung
+	// auf 1..max (max = Bestand am Token, steht im input.max-Attribut).
+	element.addEventListener('click', (event) => {
+		const btn = event.target.closest('[data-loot-qty-minus], [data-loot-qty-plus]');
+		if (!btn) return;
+		const id = btn.dataset.lootQtyMinus ?? btn.dataset.lootQtyPlus;
+		const input = element.querySelector(`[data-loot-qty="${id}"]`);
+		if (!input) return;
+		const max = Math.max(1, parseInt(input.max ?? '1', 10) || 1);
+		const next = Math.max(1, Math.min(max, (parseInt(input.value ?? '1', 10) || 1) + (btn.dataset.lootQtyPlus != null ? 1 : -1)));
+		input.value = String(next);
 	});
 	for (const box of element.querySelectorAll('input[data-loot-item]')) {
 		box.addEventListener('change', () => {
@@ -401,11 +452,27 @@ export async function openLootDialog(tokenDoc, contextData) {
 					}
 					const money = Math.round(Number(root.querySelector('symbaroum-currency')?.getAttribute('value')) || 0);
 					const vis = root.querySelector('input[name="loot-vis"]:checked')?.value ?? 'public';
-					if (!claims.length && money <= 0) return;
+					// Loot v1.2 (Testrunde 1, Punkt 13): KEINE stummen Returns
+					// mehr im GM-Pfad - jede Früh-Beendigung meldet den Grund,
+					// der ausgeführte Claim meldet das Ergebnis (wie beim
+					// Spieler-Pfad über die notify-Pipeline).
+					if (!claims.length && money <= 0) {
+						ui.notifications.warn(L('LOOT.ERR_NOTHING'));
+						return;
+					}
 					if (isGM) {
 						const targetActor = resolveRecipient(root.querySelector('#loot-target')?.value);
-						if (!targetActor) return;
-						await executeLootClaims({ tokenDoc, targetActor, claims, money, mode: vis, claimerUserId: game.user.id });
+						if (!targetActor) {
+							ui.notifications.warn(L('LOOT.ERR_RECIPIENT'));
+							return;
+						}
+						try {
+							const result = await executeLootClaims({ tokenDoc, targetActor, claims, money, mode: vis, claimerUserId: game.user.id });
+							notifyLootResult(result);
+						} catch (err) {
+							console.error('Symbaroum | Loot-Claim fehlgeschlagen:', err);
+							ui.notifications.error(L('LOOT.ERR_CLAIM'));
+						}
 					} else {
 						emitLootClaim({ sceneId: tokenDoc.parent?.id, tokenId: tokenDoc.id, claims, money, mode: vis });
 					}
@@ -504,6 +571,65 @@ export function openLootConfigDialog(tokenDoc) {
 }
 
 /**
+ * Loot v1.2 (Testrunde 1, Punkt 2 - "Loot-Standards AM AKTOR sichtbar"):
+ * Dialog am BASIS-AKTOR (Header-Button am Aktorblatt, GM-only): zeigt und
+ * ändert die Aktor-Standard-Flags (enabledOnDeath, deleteWhenEmpty im
+ * Drei-Zustand). Diese greifen für jeden Token, dessen eigenes Flag
+ * nichts festlegt (Auflösungskette Token > Aktor > Welt, getLootConfig).
+ */
+export function openActorLootDefaultsDialog(actor) {
+	if (!actor) return;
+	const actorCfg = actor.getFlag(FLAG_SCOPE, TOKEN_FLAG) ?? {};
+	const delSelection = actorCfg.deleteWhenEmpty ?? 'default';
+	const worldDelete = game.settings.get('symbaroum', 'lootDeleteEmptyPiles');
+	symbDialog({
+		title: F('LOOT.ACTOR_TITLE', { actor: actor.name }),
+		content: `<div class="symbaroum modern-give-dialog modern-loot-dialog modern-loot-config">
+			<div class="m-give-from">${F('LOOT.CONFIG_ACTOR_DEFAULT', { actor: actor.name })}</div>
+			<label class="lblfavour m-loot-config-row">
+				<input type="checkbox" id="loot-actor-death" ${actorCfg.enabledOnDeath ? 'checked' : ''}/>
+				<span>${L('LOOT.CONFIG_ON_DEATH')}</span>
+			</label>
+			<div class="m-give-note">
+				<i class="fas fa-circle-info"></i>
+				<span>${L('LOOT.ACTOR_HINT')}</span>
+			</div>
+			<label class="m-sec-label" for="loot-actor-delete">${L('LOOT.CONFIG_DELETE_EMPTY')}</label>
+			<select id="loot-actor-delete" class="m-give-target">
+				<option value="default" ${delSelection === 'default' ? 'selected' : ''}>${L('LOOT.CONFIG_DELETE_DEFAULT')} (${worldDelete ? L('LOOT.CONFIG_DELETE_ALWAYS') : L('LOOT.CONFIG_DELETE_NEVER')})</option>
+				<option value="true" ${delSelection === true || delSelection === 'true' ? 'selected' : ''}>${L('LOOT.CONFIG_DELETE_ALWAYS')}</option>
+				<option value="false" ${delSelection === false || delSelection === 'false' ? 'selected' : ''}>${L('LOOT.CONFIG_DELETE_NEVER')}</option>
+			</select>
+			<div class="m-give-note">
+				<i class="fas fa-circle-info"></i>
+				<span>${L('LOOT.ACTOR_APPLY')}</span>
+			</div>
+		</div>`,
+		classes: dialogClasses('modern-loot-dialog'),
+		width: 440,
+		buttons: {
+			save: {
+				icon: '<i class="fas fa-check"></i>',
+				label: L('BUTTON.CONFIRM'),
+				callback: async (html) => {
+					const root = html[0];
+					const death = root.querySelector('#loot-actor-death')?.checked ?? false;
+					const delRaw = root.querySelector('#loot-actor-delete')?.value ?? 'default';
+					const del = delRaw === 'default' ? 'default' : delRaw === 'true';
+					await actor.setFlag(FLAG_SCOPE, TOKEN_FLAG, { ...actorCfg, enabledOnDeath: death, deleteWhenEmpty: del });
+					ui.notifications.info(F('LOOT.NOTIF_ACTOR_DEFAULT', { actor: actor.name }));
+				},
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+				callback: async () => {},
+			},
+		},
+	});
+}
+
+/**
  * Bestätigungs-/Mengendialog beim Canvas-Drop (Stolper-Schutz,
  * IP-Muster): zeigt Item und Menge, bei Behältern die Inhalts-
  * zusammenfassung. GM führt direkt aus, Spieler laufen über den
@@ -521,9 +647,22 @@ export async function openPileDropDialog({ item, x, y, sceneId }) {
 		max,
 		summary,
 	});
+	// Loot v1.2 (Ausbaustelle 4b): Pfeil-Stepper auch hier (Konsistenz zum
+	// Loot-Dialog) - deshalb Element statt String, damit die Listener vor
+	// dem Rendern greifen (Muster openLootDialog).
+	const element = await buildDialogElement(html);
+	element.addEventListener('click', (event) => {
+		const btn = event.target.closest('[data-pile-qty-minus], [data-pile-qty-plus]');
+		if (!btn) return;
+		const input = element.querySelector('#pile-quantity');
+		if (!input) return;
+		const cap = Math.max(1, parseInt(input.max ?? '1', 10) || 1);
+		const next = Math.max(1, Math.min(cap, (parseInt(input.value ?? '1', 10) || 1) + (btn.dataset.pileQtyPlus != null ? 1 : -1)));
+		input.value = String(next);
+	});
 	symbDialog({
 		title: L('LOOT.DROP_TITLE'),
-		content: html,
+		content: element,
 		classes: dialogClasses('modern-loot-dialog'),
 		width: 440,
 		buttons: {

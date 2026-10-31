@@ -1,6 +1,9 @@
 import { symbDialog } from '../common/symbDialog.js';
 // AP2 Stapeln (Merge-on-Drop): Identitätsprüfung + Merge vor A15-Move/Core-Kopie.
 import { mergeStackDrop } from '../common/stacking.js';
+// Loot v1.2 (Testrunde 1, Punkt 2): "Loot-Standards"-Header-Button am
+// Aktorblatt (GM-only) - siehe _getHeaderControls.
+import { openActorLootDefaultsDialog } from '../common/loot.js';
 
 /**
  * Header controls that ActorSheetV2 adds by default (token configuration and artwork).
@@ -39,9 +42,30 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 
 	/**
 	 * Keep the V13 header: no token/artwork controls of the ActorSheetV2 base class.
+	 *
+	 * Loot v1.2 (Testrunde 1, Punkt 2 - "Loot-Standards AM AKTOR sichtbar"):
+	 * GM-only zusätzlich ein "Loot-Standards"-Control, das den Aktor-Dialog
+	 * der Loot-Einstellungen öffnet (flags.symbaroum.tokenInventory am
+	 * Basis-Aktor: enabledOnDeath + deleteWhenEmpty). Bewusste Anpassung
+	 * statt des ursprünglich geplanten getActorSheetHeaderButtons-Hooks:
+	 * dieser Hook gehört zu ApplicationV1, die Symbaroum-Blätter sind
+	 * ApplicationV2 (ActorSheetV2) - der Hook würde nie feuern. Unser
+	 * eigener _getHeaderControls-Override ist der stabile Einstieg; der
+	 * Core honoriert am Control-Entry onClick und lokalisiert label als
+	 * i18n-Key (verifiziert am V14-Quellcode c975e22, application.mjs:
+	 * _renderHeaderControl).
 	 */
 	_getHeaderControls() {
-		return super._getHeaderControls().filter((control) => !HIDDEN_TOKEN_CONTROLS.has(control.action));
+		const controls = super._getHeaderControls().filter((control) => !HIDDEN_TOKEN_CONTROLS.has(control.action));
+		if (game.user.isGM) {
+			controls.push({
+				action: 'lootDefaults',
+				icon: 'fas fa-box-open',
+				label: 'LOOT.ACTOR_BUTTON',
+				onClick: () => openActorLootDefaultsDialog(this.actor),
+			});
+		}
+		return controls;
 	}
 
 	/**

@@ -36,12 +36,37 @@
                 <span class="m-loot-name">
                     {{#if entry.img}}<img class="m-loot-img" src="{{entry.img}}" alt=""/>{{/if}}
                     {{entry.name}}
+                    {{!-- Loot v1.2 (Ausbaustelle 4a): Gesamtmenge am stapelbaren
+                         Item anzeigen, damit klar ist, was maximal mitkommt. --}}
+                    {{#if entry.stackable}}<span class="m-loot-qty-total">× {{entry.quantity}}</span>{{/if}}
                 </span>
             </label>
             {{#if entry.isContainer}}
             <span class="m-loot-summary" data-loot-summary="{{entry.id}}">{{entry.summary}}</span>
             {{else if entry.stackable}}
-            <input class="m-loot-qty" type="number" data-loot-qty="{{entry.id}}" min="1" max="{{entry.quantity}}" value="1" disabled data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+            {{!-- Loot v1.2 (Ausbaustelle 4b): Pfeil-Stepper um das Mengen-Feld
+                 (Muster des Ausrüstungs-Kontextmenüs), Klemmung 1..Bestand. --}}
+            <div class="m-qty m-loot-qty-wrap">
+                <button type="button" class="m-qty-btn" data-loot-qty-minus="{{entry.id}}" data-tooltip="{{localize 'MODERN.QTY_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
+                <input class="m-loot-qty" type="number" data-loot-qty="{{entry.id}}" min="1" max="{{entry.quantity}}" value="1" disabled data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+                <button type="button" class="m-qty-btn" data-loot-qty-plus="{{entry.id}}" data-tooltip="{{localize 'MODERN.QTY_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
+            </div>
+            {{/if}}
+            {{!-- Loot v1.2 (Ausbaustelle 5): Containerinhalt eingerückt unter
+                 der Behälterzeile (reine Anzeige - der Claim nimmt den
+                 Behälter samt Teilbaum über die transfer-Pipeline). --}}
+            {{#if entry.isContainer}}
+            {{#if entry.children.length}}
+            <div class="m-loot-children">
+                {{#each entry.children as |child|}}
+                <div class="m-loot-child">
+                    {{#if child.img}}<img class="m-loot-img" src="{{child.img}}" alt=""/>{{/if}}
+                    <span class="m-loot-child-name">{{child.name}}</span>
+                    {{#if child.quantityLabel}}<span class="m-loot-qty-total">{{child.quantityLabel}}</span>{{/if}}
+                </div>
+                {{/each}}
+            </div>
+            {{/if}}
             {{/if}}
         </div>
         {{/each}}
@@ -49,7 +74,10 @@
 
     {{#if money}}
     <div class="m-give-currency">
-        <symbaroum-currency value="0"></symbaroum-currency>
+        {{!-- Loot v1.2 (Ausbaustelle 6a): Default = Maximalbetrag - das
+             Element ist absolut (value = Total befüllt die Felder), der
+             Claim liest den aktuellen Wert über getAttribute('value'). --}}
+        <symbaroum-currency value="{{moneyTotal}}"></symbaroum-currency>
     </div>
     <div class="m-give-note m-give-moneyhint">
         <i class="fas fa-coins"></i>

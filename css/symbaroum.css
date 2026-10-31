@@ -9529,3 +9529,114 @@ html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-config-row {
 #token-hud .control-icon.loot-hud-settings {
   cursor: pointer;
 }
+
+/* =====================================================================
+   Loot v1.2 (Rudolfs Testrunde 1 - Ausbaustellen 4a/4b/5/6b): Gesamt-
+   mengen-Label, Pfeil-Stepper in der Optik des Ausrüstungs-Kontextmenüs,
+   eingerückter Containerinhalt und einzeilige Währungs-Felder. Alles
+   gescoped auf .modern-loot-dialog - die Give-Dialog-Regeln und der
+   v1-Block darüber bleiben unberührt. */
+
+/* Ausbaustelle 4a: Gesamtmenge hinter dem Namen (muted, klein) - zeigt
+   sofort, was maximal mitkommt, ohne den Stepper zu öffnen. */
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-qty-total {
+  color: var(--m-dim, var(--m-ink));
+  font-size: 0.75rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* Ausbaustelle 4b: Pfeil-Stepper um die Mengen-Felder (Loot-Dialog und
+   Pile-Drop-Dialog), Muster .m-qty-btn des Ausrüstungs-Kontextmenüs
+   (Zeilen ~7904-7935) - kompakte quadratische Caret-Tasten, muted,
+   Hover in Akzentfarbe. */
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-qty-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-qty-wrap .m-loot-qty {
+  width: 3.2rem;
+  text-align: center;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-qty-wrap .m-qty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border: 0.0625rem solid transparent;
+  border-radius: 0.25rem;
+  background: var(--m-panel2);
+  color: var(--m-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-qty-wrap .m-qty-btn:hover {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+}
+
+/* Ausbaustelle 5: Containerinhalt eingerückt unter der Behälterzeile
+   (reine Anzeige - der Claim nimmt den Behälter samt Teilbaum). Die
+   Zeile bekommt Wrap, der Kinder-Block nimmt die zweite Zeile (flex-
+   basis 100%) und rückt unter den Namen ein. */
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-row {
+  flex-wrap: wrap;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-children {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-left: 2.1rem;
+  margin: 0.1rem 0 0.15rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-child {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--m-dim, var(--m-ink));
+  font-size: 0.8rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-loot-child .m-loot-img {
+  width: 1.1rem;
+  height: 1.1rem;
+  opacity: 0.8;
+}
+
+/* Ausbaustelle 6b: Währung einzeilig mit Einheit hinter dem Feld. Das
+   <symbaroum-currency>-Element ist ein Grid in Spaltenrichtung (Styles
+   injiziert in currency.js initCurrency) - hier NUR im Loot-Dialog auf
+   Zeilenrichtung umgestellt, jede Denomination als Inline-Reihe in
+   umgekehrter Reihenfolge (label, input im DOM -> Feld vorne, Einheit
+   dahinter). Die Gesamtzeile (.sym-currency-total) steht außerhalb des
+   Grids und bleibt darunter. */
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-give-currency .sym-currency-grid {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-give-currency .sym-currency-grid > div {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-give-currency .sym-currency-grid input {
+  width: 3.5rem;
+}
