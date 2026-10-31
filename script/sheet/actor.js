@@ -8,8 +8,11 @@ import { openActorLootDefaultsDialog } from '../common/loot.js';
 /**
  * Header controls that ActorSheetV2 adds by default (token configuration and artwork).
  * They are hidden to keep the V13 sheet header: the two symbaroum buttons plus close.
+ * Loot v1.3 (Rudolfs Freigabe, Testrunde 2 Punkt 13): configurePrototypeToken is
+ * deliberately EXCLUDED here and re-enabled GM-only in _getHeaderControls - the
+ * prototype token configuration was unreachable in the modern design otherwise.
  */
-const HIDDEN_TOKEN_CONTROLS = new Set(['configureToken', 'configurePrototypeToken', 'showPortraitArtwork', 'showTokenArtwork']);
+const HIDDEN_TOKEN_CONTROLS = new Set(['configureToken', 'showPortraitArtwork', 'showTokenArtwork']);
 
 const { api, sheets } = foundry.applications;
 
@@ -56,8 +59,17 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 	 * _renderHeaderControl).
 	 */
 	_getHeaderControls() {
-		const controls = super._getHeaderControls().filter((control) => !HIDDEN_TOKEN_CONTROLS.has(control.action));
+		const all = super._getHeaderControls();
+		const controls = all.filter((control) => !HIDDEN_TOKEN_CONTROLS.has(control.action));
+		// Loot v1.3 (Testrunde 2, Punkt 13): „Prototypen-Token konfigurieren"
+		// (Core-Control, öffnet TokenConfig am prototypeToken) für SL wieder
+		// einblenden - im modernen Design sonst nur per Makro erreichbar
+		// (new CONFIG.Token.prototypeSheetClass({prototype: actor.prototypeToken})).
+		// Die Core-Ownership (OWNER) und die Basisklassen-Bedingungen
+		// (nicht editierbar / synthetischer Token) greifen zusätzlich.
 		if (game.user.isGM) {
+			const proto = all.find((control) => control.action === 'configurePrototypeToken');
+			if (proto) controls.push(proto);
 			controls.push({
 				action: 'lootDefaults',
 				icon: 'fas fa-box-open',

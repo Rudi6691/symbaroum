@@ -50,7 +50,7 @@
  * in this system were empty no-ops).
  */
 export function symbDialog(options = {}) {
-  const { title, content, buttons = {}, default: defaultAction, width, resizable = true } = options;
+  const { title, content, buttons = {}, default: defaultAction, width, resizable = true, onRender } = options;
   let dialog = null;
 
   const v2Buttons = Object.entries(buttons).map(([action, button]) => ({
@@ -113,7 +113,20 @@ export function symbDialog(options = {}) {
   config.position = { width: Math.round(baseWidth * _coreFontScale()) };
 
   dialog = new foundry.applications.api.DialogV2(config);
-  dialog.render({ force: true });
+  // Loot v1.3 (Testrunde 2, Punkte 7/14 - LERNWEIS, am V14-Quellcode
+  // c975e22 verifiziert): DialogV2 uebernimmt von einem uebergebenen
+  // Content-Element NUR den HTML-String (dialog.mjs, _initializeApplication
+  // Options: options.content = element.innerHTML) - das DOM wird neu
+  // geparst, Listener am vorgebauten Element erreichen den gerenderten
+  // Dialog NIE. Content-Listener muessen deshalb NACH dem Rendern am
+  // Live-DOM gebunden werden. ApplicationV2#render() liefert ein Promise,
+  // das NACH dem Einhaengen des Inhalts aufloest - die optionale onRender-
+  // Rueckgabe (rein additiv, alle bisherigen Aufrufstellen unberuehrt)
+  // erhaelt dialog.element, das ist das gerenderte Fensterelement.
+  const renderPromise = dialog.render({ force: true });
+  if (onRender instanceof Function) {
+    renderPromise.then(() => onRender(dialog.element)).catch(() => {});
+  }
   return dialog;
 }
 

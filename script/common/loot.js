@@ -365,11 +365,39 @@ async function renderLootTemplate(path, data) {
 	return foundry.applications.handlebars.renderTemplate(`systems/symbaroum/template/sheet/modern/${path}`, data);
 }
 
-/** Baut den Dialog-Content als Element (für Dialog-interaktive Listener). */
-async function buildDialogElement(innerHtml) {
-	const wrapper = document.createElement('div');
-	wrapper.innerHTML = innerHtml;
-	return wrapper;
+/**
+ * Loot v1.3 (Testrunde 2, Punkte 7/14): Bindet die Dialog-Interaktionen
+ * an das LIVE gerenderte DOM (aufgerufen aus symbDialogs onRender).
+ * Inhalt: Alles-auswählen-Master-Toggle (schaltet jetzt auch die
+ * Mengenfelder mit frei), Mengenfeld-Freigabe beim Anhaken einer Zeile
+ * und der Pfeil-Stepper (Ausbaustelle 4b, Muster des Ausrüstungs-
+ * kontextmenüs, Klemmung 1..Bestand via input.max).
+ */
+function bindLootDialogListeners(root) {
+	const master = root.querySelector('#loot-select-all');
+	master?.addEventListener('change', () => {
+		for (const box of root.querySelectorAll('input[data-loot-item]')) {
+			box.checked = master.checked;
+			const qty = root.querySelector(`[data-loot-qty="${box.dataset.lootItem}"]`);
+			if (qty) qty.disabled = !box.checked;
+		}
+	});
+	for (const box of root.querySelectorAll('input[data-loot-item]')) {
+		box.addEventListener('change', () => {
+			const qty = root.querySelector(`[data-loot-qty="${box.dataset.lootItem}"]`);
+			if (qty) qty.disabled = !box.checked;
+		});
+	}
+	root.addEventListener('click', (event) => {
+		const btn = event.target.closest('[data-loot-qty-minus], [data-loot-qty-plus]');
+		if (!btn) return;
+		const id = btn.dataset.lootQtyMinus ?? btn.dataset.lootQtyPlus;
+		const input = root.querySelector(`[data-loot-qty="${id}"]`);
+		if (!input) return;
+		const max = Math.max(1, parseInt(input.max ?? '1', 10) || 1);
+		const next = Math.max(1, Math.min(max, (parseInt(input.value ?? '1', 10) || 1) + (btn.dataset.lootQtyPlus != null ? 1 : -1)));
+		input.value = String(next);
+	});
 }
 
 /**
@@ -406,38 +434,18 @@ export async function openLootDialog(tokenDoc, contextData) {
 		recipients,
 		isGM,
 	});
-	const element = await buildDialogElement(html);
-	// Alles-auswählen-Master-Toggle + Qty-Aktivierung
-	const master = element.querySelector('#loot-select-all');
-	master?.addEventListener('change', () => {
-		for (const box of element.querySelectorAll('input[data-loot-item]')) {
-			box.checked = master.checked;
-		}
-	});
-	// Loot v1.2 (Ausbaustelle 4b): Pfeil-Stepper um die Mengen-Felder,
-	// Optik-Muster des Ausrüstungs-Kontextmenüs (.m-qty-btn). Klemmung
-	// auf 1..max (max = Bestand am Token, steht im input.max-Attribut).
-	element.addEventListener('click', (event) => {
-		const btn = event.target.closest('[data-loot-qty-minus], [data-loot-qty-plus]');
-		if (!btn) return;
-		const id = btn.dataset.lootQtyMinus ?? btn.dataset.lootQtyPlus;
-		const input = element.querySelector(`[data-loot-qty="${id}"]`);
-		if (!input) return;
-		const max = Math.max(1, parseInt(input.max ?? '1', 10) || 1);
-		const next = Math.max(1, Math.min(max, (parseInt(input.value ?? '1', 10) || 1) + (btn.dataset.lootQtyPlus != null ? 1 : -1)));
-		input.value = String(next);
-	});
-	for (const box of element.querySelectorAll('input[data-loot-item]')) {
-		box.addEventListener('change', () => {
-			const qty = element.querySelector(`[data-loot-qty="${box.dataset.lootItem}"]`);
-			if (qty) qty.disabled = !box.checked;
-		});
-	}
+	// Loot v1.3 (Testrunde 2, Punkte 7/14): DialogV2 uebernimmt von einem
+	// Content-Element nur den HTML-String und parst das DOM neu - am
+	// vorgebauten Element angemeldete Listener erreichen den Dialog nie.
+	// Deshalb Content als String (symbDialog ummantelt selbst, kein
+	// cleanHTML) und ALLE Content-Listener erst NACH dem Rendern am
+	// Live-DOM binden (symbDialog-Option onRender).
 	symbDialog({
 		title: L('LOOT.DIALOG_TITLE'),
-		content: element,
+		content: html,
 		classes: dialogClasses('modern-loot-dialog'),
 		width: 520,
+		onRender: (root) => bindLootDialogListeners(root),
 		buttons: {
 			claim: {
 				icon: '<i class="fas fa-hand-holding-heart"></i>',
@@ -648,23 +656,25 @@ export async function openPileDropDialog({ item, x, y, sceneId }) {
 		summary,
 	});
 	// Loot v1.2 (Ausbaustelle 4b): Pfeil-Stepper auch hier (Konsistenz zum
-	// Loot-Dialog) - deshalb Element statt String, damit die Listener vor
-	// dem Rendern greifen (Muster openLootDialog).
-	const element = await buildDialogElement(html);
-	element.addEventListener('click', (event) => {
-		const btn = event.target.closest('[data-pile-qty-minus], [data-pile-qty-plus]');
-		if (!btn) return;
-		const input = element.querySelector('#pile-quantity');
-		if (!input) return;
-		const cap = Math.max(1, parseInt(input.max ?? '1', 10) || 1);
-		const next = Math.max(1, Math.min(cap, (parseInt(input.value ?? '1', 10) || 1) + (btn.dataset.pileQtyPlus != null ? 1 : -1)));
-		input.value = String(next);
-	});
+	// Loot-Dialog). Loot v1.3 (Testrunde 2, Punkt 7): Listener wie im
+	// Loot-Dialog erst NACH dem Rendern am Live-DOM binden - DialogV2
+	// parst den Content neu, vorab angemeldete Listener greifen nie.
 	symbDialog({
 		title: L('LOOT.DROP_TITLE'),
-		content: element,
+		content: html,
 		classes: dialogClasses('modern-loot-dialog'),
 		width: 440,
+		onRender: (root) => {
+			root.addEventListener('click', (event) => {
+				const btn = event.target.closest('[data-pile-qty-minus], [data-pile-qty-plus]');
+				if (!btn) return;
+				const input = root.querySelector('#pile-quantity');
+				if (!input) return;
+				const cap = Math.max(1, parseInt(input.max ?? '1', 10) || 1);
+				const next = Math.max(1, Math.min(cap, (parseInt(input.value ?? '1', 10) || 1) + (btn.dataset.pileQtyPlus != null ? 1 : -1)));
+				input.value = String(next);
+			});
+		},
 		buttons: {
 			create: {
 				icon: '<i class="fas fa-box-open"></i>',
