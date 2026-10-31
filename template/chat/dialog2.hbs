@@ -151,6 +151,24 @@
       <div class="simplebox">
         <label>{{localize "ABILITY_MEDICUS.HERBALCURE"}}</label><span class="lblfavour"><input type="checkbox" id="herbalcure" unchecked {{#if herbalCureUnavailable}}disabled data-tooltip="{{localize "ABILITY_MEDICUS.HERBALCURE_MISSING"}}{{/if}}></span>
       </div>
+      {{!-- Ressourcen v1.3 (Bandagen-Runde, 31.10.): Automatische Verbands-
+          material-Statuszeile - KEINE Checkbox, der Spieler waehlt nichts
+          (Rudolfs Festlegung). Vorhanden: Check-Glyph, 1 Einheit wird beim
+          Wurf abgebucht; fehlt: X-Glyph + „−1"-Badge, der Wurf erhaelt
+          automatisch −1. Nur wenn das Welt-Setting aktiv ist
+          (bandageStatus), sonst bleibt der Dialog unangetastet. --}}
+      {{#if bandageStatus}}
+      <div class="simplebox bandage-status">
+        <label>{{localize "ABILITY_MEDICUS.BANDAGE"}}</label>
+        <span class="lblfavour bandage-indicator">
+          {{#if bandageAvailable}}
+          <span class="bandage-ok"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          {{else}}
+          <span class="bandage-missing" data-tooltip="{{localize "ABILITY_MEDICUS.BANDAGE_MISSING"}}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="bandage-penalty" data-tooltip="{{localize "ABILITY_MEDICUS.BANDAGE_MISSING"}}">−1</span>
+          {{/if}}
+        </span>
+      </div>
+      {{/if}}
       <div class="damagemodifier">
         <label>{{localize "DIALOG.CUSTOM_HEALING_MODIFIER"}}</label><input id="customhealing" value="" type="text" data-dtype="Text"/>
       </div>

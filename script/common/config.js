@@ -1170,6 +1170,14 @@ SYMBAROUM.RESOURCE_CATEGORY_SELECTION = {
     id: "alchemiezutat",
     label: "RESOURCE_CATEGORY.ALCHEMY_INGREDIENT",
   },
+  // Ressourcen v1.3 (Bandagen-Runde, 31.10.): Verbandsmaterial - notwendig
+  // beim Behandeln von Wunden (Medicus-Automatik, volle Behandlung und
+  // Erste Hilfe; fehlt es, −1 auf den Wurf). Tagging des Alt-Bestands ueber
+  // das GM-Makro „Ressourcen-Tagging v2".
+  verbandsmaterial: {
+    id: "verbandsmaterial",
+    label: "RESOURCE_CATEGORY.BANDAGE_MATERIAL",
+  },
 };
 
 SYMBAROUM.WEAPON_DAMAGE_SELECTION = {

@@ -103,14 +103,16 @@
   "ABILITY_MEDICUS.NOHERBALCURE": "No herbal cure",
   "ABILITY_MEDICUS.CHAT_FINAL": "Toughness healed : ",
   "ABILITY_MEDICUS.CHAT_TARGET": "Patient : {targetname}",
-  "ABILITY_MEDICUS.NO_TARGET": "No target, medicus roll without healing",
+  "ABILITY_MEDICUS.NO_TARGET": "No target, first aid",
   "ABILITY_MEDICUS.HERBALCURE_MISSING": "No herbal cure in the inventory (resource category). Consumption resumes as soon as one is available again.",
+  "ABILITY_MEDICUS.BANDAGE": "Bandages",
+  "ABILITY_MEDICUS.BANDAGE_MISSING": "No bandages in the inventory (resource category). The roll takes −1.",
   "A29.REMINDER_TITLE": "Maintain?",
   "A29.REMINDER_TEXT": "{name} is still being maintained ({count} target(s)). Keep maintaining the power?",
   "A29.REMINDER_YES": "Yes",
   "A29.REMINDER_NO": "No",
   "A29.REMINDER_NO_ITEM": "The power could no longer be found on the character - please roll manually.",
-  "DIALOG.MEDICUS_EXAM": "Medicus roll without healing",
+  "DIALOG.MEDICUS_EXAM": "First Aid",
   "DIALOG.CUSTOM_HEALING_MODIFIER": "Custom healing formula",
   "ABILITY_STRANGLER.CHAT_INTRO": "{actorname} tries to seize its target.",
   "ABILITY_STRANGLER.CHAT_INTRO_M": "{actorname} tries to maintain the stranglehold.",
@@ -1502,5 +1504,7 @@
   "RESOURCE.CONSUME_AMOUNT": "Amount",
   "RESOURCE.CONSUME_BUTTON": "Consume",
   "RESOURCE.CONSUME_HINT": "Available: {count} × {category}. The row stays at 0.",
-  "RESOURCE.CONSUME_RESULT": "{name}: −{amount} ({remaining} left)"
+  "RESOURCE.CONSUME_RESULT": "{name}: −{amount} ({remaining} left)",
+  "RESOURCE.BANDAGE_MISSING_PARAMS": "No bandages (−1)",
+  "RESOURCE_CATEGORY.BANDAGE_MATERIAL": "Bandage material"
 }

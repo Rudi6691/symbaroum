@@ -7106,6 +7106,9 @@ dialog.symb-dialog.modern-dialog {
   --m-ink: #dfe6df;
   --m-muted: #8fa192;
   --m-accent: #c9a227;
+  /* Ressourcen v1.3: --m-good fuer die Verbandsmaterial-Check-Anzeige
+     (Palette-Wert identisch mit .modern-root dunkel, Zeile ~5895). */
+  --m-good: #6f9e7c;
   --m-bad: #c0554a;
   --m-input-bg: rgba(255, 255, 255, 0.06);
   --m-input-ink: #dfe6df;
@@ -7127,6 +7130,9 @@ dialog.symb-dialog.modern-dialog.modern-theme-classic {
   --m-ink: #2c2317;
   --m-muted: #6c5c40;
   --m-accent: #8a6d1c;
+  /* Ressourcen v1.3: --m-good fuer die Verbandsmaterial-Check-Anzeige
+     (Palette-Wert identisch mit .modern-root classic, Zeile ~5914). */
+  --m-good: #4d7a52;
   --m-bad: #a3402f;
   --m-input-bg: rgba(255, 255, 255, 0.55);
   --m-input-ink: #2c2317;
@@ -9139,9 +9145,14 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-give-dialog 
 
 /* v1.1: Der Box-Stil der Freier-Angriff-Zeile gilt einheitlich für ALLE
    Checkbox- und Radio-Zeilen des modernen Würfeldialogs (Rudolfs
-   Testrunde: gleiche Optik für m-roll-check und m-roll-favour). */
+   Testrunde: gleiche Optik für m-roll-check und m-roll-favour).
+   Ressourcen v1.3 (Rudolfs Layout-Befund „rutscht in den Rahmen"):
+   Selektor-Erweiterung um .m-roll-boxed - die Individuelle-Heilformel-
+   Zeile bekommt denselben Box-Rahmen, statt optisch in die (bei
+   Bestand 0 ausgegraute, fast leere) Kraeuterarznei-Box zu rutschen. */
 .symbaroum.modern-roll-dialog .m-roll-check,
-.symbaroum.modern-roll-dialog .m-roll-favour {
+.symbaroum.modern-roll-dialog .m-roll-favour,
+.symbaroum.modern-roll-dialog .m-roll-boxed {
   border: 0.0625rem solid var(--m-line);
   border-radius: 0.35rem;
   padding: 0.35rem 0.5rem;
@@ -9656,4 +9667,63 @@ html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-give-currency .sym
   flex-direction: row;
   flex-basis: 100%;
   margin: 5px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Ressourcen v1.3 (Bandagen-Runde, 31.10.) — Verbandsmaterial-Status-
+   zeile im Würfeldialog (reine Anzeige, KEINE Checkbox - Rudolfs
+   Festlegung). Vorhanden: Check-Glyph in Theme-Grün; fehlt: X-Glyph
+   in Theme-Rot + „−1"-Badge daneben (der Wurf erhält dann automatisch
+   −1). Zustands-Icons als Inline-SVG mit currentColor (CSS-Checkliste
+   Abschnitt 1), Farbe läuft allein über diese Klassen. Vier Pfade:
+   klassischer Dialog (Beige-Basis, Palette-Werte der hellen Welt)
+   und moderner Dialog hell/dunkel über die --m-good/--m-bad-Variablen
+   der Fenster-Paletten (Ergänzung --m-good siehe A6v9-Blöcke). */
+/* Ressourcen v1.3 */
+.symbaroum.dialog .bandage-status .bandage-indicator,
+.symbaroum.modern-roll-dialog .bandage-status .bandage-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.symbaroum.dialog .bandage-status .bandage-ok {
+  color: #4d7a52;
+}
+
+.symbaroum.dialog .bandage-status .bandage-missing {
+  color: #a3402f;
+}
+
+.symbaroum.dialog .bandage-status .bandage-penalty {
+  display: inline-block;
+  border: 0.0625rem solid #a3402f;
+  border-radius: 0.3rem;
+  color: #a3402f;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+}
+
+/* Moderner Würfeldialog: theme-gekoppelt (dunkel Default, hell über
+   .modern-theme-classic), die Statuszeile erbt den m-roll-check-Box-
+   stil. Der Zeiger-Cursor der Checkbox-Zeilen ist hier irreführend —
+   es gibt nichts anzuklicken. */
+dialog.symb-dialog.modern-dialog .bandage-status .bandage-ok {
+  color: var(--m-good);
+}
+
+dialog.symb-dialog.modern-dialog .bandage-status .bandage-missing {
+  color: var(--m-bad);
+}
+
+dialog.symb-dialog.modern-dialog .bandage-status .bandage-penalty {
+  border-color: var(--m-bad);
+  background: var(--m-input-bg);
+  color: var(--m-bad);
+}
+
+dialog.symb-dialog.modern-dialog .m-roll-check.bandage-status > label {
+  cursor: default;
 }

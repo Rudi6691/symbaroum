@@ -51,6 +51,10 @@ const F = (key, data) => game.i18n.format(key, data);
  * Verbraucher-Definitionen: Wer bucht automatisch von welcher Kategorie ab?
  *  - medicus: Wuerfeldialog-Kategorie Kraeuterarznei, Menge 1 beim Submit
  *    (script/common/item.js, modifierDialog + standardPowerResult).
+ *    Ressourcen v1.3 (Bandagen-Runde, 31.10.): ZWEITE Anforderung des
+ *    medicus-Verbrauchers - Verbandsmaterial (bandage-Sub-Eintrag), Menge
+ *    1 beim Submit, volle Behandlung UND Erste Hilfe; fehlt es, zieht der
+ *    Wurf automatisch −1 statt abzubuchen (Rudolfs Entscheidungen).
  *  - brew: Alchemiezutat beim Brauen - variable Menge, Wirksamkeit erst mit
  *    dem Brau-Dialog des Oekonomie-Projekts (spaeteres Projekt; bis dahin
  *    laeuft der Verbrauch ueber das Item-Kontextmenue).
@@ -60,6 +64,16 @@ export const RESOURCE_CONSUMERS = {
 		id: 'medicus',
 		category: 'kraeuterarznei',
 		amount: 1,
+		// Ressourcen v1.3 (Bandagen-Runde): Verbandsmaterial ist notwendig
+		// beim Behandeln von Wunden. Vorhanden: 1 Einheit wird beim Submit
+		// abgebucht (unabhaengig vom Ergebnis wie Kraeuterarznei, auch bei
+		// Erste Hilfe). Fehlt es: automatischer −1-Modifikator auf den
+		// Wurf, KEINE Abbuchung. Der Spieler waehlt nichts (reine
+		// Anzeigezeile im Dialog, keine Checkbox).
+		bandage: {
+			category: 'verbandsmaterial',
+			amount: 1,
+		},
 	},
 	brew: {
 		id: 'brew',
@@ -213,6 +227,41 @@ export async function consumeHerbalCure(actor) {
 	if (!result) return null;
 	return {
 		category: consumer.category,
+		name: result.name,
+		amount: result.amount,
+		label: F('RESOURCE.CHAT_CONSUMED', { name: result.name, amount: result.amount }),
+	};
+}
+
+/*
+ * Ressourcen v1.3 (Bandagen-Runde, 31.10.): Verbandsmaterial-Unterstuetzung.
+ * Bewusst PARALLEL zu Kraeuterarznei statt Refaktor - v1.3 ist ein additiver
+ * Sammel-Fix, die gemeinsame Basis (getResourceTotal/consumeResource) wird
+ * von beiden genutzt.
+ */
+
+/** Verfuegbarkeit des Verbandsmaterials des medicus-Verbrauchers. */
+export function getBandageAvailability(actor) {
+	const req = RESOURCE_CONSUMERS.medicus.bandage;
+	return {
+		available: getResourceTotal(actor, req.category) >= req.amount,
+		count: getResourceTotal(actor, req.category),
+	};
+}
+
+/**
+ * Verbandsmaterial-Abbuchung fuer den Medicus-Wurf (modifierDialog-Submit,
+ * script/common/item.js): 1 Einheit je Behandlung - volle Behandlung UND
+ * Erste Hilfe, unabhaengig vom Wurfergebnis. Rueckgabe null heisst „nichts
+ * im Inventar": der Aufrufer zieht dann den −1-Modifikator statt
+ * abzubuchen (keine Teilbuchung, Vorab-Pruefung wie immer).
+ */
+export async function consumeBandage(actor) {
+	const req = RESOURCE_CONSUMERS.medicus.bandage;
+	const result = await consumeResource(actor, req.category, req.amount);
+	if (!result) return null;
+	return {
+		category: req.category,
 		name: result.name,
 		amount: result.amount,
 		label: F('RESOURCE.CHAT_CONSUMED', { name: result.name, amount: result.amount }),

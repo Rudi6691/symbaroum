@@ -15,7 +15,7 @@ import { isModernDialogActive, modernDialogClasses } from "./modernSheetConfig.j
 // Ressourcen v1: Verbraucher-Registry + Abbuch-/Verfügbarkeits-Helfer des
 // kategoriebasierten Ressourcenverbrauchs (Kategorie Kraeuterarznei für den
 // Medicus; Setting „Ressourcenverbrauch" GM-seitig, Default AUS)
-import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailability, consumeHerbalCure } from "./resources.js";
+import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailability, consumeHerbalCure, getBandageAvailability, consumeBandage } from "./resources.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3505,6 +3505,16 @@ export async function modifierDialog(functionStuff) {
   if (medicus && hasTarget && isResourceConsumptionEnabled()) {
     herbalCureUnavailable = !getHerbalCureAvailability(functionStuff.actor).available;
   }
+  // Ressourcen v1.3 (Bandagen-Runde, 31.10.): Verbandsmaterial-Status fuer
+  // die AUTOMATISCHE Anzeigezeile im Wuerfeldialog (keine Checkbox, der
+  // Spieler waehlt nichts - Rudolfs Festlegung). null = Zeile gar nicht
+  // zeigen (kein Medicus-Ziel oder Welt-Setting aus); true = vorhanden
+  // (Check-Glyph, wird beim Submit abgebucht); false = fehlt (X-Glyph +
+  // „−1"-Badge, der Wurf erhaelt automatisch −1).
+  let bandageAvailable = null;
+  if (medicus && hasTarget && isResourceConsumptionEnabled()) {
+    bandageAvailable = getBandageAvailability(functionStuff.actor).available;
+  }
   const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
     askCastingAttribute: functionStuff.askCastingAttribute,
@@ -3538,6 +3548,8 @@ export async function modifierDialog(functionStuff) {
     weapons: actorWeapons,
     medicus: medicus,
     herbalCureUnavailable: herbalCureUnavailable,
+    bandageStatus: bandageAvailable !== null,
+    bandageAvailable: !!bandageAvailable,
     poisoner: poisoner,
     hasRoll: hasRoll,
   });
@@ -3768,6 +3780,28 @@ export async function modifierDialog(functionStuff) {
                 } else {
                   functionStuff.herbalCure = false;
                   ui.notifications.warn(game.i18n.localize("RESOURCE.ERR_NONE_LEFT_MEDICUS"));
+                }
+              }
+              // Ressourcen v1.3 (Bandagen-Runde, 31.10.): Verbandsmaterial
+              // ist notwendig beim Behandeln von Wunden - gilt fuer die
+              // VOLLE Behandlung UND fuer „Erste Hilfe" (medicusExam), der
+              // Spieler waehlt nichts. Vorhanden: 1 Einheit wird beim Submit
+              // abgebucht (unabhaengig vom Wurfergebnis, wie Kraeuterarznei;
+              // auch bei Erste Hilfe - Rudolfs Entscheidung). Fehlt es:
+              // automatischer −1 auf den Wurf, keine Abbuchung. Der Abzug
+              // landet hier NACH dem #bonus-Read (der das Feld angibt und
+              // functionStuff.modifier UEBERSCHREIBT) und VOR dem Ziel-
+              // widerstand - er bleibt also in jedem Fall wirksam und
+              // additiv. resourceConsumed bleibt Kraeuterarznei-vorbehalten
+              // (die Basis-Heilung bei Fehlschlag ist die Arznei-Wirkung,
+              // NICHT die des Verbandsmaterials).
+              if (isResourceConsumptionEnabled()) {
+                const consumedBandage = await consumeBandage(functionStuff.actor);
+                if (consumedBandage) {
+                  functionStuff.autoParams += consumedBandage.label + ", ";
+                } else {
+                  functionStuff.modifier -= 1;
+                  functionStuff.autoParams += game.i18n.localize("RESOURCE.BANDAGE_MISSING_PARAMS") + ", ";
                 }
               }
               let customHealingFormula = html[0].querySelector("#customhealing").value;
