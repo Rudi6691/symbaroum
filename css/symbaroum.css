@@ -9313,9 +9313,24 @@ dialog.symb-dialog.modern-dialog.modern-theme-dark {
   color-scheme: dark !important;
 }
 
+/* Sicherheitsnetz für Browser, die das Popup nicht an color-scheme
+   koppeln (Theme-Variablen passen sich an).
+   Übergabe v1.4 (Testrunde 3 zu v1.3, Rudolfs Vergleichsbefund):
+   --m-input-bg ist TRANSLUCENT (rgba 6% weiss) - auf dem weissen
+   nativen Popup bleibt der Grund weiss, helle Ink-Schrift unlesbar;
+   Rudolfs Client koppelt das Select-POPUP auch mit color-scheme:
+   dark !important NICHT an das Element-Schema (die nativen Radios
+   im selben Dialog wurden dagegen dunkel - die Regel wirkt also,
+   nur das Popup folgt ihr nicht). Bewaehrtes System-Rezept fuer
+   Popup-Rows: SOLIDE Options-Farben wie im Aktor-/Item-Blatt
+   (select option = --m-panel2, ~Zeile 8416) und im Wuerfeldialog
+   (select option = --m-panel, ~Zeile 9025) - dort nachweislich
+   funktionierend (Rudolfs Biographie-/Bestienkunde-Selects).
+   --m-panel ist solide dunkel im Dark-Theme und hell (Papier) im
+   klassischen Design - beide Themes korrekt. */
 dialog.symb-dialog.modern-dialog select option {
-  background-color: var(--m-input-bg);
-  color: var(--m-input-ink);
+  background-color: var(--m-panel);
+  color: var(--m-ink);
 }
 
 /* Übergabe v1.2: Icon-Klick am Zeilenkopf des Gear-Tabs öffnet den
