@@ -9297,9 +9297,20 @@ html body dialog.symb-dialog .symbaroum.modern-give-request .give-prompt-detail 
    dunkel - systemweit für alle dunklen modernen Dialoge; das helle
    Papier-Theme (modern-theme-classic) bleibt unberührt. Die
    Options-Farben sind Sicherheitsnetz für Browser, die das Popup
-   nicht an color-scheme koppeln (Theme-Variablen passen sich an). */
+   nicht an color-scheme koppeln (Theme-Variablen passen sich an).
+   Übergabe v1.3 (Testrunde 2: Fix WIRKUNGSLOS): Die 7.1.15-Regel
+   dialog.symb-dialog { color-scheme: light !important } (White-
+   Controls-Saga der Würfeldialoge) überstimmt jede NORMALE
+   Deklaration - !important gewinnt gegen jede Spezifität, der
+   Select behielt used color-scheme = light, das Popup blieb weiss.
+   Gegenregel: Ebenfalls !important, aber höhere Spezifität (3
+   Klassen schlagen 1). Sicher: Die 7.1.15-Checkboxen/Radios sind
+   custom gezeichnet (appearance:none + weisser Untergrund, je
+   !important) und unabhaengig von color-scheme - Würfeldialog-
+   Look bleibt exakt; nur native Widgets in DUNKLEN modernen
+   Dialogen werden dunkel; klassische Dialoge bleiben light. */
 dialog.symb-dialog.modern-dialog.modern-theme-dark {
-  color-scheme: dark;
+  color-scheme: dark !important;
 }
 
 dialog.symb-dialog.modern-dialog select option {
