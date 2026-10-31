@@ -1,0 +1,96 @@
+{{!-- Loot v1 (spielimmersive Aktionen): Loot-Dialog mit Mehrfachauswahl
+    (Item-Piles-Vorbild) im Vokabular des Geben-Dialogs (Rudolfs
+    Entscheidung: eine Optik-Quelle). Wurzel trägt BEWUSST zusätzlich die
+    Klasse modern-give-dialog, damit der Dialog die komplette Geben-Dialog-
+    Optik erbt (Inputs, Empfänger-select, Radios, Rahmen); die neuen Listen-
+    Regeln liegen unter .modern-loot-dialog (css/symbaroum.css, Block
+    "Loot v1"). Header = Token (Name/Bild), Items-Liste mit Checkboxen und
+    Mengen-Steppern bei stapelbaren Items, Behälter mit Inhalts-Zusammen-
+    fassung (Teilbaum reist komplett), "Alles auswählen"-Master-Toggle,
+    Geld über das <symbaroum-currency>-Element (A38-Delta-Syntax), Radios
+    Öffentlich (Default)/Flüstern. GM erhält zusätzlich das Empfänger-
+    select (SL-getriebenes Looten an jeden Charakter); Spieler loots für
+    ihren Charakter (Empfänger fix, Claims laufen GM-arbitriert über den
+    Socket). Muster: give-dialog.hbs. --}}
+<div class="symbaroum modern-give-dialog modern-loot-dialog">
+    <div class="m-give-from" data-tooltip="{{localize 'LOOT.DIALOG_TITLE'}}">{{localize "LOOT.DIALOG_FROM"}}: <b>{{tokenName}}</b></div>
+
+    <div class="m-give-item">
+        {{#if tokenImg}}<img class="m-give-img" src="{{tokenImg}}" alt=""/>{{/if}}
+        <span class="m-give-name">{{tokenName}}</span>
+    </div>
+
+    <label class="m-sec-label">{{localize "LOOT.LOOT_LIST"}}</label>
+    <div class="m-loot-selectall">
+        <label class="lblfavour">
+            <input type="checkbox" id="loot-select-all"/>
+            <span>{{localize "LOOT.SELECT_ALL"}}</span>
+        </label>
+    </div>
+
+    <div class="m-loot-list">
+        {{#each entries as |entry|}}
+        <div class="m-loot-row" data-loot-row="{{entry.id}}">
+            <label class="lblfavour m-loot-pick">
+                <input type="checkbox" data-loot-item="{{entry.id}}" data-loot-name="{{entry.name}}"/>
+                <span class="m-loot-name">
+                    {{#if entry.img}}<img class="m-loot-img" src="{{entry.img}}" alt=""/>{{/if}}
+                    {{entry.name}}
+                </span>
+            </label>
+            {{#if entry.isContainer}}
+            <span class="m-loot-summary" data-loot-summary="{{entry.id}}">{{entry.summary}}</span>
+            {{else if entry.stackable}}
+            <input class="m-loot-qty" type="number" data-loot-qty="{{entry.id}}" min="1" max="{{entry.quantity}}" value="1" disabled data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+            {{/if}}
+        </div>
+        {{/each}}
+    </div>
+
+    {{#if money}}
+    <div class="m-give-currency">
+        <symbaroum-currency value="0"></symbaroum-currency>
+    </div>
+    <div class="m-give-note m-give-moneyhint">
+        <i class="fas fa-coins"></i>
+        <span>{{money.hint}}</span>
+    </div>
+    {{/if}}
+
+    {{#if isGM}}
+    <label class="m-sec-label" for="loot-target">{{localize "LOOT.RECIPIENT"}}</label>
+    <select id="loot-target" class="m-give-target">
+        {{#if recipients.tokens.length}}
+        <optgroup label="{{localize 'GIVE.GROUP_SCENE'}}">
+            {{#each recipients.tokens as |r|}}
+            <option value="{{r.value}}">{{r.name}}</option>
+            {{/each}}
+        </optgroup>
+        {{/if}}
+        {{#each recipients.groups as |g|}}
+        <optgroup label="{{g.label}}">
+            {{#each g.actors as |a|}}
+            <option value="{{a.value}}">{{a.name}}</option>
+            {{/each}}
+        </optgroup>
+        {{/each}}
+    </select>
+    {{/if}}
+
+    {{!-- Sichtbarkeit identisch zum Geben-Dialog (v1.6-Optik: fieldset
+         mit legend, lblfavour-Radios). JS liest
+         input[name="loot-vis"]:checked (loot.js). --}}
+    <fieldset class="m-ability-frame">
+        <legend class="m-ability-label">{{localize "LOOT.VISIBILITY"}}</legend>
+        <div class="m-give-vis">
+            <label class="lblfavour">
+                <input type="radio" name="loot-vis" value="public" checked/>
+                {{localize "LOOT.VISIBILITY_PUBLIC"}}
+            </label>
+            <label class="lblfavour">
+                <input type="radio" name="loot-vis" value="whisper"/>
+                {{localize "LOOT.VISIBILITY_WHISPER"}}
+            </label>
+        </div>
+    </fieldset>
+</div>

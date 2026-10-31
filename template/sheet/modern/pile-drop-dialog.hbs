@@ -1,0 +1,29 @@
+{{!-- Loot v1 (spielimmersive Aktionen): Bestätigungs-/Mengendialog beim
+    Canvas-Drop (Item-Piles-Muster, Stolper-Schutz vor versehentlichen
+    Drops): Item-Bild und -Name, bei stapelbaren Items ein Mengen-Stepper
+    (Default 1, max = Bestand an der Quelle), bei Behältern die Inhalts-
+    Zusammenfassung statt Stepper. GM führt direkt aus, Spieler laufen
+    über den GM-arbitrierten Socket (loot.js). Wurzel wie der Loot-Dialog
+    mit modern-give-dialog, um die Optik zu erben. --}}
+<div class="symbaroum modern-give-dialog modern-loot-dialog">
+    <div class="m-give-item">
+        {{#if item.img}}<img class="m-give-img" src="{{item.img}}" alt=""/>{{/if}}
+        <span class="m-give-name">{{item.name}}</span>
+    </div>
+
+    {{#if summary}}
+    <div class="m-give-note">
+        <i class="fas fa-box-archive"></i>
+        <span>{{localize "GIVE.CONTAINER_NOTE"}}</span>
+        <span class="m-give-summary">{{summary}}</span>
+    </div>
+    {{else if stackable}}
+    <label class="m-sec-label" for="pile-quantity">{{localize "GIVE.QUANTITY"}}</label>
+    <input id="pile-quantity" class="m-give-quantity" type="number" min="1" max="{{max}}" value="1" data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+    {{/if}}
+
+    <div class="m-give-note">
+        <i class="fas fa-circle-info"></i>
+        <span>{{localize "LOOT.DROP_HINT"}}</span>
+    </div>
+</div>

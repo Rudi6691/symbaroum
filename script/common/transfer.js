@@ -119,7 +119,8 @@ function actorListRecipients(sourceActor, seenUuids) {
 	return groups;
 }
 
-function collectRecipients(sourceActor) {
+// Loot v1: Wiederverwendung der Übergabe-Pipeline (exportiert).
+export function collectRecipients(sourceActor) {
 	const tokens = sceneTokenRecipients(sourceActor);
 	// Token-Actor-UUIDs sammeln, damit verknüpfte Aktoren in der Fallback-Liste
 	// nicht doppelt auftauchen (unlinked Token-Actors liegen nicht in game.actors)
@@ -130,8 +131,9 @@ function collectRecipients(sourceActor) {
 	return { tokens, groups: actorListRecipients(sourceActor, seenActorUuids), seenActorUuids };
 }
 
+// Loot v1: Wiederverwendung der Übergabe-Pipeline (exportiert).
 /** Löst die select-Option "t:<tokenId>" / "a:<actorId>" zum Aktor auf. */
-function resolveRecipient(value) {
+export function resolveRecipient(value) {
 	if (!value) return null;
 	const [kind, id] = value.split(':');
 	if (kind === 't') {
@@ -190,7 +192,8 @@ function containerStats(actor, container) {
  * Wurzel zuerst, Kinder danach (Eltern vor Kindern - die Ziel-Seite
  * mappt die container-Referenzen beim Erstellen).
  */
-function buildPayload(sourceActor, item, quantity) {
+// Loot v1: Wiederverwendung der Übergabe-Pipeline (exportiert).
+export function buildPayload(sourceActor, item, quantity) {
 	if (item.type === 'container') {
 		const nodes = collectContainerSubtree(sourceActor, item);
 		return {
@@ -203,8 +206,9 @@ function buildPayload(sourceActor, item, quantity) {
 	return { kind: 'item', items: [{ data, isRoot: true }], quantity: Math.max(1, Math.round(quantity || 1)) };
 }
 
+// Loot v1: Wiederverwendung der Übergabe-Pipeline (exportiert).
 /** Einzeilige Beschreibung des Transferguts für Consent und Chat. */
-function describeTransfer(sourceActor, item, quantity, money) {
+export function describeTransfer(sourceActor, item, quantity, money) {
 	if (money != null) return formatCurrency(money);
 	if (item.type === 'container') {
 		const { childCount, money: containerMoney } = containerStats(sourceActor, item);
@@ -221,8 +225,9 @@ function describeTransfer(sourceActor, item, quantity, money) {
  * Wendet den Payload am Ziel-Aktor an (lokal im Direct-Fall, beim
  * Ziel-Besitzer-Client nach 'accepted'). Frische _ids, gemappte
  * container-Referenzen; lose Items mergen nach AP2-Identitätsregel.
+ * Loot v1: Wiederverwendung der Übergabe-Pipeline (exportiert).
  */
-async function applyAtTarget(targetActor, payload) {
+export async function applyAtTarget(targetActor, payload) {
 	if (!targetActor || !payload) return;
 	if (payload.kind === 'money') {
 		const cur = Math.max(0, Math.round(Number(targetActor.system?.currency) || 0));
@@ -264,7 +269,8 @@ async function applyAtTarget(targetActor, payload) {
  *  Quell-Seite: entfernen
  * ---------------------------------------------------------------- */
 
-async function removeFromSource(sourceActor, item, quantity, money) {
+// Loot v1: Wiederverwendung der Übergabe-Pipeline (exportiert).
+export async function removeFromSource(sourceActor, item, quantity, money) {
 	if (money != null) {
 		const cur = Math.max(0, Math.round(Number(sourceActor.system?.currency) || 0));
 		await sourceActor.update({ 'system.currency': Math.max(0, cur - Math.round(money)) });

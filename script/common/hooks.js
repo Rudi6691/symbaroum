@@ -21,6 +21,10 @@ import { symbDialog } from './symbDialog.js';
 // Übergabe v1 (spielimmersive Aktionen): Socket-Handler des Item-/Geld-
 // transfers (Consent-Prompt am Empfänger, Ausführung beim Ziel-Besitzer)
 import { transferSocketHandler } from './transfer.js';
+// Loot v1 (spielimmersive Aktionen): Welt-Settings + Runtime-Hooks des
+// Loot-Prozesses (Token-HUD, Tod-Automatik, Spieler-Einzelklick, Canvas-
+// Drops, GM-arbitrierter Socket auf demselben System-Kanal, Typen 'loot*')
+import { registerLootSettings, registerLootRuntimeHooks } from './loot.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -492,6 +496,11 @@ Hooks.once('init', () => {
 		default: '',
 	});
 
+	// Loot v1 (spielimmersive Aktionen): Welt-Defaults des Loot-Prozesses
+	// (Tod-Automatik, Auto-Löschung leerer Piles) - pro Token/Aktor über
+	// die Token-HUD-Einstellungen überschreibbar.
+	registerLootSettings();
+
 	game.symbaroum.macros = new SymbaroumMacros();
 
 	game.symbaroum.htmlEscape = function (str) {
@@ -529,6 +538,9 @@ Hooks.once('ready', () => {
 	// Übergabe v1: Consent- und Execute-Nachrichten des Item-/Geldtransfers
 	// auf demselben System-Kanal (disjunkte Nachrichtentypen 'transfer*')
 	game.socket.on('system.symbaroum', transferSocketHandler);
+	// Loot v1: Runtime-Hooks des Loot-Prozesses (HUD, Tod-Automatik,
+	// Klick-Interception, Canvas-Drop) + 'loot*'-Socket-Nachrichten
+	registerLootRuntimeHooks();
 	setup3PartySettings();
 	// A35 (Befund 10): German core status names - at ready all system
 	// translations are loaded (the A34-Fix1 init-time patch never ran)

@@ -1,0 +1,15 @@
+{{!-- Loot v1 (spielimmersive Aktionen): Chat-Karte des Loot-Zugriffs
+    (öffentlich oder als Flüsternachricht an den Lootenden + GMs - GM-
+    Info in beiden Sichtbarkeitsmodi garantiert, wie bei der Übergabe).
+    KEIN eigener background (v1.2-Lernweis der Chat-Optik): nur der
+    Akzent-Balken links. Wurzel trägt BEWUSST zusätzlich give-card -
+    die komplette Karten-Optik (Rahmen, Akzent, Zeilen, Bild) kommt aus
+    den give-card-Regeln (eine Quelle), .loot-card ist nur Marker für
+    spätere Loot-spezifische Anpassungen. --}}
+<div class="symbaroum give-card loot-card">
+    <div class="loot-card-line">
+        {{#if claimerImg}}<img class="give-card-img" src="{{claimerImg}}" alt=""/>{{/if}}
+        <span class="give-card-text"><b>{{claimer}}</b> {{localize "LOOT.CHAT_LOOTS"}} <b>{{source}}</b></span>
+    </div>
+    <div class="give-card-detail">{{description}}</div>
+</div>
