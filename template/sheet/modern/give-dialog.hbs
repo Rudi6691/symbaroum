@@ -60,15 +60,23 @@
     </div>
     {{/if}}
 
-    <div class="m-give-vis">
-        <span class="m-sec-label">{{localize "GIVE.VISIBILITY"}}</span>
-        <label class="m-give-vis-option">
-            <input type="radio" name="give-vis" value="public" checked/>
-            <span>{{localize "GIVE.VISIBILITY_PUBLIC"}}</span>
-        </label>
-        <label class="m-give-vis-option">
-            <input type="radio" name="give-vis" value="whisper"/>
-            <span>{{localize "GIVE.VISIBILITY_WHISPER"}}</span>
-        </label>
-    </div>
+    {{!-- Übergabe v1.6 (Rudolfs Layout-Wunsch aus Testrunde 4, Freigabe
+         31.10.): Aufbau analog Dreckiger Kampf im Würfeldialog - Rahmen
+         mit Überschrift (fieldset + legend), darin Rahmen mit den Radios;
+         Radio-Darstellung identisch zu den Würfeldialog-Radios (lblfavour-
+         Optik, keine Box-Rahmen mehr). JS liest unverändert
+         input[name="give-vis"]:checked (transfer.js). --}}
+    <fieldset class="m-ability-frame">
+        <legend class="m-ability-label">{{localize "GIVE.VISIBILITY"}}</legend>
+        <div class="m-give-vis">
+            <label class="lblfavour">
+                <input type="radio" name="give-vis" value="public" checked/>
+                {{localize "GIVE.VISIBILITY_PUBLIC"}}
+            </label>
+            <label class="lblfavour">
+                <input type="radio" name="give-vis" value="whisper"/>
+                {{localize "GIVE.VISIBILITY_WHISPER"}}
+            </label>
+        </div>
+    </fieldset>
 </div>

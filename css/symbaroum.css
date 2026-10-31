@@ -9213,23 +9213,69 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-summary {
   color: var(--m-dim, var(--m-ink));
 }
 
+/* Übergabe v1.6 (Rudolfs Layout-Wunsch aus Testrunde 4, Freigabe 31.10.):
+   Sichtbarkeits-Radios im Aufbau analog Dreckiger Kampf im Würfeldialog -
+   Rahmen mit Überschrift (fieldset/legend), darin Rahmen mit den Radios,
+   Radio-Labels in lblfavour-Optik OHNE Box-Rahmen. Werte bewusst gespiegelt
+   von .symbaroum.modern-roll-dialog (fieldset.m-ability-frame /
+   legend.m-ability-label ~Zeile 8980, label.lblfavour ~Zeile 8916,
+   .m-roll-favour ~Zeile 9121) statt gemeinsamer Umzug - der Würfeldialog
+   bleibt unberührt; gleiche Deklarationen = identische Darstellung. */
+html body dialog.symb-dialog .symbaroum.modern-give-dialog fieldset.m-ability-frame {
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem 0.4rem;
+  margin: 0.15rem 0;
+  background: var(--m-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+html body dialog.symb-dialog .symbaroum.modern-give-dialog legend.m-ability-label {
+  float: none;
+  width: auto;
+  padding: 0 0.3rem;
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--m-muted);
+  background: var(--m-panel);
+}
+
 html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-vis {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 0.35rem 0.75rem;
-  margin-top: 0.5rem;
-}
-
-/* Sichtbarkeits-Radios: Box-Optik der Würfeldialog-Zeilen (v1.1/v1.2) */
-html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-vis-option {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.5rem;
   border: 0.0625rem solid var(--m-line);
   border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0.1rem 0 0;
   background: var(--m-panel);
+}
+
+/* Radio-Labels wie im Würfeldialog (lblfavour): keine Box, keine Fläche */
+html body dialog.symb-dialog .symbaroum.modern-give-dialog label.lblfavour {
+  background: none;
+  color: var(--m-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  width: auto;
+  min-width: 0;
+  text-align: center;
+  padding: 0.1rem 0.4rem;
+  display: inline-flex;
+  gap: 0.6rem;
+  white-space: nowrap;
+  margin: 0;
+}
+
+/* Im Fähigkeits-Rahmen wie im Würfeldialog: vollwertige Ink-Schrift */
+html body dialog.symb-dialog .symbaroum.modern-give-dialog fieldset.m-ability-frame label.lblfavour {
   color: var(--m-ink);
 }
 
