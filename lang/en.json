@@ -1539,5 +1539,21 @@
   "AMMO.RECOVERY_RESULT_TITLE": "Recovery result",
   "AMMO.RECOVERY_RESULT_LINE": "{name}: {recovered} of {fired} recovered, {lost} damaged",
   "AMMO.RECOVERY_NO_STACK": "{name}: stack no longer in inventory – recovery forfeited.",
-  "AMMO.RECOVERY_DONE_MSG": "Recovery complete: {recovered} of {fired} projectiles recovered."
+  "AMMO.RECOVERY_DONE_MSG": "Recovery complete: {recovered} of {fired} projectiles recovered.",
+  "AMMO.RECOVERY_MENU": "Recover …",
+  "AMMO.RECOVERY_TITLE": "Recover ammunition",
+  "AMMO.RECOVERY_FROM": "Stack",
+  "AMMO.RECOVERY_AMOUNT": "Number of spent pieces",
+  "AMMO.RECOVERY_HINT": "1d20 per piece, recovered on a roll ≤ {threshold}. A stock of 0 is allowed (recovery after shooting empty).",
+  "AMMO.RECOVERY_MANUAL_LINE": "{name}: {fired} spent, {recovered} recovered, {lost} damaged (threshold {threshold})",
+  "AMMO.APPLY_CARD_TITLE": "Apply recovery",
+  "AMMO.APPLY_CARD_LINE": "{actor}: credit +{recovered} × {name}",
+  "AMMO.APPLY_BUTTON": "Apply",
+  "AMMO.APPLY_DONE": "Applied",
+  "AMMO.APPLY_ALREADY": "This recovery has already been applied.",
+  "AMMO.APPLY_NO_RIGHT": "Only the GM can apply the recovery.",
+  "AMMO.APPLY_ERR_NO_ACTOR": "Actor/token no longer found – recovery cannot be applied.",
+  "AMMO.APPLY_ERR_NO_STACK": "{name}: stack no longer in inventory – credit forfeited.",
+  "AMMO.APPLY_RESULT": "{name}: +{amount} (recovery applied)",
+  "AMMO.RECOVERY_NO_USAGE": "No ammunition usage counted in combat (counter empty). Usage is only tracked during an active combat; attacks outside the combat do not count. For a recovery without a counter, use the \"Recover …\" entry on the ammunition stack."
 }

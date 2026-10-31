@@ -9794,3 +9794,57 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog 
 .symbaroum.ammo-recovery-card .ammo-recovery-btn:disabled {
   opacity: 0.6;
 }
+
+/* ============================================================
+   Munitionsverbrauch v1.1 (Sammel-Fix) - CSS-Ergaenzungen
+   1) Zeilen-Pinning: die Check-Zeilen des modernen Wurf-Dialogs
+      (m-roll-check) und die klassische Verbandsmaterial-Zeile
+      (bandage-status) kriegen eine volle Breite + festes Flex-
+      Verhalten, damit sie bei Bestand 0 der Kräuterarznei
+      NEBEN (unter) der Zeile liegen bleiben und nicht in die
+      Kräuterarznei-Zeile "rutschen" (Rudolfs Punkt-11-Befund).
+   2) Sichtbarere Trennung der bandage-status-Zeile von der
+      Zeile darueber (margin + Rahmenfarbe).
+   3) Chat-Karten-Styles des manuellen Bergen-Flows:
+      Würfelzeile (klein/gedämpft) + GM-Anwendungskarte erbt
+      vom v1-Stil der Bergungs-Karte.
+   ============================================================ */
+
+/* 1) Zeilen-Pinning (modern) */
+.symbaroum.modern-roll-dialog .m-roll-check,
+.symbaroum.modern-roll-dialog .m-roll-check.bandage-status {
+  flex: 0 0 100% !important;
+  width: 100% !important;
+}
+/* 1) Zeilen-Pinning (klassisch) */
+dialog.symb-dialog .symbaroum.dialog .simplebox.bandage-status {
+  flex-basis: 100%;
+}
+
+/* 2) Trennung der bandage-status-Zeile */
+.symbaroum.modern-roll-dialog .m-roll-check.bandage-status {
+  margin-top: 0.35rem !important;
+  border-color: var(--m-muted, rgba(128, 128, 128, 0.55));
+}
+.symbaroum.dialog .simplebox.bandage-status {
+  margin-top: 10px;
+}
+
+/* 3) Chat-Karten des manuellen Bergen-Flows (v1.1) */
+.symbaroum.ammo-recovery-card .ammo-recovery-dice {
+  margin: 4px 0;
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+.symbaroum.ammo-recovery-card .ammo-apply-card,
+.symbaroum.ammo-recovery-card .ammo-manual-result {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.2));
+}
+.symbaroum.ammo-recovery-card .ammo-apply-btn {
+  width: auto;
+}
+.symbaroum.ammo-recovery-card .ammo-apply-btn:disabled {
+  opacity: 0.6;
+}

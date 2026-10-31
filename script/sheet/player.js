@@ -30,6 +30,9 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 // (resourceCategory) ohne System-Trigger - Alchemiezutat bis zum Brau-Dialog
 // des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
 import { openConsumeResourceDialog } from '../common/resources.js';
+// Munitionsverbrauch v1.1: Kontextmenü „Bergen …" an Munitions-Stapeln
+// (manueller Bergen-Flow, ammo.js)
+import { openAmmoRecoveryDialog, isAmmoCategory, isAmmoRecoveryEnabled } from '../common/ammo.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -1108,6 +1111,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			const item = this.actor.items.get(row.dataset.itemId);
 			if (!item) continue;
 			if (!item.system?.isEquipment && !isStackableItem(item)) continue;
+			// Munition v1.1: Rechtsklick auf Munitions-STAPEL öffnet bei
+			// aktiver Bergungsoption das Kontextmenü (mit „Bergen …")
+			// statt des Anzahl-Dialogs - sonst wäre der manuelle Bergen-
+			// Flow im modernen Blatt unerreichbar (Rudolfs Testrunde-1-
+			// Wunsch). Alle anderen Zeilen behalten das A6v8-Verhalten.
+			if (item.type === 'equipment' && isAmmoRecoveryEnabled() && isAmmoCategory(item.system?.resourceCategory ?? '')) continue;
 			row.addEventListener('contextmenu', (ev) => {
 				if (!this.isEditable || !this.actor.isOwner) return;
 				ev.preventDefault();
@@ -1300,6 +1309,32 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openConsumeResourceDialog(elem);
+				},
+			},
+			{
+				// Munitionsverbrauch v1.1 (Rudolfs Testrunde-1-Wunsch):
+				// Kontextmenü „Bergen …" an Munitions-Stapeln - der SPIELER-
+				// getriebene Bergen-Flow (Anzahl verschossener Stücke
+				// eintragen, 1W20 je Stück, Ergebniskarte + GM-Karte zum
+				// Anwenden auf den Token, Muster Schaden anwenden). Sichtbar
+				// für Blattbesitzer/GM an equipment- UND weapon-Stapeln
+				// (Wurfspeer-Waffen), Bestand 0 ausdrücklich ERLAUBT
+				// (Bergung nach Leerschießen ist der Normalfall), nur bei
+				// aktiver Bergungsoption, gleiche visibleEl-Regel wie
+				// Ressource verbrauchen.
+				label: 'AMMO.RECOVERY_MENU',
+				icon: `<i class="fa-solid fa-box-open"></i>`,
+				visible: (elem) => {
+					return (
+						isAmmoRecoveryEnabled() &&
+						(elem?.type === 'equipment' || elem?.type === 'weapon') &&
+						isAmmoCategory(elem?.system?.resourceCategory ?? '') &&
+						elem.isOwner
+					);
+				},
+				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					openAmmoRecoveryDialog(elem);
 				},
 			},
 			{

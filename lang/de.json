@@ -1539,5 +1539,21 @@
   "AMMO.RECOVERY_RESULT_TITLE": "Bergungsergebnis",
   "AMMO.RECOVERY_RESULT_LINE": "{name}: {recovered} von {fired} geborgen, {lost} beschädigt",
   "AMMO.RECOVERY_NO_STACK": "{name}: Stapel nicht mehr im Inventar – Bergung verfällt.",
-  "AMMO.RECOVERY_DONE_MSG": "Bergung abgeschlossen: {recovered} von {fired} Projektilen geborgen."
+  "AMMO.RECOVERY_DONE_MSG": "Bergung abgeschlossen: {recovered} von {fired} Projektilen geborgen.",
+  "AMMO.RECOVERY_MENU": "Bergen …",
+  "AMMO.RECOVERY_TITLE": "Munition bergen",
+  "AMMO.RECOVERY_FROM": "Stapel",
+  "AMMO.RECOVERY_AMOUNT": "Anzahl verschossener Stücke",
+  "AMMO.RECOVERY_HINT": "1W20 je Stück, geborgen bei Wurf ≤ {threshold}. Bestand 0 ist erlaubt (Bergung nach Leerschießen).",
+  "AMMO.RECOVERY_MANUAL_LINE": "{name}: {fired} verschossen, {recovered} geborgen, {lost} beschädigt (Schwelle {threshold})",
+  "AMMO.APPLY_CARD_TITLE": "Bergung anwenden",
+  "AMMO.APPLY_CARD_LINE": "{actor}: +{recovered} × {name} gutschreiben",
+  "AMMO.APPLY_BUTTON": "Anwenden",
+  "AMMO.APPLY_DONE": "Angewandt",
+  "AMMO.APPLY_ALREADY": "Diese Bergung wurde bereits angewandt.",
+  "AMMO.APPLY_NO_RIGHT": "Nur die Spielleitung kann die Bergung anwenden.",
+  "AMMO.APPLY_ERR_NO_ACTOR": "Aktor/Token nicht mehr gefunden – Bergung kann nicht angewandt werden.",
+  "AMMO.APPLY_ERR_NO_STACK": "{name}: Stapel nicht mehr im Inventar – Gutschrift verfallen.",
+  "AMMO.APPLY_RESULT": "{name}: +{amount} (Bergung angewandt)",
+  "AMMO.RECOVERY_NO_USAGE": "Kein Munitions-Verbrauch im Kampf gezählt (Zähler leer). Verbrauch wird nur während eines aktiven Kampfes gebucht; Angriffe außerhalb des Kampfes zählen nicht. Für eine Bergung ohne Zähler den Eintrag „Bergen …“ am Munitions-Stapel nutzen."
 }
