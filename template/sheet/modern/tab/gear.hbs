@@ -1,7 +1,13 @@
 {{!-- A6: Ausrüstungs-Tab - kompakte Zeilen (Bild, Name, Gewicht/Preis, Favorit,
     Status-Chip mit Umschalten per Klick: Aktiv -> Ausgerüstet -> Andere).
     Kontextmenü und Drag&Drop bleiben über die bestehenden Klassen aktiv.
-    Geld liegt kompakt in der Stammleiste (Klick öffnet den Währungsdialog). --}}
+    Geld liegt kompakt in der Stammleiste (Klick öffnet den Währungsdialog).
+    Übergabe v1.2 (Rudolfs Testrunde 1): Klick auf das Item-Icon am Zeilen-
+    kopf öffnet den Geben-Dialog (Tooltip "Geben an ..."); Drag&Drop der
+    Zeilen bleibt parallel nutzbar. Behälter-Übergabe läuft zusätzlich über
+    den Geben-Button im Container-Dialog (die v1 giveable-Klassen und das
+    tote Mini-Menü sind entfernt - der Behältersystem-Zeilenlistener schluckt
+    den Rechtsklick mit stopPropagation, das Menü am Blatt-Root sah ihn nie). --}}
 {{!-- Behältersystem (Projekt "Behälter" v1): eigene Gruppe mit einklappbaren
     Behälterzeilen (Bild/Icon, Titel = Item-Name, GE-Summe mit Kapazitäts-
     balken, Geldanzeige mit Hover, zwei Status-Chips "mitgeführt"/"zählt zur
@@ -17,9 +23,9 @@
         <div class="m-box-b">
             {{#each modern.gear.containers as |c|}}
             <div class="item m-container-block" data-item-id="{{c.id}}">
-                <div class="m-container-row giveable draggable" data-item-id="{{c.id}}" data-container-id="{{c.id}}">
+                <div class="m-container-row draggable" data-item-id="{{c.id}}" data-container-id="{{c.id}}">
                     <button type="button" class="m-container-collapse" data-tooltip="{{localize "CONTAINER.COLLAPSE_TOGGLE"}}"><i class="fas fa-chevron-{{#if c.collapsed}}right{{else}}down{{/if}}"></i></button>
-                    <div class="m-item-img" style="background-image: url('{{c.img}}');"></div>
+                    <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{c.img}}');"></div>
                     <button type="button" class="item-edit m-inv-name">{{c.name}}<small data-tooltip="{{c.loadTooltip}}">{{c.capacityDisplay}}</small></button>
                     {{#if c.fillPct}}
                     <span class="m-cap-bar{{#if c.fillFull}} full{{/if}}" data-tooltip="{{c.capacityDisplay}}"><span class="m-cap-fill" style="width:{{c.fillPct}}%"></span></span>
@@ -50,10 +56,10 @@
                         Rudolfs Testrunde 1 mit eigenem Kollaps-Pfeil
                         (Ein-/Ausklappen wie bei den Behältern der obersten
                         Ebene, Kollaps-Zustand als gleiches User-Flag). --}}
-                    <div class="item m-container-row m-container-child giveable m-cont-d{{ch.depth}} draggable" data-item-id="{{ch.id}}" data-container-id="{{ch.id}}">
+                    <div class="item m-container-row m-container-child m-cont-d{{ch.depth}} draggable" data-item-id="{{ch.id}}" data-container-id="{{ch.id}}">
                         <span class="m-cont-indent"></span>
                         <button type="button" class="m-container-collapse" data-tooltip="{{localize "CONTAINER.COLLAPSE_TOGGLE"}}"><i class="fas fa-chevron-{{#if ch.collapsed}}right{{else}}down{{/if}}"></i></button>
-                        <div class="m-item-img" style="background-image: url('{{ch.img}}');"></div>
+                        <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{ch.img}}');"></div>
                         <button type="button" class="item-edit m-inv-name">{{ch.name}}<small>{{ch.capacityDisplay}}</small></button>
                         <span class="m-cont-money" data-tooltip="{{ch.moneyTooltip}}">{{ch.currencyDisplay}}</span>
                         <button type="button" class="m-container-takeout" data-tooltip="{{localize "CONTAINER.TAKE_OUT"}}"><i class="fas fa-arrow-up"></i></button>
@@ -62,7 +68,7 @@
                     {{!-- Packtes Item: Status bleibt "Andere" (Status-Zwang),
                         Entnahme per Taste oder Drag&Drop auf das Blatt. --}}
                     <div class="symbaroum-contextmenu item m-inv-row draggable m-container-child m-cont-d{{ch.depth}}" data-item-id="{{ch.id}}">
-                        <div class="m-item-img" style="background-image: url('{{ch.img}}');"></div>
+                        <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{ch.img}}');"></div>
                         <button type="button" class="item-edit m-inv-name">{{ch.name}}<small data-tooltip="{{ch.weightTooltip}}">{{ch.weightDisplay}}</small></button>
                         <span class="m-num">{{ch.sub}}</span>
                         <span class="m-st m-st-other" data-tooltip="{{localize "CONTAINER.PACKED"}}"><i class="fas fa-box-archive"></i></span>
@@ -86,7 +92,7 @@
         <div class="m-box-b">
             {{#each modern.gear.armors as |g|}}
             <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
-                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{g.img}}');"></div>
                 {{!-- A6v7 (Rudolfs Änderungswünsche): Positionen getauscht - LE/
                     Preis stehen jetzt unter dem Namen, der Schutzwert rechts. --}}
                 <button type="button" class="item-edit m-inv-name">{{g.name}}<small data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</small></button>
@@ -110,7 +116,7 @@
         <div class="m-box-b">
             {{#each modern.gear.weapons as |g|}}
             <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
-                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{g.img}}');"></div>
                 {{!-- A6v7: Positionen getauscht - LE/Preis unter dem Namen,
                     der Schaden rechts. --}}
                 <button type="button" class="item-edit m-inv-name">{{g.name}}<small data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</small></button>
@@ -130,7 +136,7 @@
         <div class="m-box-b">
             {{#each modern.gear.equipments as |g|}}
             <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
-                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{g.img}}');"></div>
                 {{!-- A6v7: Positionen getauscht - LE/Preis unter dem Namen,
                     die Anzahl rechts. --}}
                 <button type="button" class="item-edit m-inv-name">{{g.name}}<small data-tooltip="{{g.weightTooltip}}">{{g.weightDisplay}}</small></button>
@@ -149,7 +155,7 @@
         <div class="m-box-b">
             {{#each modern.gear.artifacts as |g|}}
             <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
-                <div class="m-item-img" style="background-image: url('{{g.img}}');"></div>
+                <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{g.img}}');"></div>
                 {{!-- A6v8 (Rudolfs Änderungswunsch): Artefakt-Zeilen wie die
                     anderen Gruppen - LE/Preis unter dem Namen, die Anzahl
                     rechts; die Artefakt-Merkmale (Aktionen/Korruption)

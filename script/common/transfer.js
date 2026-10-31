@@ -409,7 +409,11 @@ function isTargetClient(msg) {
 
 /** Consent-Prompt beim Ziel-Besitzer (Schließen = Abbruch, kein Timeout). */
 async function showConsentPrompt(msg) {
-	const F = game.i18n.format;
+	// v1.1-Hotfix: KEINE ungebundene Methoden-Referenz (const F = game.i18n.format
+	// verliert `this`, Foundrys format() liest dann this.translations -> TypeError
+	// "Cannot read properties of undefined (reading 'translations')" am
+	// Empfänger-Client, der Consent-Prompt erschien nie). Modul-Level F ist
+	// die Arrow-Variante (key, data) => game.i18n.format(key, data) und safe.
 	const img = msg.itemImg ? `<img class="give-prompt-img" src="${msg.itemImg}" alt=""/>` : '';
 	const content = `<div class="symbaroum modern-give-request">
 		<div class="give-prompt-line">${img}<span>${F('GIVE.REQUEST_TEXT', { source: msg.sourceName })}</span></div>

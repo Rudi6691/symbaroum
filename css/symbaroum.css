@@ -9129,8 +9129,9 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog 
 /* ================================================================
    Übergabe v1 (spielimmersive Aktionen): Item-/Geldtransfer
    Rudolfs Entscheidungen 31.10.2026 - Geben an Anwesende/Charaktere.
-   Einstiegspunkte: Gear-Tab-Kontextmenü, Behälter-Zeilen (Mini-Menü),
-   Item-Kopf-Button, "Geben an ..."-Button im Währungsdialog.
+   Einstiegspunkte: Gear-Tab-Kontextmenü, Item-Kopf-Button,
+   "Geben an ..."-Button im Währungs- und Container-Dialog,
+   Icon-Klick am Zeilenkopf des Gear-Tabs (v1.2).
    ================================================================ */
 
 /* Geben-Button der Item-Titelzeile: gleiche Geometrie wie der
@@ -9257,12 +9258,15 @@ html body dialog.symb-dialog .symbaroum.modern-give-request .give-prompt-detail 
   font-weight: bold;
 }
 
-/* Chat-Karte der Übergabe (öffentlich oder Flüstern an Besitzer+GM) */
+/* Chat-Karte der Übergabe (öffentlich oder Flüstern an Besitzer+GM).
+   Übergabe v1.2 (Rudolfs Testrunde 1): kein eigener dunkler Panel-
+   Hintergrund mehr - die Karte läuft auf dem Standard-Chat-Hintergrund
+   wie die Kampf-/Fähigkeitenkarten; nur der Akzent-Balken links bleibt
+   als Marker. */
 .symbaroum.give-card {
   border: 0.0625rem solid var(--m-line, #726e5c);
   border-left: 0.25rem solid var(--m-accent, #b2925e);
   border-radius: 0.35rem;
-  background: var(--m-panel, #2c2b28);
   padding: 0.35rem 0.5rem;
   margin: 0.25rem 0;
 }
@@ -9284,4 +9288,29 @@ html body dialog.symb-dialog .symbaroum.modern-give-request .give-prompt-detail 
   margin-top: 0.25rem;
   padding-left: 0.1rem;
   font-weight: bold;
+}
+
+/* Übergabe v1.2 (Rudolfs Testrunde 1): Die ausgeklappte Optionsliste
+   nativer Selects rendert der Browser im hellen Farbschema (weisser
+   Grund, helle Schrift = unlesbar). color-scheme: dark dreht auch
+   native Widgets (Select-Popup, Scrollbalken, Spinnen-Button) auf
+   dunkel - systemweit für alle dunklen modernen Dialoge; das helle
+   Papier-Theme (modern-theme-classic) bleibt unberührt. Die
+   Options-Farben sind Sicherheitsnetz für Browser, die das Popup
+   nicht an color-scheme koppeln (Theme-Variablen passen sich an). */
+dialog.symb-dialog.modern-dialog.modern-theme-dark {
+  color-scheme: dark;
+}
+
+dialog.symb-dialog.modern-dialog select option {
+  background-color: var(--m-input-bg);
+  color: var(--m-input-ink);
+}
+
+/* Übergabe v1.2: Icon-Klick am Zeilenkopf des Gear-Tabs öffnet den
+   Geben-Dialog (Drag&Drop der Zeile bleibt parallel nutzbar) -
+   Zeiger-Cursor statt reiner Drag-Andeutung, der Tooltip am Icon
+   sagt "Geben an ...". */
+.symbaroum.sheet.actor .modern-root .m-gear .m-item-img {
+  cursor: pointer;
 }

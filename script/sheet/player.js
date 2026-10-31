@@ -1111,6 +1111,23 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				this._openEquipmentDialog(item);
 			});
 		}
+		// Übergabe v1.2 (Rudolfs Testrunde 1): Klick auf das Item-Icon am
+		// Zeilenkopf des Ausrüstungs-Tabs öffnet den Geben-Dialog direkt -
+		// erspart das Item-Blatt-Fenster und den Kopf-Button-Klick. Drag&Drop
+		// der Zeilen bleibt parallel nutzbar (Rudolf: Drag-Option soll
+		// erhalten bleiben); Rechte/Typ/Empfänger prüft openGiveDialog selbst
+		// (Warnung statt Dialog, wenn kein Besitz).
+		const giveIcons = element.querySelectorAll('.m-gear .m-item-img');
+		for (const icon of giveIcons) {
+			icon.addEventListener('click', (ev) => {
+				const row = icon.closest('[data-item-id]');
+				const item = row ? this.actor.items.get(row.dataset.itemId) : null;
+				if (!item || !GIVE_TYPES.includes(item.type)) return;
+				ev.preventDefault();
+				ev.stopPropagation();
+				openGiveDialog(this.actor, item);
+			});
+		}
 		// A6v4 (Testrunde 3): Scroll-Position wiederherstellen (zweite Stufe
 		// der Sicherung - gemessen in _prepareContext, unmittelbar bevor der
 		// DOM ersetzt wird; die Höhenkette stellt sicher, dass .modern-body
@@ -1143,32 +1160,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		this.powerMenu ??= new CMPowerMenu(element, '.symbaroum-contextmenu', this._getPowerMenuItems(), {
 			parent: this,
 		});
-		// Übergabe v1: Behälterzeilen tragen NICHT .symbaroum-contextmenu (das
-		// reguläre Menü wäre dort teils deplatziert - Löschen liesse den Inhalt
-		// verwaist zurück). Sie bekommen die eigene Klasse .giveable und ein
-		// Mini-Kontextmenü mit NUR dem Geben-Eintrag; da die Selektoren
-		// disjunkt sind, öffnet nie ein zweites Popover auf derselben Zeile.
-		this.containerGiveMenu ??= new CMPowerMenu(element, '.m-container-row.giveable', this._getContainerGiveMenuItems(), {
-			parent: this,
-		});
-	}
-
-	/**
-	 * Übergabe v1: Menü für Behälterzeilen (nur Geben - der Transfer nimmt
-	 * den kompletten Teilbaum inkl. Inhalt und Behälter-Geld mit, siehe
-	 * transfer.js).
-	 */
-	_getContainerGiveMenuItems() {
-		return [
-			{
-				label: 'TOOLTIP.GIVE_ITEM',
-				icon: `<i class="fa-solid fa-gift"></i>`,
-				visible: (elem) => elem?.type === 'container',
-				onClick: (event, elem) => {
-					openGiveDialog(this.actor, elem);
-				},
-			},
-		];
+		// Übergabe v1.2: Das v1 containerGiveMenu war toter Code - der
+		// Behältersystem-v1-Zeilenlistener (weiter oben) schluckt den
+		// Rechtsklick auf JEDER Behälterzeile (preventDefault +
+		// stopPropagation, öffnet _openContainerDialog), das Event erreicht
+		// den Blatt-Root nie. Behälter-Übergabe läuft jetzt über den
+		// Geben-Button im Container-Dialog; Item-Zeilen zusätzlich über
+		// den Icon-Klick (beides weiter unten gebunden).
 	}
 
 	_getPowerMenuItems() {
@@ -1264,7 +1262,8 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				// Übergabe v1: Item an Anwesenden/Charakter/NPC übergeben - nur im
 				// Ausrüstungs-Tab (visibleEl prüft die Zeile im DOM) und nur für
 				// physische Typen; aktive Waffen bleiben übertragbar (landen am
-				// Ziel inaktiv). Behälter haben eigene Zeilen mit Mini-Menü.
+				// Ziel inaktiv). Behälter laufen über den Geben-Button im
+				// Container-Dialog (v1.2, siehe _openContainerDialog).
 				label: 'TOOLTIP.GIVE_ITEM',
 				icon: `<i class="fa-solid fa-gift"></i>`,
 				visible: (elem) => {
@@ -1771,6 +1770,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				<label for="mcont-money">${localize('CONTAINER.MONEY_TRANSFER')}</label>
 				<input id="mcont-money" type="number" step="1" value="0" data-tooltip="${localize('CONTAINER.MONEY_TRANSFER_HINT')}"/>
 			</div>
+			<div class="m-cont-dlg-actions">
+				<button type="button" class="m-cont-btn" data-act="give"><i class="fas fa-gift"></i> ${localize('TOOLTIP.GIVE_ITEM')}</button>
+			</div>
 			<p class="m-cont-dlg-hint">${localize('CONTAINER.DELETE_HINT')}</p>
 			<div class="m-cont-dlg-actions">
 				<button type="button" class="m-cont-btn" data-act="return"><i class="fas fa-arrow-rotate-left"></i> ${localize('CONTAINER.DELETE_RETURN')}</button>
@@ -1818,6 +1820,15 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		if (!root) return;
 		for (const btn of root.querySelectorAll('.m-cont-btn')) {
 			btn.addEventListener('click', () => {
+				// Übergabe v1.2 (Rudolfs Testrunde 1): Geben-Button öffnet den
+				// Übergabe-Dialog für den KOMPLETTEN Behälter (inkl. Inhalt
+				// und Behälter-Geld, transfer.js) und schliesst den
+				// Container-Dialog.
+				if (btn.dataset.act === 'give') {
+					dlg.close();
+					openGiveDialog(this.actor, container);
+					return;
+				}
 				this._confirmContainerDelete(container, btn.dataset.act, dlg);
 			});
 		}
