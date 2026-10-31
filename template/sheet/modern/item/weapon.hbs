@@ -52,7 +52,7 @@
                         Punkt 3): Artefakt- und Stapelbar-Checkbox sind
                         SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
                         - für Spieler ausgeblendet, der WERT bleibt erhalten. --}}
-                    {{#if isGM}}
+                    {{#if symbaroumOptions.isGM}}
                     <div class="m-inline-field m-check">
                         <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>

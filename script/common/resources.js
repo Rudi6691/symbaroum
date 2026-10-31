@@ -111,9 +111,16 @@ export function isResourceConsumptionEnabled() {
  * ---------------------------------------------------------------- */
 
 /** Effektive Menge eines Items (undefined/ungueltig = 1, wie transfer.js). */
+/* Ressourcen v1.2 (Rudolfs Testrunde 2, Punkt 5): 0 ist ein gueltiger
+ * Bestandszustand (verbrauchter Stapel). Der v1-Fallback ">= 1 : 1" hat
+ * Menge 0 zu 1 gelogen - damit war die Verfuegbarkeitspruefung true
+ * (Checkbox nicht ausgegraut) und die Abbuchung zog "1 von 1" aus einem
+ * leeren Stapel (Chat-Karte "−1" ohne echte Abbuchung, Zeile blieb 0).
+ * Nur undefined/NaN/Negativ fallen auf den Alt-Bestand-Fallback 1
+ * zurueck (Items ohne Anzahl). */
 export function getItemCount(item) {
 	const n = Number(item?.system?.number);
-	return Number.isFinite(n) && n >= 1 ? Math.round(n) : 1;
+	return Number.isFinite(n) && n >= 0 ? Math.round(n) : 1;
 }
 
 /**

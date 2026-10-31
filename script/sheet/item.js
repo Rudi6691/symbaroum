@@ -432,7 +432,14 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			stackable,
 			showQuantityArrows: showNumber && stackable,
 			priceExists,
-			numberDisplay: Number(item.system.number) > 0 ? item.system.number : 1,
+			/* Ressourcen v1.2 (Rudolfs Testrunde 2, Punkt 4): 0 ist ein
+			 * gueltiger Anzeige-Zustand (verbrauchte Ressource) - der
+			 * fruehere Fallback "> 0 : 1" hat gespeicherte 0er als "1"
+			 * angezeigt und damit den funktionierenden Stepper-Fix
+			 * (bis 0 herunterzaehlen) unkenntlich gemacht. Nur
+			 * undefined/NaN/Negativ fallen auf den Anzeige-Fallback 1
+			 * zurueck (Alt-Items). */
+			numberDisplay: Number(item.system.number) >= 0 ? item.system.number : 1,
 			weightTooltipKey: type === 'armor' ? 'WEIGHT.TOOLTIP_ARMOR' : 'WEIGHT.TOOLTIP',
 		};
 		/* Kopf-Zeile 2 (Booleans fertig berechnet - A6-Lernweis: Handlebars
