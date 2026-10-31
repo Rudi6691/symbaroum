@@ -8,9 +8,12 @@ import { openActorLootDefaultsDialog } from '../common/loot.js';
 /**
  * Header controls that ActorSheetV2 adds by default (token configuration and artwork).
  * They are hidden to keep the V13 sheet header: the two symbaroum buttons plus close.
- * Loot v1.3 (Rudolfs Freigabe, Testrunde 2 Punkt 13): configurePrototypeToken is
- * deliberately EXCLUDED here and re-enabled GM-only in _getHeaderControls - the
- * prototype token configuration was unreachable in the modern design otherwise.
+ * Loot v1.3 (Testrunde 2, Punkt 13) / v1.4 (Testrunde 3, Punkt 4): configurePrototypeToken
+ * is deliberately EXCLUDED from this set and simply flows through the filter below -
+ * exactly once, with the core's own visibility conditions (ownership OWNER = SL and
+ * actor owners, per Rudolf's round-3 decision, plus not-editable / synthetic-token
+ * removal by the base class). The prototype token configuration was unreachable in
+ * the modern design otherwise.
  */
 const HIDDEN_TOKEN_CONTROLS = new Set(['configureToken', 'showPortraitArtwork', 'showTokenArtwork']);
 
@@ -59,17 +62,16 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 	 * _renderHeaderControl).
 	 */
 	_getHeaderControls() {
-		const all = super._getHeaderControls();
-		const controls = all.filter((control) => !HIDDEN_TOKEN_CONTROLS.has(control.action));
-		// Loot v1.3 (Testrunde 2, Punkt 13): „Prototypen-Token konfigurieren"
-		// (Core-Control, öffnet TokenConfig am prototypeToken) für SL wieder
-		// einblenden - im modernen Design sonst nur per Makro erreichbar
-		// (new CONFIG.Token.prototypeSheetClass({prototype: actor.prototypeToken})).
-		// Die Core-Ownership (OWNER) und die Basisklassen-Bedingungen
-		// (nicht editierbar / synthetischer Token) greifen zusätzlich.
+		const controls = super._getHeaderControls().filter((control) => !HIDDEN_TOKEN_CONTROLS.has(control.action));
+		// Loot v1.4 (Testrunde 3, Punkt 4): „Prototypen-Token konfigurieren"
+		// fließt EINFACH durch den Filter (Core-Control, öffnet TokenConfig
+		// am prototypeToken; Sichtbarkeit regelt der Core selbst:
+		// ownership OWNER = SL + Eigentümer, Rudolfs Entscheidung Runde 3,
+		// plus nicht editierbar / synthetischer Token). Die v1.3-Fassung
+		// hing ihn DOPPELT an (Filter ließ ihn schon durch) - genau das ist
+		// hier behoben. Nichts wird also mehr extra gepusht, nur der
+		// Loot-Standards-Control bleibt GM-only dazu.
 		if (game.user.isGM) {
-			const proto = all.find((control) => control.action === 'configurePrototypeToken');
-			if (proto) controls.push(proto);
 			controls.push({
 				action: 'lootDefaults',
 				icon: 'fas fa-box-open',
