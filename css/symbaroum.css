@@ -9640,3 +9640,20 @@ html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-give-currency .sym
 html body dialog.symb-dialog .symbaroum.modern-loot-dialog .m-give-currency .sym-currency-grid input {
   width: 3.5rem;
 }
+
+/* ------------------------------------------------------------------ */
+/* Ressourcen v1 (31.10.) — Ressourcen-Kategorie auf dem klassischen
+   Ausrüstungs-Blatt: gleiche Zeilen-Geometrie wie Anzahl/Stapelbar
+   (Regel-Block „.symbaroum.sheet.item .equipment .tab .cost/.number/
+   .stackable" oben, ~3565). Das moderne Blatt erbt die bestehenden
+   select-Regeln (~7768/~7893), der Verbrauchs-Dialog die Give-Dialog-
+   Regeln (m-give-*), der Würfeldialog die vorhandene globale
+   input:disabled-Regel — deshalb bewusst NUR diese eine klassische
+   Zeilenregel neu. */
+/* Ressourcen v1 */
+.symbaroum.sheet.item .equipment .tab .resourcecategory {
+  display: flex;
+  flex-direction: row;
+  flex-basis: 100%;
+  margin: 5px;
+}

@@ -182,9 +182,13 @@
         <label>{{localize "DIALOG.MEDICUS_EXAM"}}</label>
         <input type="checkbox" id="exam" unchecked>
       </div>
+      {{!-- Ressourcen v1 (Rudolfs Entscheidung 2): Fehlt Kraeuterarznei im
+          Inventar (Kategorie kraeuterarznei), ist die Checkbox ausgegraut
+          und traegt einen Tooltip - nur wenn das Welt-Setting
+          „Ressourcenverbrauch" aktiv ist, sonst unangetastet. --}}
       <div class="m-roll-check">
         <label>{{localize "ABILITY_MEDICUS.HERBALCURE"}}</label>
-        <input type="checkbox" id="herbalcure" unchecked>
+        <input type="checkbox" id="herbalcure" unchecked {{#if herbalCureUnavailable}}disabled data-tooltip="{{localize "ABILITY_MEDICUS.HERBALCURE_MISSING"}}{{/if}}>
       </div>
       <div class="m-roll-row">
         <label>{{localize "DIALOG.CUSTOM_HEALING_MODIFIER"}}</label>

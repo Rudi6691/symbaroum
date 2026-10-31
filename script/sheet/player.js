@@ -26,6 +26,10 @@ import { isStackableItem, mergeStackDrop, splitStackItem } from '../common/stack
 // Tokens, Charaktere der Spieler oder NSC - Dialog, Consent und Socket-
 // Ausführung liegen komplett in transfer.js.
 import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/transfer.js';
+// Ressourcen v1: Dialog „Ressource verbrauchen (N)" für kategorisierte Items
+// (resourceCategory) ohne System-Trigger - Alchemiezutat bis zum Brau-Dialog
+// des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
+import { openConsumeResourceDialog } from '../common/resources.js';
 
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
@@ -1272,6 +1276,30 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openGiveDialog(this.actor, elem);
+				},
+			},
+			{
+				// Ressourcen v1 (Rudolfs Runde-2-Entscheidung): Kontextmenü
+				// „Ressource verbrauchen…" an kategorisierten Ausrüstungs-
+				// Items - der generische Verbrauchsweg für Ressourcen ohne
+				// System-Trigger (Alchemiezutat, bis der Brau-Dialog des
+				// Ökonomie-Projekts existiert). GM und Blattbesitzer
+				// (elem.isOwner deckt den GM mit ab), nur im Ausrüstungs-Tab
+				// (gleiche visibleEl-Regel wie Geben), nur mit Menge > 0.
+				// Vom Welt-Setting unabhängig: reine Inventar-Pflege.
+				label: 'RESOURCE.CONSUME_MENU',
+				icon: `<i class="fa-solid fa-droplet"></i>`,
+				visible: (elem) => {
+					return (
+						elem?.type === 'equipment' &&
+						!!elem.system?.resourceCategory &&
+						Number(elem.system?.number) > 0 &&
+						elem.isOwner
+					);
+				},
+				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					openConsumeResourceDialog(elem);
 				},
 			},
 			{

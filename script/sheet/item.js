@@ -133,6 +133,18 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
+		/* Ressourcen v1: Ressourcen-Kategorie nur auf Ausrüstungs-Blättern und
+		   nur für den GM (Kategorie-Taxonomie ist Welt-/SL-Sache, Muster der
+		   GM-Referenz; Spieler sehen die Wirkung - ausgegraute Checkbox,
+		   Kontextmenü -, nicht die Zuweisung). Labels vorlokalisiert
+		   (selectOptions ohne localize-Helper, Muster Bestienkunde oben);
+		   undefined (Alt-Items) und '' sind beide „keine". */
+		context.showResourceCategory = this.item.type === "equipment" && !!game.user.isGM;
+		context.resourceCategory = this.item.system.resourceCategory ?? "";
+		context.resource_category_selection = Object.values(game.symbaroum.config.RESOURCE_CATEGORY_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;
 		/* AP2 v2 (Uniform-Regel): Effektiver Stapelbar-Zustand für die

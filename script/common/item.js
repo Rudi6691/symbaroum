@@ -12,6 +12,10 @@ import {
 import { createLineDisplay } from "./dialog.js";
 import { symbDialog } from "./symbDialog.js";
 import { isModernDialogActive, modernDialogClasses } from "./modernSheetConfig.js";
+// Ressourcen v1: Verbraucher-Registry + Abbuch-/Verfügbarkeits-Helfer des
+// kategoriebasierten Ressourcenverbrauchs (Kategorie Kraeuterarznei für den
+// Medicus; Setting „Ressourcenverbrauch" GM-seitig, Default AUS)
+import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailability, consumeHerbalCure } from "./resources.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3493,6 +3497,14 @@ export async function modifierDialog(functionStuff) {
   // der Nutzer die modernen Blätter nutzt (pro User GLOBAL) - gleiche
   // Feld-IDs, nur das Layout ist neu
   const modernRoll = isModernDialogActive();
+  // Ressourcen v1: Kraeuterarznei-Verfügbarkeit für die herbalcure-Checkbox
+  // (Rudolfs Entscheidung 2: ausgegraut + Tooltip statt Nachhin-Fehler).
+  // Nur relevant, wenn Medicus + Ziel + Welt-Setting aktiviert - sonst
+  // bleibt die Checkbox komplett unangetastet (Verhalten wie bisher).
+  let herbalCureUnavailable = false;
+  if (medicus && hasTarget && isResourceConsumptionEnabled()) {
+    herbalCureUnavailable = !getHerbalCureAvailability(functionStuff.actor).available;
+  }
   const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
     askCastingAttribute: functionStuff.askCastingAttribute,
@@ -3525,6 +3537,7 @@ export async function modifierDialog(functionStuff) {
     targetImpeding: targetImpeding,
     weapons: actorWeapons,
     medicus: medicus,
+    herbalCureUnavailable: herbalCureUnavailable,
     poisoner: poisoner,
     hasRoll: hasRoll,
   });
@@ -3735,6 +3748,28 @@ export async function modifierDialog(functionStuff) {
             if (hasTarget) {
               functionStuff.herbalCure = html[0].querySelector("#herbalcure").checked;
               functionStuff.medicusExam = html[0].querySelector("#exam").checked;
+              // Ressourcen v1 (Rudolfs Entscheidungen 1+2): Beim Submit wird
+              // die Kraeuterarznei ABGEBUCHT - unabhaengig vom Wurfergebnis
+              // (DSA5-Stil, die Arznei ist eingesetzt), kategoriebasiert
+              // (resourceCategory kraeuterarznei, kulturell gefaerbte
+              // Arzneien zaehlen mit). Verbraucher-Definition aus der
+              // zentralen Registry (resources.js), keine Hartkopplung.
+              // Doppelte Sicherheit gegen den Ausgrau-Zustand: Nichts mehr
+              // im Inventar (zwischen Dialogöffnung und Submit entfernt)?
+              // => Warnung + Wurf OHNE Arznei statt stiller Teilnahme.
+              // Reine Untersuchung (medicusExam) verbraucht nichts - der
+              // Heilblock (standardPowerResult) behandelt bei Untersuchung
+              // ohnehin nicht, die Arznei waere nur verbrannt.
+              if (functionStuff.herbalCure && !functionStuff.medicusExam && isResourceConsumptionEnabled()) {
+                const consumedHerb = await consumeHerbalCure(functionStuff.actor);
+                if (consumedHerb) {
+                  functionStuff.resourceConsumed = consumedHerb;
+                  functionStuff.autoParams += consumedHerb.label + ", ";
+                } else {
+                  functionStuff.herbalCure = false;
+                  ui.notifications.warn(game.i18n.localize("RESOURCE.ERR_NONE_LEFT_MEDICUS"));
+                }
+              }
               let customHealingFormula = html[0].querySelector("#customhealing").value;
               if (customHealingFormula.length > 0) {
                 functionStuff.healFormulaSucceed = customHealingFormula;
@@ -6848,6 +6883,24 @@ async function standardPowerResult(rollData, functionStuff) {
       if (functionStuff.attackFromPC) rolls.push(healResult.roll);
     } else if (!trueActorSucceeded && functionStuff.healFormulaFailed) {
       healResult = await healing(functionStuff.healFormulaFailed + healingBonus, functionStuff.healedToken, functionStuff.attackFromPC);
+      if (functionStuff.attackFromPC) rolls.push(healResult.roll);
+    } else if (
+      !trueActorSucceeded &&
+      functionStuff.resourceConsumed &&
+      functionStuff.resourceConsumed.category === RESOURCE_CONSUMERS.medicus.category &&
+      rollData?.[0]?.critFail !== true
+    ) {
+      // Ressourcen v1, Rudolfs Runde-1-Regel: Die Kraeuterarznei gibt IMMER
+      // ihre Basis-Heilung von 1 Punkt Zaehigkeit - auch bei misslungenem
+      // Wurf, AUSSER beim kritischen Patzer (kritischer Patzer = keine
+      // Basis-Heilung). Diese Basis-Heilung greift genau dort, wo es bislang
+      // KEINE fehlgeschlagene Heilformel gab (Novize/Adept); der Meister
+      // behaelt seine RAW-1W6-Heilung bei Fehlschlag (healFormulaFailed
+      // weiter oben, unabhaengig vom kritischem Patzer - unveraendertes
+      // RAW-Verhalten), die die 1-Punkt-Basis-Heilung bereits einschliesst.
+      // Die Chat-Karte zeigt den Verbrauch im subText (autoParams-Label
+      // „<Stapelname> -1" aus dem modifierDialog-Submit).
+      healResult = await healing("1" + healingBonus, functionStuff.healedToken, functionStuff.attackFromPC);
       if (functionStuff.attackFromPC) rolls.push(healResult.roll);
     }
     if (healResult) {

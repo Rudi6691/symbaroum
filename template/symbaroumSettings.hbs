@@ -128,6 +128,20 @@
 	</div>
 
 	<hr />
+	{{!-- Ressourcen v1 (Rudolfs Runde-2-Entscheidung): Schalter
+	    „Ressourcenverbrauch" auf der GM-Seite des System-Konfigurations-
+	    dialogs - NICHT als Zeile in der Foundry-Einstellungsliste. Für
+	    Spieler ausgeblendet; der Submit-Handler schreibt das Welt-Setting
+	    nur für GM. --}}
+	{{#if isGM}}
+	<div class='form-group'>
+		<label for='resourceConsumption'>{{localize 'RESOURCE.SETTING_ENABLED'}}</label>
+		<input type='checkbox' name='resourceConsumption' id='resourceConsumption' data-dtype='Boolean' {{checked resourceConsumption}} />
+	</div>
+	<p style='font-size: smaller'><i>{{localize 'RESOURCE.SETTING_ENABLED_HINT'}}</i></p>
+	{{/if}}
+
+	<hr />
 	<p><i style='font-size: smaller'>{{localize 'SYMBAROUM.OPTIONAL_RESET_NOTE'}}</i></p>
 
 	<div class='form-group buttons-save'>

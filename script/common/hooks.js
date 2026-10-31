@@ -25,6 +25,11 @@ import { transferSocketHandler } from './transfer.js';
 // Loot-Prozesses (Token-HUD, Tod-Automatik, Spieler-Einzelklick, Canvas-
 // Drops, GM-arbitrierter Socket auf demselben System-Kanal, Typen 'loot*')
 import { registerLootSettings, registerLootRuntimeHooks } from './loot.js';
+// Ressourcen v1: Welt-Setting „Ressourcenverbrauch" (GM, Default AUS) -
+// Sichtbarkeit auf der symbaroumConfig-GM-Seite; die Abbuch-/Match-Helfer
+// leben in resources.js (Verbraucher-Registry, Medicus-Abbuchung beim
+// Wurf, Kontextmenue-Dialog „Ressource verbrauchen")
+import { registerResourceSettings } from './resources.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -501,6 +506,13 @@ Hooks.once('init', () => {
 	// die Token-HUD-Einstellungen überschreibbar.
 	registerLootSettings();
 
+	// Ressourcen v1: Welt-Setting „Ressourcenverbrauch" (GM, scope world,
+	// Default AUS) - Sichtbarkeit bewusst NICHT per config:true in der
+	// Foundry-Einstellungsliste, sondern auf der symbaroumConfig-GM-Seite
+	// (Rudolfs Runde-2-Entscheidung, gilt gemeinsam mit dem späteren
+	// „Munitionsverbrauch").
+	registerResourceSettings();
+
 	game.symbaroum.macros = new SymbaroumMacros();
 
 	game.symbaroum.htmlEscape = function (str) {
@@ -652,6 +664,19 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 		}
 		if (doc.system.number === undefined) {
 			doc.updateSource({ 'system.number': 1 });
+		}
+	}
+	// Ressourcen v1: system.resourceCategory (String, leer = keine Ressource)
+	// bei NEUANLAGE von Ausrüstung setzen - gleicher A38-Schutz wie Preis/
+	// Gewicht/Stapelbarkeit oben: NICHT per template.json (Laufzeit-Mischung
+	// in alle Bestände), nur wenn das Feld fehlt, damit Importe und
+	// Makro-Taggings ihren Wert mitbringen. Alt-Items behalten undefined und
+	// werden per GM-Makro „Ressourcen-Tagging v1" kategorisiert; undefined
+	// und '' bedeuten beide „keine" (alle Helfer in resources.js prüfen
+	// (item.system?.resourceCategory ?? '')).
+	if (doc.type === 'equipment') {
+		if (doc.system.resourceCategory === undefined) {
+			doc.updateSource({ 'system.resourceCategory': '' });
 		}
 	}
 });

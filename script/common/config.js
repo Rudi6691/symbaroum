@@ -1146,6 +1146,32 @@ SYMBAROUM.CREATURE_CATEGORY_SELECTION = {
   },
 };
 
+/* Ressourcen v1 (Rudolfs Startsignal 31.10.): Item-Kategorisierung fuer den
+   Ressourcenverbrauch - additives FELD system.resourceCategory (String,
+   leer = keine) statt Boolean-Flags, Runde-2-Entscheidung: kategoriebasiertes
+   statt namensbasiertes Matching (kulturell gefaerbte Arzneien funktionieren
+   mit). v1-Kategorien: Kraeuterarznei (Medicus-Verbraucher) + Alchemiezutat
+   (bewusst abstrakt, gesammelte UND gekaufte Braumaterialien; 1 Einheit :=
+   1 ß Materialwert, Brau-Dialog des Oekonomie-Projekts kommt spaeter).
+   Choices erweiterbar: Nahrung/Wasser/Munition folgen mit ihren Projekten.
+   Selection-Listen-Muster wie CREATURE_CATEGORY_SELECTION oben (leere id =
+   „keine"); A38-Lernweis: KEIN template.json-Default, Neuanlage ueber den
+   preCreate-Item-Hook in hooks.js, Alt-Bestand ueber GM-Makro. */
+SYMBAROUM.RESOURCE_CATEGORY_SELECTION = {
+  "": {
+    id: "",
+    label: "RESOURCE_CATEGORY.NONE",
+  },
+  kraeuterarznei: {
+    id: "kraeuterarznei",
+    label: "RESOURCE_CATEGORY.HERBALCURE",
+  },
+  alchemiezutat: {
+    id: "alchemiezutat",
+    label: "RESOURCE_CATEGORY.ALCHEMY_INGREDIENT",
+  },
+};
+
 SYMBAROUM.WEAPON_DAMAGE_SELECTION = {
   "1d4": {
     id: "1d4",

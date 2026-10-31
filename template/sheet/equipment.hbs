@@ -80,6 +80,19 @@
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
                     </div>
+                    {{!-- Ressourcen v1: Ressourcen-Kategorie (GM-only) - additives
+                        Feld system.resourceCategory statt Flags; steuert den
+                        kategoriebasierten Verbrauch (Medicus bucht Kraeuterarznei
+                        beim Wurf ab, Kontextmenü „Ressource verbrauchen" am
+                        Inventar-Item). Leere Auswahl = keine Ressource. --}}
+                    {{#if showResourceCategory}}
+                    <div class="resourcecategory">
+                        <label for="{{id}}-system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">{{localize "RESOURCE_CATEGORY.LABEL"}}</label>
+                        <select id="{{id}}-system.resourceCategory" name="system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">
+                            {{selectOptions resource_category_selection selected=resourceCategory valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    {{/if}}
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>
