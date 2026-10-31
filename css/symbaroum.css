@@ -9037,7 +9037,21 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog select option {
    über die --m-*-Variablen des Fensters). html-body-Präfix nach dem
    bewährten klassischen Muster gegen die Core-Form-Kaskade. */
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"],
-html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"],
+/* Übergabe v1.7 (Rudolfs Testrunde 6, Befund "Radios nicht wie im
+   Würfeldialog"): Der Geben-Dialog teilt das Fenster-Scope
+   dialog.symb-dialog.modern-dialog mit dem Würfeldialog — die A6v9-
+   Textfeld-Regel unten (css ~7195, Selektor input OHNE Typ-Ausschluss)
+   trifft dort ebenfalls die Radios: Textfeld-Rahmen + Radius + Padding
+   0.15rem 0.3rem + Hintergrund !important verschieben die Zeichenfläche
+   (Radio-Punkt nicht konzentrisch, Box-Look statt Glyph) — exakt der
+   Fehler, den der Würfeldialog in AP1 v1.1 behoben hat. FIX als
+   Selektor-Erweiterung der MASTER-Regeln um den Geben-Dialog statt
+   Spiegel-Regeln: dieselben Deklarationen = garantiert identische
+   Darstellung mit dem Würfeldialog (Rudolf: "Darstellung im Würfeldialog
+   ist der Master"), kein Regel-Drift bei künftigen Anpassungen. */
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"],
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"] {
   appearance: none !important;
   -webkit-appearance: none !important;
   padding: 0 !important;
@@ -9074,22 +9088,29 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]::before,
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]::after,
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]::before,
-html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]::after {
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]::after,
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"]::before,
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"]::after,
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]::before,
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]::after {
   content: none !important;
   background: none !important;
   mask-image: none !important;
   -webkit-mask-image: none !important;
 }
 
-html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"] {
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"],
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"] {
   border-radius: 0.2rem !important;
 }
 
-html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"] {
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"],
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"] {
   border-radius: 50% !important;
 }
 
-html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]:checked {
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]:checked,
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"]:checked {
   background-color: var(--m-accent) !important;
   /* v1.2: Häkchen im dunklen Design DUNKEL statt weiß - weiß auf Gold
      (#c9a227) war kaum erkennbar (Rudolfs Testrunde 2). Das helle Design
@@ -9101,7 +9122,8 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"
   border-color: var(--m-accent) !important;
 }
 
-html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]:checked {
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]:checked,
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]:checked {
   /* v1.2: Radiopunkt vergrößert (38 % -> 48 % Füllung) - gut erkennbar
      auch im dunklen Design; Rahmen auf Akzent wie bei der Checkbox. */
   background-image: radial-gradient(circle, var(--m-accent) 0 48%, transparent 56% 100%) !important;
@@ -9110,7 +9132,8 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]:c
 
 /* v1.2: Helles Design - Akzent #8a6d1c ist DUNKEL, deshalb weißes Häkchen
    (Theme-Klasse am Fenster-Root, A6v9-Muster). */
-html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog input[type="checkbox"]:checked {
+html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog input[type="checkbox"]:checked,
+html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-give-dialog input[type="checkbox"]:checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
 }
 
