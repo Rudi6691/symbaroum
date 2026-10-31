@@ -9727,3 +9727,70 @@ dialog.symb-dialog.modern-dialog .bandage-status .bandage-penalty {
 dialog.symb-dialog.modern-dialog .m-roll-check.bandage-status > label {
   cursor: default;
 }
+
+/* ------------------------------------------------------------------ */
+/* Munitionsverbrauch v1 (31.10.) — Zeilen-Geometrie der GM-Munitions-
+   Konfiguration auf dem klassischen Waffenblatt: gleiche flex-row wie
+   Anzahl/Stapelbar/Kosten (Muster der resourcecategory-Zeile ~9669,
+   Ausrüstungs-Blatt). Das moderne Blatt erbt die bestehenden m-inline-
+   field-Regeln, braucht deshalb keine neue Zeilenregel. */
+.symbaroum.sheet.item .weapon .tab .ammunition,
+.symbaroum.sheet.item .weapon .tab .resourcecategory {
+  display: flex;
+  flex-direction: row;
+  flex-basis: 100%;
+  margin: 5px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Kosmetik-✕-Glyph (Rudolfs Runde-2-Entscheidung, 31.10.): Die Kräuter-
+   arznei-Checkbox im Würfeldialog ist bei Bestand 0 ohnehin disabled —
+   zusätzlich zeigt sie jetzt ein GEDÄMPFT rotes ✕ IN der Box (nur
+   Kosmetik, kein Verhalten: Tooltip bleibt, Checkbox bleibt disabled,
+   kein JS). Theme-gekoppelt wie die Bandagen-Statuszeile v1.3: klassi-
+   scher Dialog mit der hellen Beige-Palette (a3402f = klassisches
+   Rot der --m-bad-Welt), moderner Dialog über die Fenster-Palette
+   (dunkel #c0554a, modern-classic #a3402f). ✕ als gehärtete data-URL,
+   gedämpft über stroke-opacity; die disabled-Opazität des modernen
+   Dialogs (0.55) dämpft zusätzlich. */
+/* Klassischer Würfeldialog: 18px-Box, Glyph 12px */
+html body dialog.symb-dialog .symbaroum.dialog input[type=checkbox].herbalcure-empty {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 3 10 10M13 3 3 13' fill='none' stroke='%23a3402f' stroke-opacity='0.6' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 12px 12px !important;
+}
+/* Moderner Würfeldialog, dunkles Design (Standard): 1rem-Box, Glyph
+   0.8rem wie das Häkchen (Master-Block ~9039ff) */
+html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"].herbalcure-empty {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 3 10 10M13 3 3 13' fill='none' stroke='%23c0554a' stroke-opacity='0.6' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 0.8rem 0.8rem !important;
+}
+/* Moderner Würfeldialog, helles Design (Theme-Klasse am Fenster-Root,
+   A6v9-Muster): klassisches Rot */
+html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog input[type="checkbox"].herbalcure-empty {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 3 10 10M13 3 3 13' fill='none' stroke='%23a3402f' stroke-opacity='0.6' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Munitionsverbrauch v1 — Bergungs-Karte beim Kampfende: schlichte
+   Karte im Chat (Kern-Button-Optik, kein Theme-Zwang - die Karte landet
+   im Chat beider Welten); Zeilen je Munitions-Stapel, Button rechts. */
+.symbaroum.ammo-recovery-card {
+  padding: 4px 0;
+}
+.symbaroum.ammo-recovery-card .ammo-recovery-header {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.symbaroum.ammo-recovery-card .ammo-recovery-line {
+  margin: 2px 0;
+}
+.symbaroum.ammo-recovery-card .ammo-recovery-btn {
+  margin: 6px 0 2px 0;
+}
+.symbaroum.ammo-recovery-card .ammo-recovery-btn:disabled {
+  opacity: 0.6;
+}

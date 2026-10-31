@@ -65,6 +65,31 @@
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
                     </div>
+                    {{!-- Munitionsverbrauch v1 (31.10.): waffenseitige
+                        Munitions-Konfiguration - GM-only wie Artefakt/
+                        Stapelbar; leere Kategorie = kein Verbrauch, Menge
+                        je Angriff (Standard 1). Ressourcen-Kategorie-Zeile
+                        taggt die Waffe selbst als Munitions-Stapel. --}}
+                    {{#if showAmmunition}}
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.ammunition.category" data-tooltip="{{localize "AMMO.CATEGORY_TOOLTIP"}}">{{localize "AMMO.CATEGORY_LABEL"}}</label>
+                        <select id="{{id}}-system.ammunition.category" name="system.ammunition.category" data-tooltip="{{localize "AMMO.CATEGORY_TOOLTIP"}}">
+                            {{selectOptions ammo_category_selection selected=ammunitionCategory valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.ammunition.amount" data-tooltip="{{localize "AMMO.AMOUNT_TOOLTIP"}}">{{localize "AMMO.AMOUNT_LABEL"}}</label>
+                        <input id="{{id}}-system.ammunition.amount" name="system.ammunition.amount" type="number" value="{{ammunitionAmount}}" min="1" step="1" data-tooltip="{{localize "AMMO.AMOUNT_TOOLTIP"}}"/>
+                    </div>
+                    {{/if}}
+                    {{#if showResourceCategory}}
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">{{localize "RESOURCE_CATEGORY.LABEL"}}</label>
+                        <select id="{{id}}-system.resourceCategory" name="system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">
+                            {{selectOptions resource_category_selection selected=resourceCategory valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    {{/if}}
                     {{/if}}
                 </div>
             </div>

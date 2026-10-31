@@ -2,6 +2,9 @@ import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './rol
 import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel } from './item.js';
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
+// Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
+// anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
+import { consumeAmmoForAttack } from './ammo.js';
 
 let roll_defaults = {};
 
@@ -593,6 +596,23 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               ecData.cheapshotNovice = true;
               ecData.autoParams += game.i18n.localize('DIALOG.CHEAPSHOT_STRIKE') + ", ";
             }
+          }
+          // Munitionsverbrauch v1 (Rudolfs Freigabe 31.10.): Abbuchung beim
+          // Wurf-Submit, UNABHAENIG vom Wurfergebnis (Medicus-Muster) -
+          // Menge je Angriff × Angriffsanzahl, AP2-Stapelreihenfolge
+          // (ammo.js). Deckt BEIDE Pfade (combatAutomation an/aus), weil
+          // der Einsatz VOR der Verzweigung steht. Rueckgabe false =
+          // BLOCKIERT (Bestand reicht fuer die gewaehlte Angriffsanzahl
+          // nicht): KEIN Wurf, resolve(false) - die Notification kam aus
+          // dem ammo-Modul. Rueckgabe null = nichts gebucht (Setting aus /
+          // keine Kategorie), String = Label fuer autoParams.
+          if(weapon !== null) {
+            const ammoLabel = await consumeAmmoForAttack(actor, weapon, ecData.numberofAttacks ?? 1);
+            if(ammoLabel === false) {
+              resolve(false);
+              return;
+            }
+            if(ammoLabel) ecData.autoParams += ammoLabel + ", ";
           }
           if(weapon && game.settings.get('symbaroum', 'combatAutomation')){
             attackFromPC = actor.type !== "monster" || ecData.targetData.actor.type === "monster";

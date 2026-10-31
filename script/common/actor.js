@@ -3,6 +3,10 @@ import { prepareRollAttribute } from "../common/dialog.js";
 import { baseRoll } from "./roll.js";
 // A39 Belastungssystem: Last-Berechnung (optionale APG-Regeln)
 import { getEncumbranceData } from "./encumbrance.js";
+// Munitionsverbrauch v1: Pre-Flight in rollWeapon (Angriff ohne Munition
+// verweigern, Notification aus dem ammo-Modul - die volle Pruefung mit
+// Angriffsanzahl passiert im Wurf-Submit, script/common/dialog.js)
+import { checkWeaponAmmoReady } from "./ammo.js";
 
 export class SymbaroumActor extends Actor {
 	prepareBaseData() {
@@ -1076,6 +1080,12 @@ export class SymbaroumActor extends Actor {
 	}
 
 	async rollWeapon(weapon) {
+		// Munitionsverbrauch v1: zentraler Choke-Point BEIDER Wurfpfade
+		// (combatAutomation -> enhancedAttackRoll, sonst prepareRoll-
+		// Attribute) - Pre-Flight fuer EINEN Angriff; blockiert, wenn
+		// der Munitions-Bestand dafuer nicht reicht (kein Wurf, keine
+		// Dialogoeffnung; Notification kam aus ammo.js).
+		if (!checkWeaponAmmoReady(this, weapon)) return false;
 		if (game.settings.get("symbaroum", "combatAutomation")) {
 			return this.enhancedAttackRoll(weapon);
 		} else {

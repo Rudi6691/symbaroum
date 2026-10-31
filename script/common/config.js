@@ -1178,6 +1178,88 @@ SYMBAROUM.RESOURCE_CATEGORY_SELECTION = {
     id: "verbandsmaterial",
     label: "RESOURCE_CATEGORY.BANDAGE_MATERIAL",
   },
+  // Munitionsverbrauch v1 (31.10.): Munitions-Kategorien - Stapeleinheit
+  // der jeweiligen Waffengruppe. pfeilbolzen bewusst GEMEINSAM fuer Pfeile
+  // und Bolzen (Welt-Item „10 Pfeile oder Bolzen - Regulaer", Rudolfs
+  // Runde-1-Entscheidung); wurfspeer taggt die Wurfspeer-WAFFEN-Stapel
+  // (Speerschleuder-Munition). Tagging des Alt-Bestands ueber das
+  // GM-Makro „Ressourcen-Tagging v3".
+  pfeilbolzen: {
+    id: "pfeilbolzen",
+    label: "RESOURCE_CATEGORY.PFEILBOLZEN",
+  },
+  feuerrohr: {
+    id: "feuerrohr",
+    label: "RESOURCE_CATEGORY.FEUERROHR",
+  },
+  ballista: {
+    id: "ballista",
+    label: "RESOURCE_CATEGORY.BALLISTA",
+  },
+  raketenbatterie: {
+    id: "raketenbatterie",
+    label: "RESOURCE_CATEGORY.RAKETENBATTERIE",
+  },
+  feuerrohrstationaer: {
+    id: "feuerrohrstationaer",
+    label: "RESOURCE_CATEGORY.FEUERROHR_STATIONAER",
+  },
+  schleuderstein: {
+    id: "schleuderstein",
+    label: "RESOURCE_CATEGORY.SCHLEUDERSTEIN",
+  },
+  blasrohrpfeil: {
+    id: "blasrohrpfeil",
+    label: "RESOURCE_CATEGORY.BLASROHRPFEIL",
+  },
+  wurfspeer: {
+    id: "wurfspeer",
+    label: "RESOURCE_CATEGORY.WURFSPEER",
+  },
+};
+
+/* Munitionsverbrauch v1: Auswahl fuer das waffenseitige GM-Feld
+   system.ammunition.category - bewusst NUR die Munitions-Kategorien
+   (keine Kraeuterarznei/Alchemiezutat/Verbandsmaterial), gleiche
+   Label-Keys wie RESOURCE_CATEGORY_SELECTION, gleiche Struktur
+   (leere id = „kein Verbrauch"). */
+SYMBAROUM.AMMO_CATEGORY_SELECTION = {
+  "": {
+    id: "",
+    label: "AMMO.CATEGORY_NONE",
+  },
+  pfeilbolzen: {
+    id: "pfeilbolzen",
+    label: "RESOURCE_CATEGORY.PFEILBOLZEN",
+  },
+  feuerrohr: {
+    id: "feuerrohr",
+    label: "RESOURCE_CATEGORY.FEUERROHR",
+  },
+  ballista: {
+    id: "ballista",
+    label: "RESOURCE_CATEGORY.BALLISTA",
+  },
+  raketenbatterie: {
+    id: "raketenbatterie",
+    label: "RESOURCE_CATEGORY.RAKETENBATTERIE",
+  },
+  feuerrohrstationaer: {
+    id: "feuerrohrstationaer",
+    label: "RESOURCE_CATEGORY.FEUERROHR_STATIONAER",
+  },
+  schleuderstein: {
+    id: "schleuderstein",
+    label: "RESOURCE_CATEGORY.SCHLEUDERSTEIN",
+  },
+  blasrohrpfeil: {
+    id: "blasrohrpfeil",
+    label: "RESOURCE_CATEGORY.BLASROHRPFEIL",
+  },
+  wurfspeer: {
+    id: "wurfspeer",
+    label: "RESOURCE_CATEGORY.WURFSPEER",
+  },
 };
 
 SYMBAROUM.WEAPON_DAMAGE_SELECTION = {

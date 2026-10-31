@@ -30,6 +30,11 @@ import { registerLootSettings, registerLootRuntimeHooks } from './loot.js';
 // leben in resources.js (Verbraucher-Registry, Medicus-Abbuchung beim
 // Wurf, Kontextmenue-Dialog „Ressource verbrauchen")
 import { registerResourceSettings } from './resources.js';
+// Munitionsverbrauch v1: Welt-Settings „Munitionsverbrauch"/„Bergungsoption"
+// (GM, world, Default AUS, Registration direkt nach den Ressourcen-Settings)
+// + Runtime-Hooks (Bergungs-Karte beim Kampfende, Bergungs-Button in der
+// Chat-Karte) - Abbuchung/Pre-Flight/Recovery leben in ammo.js
+import { registerAmmoSettings, registerAmmoRuntimeHooks } from './ammo.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -513,6 +518,13 @@ Hooks.once('init', () => {
 	// „Munitionsverbrauch").
 	registerResourceSettings();
 
+	// Munitionsverbrauch v1 (Rudolfs Startsignal 31.10.): Welt-Settings
+	// „Munitionsverbrauch" + „Bergungsoption" (GM, scope world, Default AUS)
+	// - bewusst DIRECT UNTER den Ressourcen-Settings registriert (gleiche
+	// Foundry-Einstellungsliste wie lootEnabled*/resourceConsumption,
+	// Reihenfolge = Registrierungsreihenfolge).
+	registerAmmoSettings();
+
 	game.symbaroum.macros = new SymbaroumMacros();
 
 	game.symbaroum.htmlEscape = function (str) {
@@ -553,6 +565,10 @@ Hooks.once('ready', () => {
 	// Loot v1: Runtime-Hooks des Loot-Prozesses (HUD, Tod-Automatik,
 	// Klick-Interception, Canvas-Drop) + 'loot*'-Socket-Nachrichten
 	registerLootRuntimeHooks();
+	// Munitionsverbrauch v1: Runtime-Hooks der Bergung (Verbrauchs-Karte
+	// beim Kampfende via preDeleteCombat, „Bergen"-Button-Listener auf
+	// der Chat-Karte) - Muster registerLootRuntimeHooks oben.
+	registerAmmoRuntimeHooks();
 	setup3PartySettings();
 	// A35 (Befund 10): German core status names - at ready all system
 	// translations are loaded (the A34-Fix1 init-time patch never ran)
@@ -677,6 +693,30 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 	if (doc.type === 'equipment') {
 		if (doc.system.resourceCategory === undefined) {
 			doc.updateSource({ 'system.resourceCategory': '' });
+		}
+	}
+	// Munitionsverbrauch v1: waffenseitige Munitions-Konfiguration
+	// (category leer = kein Verbrauch, amount = Menge je Angriff) und
+	// Ressourcen-Kategorie (Wurfspeer-Waffen als Speerschleuder-Munition)
+	// bei NEUANLAGE von Waffen - gleicher A38-Schutz wie oben: NICHT per
+	// template.json (Laufzeit-Mischung), nur wenn das Feld fehlt, damit
+	// Importe und Makro-Taggings ihren Wert mitbringen. Alt-Items behalten
+	// undefined (alle Helfer in ammo.js pruefen ?? '' bzw. ?? {}).
+	if (doc.type === 'weapon') {
+		if (doc.system.ammunition === undefined) {
+			doc.updateSource({ 'system.ammunition': { category: '', amount: 1 } });
+		}
+		if (doc.system.resourceCategory === undefined) {
+			doc.updateSource({ 'system.resourceCategory': '' });
+		}
+	}
+	// Munitionsverbrauch v1: system.ammoQuality ('' / 'quality' / 'mystical')
+	// bei NEUANLAGE von Ausruestung - steuert NUR die Bergungs-Schwelle
+	// (10/15/17), hat KEINE Kampfwirkung und KEIN UI-Feld; wird ausschliess-
+	// lich vom GM-Makro „Ressourcen-Tagging v3" gesetzt (Spezialpfeile).
+	if (doc.type === 'equipment') {
+		if (doc.system.ammoQuality === undefined) {
+			doc.updateSource({ 'system.ammoQuality': '' });
 		}
 	}
 });

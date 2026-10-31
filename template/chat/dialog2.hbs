@@ -149,7 +149,7 @@
           und traegt einen Tooltip - nur wenn das Welt-Setting
           „Ressourcenverbrauch" aktiv ist, sonst unangetastet. --}}
       <div class="simplebox">
-        <label>{{localize "ABILITY_MEDICUS.HERBALCURE"}}</label><span class="lblfavour"><input type="checkbox" id="herbalcure" unchecked {{#if herbalCureUnavailable}}disabled data-tooltip="{{localize "ABILITY_MEDICUS.HERBALCURE_MISSING"}}{{/if}}></span>
+        <label>{{localize "ABILITY_MEDICUS.HERBALCURE"}}</label><span class="lblfavour"><input type="checkbox" id="herbalcure" unchecked {{#if herbalCureUnavailable}}class="herbalcure-empty" disabled data-tooltip="{{localize "ABILITY_MEDICUS.HERBALCURE_MISSING"}}{{/if}}></span>
       </div>
       {{!-- Ressourcen v1.3 (Bandagen-Runde, 31.10.): Automatische Verbands-
           material-Statuszeile - KEINE Checkbox, der Spieler waehlt nichts
