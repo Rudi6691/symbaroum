@@ -9775,9 +9775,10 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog 
 }
 
 /* ------------------------------------------------------------------ */
-/* Munitionsverbrauch v1 — Bergungs-Karte beim Kampfende: schlichte
-   Karte im Chat (Kern-Button-Optik, kein Theme-Zwang - die Karte landet
-   im Chat beider Welten); Zeilen je Munitions-Stapel, Button rechts. */
+/* Munitionsverbrauch v1.2: Chat-Karte des Bergen-MAKROS (die Laufzeit-
+   Bergungskarte des v1/v1.1 entfiel mit P11): schlichte Karte im Chat,
+   Zeilen je Munitions-Stapel. Basis/header/line/dice bleiben fuer die
+   Makro-Karte erhalten; Button-/Anwenden-Regeln sind entfallen. */
 .symbaroum.ammo-recovery-card {
   padding: 4px 0;
 }
@@ -9787,12 +9788,6 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog 
 }
 .symbaroum.ammo-recovery-card .ammo-recovery-line {
   margin: 2px 0;
-}
-.symbaroum.ammo-recovery-card .ammo-recovery-btn {
-  margin: 6px 0 2px 0;
-}
-.symbaroum.ammo-recovery-card .ammo-recovery-btn:disabled {
-  opacity: 0.6;
 }
 
 /* ============================================================
@@ -9805,9 +9800,10 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog 
       Kräuterarznei-Zeile "rutschen" (Rudolfs Punkt-11-Befund).
    2) Sichtbarere Trennung der bandage-status-Zeile von der
       Zeile darueber (margin + Rahmenfarbe).
-   3) Chat-Karten-Styles des manuellen Bergen-Flows:
-      Würfelzeile (klein/gedämpft) + GM-Anwendungskarte erbt
-      vom v1-Stil der Bergungs-Karte.
+   3) (v1.2: entfallen - die Chat-Karten-Styles des manuellen
+      Bergen-Flows fielen mit der Bergen-Laufzeit weg; nur die
+      Würfelzeilen-Regel .ammo-recovery-dice bleibt, das Bergen-
+      Makro nutzt sie fuer seine Wurfzeilen.)
    ============================================================ */
 
 /* 1) Zeilen-Pinning (modern) */
@@ -9830,21 +9826,11 @@ dialog.symb-dialog .symbaroum.dialog .simplebox.bandage-status {
   margin-top: 10px;
 }
 
-/* 3) Chat-Karten des manuellen Bergen-Flows (v1.1) */
+/* 3) Wuerfelzeilen der Bergen-Makro-Karte (v1.2: die apply/manual-
+      Regeln des Laufzeit-Flows entfielen, die dice-Regel bleibt -
+      das Bergen-Makro rendert seine 1W20-Wuerfe in .ammo-recovery-dice) */
 .symbaroum.ammo-recovery-card .ammo-recovery-dice {
   margin: 4px 0;
   font-size: 0.85em;
   opacity: 0.8;
-}
-.symbaroum.ammo-recovery-card .ammo-apply-card,
-.symbaroum.ammo-recovery-card .ammo-manual-result {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.2));
-}
-.symbaroum.ammo-recovery-card .ammo-apply-btn {
-  width: auto;
-}
-.symbaroum.ammo-recovery-card .ammo-apply-btn:disabled {
-  opacity: 0.6;
 }

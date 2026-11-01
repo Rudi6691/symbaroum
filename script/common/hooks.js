@@ -34,7 +34,12 @@ import { registerResourceSettings } from './resources.js';
 // (GM, world, Default AUS, Registration direkt nach den Ressourcen-Settings)
 // + Runtime-Hooks (Bergungs-Karte beim Kampfende, Bergungs-Button in der
 // Chat-Karte) - Abbuchung/Pre-Flight/Recovery leben in ammo.js
-import { registerAmmoSettings, registerAmmoRuntimeHooks } from './ammo.js';
+// Munitionsverbrauch v1.2 (Rudolfs Punkt-11-Architektur-Entscheidung): Der
+// komplette Bergungs-LAUZEIT-Ablauf ist ENTFERNT (Kampf-Zaehler, preDeleteCombat-
+// Karte, GM-Anwendungskarte, 'ammoTrack'-Socket, Kontextmenue-Eintrag) - Bergen
+// laeuft jetzt ausschliesslich ueber das Bergen-Makro (Spieler + GM, manuelle
+// Anzahl-Eingabe). Die Bergungsoption bleibt als Makro-Gate bestehen.
+import { registerAmmoSettings } from './ammo.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -565,10 +570,10 @@ Hooks.once('ready', () => {
 	// Loot v1: Runtime-Hooks des Loot-Prozesses (HUD, Tod-Automatik,
 	// Klick-Interception, Canvas-Drop) + 'loot*'-Socket-Nachrichten
 	registerLootRuntimeHooks();
-	// Munitionsverbrauch v1: Runtime-Hooks der Bergung (Verbrauchs-Karte
-	// beim Kampfende via preDeleteCombat, „Bergen"-Button-Listener auf
-	// der Chat-Karte) - Muster registerLootRuntimeHooks oben.
-	registerAmmoRuntimeHooks();
+	// Munitionsverbrauch v1.2: Bergen-Laufzeit ENTFERNT (Rudolfs Punkt-11-
+	// Entscheidung: Zaehler, preDeleteCombat-Karte, GM-Anwendungskarte,
+	// 'ammoTrack'-Socket fielen weg); Bergen laeuft jetzt ueber das
+	// Bergen-Makro (Spieler + GM). Settings-Registration bleibt oben.
 	setup3PartySettings();
 	// A35 (Befund 10): German core status names - at ready all system
 	// translations are loaded (the A34-Fix1 init-time patch never ran)

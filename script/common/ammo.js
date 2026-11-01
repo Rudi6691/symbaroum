@@ -19,12 +19,12 @@
  *  - Wurfwaffen (reference 'thrown' + stapelbar): Selbstverbrauch aus dem
  *    eigenen Stapel, 1 Stueck je Angriff; nicht-stapelbare Wurfwaffen
  *    ohne Auto-Verbrauch (dokumentiert).
- *  - Bergung: kampf-scoped Verbrauchszaehler je Stapel (Combat-Flag
- *    ammoUsage, nur gefuehrt, wenn die Bergungsoption an); beim Kampfende
- *    (preDeleteCombat - Flags sind dort noch lesbar) Bergungs-Chat-Karte
- *    je Aktor mit „Bergen"-Button (Eigentuemer/GM); 1W20 je verschossenem
- *    Stueck, GEBORGEN bei Wurf <= Schwelle (beschaedigt bei Wurf >
- *    Schwelle, GRW): Standard 10, Qualitaet 15, mystische Qualitaet 17.
+ *  - Bergen v1.2 (Architektur-Entscheidung Punkt 11): NUR NOCH MAKRO -
+ *    der kampf-scoped Zaehler samt Kampfende/GM-Karten ist entfernt; das
+ *    Bergen-Makro (Spieler + GM) traegt die verschossene Anzahl manuell
+ *    ein, wuerfelt 1W20 je Stueck (GEBORGEN bei Wurf <= Schwelle,
+ *    beschaedigt bei Wurf > Schwelle, GRW): Standard 10, Qualitaet 15,
+ *    mystische Qualitaet 17.
  *  - Schwellen automatisch aus der Munition: Stapel mit system.ammoQuality
  *    (''/'quality'/'mystical' - NUR Makro-gesetzt, kein UI-Feld), Waffen
  *    aus system.qualities (mystical -> 17, sonst irgendeine Qualitaet ->
@@ -44,10 +44,6 @@
  */
 import { getItemCount } from './resources.js';
 import { isStackableItem } from './stacking.js';
-// Munition v1.1 (Rudolfs Testrunde-1-Wunsch): manueller Bergen-Flow am
-// Munitions-Stapel (Kontextmenue) - Dialog + Chat-Karten im Give-Dialog-Stil
-import { symbDialog } from './symbDialog.js';
-import { modernDialogClasses } from './modernSheetConfig.js';
 
 /* i18n-Helfer nach resources.js-Muster */
 const L = (key) => game.i18n.localize(key);
@@ -90,11 +86,6 @@ export function registerAmmoSettings() {
 /** Effektiver Schalter des automatischen Munitionsverbrauchs. */
 export function isAmmoConsumptionEnabled() {
 	return !!game.settings.get('symbaroum', 'ammoConsumption');
-}
-
-/** Effektiver Schalter der Bergungsoption (Zaehler + Bergungs-Karte). */
-export function isAmmoRecoveryEnabled() {
-	return isAmmoConsumptionEnabled() && !!game.settings.get('symbaroum', 'ammoRecovery');
 }
 
 /* ---------------------------------------------------------------- */
@@ -252,7 +243,6 @@ export async function consumeAmmoForAttack(actor, weapon, numberofAttacks = 1) {
 			return false;
 		}
 		await cfg.item.update({ 'system.number': current - attacks });
-		trackAmmoUsage(actor, cfg.item, attacks, "thrown");
 		return F('AMMO.CHAT_CONSUMED', { name: cfg.item.name, amount: attacks });
 	}
 
@@ -280,390 +270,26 @@ export async function consumeAmmoForAttack(actor, weapon, numberofAttacks = 1) {
 		await item.update({ 'system.number': current - takeFromStack });
 		remaining -= takeFromStack;
 		if (firstName === null) firstName = item.name;
-		trackAmmoUsage(actor, item, takeFromStack, cfg.category);
 	}
 	return F('AMMO.CHAT_CONSUMED', { name: firstName ?? '', amount: need });
 }
 
 /* ---------------------------------------------------------------- */
-/* Kampf-Zaehler + Bergung                                          */
+/* Bergen (v1.2: Nur noch Makro-gesteuert)                          */
 /* ---------------------------------------------------------------- */
-
-/**
- * Kampf-scoped Verbrauchszaehler je Stapel (Combat-Flag ammoUsage,
- * Schluessel actorId.itemId). Nur gefuehrt, wenn die Bergungsoption
- * an ist (und der Haupt-Schalter) - der Zaehler existiert ausschliess-
- * lich fuer die Bergungs-Karte. Angriffe ausserhalb eines Kampfes
- * werden nicht gezaehlt (game.combat = aktiver Kampf).
- *
- * Rechte-Arbitrierung (Loot-/Transfer-Socket-Muster): Spieler duerfen
- * Combat-Dokumente i. d. R. nicht updaten - ihre Buchungen laufen als
- * 'ammoTrack'-Socket-Nachricht zur GM-Seite (erster aktiver GM wendet
- * an, siehe registerAmmoRuntimeHooks); GM-Buchungen direkt. Die
- * Abbuchung selbst ist davon UNBERUEHRT (laeuft immer lokal beim
- * Angreifer), nur der Zaehler ist GM-vermittelt.
+/*
+ * Munitionsverbrauch v1.2 (Rudolfs Punkt-11-Architektur-Entscheidung):
+ * Der komplette Bergungs-LAUZEIT-Ablauf ist entfernt - Kampf-Zaehler
+ * (Combat-Flag ammoUsage), preDeleteCombat-Kampfende-Karte, GM-Anwendungs-
+ * karte, 'ammoTrack'-Socket, manueller Kontextmenue-Eintrag und alle zuge-
+ * hoerigen Helfer (trackAmmoUsage, applyAmmoUsage, registerAmmoRuntimeHooks,
+ * openAmmoRecoveryDialog, performManualAmmoRecovery, buildAmmoRecoveryCards,
+ * performAmmoRecovery, applyAmmoRecoveryResult, isAmmoRecoveryEnabled).
+ * Bergen laeuft jetzt AUSSCHLIESSLICH ueber das Bergen-Makro (Spieler am
+ * eigenen Charakter, GM mit Aktor-Wahl): Anzahl verschossener Stuecke
+ * manuell eintragen, 1W20 je Stueck, geborgen bei Wurf <= Schwelle
+ * (getAmmoThreshold unten - GRW), Gutschrift direkt auf den Stapel.
+ * Die Schwelle + AMMO_THRESHOLDS bleiben hier als kanonische Regel-
+ * Referenz fuer das Makro erhalten; das Welt-Setting 'ammoRecovery'
+ * (Bergungsoption) bleibt als Makro-Gate registriert.
  */
-function trackAmmoUsage(actor, item, taken, category) {
-	if (!taken || taken <= 0) return;
-	if (!game.combat || !isAmmoRecoveryEnabled()) return;
-	if (game.user.isGM) {
-		applyAmmoUsage(actor, item, taken, category).catch((err) => console.error('Symbaroum | ammo usage tracking failed', err));
-		return;
-	}
-	game.socket.emit('system.symbaroum', {
-		type: 'ammoTrack',
-		actorId: actor.id,
-		itemId: item.id,
-		category,
-		taken,
-	});
-}
-
-/** Zaehler-Stand auf dem aktiven Kampf fortschreiben (nur GM-Seite). */
-async function applyAmmoUsage(actor, item, taken, category) {
-	const combat = game.combat;
-	if (!combat) return;
-	const key = `${actor.id}.${item.id}`;
-	const usage = foundry.utils.duplicate(combat.getFlag(game.system.id, 'ammoUsage') ?? {});
-	const prev = usage[key] ?? {
-		actorId: actor.id,
-		itemId: item.id,
-		name: item.name,
-		category,
-		threshold: getAmmoThreshold(item),
-		fired: 0,
-	};
-	prev.name = item.name;
-	prev.category = category;
-	prev.fired += taken;
-	usage[key] = prev;
-	await combat.setFlag(game.system.id, 'ammoUsage', usage);
-}
-
-/** Runtime-Hooks (Registration in hooks.js 'ready', Muster loot.js). */
-export function registerAmmoRuntimeHooks() {
-	// Kampfende: Flags sind im preDeleteCombat-Hook noch lesbar
-	// (deleteCombat waere zu spaet) - Karte VOR der Loeschung bauen.
-	Hooks.on('preDeleteCombat', (combat) => {
-		if (!game.user.isGM) return;
-		buildAmmoRecoveryCards(combat);
-	});
-	// Spieler-Buchungen: 'ammoTrack'-Socket (disjunkter Nachrichtentyp,
-	// symbcomms.js ignoriert unbekannte Typen - Uebergabe-/Loot-Muster).
-	// Nur der ERSTE aktive GM wendet an, damit bei mehreren GMs nicht
-	// doppelt gezaehlt wird.
-	game.socket.on('system.symbaroum', async (msg) => {
-		if (msg?.type !== 'ammoTrack' || !game.user.isGM) return;
-		const firstGM = game.users.find((u) => u.isGM && u.active);
-		if (firstGM?.id !== game.user.id) return;
-		const actor = game.actors.get(msg.actorId);
-		const item = actor?.items.get(msg.itemId);
-		if (!actor || !item) return;
-		await applyAmmoUsage(actor, item, msg.taken, msg.category);
-	});
-	// Bergungs-Buttons: separater renderChatMessageHTML-Listener neben dem
-	// bestehenden applyEffects-Listener (Muster hooks.js), nur eigene Karten
-	// (v1: Bergen-Button der Kampfende-Karte, v1.1: Anwenden-Button der
-	// GM-Anwendungskarte des manuellen Bergen-Flows).
-	Hooks.on('renderChatMessageHTML', (message, html) => {
-		const recoverBtn = html.querySelector?.('.ammo-recovery-btn');
-		if (recoverBtn) {
-			const data = message.getFlag(game.system.id, 'ammoRecovery');
-			if (!data) return;
-			if (data.done) {
-				recoverBtn.disabled = true;
-				recoverBtn.textContent = L('AMMO.RECOVERY_BUTTON_DONE');
-				return;
-			}
-			recoverBtn.addEventListener('click', async () => {
-				await performAmmoRecovery(message);
-			});
-		}
-		const applyBtn = html.querySelector?.('.ammo-apply-btn');
-		if (applyBtn) {
-			const data = message.getFlag(game.system.id, 'ammoApply');
-			if (!data) return;
-			if (data.done) {
-				applyBtn.disabled = true;
-				applyBtn.textContent = L('AMMO.APPLY_DONE');
-				return;
-			}
-			applyBtn.addEventListener('click', async () => {
-				await applyAmmoRecoveryResult(message);
-			});
-		}
-	});
-}
-
-/* ---------------------------------------------------------------- */
-/* Munition v1.1: Manueller Bergen-Flow (Kontextmenue am Stapel)     */
-/* ---------------------------------------------------------------- */
-
-/**
- * Manueller Bergen-Flow (Rudolfs Testrunde-1-Wunsch, 31.10.): Der Spieler
- * traegt selbst ein, wie viele Geschosse er verschossen hat - der Zaehler-
- * Ablauf des v1 (Kampf-Flag + automatische Karte beim Kampfende) bleibt
- * daneben bestehen (Rudolfs Entscheidung: BEIDE Ablaeufe). Oeffnet den
- * Anzahl-Dialog am Munitions-Stapel (Give-Dialog-Stil, Muster
- * openConsumeResourceDialog); Bestand 0 ist zulaessig (Bergung NACH
- * Leerschiessen ist der Normalfall).
- */
-export function openAmmoRecoveryDialog(item) {
-	if (!isAmmoRecoveryEnabled()) return;
-	if (!item || !['equipment', 'weapon'].includes(item.type)) return;
-	if (!isAmmoCategory(item.system?.resourceCategory ?? '')) return;
-	const actor = item.parent;
-	if (!actor) return;
-	const threshold = getAmmoThreshold(item);
-	const html = `<div class="symbaroum modern-give-dialog modern-resource-dialog">
-		<div class="m-give-from">${L('AMMO.RECOVERY_FROM')}: <b>${item.name}</b></div>
-		<label class="m-sec-label" for="ammo-recovery-amount">${L('AMMO.RECOVERY_AMOUNT')}</label>
-		<input class="m-give-quantity" id="ammo-recovery-amount" type="number" min="1" value="1" step="1"/>
-		<div class="m-give-note">
-			<i class="fas fa-circle-info"></i>
-			<span>${F('AMMO.RECOVERY_HINT', { threshold })}</span>
-		</div>
-	</div>`;
-	symbDialog({
-		title: `${L('AMMO.RECOVERY_TITLE')} — ${item.name}`,
-		content: html,
-		classes: modernDialogClasses('modern-give-dialog', 'modern-resource-dialog'),
-		width: 440,
-		buttons: {
-			recover: {
-				icon: '<i class="fas fa-box-open"></i>',
-				label: L('AMMO.RECOVERY_BUTTON'),
-				callback: async (html) => {
-					const raw = Number(html[0].querySelector('#ammo-recovery-amount')?.value);
-					const fired = Math.max(1, Math.round(raw) || 1);
-					await performManualAmmoRecovery(item, fired);
-				},
-			},
-			cancel: {
-				icon: '<i class="fas fa-times"></i>',
-				label: L('BUTTON.CANCEL'),
-				callback: async () => {},
-			},
-		},
-		default: 'recover',
-	});
-}
-
-/**
- * Bergungswuerfe des manuellen Flows: 1W20 je Stueck (Roll des ausloesenden
- * Nutzers - sichtbare Wuerfe), geborgen bei Wurf <= Schwelle des Stapels.
- * Postet ZWEI Karten: die Ergebniskarte (alle sehen die Wuerfe) und die
- * GM-Anwendungskarte mit Anwenden-Button (Schaden-Anwendungs-Muster:
- * Gutschrift auf den Stapel des Tokens/Aktors, NUR GM - Rudolfs
- * Runde-v1.1-Entscheidung).
- */
-export async function performManualAmmoRecovery(item, fired) {
-	const actor = item.parent;
-	if (!actor) return;
-	const threshold = getAmmoThreshold(item);
-	const roll = new Roll(`${fired}d20`);
-	await roll.evaluate();
-	const results = roll.dice[0]?.results?.map((r) => r.result) ?? [];
-	const recovered = results.filter((r) => r <= threshold).length;
-	const lost = fired - recovered;
-	const speaker = ChatMessage.getSpeaker({ actor });
-	// 1) Ergebniskarte mit den einzelnen Wuerfen (alle sichtbar)
-	const resultContent = `<div class="symbaroum ammo-recovery-card ammo-manual-result">
-  <div class="ammo-recovery-header">${L('AMMO.RECOVERY_RESULT_TITLE')} — ${actor.name}</div>
-  <div class="ammo-recovery-line">${F('AMMO.RECOVERY_MANUAL_LINE', {
-		name: foundry.utils.escape(item.name),
-		fired,
-		recovered,
-		lost,
-		threshold,
-	})}</div>
-  <div class="ammo-recovery-dice">1W20 (${threshold}): ${results.join(', ')}</div>
-</div>`;
-	await ChatMessage.create({ speaker, content: resultContent, rolls: [roll] });
-	// 2) GM-Anwendungskarte (Gutschrift auf den Stapel, wie Schaden anwenden)
-	const token = canvas.tokens.objects?.children?.find((t) => t.actor === actor) ?? null;
-	const applyContent = `<div class="symbaroum ammo-recovery-card ammo-apply-card">
-  <div class="ammo-recovery-header">${L('AMMO.APPLY_CARD_TITLE')}</div>
-  <div class="ammo-recovery-line">${F('AMMO.APPLY_CARD_LINE', {
-		actor: foundry.utils.escape(actor.name),
-		recovered,
-		name: foundry.utils.escape(item.name),
-	})}</div>
-  <button class="ammo-apply-btn" type="button">${L('AMMO.APPLY_BUTTON')}</button>
-</div>`;
-	await ChatMessage.create({
-		speaker,
-		content: applyContent,
-		flags: {
-			[game.system.id]: {
-				ammoApply: {
-					actorId: actor.id,
-					tokenId: token?.id ?? null,
-					itemId: item.id,
-					name: item.name,
-					recovered,
-					done: false,
-				},
-			},
-		},
-	});
-}
-
-/**
- * GM-Anwendungskarte ausfuehren (Anwenden-Button, NUR GM): Gutschrift der
- * geborgenen Stuecke auf den Stapel - Token-afloesung wie das Schaden-
- * Anwendungs-Muster (applyEffects in hooks.js: Token-Referenz vor
- * game.actors, deckt unverbundene Token-Aktoren ab). Wiederholungs-
- * schutz per done-Flag, Stapel weg -> Bergung verfaellt (Meldung).
- */
-export async function applyAmmoRecoveryResult(message) {
-	const data = message.getFlag(game.system.id, 'ammoApply');
-	if (!data) return;
-	if (data.done) {
-		ui.notifications.warn(L('AMMO.APPLY_ALREADY'));
-		return;
-	}
-	if (!game.user.isGM) {
-		ui.notifications.warn(L('AMMO.APPLY_NO_RIGHT'));
-		return;
-	}
-	const token = data.tokenId ? canvas.tokens.objects.children.find((t) => t.id === data.tokenId) : null;
-	const actor = token?.actor ?? game.actors.get(data.actorId);
-	if (!actor) {
-		ui.notifications.warn(L('AMMO.APPLY_ERR_NO_ACTOR'));
-		return;
-	}
-	const item = actor.items.get(data.itemId);
-	if (!item) {
-		await message.setFlag(game.system.id, 'ammoApply', { ...data, done: true });
-		ui.notifications.warn(F('AMMO.APPLY_ERR_NO_STACK', { name: data.name ?? '' }));
-		return;
-	}
-	const amount = Math.max(0, Math.round(Number(data.recovered) || 0));
-	if (amount > 0) {
-		await item.update({ 'system.number': getItemCount(item) + amount });
-	}
-	await message.setFlag(game.system.id, 'ammoApply', { ...data, done: true });
-	ui.notifications.info(F('AMMO.APPLY_RESULT', { name: item.name, amount }));
-}
-
-/**
- * Bergungs-Karten beim Kampfende: eine Karte je Aktor mit verbrauchter
- * Munition (Zeilen je Stapel + „Bergen"-Button, Eigentuemer/GM). Namen
- * werden escaped (Item-Namen sind Freitext), die Karte traegt das Flag
- * ammoRecovery fuer den Button-Listener.
- */
-function buildAmmoRecoveryCards(combat) {
-	if (!isAmmoRecoveryEnabled()) return;
-	const usage = combat?.getFlag?.(game.system.id, 'ammoUsage');
-	if (!usage || !Object.keys(usage).length) {
-		// Munition v1.1 (Rudolfs Testrunde-1-Befund „startet nicht
-		// automatisch"): Stummes Nichtstarten war nicht diagnostizierbar -
-		// jetzt bekommt der GM eine sichtbare Rueckmeldung, WENN die
-		// Bergungsoption an ist, aber kein Verbrauch gezaehlt wurde
-		// (typische Ursachen: Angriffe ausserhalb des aktiven Kampfes,
-		// Bergungsoption erst nach den Angriffen aktiviert, Settings
-		// pruefen). Ohne gezaehlte Verbraeuche gibt es bewusst KEINE Karte.
-		ui.notifications.info(L('AMMO.RECOVERY_NO_USAGE'));
-		return;
-	}
-	const byActor = {};
-	for (const entry of Object.values(usage)) {
-		if (!entry?.actorId) continue;
-		(byActor[entry.actorId] ??= []).push(entry);
-	}
-	for (const [actorId, entries] of Object.entries(byActor)) {
-		const actor = game.actors.get(actorId);
-		const lines = entries
-			.map(
-				(e) =>
-					`<div class="ammo-recovery-line">${F('AMMO.RECOVERY_LINE', {
-						name: foundry.utils.escape(e.name ?? ''),
-						fired: e.fired ?? 0,
-						threshold: e.threshold ?? AMMO_THRESHOLDS.standard,
-					})}</div>`
-			)
-			.join('');
-		const content = `<div class="symbaroum ammo-recovery-card">
-  <div class="ammo-recovery-header">${L('AMMO.RECOVERY_CARD')}</div>
-  ${lines}
-  <button class="ammo-recovery-btn" type="button">${L('AMMO.RECOVERY_BUTTON')}</button>
-</div>`;
-		ChatMessage.create({
-			speaker: actor ? ChatMessage.getSpeaker({ actor }) : { alias: actorId },
-			content,
-			flags: { [game.system.id]: { ammoRecovery: { actorId, entries, done: false } } },
-		});
-	}
-}
-
-/**
- * Bergung ausfuehren (Button-Klick): 1W20 je verschossenem Stueck,
- * GEBORGEN bei Wurf <= Schwelle (beschaedigt bei Wurf > Schwelle, GRW),
- * Gutschrift auf den Stapel, Ergebniskarte, Wiederholungs-Schutz per
- * done-Flag. Nur Eigentuemer oder GM (Runde-2-Entscheidung).
- */
-export async function performAmmoRecovery(message) {
-	const data = message.getFlag(game.system.id, 'ammoRecovery');
-	if (!data) return;
-	if (data.done) {
-		ui.notifications.warn(L('AMMO.RECOVERY_ALREADY'));
-		return;
-	}
-	const actor = game.actors.get(data.actorId);
-	if (!(game.user.isGM || actor?.isOwner)) {
-		ui.notifications.warn(L('AMMO.RECOVERY_NO_RIGHT'));
-		return;
-	}
-	const entries = data.entries ?? [];
-	const totalFired = entries.reduce((sum, e) => sum + (Number(e.fired) || 0), 0);
-	if (totalFired <= 0) {
-		await message.setFlag(game.system.id, 'ammoRecovery', { ...data, done: true });
-		return;
-	}
-	// Hintergrundwuerfe: ein Wurfpool, je Eintrag sein Anteil
-	const roll = new Roll(`${totalFired}d20`);
-	await roll.evaluate();
-	let idx = 0;
-	const resultLines = [];
-	let recoveredTotal = 0;
-	for (const entry of entries) {
-		const n = Math.max(0, Math.round(Number(entry.fired) || 0));
-		const threshold = Number(entry.threshold) || AMMO_THRESHOLDS.standard;
-		const results = roll.dice[0]?.results?.slice(idx, idx + n).map((r) => r.result) ?? [];
-		idx += n;
-		const recovered = results.filter((r) => r <= threshold).length;
-		const lost = n - recovered;
-		recoveredTotal += recovered;
-		const item = actor?.items.get(entry.itemId);
-		if (!item) {
-			resultLines.push(
-				`<div class="ammo-recovery-line">${F('AMMO.RECOVERY_NO_STACK', {
-					name: foundry.utils.escape(entry.name ?? ''),
-				})}</div>`
-			);
-			continue;
-		}
-		if (recovered > 0) {
-			await item.update({ 'system.number': getItemCount(item) + recovered });
-		}
-		resultLines.push(
-			`<div class="ammo-recovery-line">${F('AMMO.RECOVERY_RESULT_LINE', {
-				name: foundry.utils.escape(entry.name ?? ''),
-				recovered,
-				lost,
-				fired: n,
-			})}</div>`
-		);
-	}
-	const resultContent = `<div class="symbaroum ammo-recovery-card ammo-recovery-result">
-  <div class="ammo-recovery-header">${L('AMMO.RECOVERY_RESULT_TITLE')}</div>
-  ${resultLines.join('')}
-</div>`;
-	await ChatMessage.create({
-		speaker: actor ? ChatMessage.getSpeaker({ actor }) : { alias: data.actorId },
-		content: resultContent,
-	});
-	await message.setFlag(game.system.id, 'ammoRecovery', { ...data, done: true });
-	ui.notifications.info(F('AMMO.RECOVERY_DONE_MSG', { recovered: recoveredTotal, fired: totalFired }));
-}

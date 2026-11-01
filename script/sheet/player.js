@@ -30,10 +30,6 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 // (resourceCategory) ohne System-Trigger - Alchemiezutat bis zum Brau-Dialog
 // des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
 import { openConsumeResourceDialog } from '../common/resources.js';
-// Munitionsverbrauch v1.1: Kontextmenü „Bergen …" an Munitions-Stapeln
-// (manueller Bergen-Flow, ammo.js)
-import { openAmmoRecoveryDialog, isAmmoCategory, isAmmoRecoveryEnabled } from '../common/ammo.js';
-
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
  * Filters the menu entries per item document (visible receives the Item, not the HTML
@@ -56,6 +52,10 @@ class CMPowerMenu extends foundry.applications.ux.ContextMenu {
 			fixed: true,
 		});
 		this.myParent = parent;
+		// Munitionsverbrauch v1.2 (Fund 2 der Testrunde 2): Container merken,
+		// damit die Registrierungsstelle eine Neu-Bindung nach dem Blatt-
+		// Wiederöffnen erkennen kann (V14 erstellt dann ein NEUES Element).
+		this.menuContainer = container;
 		this.originalMenuItems = [...menuItems];
 		// 7.2.4: stale-state cleanup. The core toggle swallows a right-click on a
 		// row that still carries the .context class while no live menu exists
@@ -1092,38 +1092,15 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				this._openContainerDialog(container);
 			});
 		}
-		// A6v8 (Testrunde 7, Rudolfs Änderungswunsch): Rechtsklick auf eine
-		// Ausrüstungs-Zeile im modernen Ausrüstungs-Tab öffnet den Anzahl-
-		// Dialog statt des Standard-Kontextmenüs. Das betrifft auch
-		// Ausrüstung mit aktiver Artefakt-Checkbox (die Zeilen stehen unter
-		// ARTEFAKTE, bleiben aber Ausrüstung). Ohne Editierrechte läuft der
-		// Rechtsklick ins Standard-Kontextmenü durch (kein preventDefault).
-		// stopPropagation verhindert die Delegation des CMPowerMenu, dessen
-		// Listener am Blatt-Root hängt.
-		// AP2 v2 (Uniform-Regel + Stapel trennen): Der Dialog gilt jetzt
-		// für ALLE stapelbaren Items - Waffen/Rüstungen/Artefakte mit
-		// Stapelbar-Flag bekommen denselben Dialog (Anzahl ändern, Löschen,
-		// ab Anzahl 2 zusätzlich "Trennen"). Ohne Flag bleiben Waffen/
-		// Rüstungen beim Standard-Kontextmenü (kein Binding, keine
-		// Regression), normale Ausrüstung behält das A6v8-Verhalten.
-		const equipRows = element.querySelectorAll('.m-gear .m-inv-row');
-		for (const row of equipRows) {
-			const item = this.actor.items.get(row.dataset.itemId);
-			if (!item) continue;
-			if (!item.system?.isEquipment && !isStackableItem(item)) continue;
-			// Munition v1.1: Rechtsklick auf Munitions-STAPEL öffnet bei
-			// aktiver Bergungsoption das Kontextmenü (mit „Bergen …")
-			// statt des Anzahl-Dialogs - sonst wäre der manuelle Bergen-
-			// Flow im modernen Blatt unerreichbar (Rudolfs Testrunde-1-
-			// Wunsch). Alle anderen Zeilen behalten das A6v8-Verhalten.
-			if (item.type === 'equipment' && isAmmoRecoveryEnabled() && isAmmoCategory(item.system?.resourceCategory ?? '')) continue;
-			row.addEventListener('contextmenu', (ev) => {
-				if (!this.isEditable || !this.actor.isOwner) return;
-				ev.preventDefault();
-				ev.stopPropagation();
-				this._openEquipmentDialog(item);
-			});
-		}
+		// Munitionsverbrauch v1.2 (Rudolfs Auswahlrunde-Antwort c, A6v8-
+		// Konflikt aus Testrunde 2): Die A6v8-Zeilen-Interception ist ENTFERNT
+		// - der Rechtsklick auf Ausrüstungs-Zeilen im modernen Ausrüstungs-Tab
+		// öffnet jetzt IMMER das Kontextmenü (auch bei Munitions-Stapeln; der
+		// v1.1-Skip für Munition ist ersatzlos weg). Der A6v8-Anzahl-Dialog
+		// ist als Menü-Eintrag „Anzahl …“ integriert (siehe _getPowerMenuItems
+		// - gleiche Zielmenge: Ausrüstung + stapelbare Items, nur moderner
+		// Ausrüstungs-Tab, nur mit Editierrechten). Klassische Blätter und
+		// die übrigen Tabs verhalten sich unverändert.
 		// Übergabe v1.2 (Rudolfs Testrunde 1): Klick auf das Item-Icon am
 		// Zeilenkopf des Ausrüstungs-Tabs öffnet den Geben-Dialog direkt -
 		// erspart das Item-Blatt-Fenster und den Kopf-Button-Klick. Drag&Drop
@@ -1168,11 +1145,25 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			},
 		}).bind(element);
 
-		// Power/gear context menu - the app root element persists across re-renders,
-		// so the menu is only created once per sheet instance.
-		this.powerMenu ??= new CMPowerMenu(element, '.symbaroum-contextmenu', this._getPowerMenuItems(), {
-			parent: this,
-		});
+		// Power/gear context menu - Munitionsverbrauch v1.2 (Fund 2 der
+		// Testrunde 2): `??=` band das Menü EINMAL an das Element der ersten
+		// Öffnung. V14 verwirft beim Schließen das Fenster-DOM und erstellt
+		// beim Wiederöffnen (Instanz-Reuse) ein NEUES Element - der Delega-
+		// tions-Listener lief am losgelösten Element weiter, das Kontextmenü
+		// blieb nach dem Wiederöffnen tot (Kampf-Tab ohne Menü; nur der
+		// A6v8-Anzahl-Dialog reagierte noch, F5 brachte die neue Instanz).
+		// Fix: bei jedem Render prüfen, ob der Menu-Container noch das
+		// aktuelle Element ist - sonst neu binden.
+		if (!this.powerMenu || this.powerMenu.menuContainer !== element) {
+			try {
+				this.powerMenu?.close?.();
+			} catch (err) {
+				/* Menü war nie offen oder bereits entfernt - egal */
+			}
+			this.powerMenu = new CMPowerMenu(element, '.symbaroum-contextmenu', this._getPowerMenuItems(), {
+				parent: this,
+			});
+		}
 		// Übergabe v1.2: Das v1 containerGiveMenu war toter Code - der
 		// Behältersystem-v1-Zeilenlistener (weiter oben) schluckt den
 		// Rechtsklick auf JEDER Behälterzeile (preventDefault +
@@ -1262,6 +1253,28 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				},
 			},
 			{
+				// Munitionsverbrauch v1.2 (Rudolfs Auswahlrunde-Antwort c,
+				// A6v8-Konflikt aus Testrunde 2): Der A6v8-Anzahl-Dialog
+				// (Testrunde 7) ist als EINTRAG ins Kontextmenü integriert -
+				// der Rechtsklick auf Ausrüstungs-Zeilen des modernen
+				// Ausrüstungs-Tabs öffnet jetzt IMMER das Menü (der v1.1-
+				// Rechtsklick-Abfang mit Munitions-Skip ist entfallen).
+				// Gleiche Zielmenge wie das alte Zeilen-Binding: Ausrüstung
+				// und stapelbare Items (AP2-v2-Regel, deckt Wurfwaffen- und
+				// Rüstungs-Stapel mit Flag ab), nur moderner Ausrüstungs-Tab
+				// (visibleEl .m-gear), nur mit Editierrechten. Der Dialog
+				// selbst (inkl. Trennen/Abwahl-Löschen) ist unverändert.
+				label: 'TOOLTIP.EDIT_COUNT',
+				icon: `<i class="fa-solid fa-pen-to-square"></i>`,
+				visible: (elem) => {
+					return (elem?.system?.isEquipment || isStackableItem(elem)) && elem.isOwner;
+				},
+				visibleEl: (target) => !!target.closest('.m-gear'),
+				onClick: (event, elem) => {
+					this._openEquipmentDialog(this._ctxItem(elem));
+				},
+			},
+			{
 				label: 'TOOLTIP.VIEW_ITEM',
 				icon: `<i class="fa-regular fa-eye"></i>`,
 				visible: (elem) => {
@@ -1284,7 +1297,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				},
 				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
-					openGiveDialog(this.actor, elem);
+					openGiveDialog(this.actor, this._ctxItem(elem));
 				},
 			},
 			{
@@ -1308,33 +1321,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				},
 				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
-					openConsumeResourceDialog(elem);
-				},
-			},
-			{
-				// Munitionsverbrauch v1.1 (Rudolfs Testrunde-1-Wunsch):
-				// Kontextmenü „Bergen …" an Munitions-Stapeln - der SPIELER-
-				// getriebene Bergen-Flow (Anzahl verschossener Stücke
-				// eintragen, 1W20 je Stück, Ergebniskarte + GM-Karte zum
-				// Anwenden auf den Token, Muster Schaden anwenden). Sichtbar
-				// für Blattbesitzer/GM an equipment- UND weapon-Stapeln
-				// (Wurfspeer-Waffen), Bestand 0 ausdrücklich ERLAUBT
-				// (Bergung nach Leerschießen ist der Normalfall), nur bei
-				// aktiver Bergungsoption, gleiche visibleEl-Regel wie
-				// Ressource verbrauchen.
-				label: 'AMMO.RECOVERY_MENU',
-				icon: `<i class="fa-solid fa-box-open"></i>`,
-				visible: (elem) => {
-					return (
-						isAmmoRecoveryEnabled() &&
-						(elem?.type === 'equipment' || elem?.type === 'weapon') &&
-						isAmmoCategory(elem?.system?.resourceCategory ?? '') &&
-						elem.isOwner
-					);
-				},
-				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
-				onClick: (event, elem) => {
-					openAmmoRecoveryDialog(elem);
+					openConsumeResourceDialog(this._ctxItem(elem));
 				},
 			},
 			{
@@ -1347,6 +1334,21 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			},
 		];
 	}
+	/* Munitionsverbrauch v1.2 (Fund 1 der Testrunde 2): Der V14-Core ruft
+	 * die onClick-Handler des Kontextmenüs als (event, target) auf - target
+	 * ist das HTML-ZEILEN-ELEMENT, NICHT das Item-Dokument (die visible-
+	 * Funktionen sehen nach dem CMPowerMenu-Filter hingegen das Dokument).
+	 * Die Althandler (Menge +/-, Anzeigen, Löschen, Verwenden) lösen
+	 * dataset.itemId selbst auf und funktionieren; openGiveDialog und
+	 * openConsumeResourceDialog erwarten aber ein DOKUMENT und kehrten
+	 * seit Übergabe/Ressourcen v1 still zurück (Testrunde 2: Geben- und
+	 * Verbrauchen-Klicks wirkungslos). Zentrale defensive Auflösung. */
+	_ctxItem(elem) {
+		if (elem instanceof CONFIG.Item.documentClass) return elem;
+		const id = elem?.dataset?.itemId;
+		return id ? (this.actor.items.get(id) ?? null) : null;
+	}
+
 
 	async _prepareRollAttribute(event) {
 		event.preventDefault();
