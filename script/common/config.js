@@ -1382,6 +1382,11 @@ SYMBAROUM.AMMO_EFFECT_SELECTION = {
     label: "AMMO_EFFECT.SEEKING_ARROW",
   },
 };
+
+/* Auswahl der Waffen-Grundschaden-Wuerfel (Original-Bestand, beim Elixier-
+   v1.0-Versand versehentlich verschluckter Header - Sammel-Fix 01.11.:
+   diese Zeile restauriert, Eintraege 1d4..1d12 und Abschluss unveraendert). */
+SYMBAROUM.WEAPON_DAMAGE_SELECTION = {
   "1d4": {
     id: "1d4",
     label: "1d4",
