@@ -9848,3 +9848,68 @@ dialog.symb-dialog .symbaroum.dialog .simplebox.bandage-status {
   font-size: 0.85em;
   opacity: 0.8;
 }
+
+/* ------------------------------------------------------------------ */
+/* Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.) — GM-only Wirkungs-
+   felder (system.elixirEffect) auf dem Ausrüstungsblatt, gemeinsames
+   Partial der klassischen und modernen Ansicht. Kompaktes Zwei-Spalten-
+   Raster mit Label-Spalte (Muster .resourcecategory-Zeilen); der Block
+   liegt im Beschreibungs-Tab und bricht auf schmalen Fenstern auf eine
+   Spalte um. Selects der Alchemie-Stufe/Verwendungsform/Munitionswirkung
+   nutzen die bestehenden .resourcecategory- (klassisch) bzw.
+   .m-inline-field-Zeilen (modern) und brauchen kein eigenes CSS. */
+/* Elixier-Automatisierung v1 */
+.elixir-effect-block {
+  margin: 5px;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.03);
+}
+.elixir-effect-block h3 {
+  margin: 0 0 4px 0;
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+}
+.elixir-effect-block .elixir-effect-hint {
+  margin: 0 0 6px 0;
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+.elixir-effect-block .elixir-effect-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+.elixir-effect-block .elixir-effect-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.elixir-effect-block .elixir-effect-field label {
+  flex: 0 0 45%;
+  margin: 0;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+.elixir-effect-block .elixir-effect-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.elixir-effect-block .elixir-effect-wide {
+  margin-top: 4px;
+}
+.symbaroum.sheet.item.modern .elixir-effect-block,
+.modern-item-root .elixir-effect-block {
+  border-color: var(--m-border, rgba(255, 255, 255, 0.15));
+  background: var(--m-box-bg, rgba(255, 255, 255, 0.05));
+}
+@media (max-width: 420px) {
+  .elixir-effect-block .elixir-effect-grid {
+    grid-template-columns: 1fr;
+  }
+}

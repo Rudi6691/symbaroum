@@ -99,6 +99,32 @@
                         </select>
                     </div>
                     {{/if}}
+                    {{!-- Elixier-Automatisierung v1: Elixier-Steuerung (GM-only) -
+                        Alchemie-Stufe + Verwendungsform, Munitionswirkung nur auf
+                        Munitions-Items; Wirkungsfelder im gemeinsamen Partial. --}}
+                    {{#if showElixirFields}}
+                    <div class="resourcecategory">
+                        <label for="{{id}}-system.alchemyLevel" data-tooltip="{{localize "ALCHEMY_LEVEL.TOOLTIP"}}">{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
+                        <select id="{{id}}-system.alchemyLevel" name="system.alchemyLevel" data-tooltip="{{localize "ALCHEMY_LEVEL.TOOLTIP"}}">
+                            {{selectOptions alchemy_level_selection selected=alchemyLevel valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="resourcecategory">
+                        <label for="{{id}}-system.elixirUsage" data-tooltip="{{localize "ELIXIR.USAGE_TOOLTIP"}}">{{localize "ELIXIR.USAGE_LABEL"}}</label>
+                        <select id="{{id}}-system.elixirUsage" name="system.elixirUsage" data-tooltip="{{localize "ELIXIR.USAGE_TOOLTIP"}}">
+                            {{selectOptions elixir_usage_selection selected=elixirUsage valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    {{#if showAmmoEffect}}
+                    <div class="resourcecategory">
+                        <label for="{{id}}-system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">{{localize "AMMO_EFFECT.LABEL"}}</label>
+                        <select id="{{id}}-system.ammoEffect" name="system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">
+                            {{selectOptions ammo_effect_selection selected=ammoEffect valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    {{/if}}
+                    {{> systems/symbaroum/template/sheet/tab/elixir-effect.hbs}}
+                    {{/if}}
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>

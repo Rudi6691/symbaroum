@@ -8,6 +8,8 @@ import { openGiveDialog } from '../common/transfer.js';
 import { getModernSheetUserStyle, getModernSheetEffectiveDesign } from '../common/modernSheetConfig.js';
 import { symbDialog } from '../common/symbDialog.js';
 import { allocateFromBase, getDenominations } from '../common/currency.js';
+// Elixier-Automatisierung v1: Munitionswirkung nur auf Munitions-Items anzeigen
+import { isAmmoCategory } from '../common/ammo.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -157,6 +159,32 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
+		/* Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.): Elixier-
+		   Steuerung auf dem Ausrüstungsblatt, GM-only (Item-Taxonomie wie
+		   die Ressourcen-Kategorie). Drei Selects (Alchemie-Stufe, Verwen-
+		   dungsform, Munitionswirkung - letztere nur auf Munitions-Items)
+		   plus die maschinenlesbaren Wirkungsfelder (system.elixirEffect)
+		   als gemeinsames Partial. Vorlokalisierte Auswahllisten (Muster
+		   Bestienkunde oben); undefined (Alt-Items) und '' sind beide
+		   „keine/leer“. */
+		context.showElixirFields = this.item.type === 'equipment' && !!game.user.isGM;
+		context.alchemyLevel = this.item.system.alchemyLevel ?? '';
+		context.alchemy_level_selection = Object.values(game.symbaroum.config.ALCHEMY_LEVEL_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
+		context.elixirUsage = this.item.system.elixirUsage ?? '';
+		context.elixir_usage_selection = Object.values(game.symbaroum.config.ELIXIR_USAGE_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
+		context.showAmmoEffect = context.showElixirFields && isAmmoCategory(this.item.system?.resourceCategory ?? '');
+		context.ammoEffect = this.item.system.ammoEffect ?? '';
+		context.ammo_effect_selection = Object.values(game.symbaroum.config.AMMO_EFFECT_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
+		context.elixirEffect = this.item.system.elixirEffect ?? {};
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;
 		/* AP2 v2 (Uniform-Regel): Effektiver Stapelbar-Zustand für die

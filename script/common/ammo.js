@@ -166,18 +166,27 @@ export function getAmmoTotal(actor, category) {
  * 'quality' = 15, 'mystical' = 17; nur Makro-gesetzt, kein UI) - Waffen
  * (Wurfspeer-Stapel, Selbstverbrauch) stattdessen aus system.qualities:
  * mystical -> 17, sonst irgendeine Qualitaet -> 15, sonst 10.
+ * Elixier-Automatisierung v1: 'alchemie' (Betaeubungsbolzen/Treffpfeil,
+ * gesetzt vom Elixier-Tagging-Makro) zaehlt wie Qualitaetsmunition (15) -
+ * praktisch unerreichbar, weil das Bergen-Makro alchemistische Munition
+ * NIE bergbar behandelt (Nie-Bergbar-Beschluss) und sie ohnehin ueberspringt.
  */
 export function getAmmoThreshold(item) {
 	if (!item) return AMMO_THRESHOLDS.standard;
 	const quality = item.system?.ammoQuality ?? '';
 	if (quality === 'mystical') return AMMO_THRESHOLDS.mystical;
-	if (quality === 'quality') return AMMO_THRESHOLDS.quality;
+	if (quality === 'quality' || quality === 'alchemie') return AMMO_THRESHOLDS.quality;
 	if (item.type === 'weapon') {
 		const qualities = item.system?.qualities ?? {};
 		if (qualities.mystical === true) return AMMO_THRESHOLDS.mystical;
 		if (Object.values(qualities).some((v) => v === true)) return AMMO_THRESHOLDS.quality;
 	}
 	return AMMO_THRESHOLDS.standard;
+}
+
+/** Elixier-Automatisierung v1: alchemistische Munition (Nie-Bergbar-Marker). */
+export function isAmmoAlchemical(item) {
+	return (item?.system?.ammoQuality ?? '') === 'alchemie';
 }
 
 /* ---------------------------------------------------------------- */
@@ -222,12 +231,20 @@ export function checkWeaponAmmoReady(actor, weapon) {
  * Muster), Menge je Angriff × Angriffsanzahl, AP2-Stapelreihenfolge
  * (oberster Stapel zuerst, bis 0 erlaubt - Zeile bleibt stehen).
  *
+ * Elixier-Automatisierung v1: optionale 4. Parameter-Verdrahtung - wird
+ * ecData uebergeben, stash der Aufruf die alchemistische Munitionswirkung
+ * (system.ammoEffect) des ERSTEN abgebuchten Stapels mit dazugehoerigem
+ * Stapelnamen (ecData.ammoEffect / ecData.ammoEffectName); die Kampf-
+ * Auswertung (item.js attackResult) feuert Betäubungsbolzen/Treffpfeil
+ * daraus. Mischbestand: es zaehlt der oberste Stapel, von dem tatsaechlich
+ * abgebucht wurde (dokumentiertes RAW-Gegenstueck - der SL sortiert).
+ *
  * Rueckgabe-Vertrag fuer dialog.js:
  *   - null   = nichts gebucht (Setting AUS, keine Kategorie, kein Item)
  *   - false  = BLOCKIERT (Notification kam hier; der Wurf laeuft nicht)
  *   - String = Label fuer autoParams/Chat (Format AMMO.CHAT_CONSUMED)
  */
-export async function consumeAmmoForAttack(actor, weapon, numberofAttacks = 1) {
+export async function consumeAmmoForAttack(actor, weapon, numberofAttacks = 1, ecData = null) {
 	if (!isAmmoConsumptionEnabled()) return null;
 	const cfg = getWeaponAmmoConfig(actor, weapon);
 	if (!cfg) return null;
@@ -243,6 +260,13 @@ export async function consumeAmmoForAttack(actor, weapon, numberofAttacks = 1) {
 			return false;
 		}
 		await cfg.item.update({ 'system.number': current - attacks });
+		if (ecData) {
+			const thrownEffect = cfg.item.system?.ammoEffect ?? '';
+			if (thrownEffect !== '') {
+				ecData.ammoEffect = thrownEffect;
+				ecData.ammoEffectName = cfg.item.name;
+			}
+		}
 		return F('AMMO.CHAT_CONSUMED', { name: cfg.item.name, amount: attacks });
 	}
 
@@ -269,7 +293,18 @@ export async function consumeAmmoForAttack(actor, weapon, numberofAttacks = 1) {
 		// Bewusst bis 0 erlaubt - Zeile bleibt stehen (wie Ressourcen).
 		await item.update({ 'system.number': current - takeFromStack });
 		remaining -= takeFromStack;
-		if (firstName === null) firstName = item.name;
+		if (takeFromStack > 0 && firstName === null) {
+			firstName = item.name;
+			// Elixier-Automatisierung v1: Wirkung des ersten ABBEGEBUCHTEN
+			// Stapels stashen (Mischbestand: oberster Stapel gewinnt).
+			if (ecData) {
+				const stackEffect = item.system?.ammoEffect ?? '';
+				if (stackEffect !== '') {
+					ecData.ammoEffect = stackEffect;
+					ecData.ammoEffectName = item.name;
+				}
+			}
+		}
 	}
 	return F('AMMO.CHAT_CONSUMED', { name: firstName ?? '', amount: need });
 }

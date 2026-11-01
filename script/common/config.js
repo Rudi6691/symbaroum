@@ -577,6 +577,17 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/unknown-item.png",
   },
   {
+    // Elixier-Automatisierung v1 (Nebelball): Benommen - Malus −1/−3/−5 je
+    // Alchemie-Stufe auf alle Erfolgsproben für 1W4 Runden. Der Malus reitet
+    // beim Anwenden in flags.symbaroum.flagData.dazedPenalty mit und wird
+    // zur Laufzeit über getDazedPenalty() (elixirs.js) gelesen; handgesetzte
+    // Symbole ohne flagData werfen nichts um (A28-Marker-Präzedenz).
+    id: "dazed",
+    label: "CONDITION.DAZED",
+    name: "CONDITION.DAZED",
+    icon: "icons/svg/stoned.svg",
+  },
+  {
     id: "dancingweapon",
     label: "POWER_LABEL.DANCING_WEAPON",
     name: "POWER_LABEL.DANCING_WEAPON",
@@ -653,6 +664,27 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.UNNOTICEABLE",
     name: "POWER_LABEL.UNNOTICEABLE",
     icon: "systems/symbaroum/asset/image/invisible.png",
+  },
+  {
+    // Elixier-Automatisierung v1 (Lebenselixier): Carrier-Bedingung der
+    // pro-Runde-Heilung (dot resource 'heal', durationRounds je Dosis) -
+    // bewusst EIGENE Bedingung statt Wiederverwendung von 'regeneration':
+    // der A35-Combatant-Hook prueft hasCondition('regeneration') und wuerde
+    // bei einem aktiven Lebenselixier die Trait-Ausstattung ueberspringen.
+    id: "elixirheal",
+    label: "CONDITION.ELIXIR_HEAL",
+    name: "CONDITION.ELIXIR_HEAL",
+    icon: "systems/symbaroum/asset/image/powers/layonhands.svg",
+  },
+  {
+    // Elixier-Automatisierung v1 (Lebenselixier): Carrier-Bedingung der
+    // pro-Runde-temporaeren-Korruption (dot resource 'corruption') - die
+    // A28-Engine liest genau EINEN dot-Block pro Effect, deshalb laufen
+    // Heilung und Korruption in zwei getrennten Bedingungen.
+    id: "elixirregress",
+    label: "CONDITION.ELIXIR_CORRUPTION",
+    name: "CONDITION.ELIXIR_CORRUPTION",
+    icon: "systems/symbaroum/asset/image/powers/blackbreath.svg",
   },
   {
     // A35: regeneration trait condition - engine-managed heal tick (resource
@@ -1262,7 +1294,94 @@ SYMBAROUM.AMMO_CATEGORY_SELECTION = {
   },
 };
 
-SYMBAROUM.WEAPON_DAMAGE_SELECTION = {
+/* Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.): Alchemie-Stufe eines
+   Elixier-Items (system.alchemyLevel) - leere id = kein Elixier getaggt.
+   GM-only-Feld, gesetzt per Item-Blatt oder Tagging-Makro; steuert die
+   Stufen-abhaengigen Werte (Nebelball-Malus -1/-3/-5, Blitzstaub-Runden
+   1W6/1W4/1, Saeurekugel/Bummstein/Purpursaft-Wuerfelstufen ueber die
+   elixirEffect-Formeln). Geisterstaub traegt keine Stufe im Vault und
+   bleibt 'adept' getaggt (Konzept-Festlegung). */
+SYMBAROUM.ALCHEMY_LEVEL_SELECTION = {
+  "": {
+    id: "",
+    label: "ALCHEMY_LEVEL.NONE",
+  },
+  novice: {
+    id: "novice",
+    label: "ALCHEMY_LEVEL.NOVICE",
+  },
+  adept: {
+    id: "adept",
+    label: "ALCHEMY_LEVEL.ADEPT",
+  },
+  master: {
+    id: "master",
+    label: "ALCHEMY_LEVEL.MASTER",
+  },
+};
+
+/* Elixier-Automatisierung v1: Verwendungsform (system.elixirUsage) - der
+   Router useElixir() (elixirs.js) entscheidet darueber, was das Kontext-
+   menue "Elixier verwenden" tut: self = automatische Selbst-Anwendung,
+   thrown = Wurf-Dialog mit Zielprobe-Volltiefe, ammo = nur Hinweis (die
+   Wirkung feuert beim Waffenangriff, ammo.js/item.js), coating/candle/
+   combatAbility/special = Verbrauch + strukturierte Chat-Karte, die
+   Regelwirkung bleibt SL-Sache (bewusste Begrenzung). */
+SYMBAROUM.ELIXIR_USAGE_SELECTION = {
+  "": {
+    id: "",
+    label: "ELIXIR.USAGE_NONE",
+  },
+  self: {
+    id: "self",
+    label: "ELIXIR.USAGE_SELF",
+  },
+  thrown: {
+    id: "thrown",
+    label: "ELIXIR.USAGE_THROWN",
+  },
+  combatAbility: {
+    id: "combatAbility",
+    label: "ELIXIR.USAGE_COMBAT_ABILITY",
+  },
+  candle: {
+    id: "candle",
+    label: "ELIXIR.USAGE_CANDLE",
+  },
+  coating: {
+    id: "coating",
+    label: "ELIXIR.USAGE_COATING",
+  },
+  ammo: {
+    id: "ammo",
+    label: "ELIXIR.USAGE_AMMO",
+  },
+  special: {
+    id: "special",
+    label: "ELIXIR.USAGE_SPECIAL",
+  },
+};
+
+/* Elixier-Automatisierung v1: alchemistische Munitions-Wirkung
+   (system.ammoEffect, nur auf Items einer Munitions-Ressourcen-Kategorie)
+   - stunBolt = Betaeubungsbolzen (Staerke-[Schaden]-Probe, Robust +2/Stufe,
+   Misslingen = zu Boden; feuert in attackResult beim Treffer),
+   seekingArrow = Treffpfeil (nur Hinweiszeile - keine Sichtlinien-
+   Automatisierung, SL-Angelegenheit). */
+SYMBAROUM.AMMO_EFFECT_SELECTION = {
+  "": {
+    id: "",
+    label: "AMMO_EFFECT.NONE",
+  },
+  stunBolt: {
+    id: "stunBolt",
+    label: "AMMO_EFFECT.STUN_BOLT",
+  },
+  seekingArrow: {
+    id: "seekingArrow",
+    label: "AMMO_EFFECT.SEEKING_ARROW",
+  },
+};
   "1d4": {
     id: "1d4",
     label: "1d4",

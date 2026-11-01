@@ -16,6 +16,9 @@ import { isModernDialogActive, modernDialogClasses } from "./modernSheetConfig.j
 // kategoriebasierten Ressourcenverbrauchs (Kategorie Kraeuterarznei für den
 // Medicus; Setting „Ressourcenverbrauch" GM-seitig, Default AUS)
 import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailability, consumeHerbalCure, getBandageAvailability, consumeBandage } from "./resources.js";
+// Elixier-Automatisierung v1: Benommen-Malus-Vorbelegung im Faehigkeits-
+// Wuerfeldialog (Nebelball) - Helfer aus elixirs.js
+import { getDazedPenalty } from "./elixirs.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3515,6 +3518,18 @@ export async function modifierDialog(functionStuff) {
   if (medicus && hasTarget && isResourceConsumptionEnabled()) {
     bandageAvailable = getBandageAvailability(functionStuff.actor).available;
   }
+  // Elixier-Automatisierung v1 (Nebelball): Benommen-Malus (-1/-3/-5 auf
+  // alle Erfolgsproben) als VORBELEGUNG des Modifikator-Felds dieses
+  // Faehigkeits-/Zauberwurfs - sichtbar und ueberschreibbar, dazu eine
+  // autoParams-Zeile (Muster dialog.js/Ruestungsbehinderung). Der Submit
+  // uebernimmt den Input-Wert in functionStuff.modifier, der Malus ist
+  // damit genau einmal eingebracht. Kein Wurf (hasRoll false) = keine
+  // Injektion; Freiform-Makro-Wuerfe bleiben draussen (Dokumentation).
+  const elixirDazedPenalty = hasRoll ? getDazedPenalty(functionStuff.actor) : 0;
+  if (elixirDazedPenalty > 0) {
+    functionStuff.modifier = (Number(functionStuff.modifier) || 0) - elixirDazedPenalty;
+    functionStuff.autoParams += game.i18n.format("ELIXIR.DAZED_AUTOPARAM", { penalty: elixirDazedPenalty }) + ", ";
+  }
   const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
     askCastingAttribute: functionStuff.askCastingAttribute,
@@ -5935,6 +5950,16 @@ async function attackResult(rollData, functionStuff) {
     cheapshotProneRollString: "",
     cheapshotProneChat: "",
     cheapshotProneToolTip: "",
+    // Elixier-Automatisierung v1 (alchemistische Munition): Betaeubungs-
+    // bolzen-Probe [Staerke-Schaden] laeuft INLINE in derselben Karte
+    // (Betaeubungs-Probe-Muster) + Treffpfeil-Hinweiszeile
+    printStunBolt: false,
+    stunBoltIntro: "",
+    stunBoltRollString: "",
+    stunBoltChat: "",
+    stunBoltToolTip: "",
+    printAmmoEffectHint: false,
+    ammoEffectHintText: "",
     printBleed: false,
     bleedChat: "",
     printFlaming: false,
@@ -6039,6 +6064,43 @@ async function attackResult(rollData, functionStuff) {
         effectDuration: 1,
       });
     }
+  }
+  // Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11., "Dann baue v1"):
+  // Betaeubungsbolzen (alchemistische Munition, ammoEffect 'stunBolt' -
+  // stash aus dem abgebuchten Stapel, ammo.js consumeAmmoForAttack). RAW:
+  // "jeder, der von dem Bolzen getroffen wird, muss eine Stärke-[Schaden]-
+  // Probe bestehen oder zu Boden fallen; Robust gibt +2 in Stärke pro
+  // Stufe". Die Probe laeuft nach einem TREFFER (Schadenshoehe als Modifikator
+  // - auch bei durch Ruestung absorbiertem Schaden, dann pur) INLINE in
+  // derselben Karte (Betaeubungs-Probe-Muster); Modifikator/Gunst pur, kein
+  // resistRoll - die Ziel-Probe ist ein einseitiger Wurf. Misslingen =
+  // prone via flagDataArray -> GM-Karte (Stolpern-Muster).
+  if (functionStuff.ammoEffect === "stunBolt" && functionStuff.targetData?.hasTarget && !targetDies && rollData.some((r) => r.trueActorSucceeded)) {
+    const robustLevel = getActorAbilityLevel(functionStuff.targetData.actor, "robust");
+    const stunBoltModifier = -1 * damageTot + 2 * robustLevel;
+    const stunBoltProbe = await baseRoll(functionStuff.targetData.actor, "strong", null, null, 0, stunBoltModifier, false);
+    rolls.push(...stunBoltProbe.rolls);
+    const stunBoltFell = !stunBoltProbe.trueActorSucceeded;
+    templateData.printStunBolt = true;
+    templateData.stunBoltIntro = game.i18n.format("COMBAT.CHAT_STUNBOLT_INTRO", { name: functionStuff.targetData.name });
+    templateData.stunBoltRollString = await formatRollString(stunBoltProbe, false, stunBoltModifier);
+    templateData.stunBoltChat =
+      functionStuff.targetData.name + (stunBoltFell ? game.i18n.localize("COMBAT.CHAT_STUNBOLT_PRONE") : game.i18n.localize("COMBAT.CHAT_STUNBOLT_STABLE"));
+    templateData.stunBoltToolTip = stunBoltProbe.toolTip;
+    if (stunBoltFell) {
+      flagDataArray.push({
+        tokenId: functionStuff.targetData.tokenId,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "prone")),
+        effectDuration: 1,
+      });
+    }
+  }
+  // Elixier-Automatisierung v1: Treffpfeil (ammoEffect 'seekingArrow') - nur
+  // Hinweiszeile auf der Angriffskarte (keine Sichtlinien-Automatisierung,
+  // RAW verlangt weiterhin eine normale Angriffsprobe; SL-Angelegenheit).
+  if (functionStuff.ammoEffect === "seekingArrow") {
+    templateData.printAmmoEffectHint = true;
+    templateData.ammoEffectHintText = game.i18n.format("COMBAT.CHAT_SEEKINGARROW_HINT", { ammo: functionStuff.ammoEffectName ?? "" });
   }
   for (let doTime of functionStuff.damageOverTime) {
     if (doTime.effectIcon?.id === "bleeding" && !targetDies && damageTot > 0) {

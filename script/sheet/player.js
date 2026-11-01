@@ -29,7 +29,9 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 // Ressourcen v1: Dialog „Ressource verbrauchen (N)" für kategorisierte Items
 // (resourceCategory) ohne System-Trigger - Alchemiezutat bis zum Brau-Dialog
 // des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
-import { openConsumeResourceDialog } from '../common/resources.js';
+import { openConsumeResourceDialog, getItemCount } from '../common/resources.js';
+// Elixier-Automatisierung v1: Kontextmenü-Eintrag „Elixier verwenden“
+import { useElixir } from '../common/elixirs.js';
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
  * Filters the menu entries per item document (visible receives the Item, not the HTML
@@ -1258,6 +1260,30 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openConsumeResourceDialog(this._ctxItem(elem));
+				},
+			},
+			{
+				// Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.):
+				// Kontextmenü „Elixier verwenden“ an getaggten Elixier-Items
+				// (system.elixirUsage) - der Router useElixir (elixirs.js)
+				// entscheidet über die Verwendungsform: Selbst-Anwendung,
+				// Wurf-Dialog, Erzähl-Karte oder Munitions-Hinweis. Wie
+				// „Ressource verbrauchen“ VOM WELT-SETTING UNABHÄNGIG
+				// (reine Inventar-Aktion), GM und Blattbesitzer, nur mit
+				// Bestand (getItemCount deckt nicht-stapelbare Items mit 1 ab).
+				label: 'ELIXIR.CONSUME_MENU',
+				icon: `<i class="fa-solid fa-flask"></i>`,
+				visible: (elem) => {
+					return (
+						elem?.type === 'equipment' &&
+						!!elem.system?.elixirUsage &&
+						getItemCount(elem) > 0 &&
+						elem.isOwner
+					);
+				},
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					useElixir(this._ctxItem(elem));
 				},
 			},
 		];

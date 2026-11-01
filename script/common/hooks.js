@@ -724,6 +724,32 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 			doc.updateSource({ 'system.ammoQuality': '' });
 		}
 	}
+	// Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.): Elixier-Felder bei
+	// NEUANLAGE von Ausruestung - gleicher A38-Schutz wie Preis/Gewicht/
+	// Ressourcen-Kategorie: NICHT per template.json (Laufzeit-Mischung in
+	// alle Bestaende), nur wenn das Feld fehlt, damit Importe und Makro-
+	// Taggings ihren Wert mitbringen. Alt-Items behalten undefined (alle
+	// Helfer in elixirs.js pruefen ?? '' bzw. ?? {}). Felder:
+	//   alchemyLevel  Alchemie-Stufe (''/novice/adept/master)
+	//   elixirUsage   Verwendungsform (''/self/thrown/combatAbility/candle/
+	//                 coating/ammo/special) - steuert den Router useElixir
+	//   elixirEffect  maschinenlesbare Wirkungsangaben ({}, GM-only)
+	//   ammoEffect    alchemistische Munitionswirkung (''/stunBolt/
+	//                 seekingArrow, nur Munitions-Items)
+	if (doc.type === 'equipment') {
+		if (doc.system.alchemyLevel === undefined) {
+			doc.updateSource({ 'system.alchemyLevel': '' });
+		}
+		if (doc.system.elixirUsage === undefined) {
+			doc.updateSource({ 'system.elixirUsage': '' });
+		}
+		if (doc.system.elixirEffect === undefined) {
+			doc.updateSource({ 'system.elixirEffect': {} });
+		}
+		if (doc.system.ammoEffect === undefined) {
+			doc.updateSource({ 'system.ammoEffect': '' });
+		}
+	}
 });
 
 // Hooks.on('createOwnedItem', (actor, item) => {});
@@ -1315,6 +1341,17 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							if (flagData.attackerFavour === true) {
 								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { attackerFavour: true });
 							}
+							// Elixier-Automatisierung v1: generischer conditionData-
+							// Block - Wurf-/Selbst-Elixiere reiten ihre Zusatzdaten
+							// (durationRounds fuer den A28-Rundenlauf, dazedPenalty
+							// fuer den Nebelball-Malus) in EINEM vorstrukturierten Feld
+							// mit, statt dass jede Wirkung ein eigenes Flag braucht
+							// (selbes Marker-Prinzip wie dot/turnEnd/attackerFavour;
+							// bestehende Pfade setzen das Feld nicht und bleiben
+							// unberuehrt).
+							if (flagData.conditionData) {
+								conditionData = foundry.utils.mergeObject(conditionData ?? {}, flagData.conditionData);
+							}
 							await actor.addCondition(flagData.addEffect, conditionData);
 						}
 					} else if (flagData.removeEffect) {
@@ -1370,7 +1407,13 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						await actor.update({ [linkMod]: newMod });
 					}
 					if (flagData.corruptionChange) {
-						let newCorruption = actor.system.health.corruption.temporary + flagData.corruptionChange;
+						// Elixier-Automatisierung v1: Klemmung auf 0 - Purpursaft
+						// (und jede andere Korruptions-HEILUNG) darf die temporaere
+						// Korruption nie negativ machen; bestehende Pfade klemmen
+						// ihre Werte bereits an der Quelle (Blackbreath: min mit
+						// temporary), das generische Klemmen hier ist damit reine
+						// Absicherung ohne Verhaltensaenderung.
+						let newCorruption = Math.max(0, actor.system.health.corruption.temporary + flagData.corruptionChange);
 						await actor.update({ 'system.health.corruption.temporary': newCorruption });
 					}
 					if (flagData.addObject == 'blessedshield') {

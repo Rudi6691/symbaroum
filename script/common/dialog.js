@@ -5,6 +5,8 @@ import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.j
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
 import { consumeAmmoForAttack } from './ammo.js';
+// Elixier-Automatisierung v1: Benommen-Malus (Nebelball) als Dialog-Vorbelegung
+import { getDazedPenalty } from './elixirs.js';
 
 let roll_defaults = {};
 
@@ -82,6 +84,23 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   let targetTokens = Array.from(game.user.targets);
   let attri_mods = getVersusModifiers(targetTokens);
 	let attri_defaults = getRollDefaults(attributeName,armor !== null, weapon !== null, ecData);
+  // Elixier-Automatisierung v1 (Nebelball, Verwendungsform vollautomatisch):
+  // Benommene Werfer/Charaktere erhalten ihren Malus (-1/-3/-5 auf ALLE
+  // Erfolgsproben) als VORBELEGUNG des Modifikator-Felds - sichtbar und
+  // bewusst ueberschreibbar (Muster Impeding-Zeile), dazu eine autoParams-
+  // Zeile fuer Dialog und Chat-Karte. Gilt fuer JEDE Attributprobe ueber
+  // diesen Dialog (Faehigkeits- und Waffenwuerfe laufen zusaetzlich ueber
+  // modifierDialog in item.js); Freiform-Makro-Wuerfe bleiben draussen
+  // (dokumentierte Begrenzung).
+  // BEWUSST kein In-place-Mutation: attri_defaults kann der GECACHTEN
+  // Default-Instanz des saveCombatRoll/saveAttributeRoll-Speichers
+  // entsprechen - der Malus wird nur in die KOPIE fuer das Template
+  // eingerechnet (roll_defaults unten), sonst wuerde er mit jedem
+  // Dialog-Oeffnen akkumulieren. Der Submit liest ohnehin das Input-Feld.
+  const elixirDazedPenalty = getDazedPenalty(actor);
+  if(elixirDazedPenalty > 0) {
+    ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.format('ELIXIR.DAZED_AUTOPARAM', { penalty: elixirDazedPenalty }) + ', ';
+  }
   let askImpeding = actor.system.combat.impeding !== 0 && weapon === null && armor === null;
   let weaponModifiers = null;
   let askTargetAttribute = ecData.askTargetAttribute ?? false;
@@ -248,7 +267,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
     "groupName":"favour",
     "attri_mods" : attri_mods,
-    "roll_defaults": attri_defaults,
+    "roll_defaults": elixirDazedPenalty > 0 ? { ...attri_defaults, modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty } : attri_defaults,
     "askAttackNb": askAttackNb,
     "attNbRadio": "attNbRadio",
     "targetAttribute_selection":targetAttribute_selection,
@@ -607,7 +626,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           // dem ammo-Modul. Rueckgabe null = nichts gebucht (Setting aus /
           // keine Kategorie), String = Label fuer autoParams.
           if(weapon !== null) {
-            const ammoLabel = await consumeAmmoForAttack(actor, weapon, ecData.numberofAttacks ?? 1);
+            const ammoLabel = await consumeAmmoForAttack(actor, weapon, ecData.numberofAttacks ?? 1, ecData);
             if(ammoLabel === false) {
               resolve(false);
               return;

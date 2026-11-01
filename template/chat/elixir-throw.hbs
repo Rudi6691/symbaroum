@@ -1,0 +1,23 @@
+{{!-- Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.): Wurf-Dialog der
+    Wurf-Elixiere (elixirUsage 'thrown') — Zieltoken-Auswahl, Modifikator
+    (Vorbelegung bei Benommen-Malus) und Gunst, Muster Würfeldialog. --}}
+<div class="symbaroum dialog{{#if renderModern}} modern-roll-dialog{{/if}}">
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="elixir-throw-target">{{localize "ELIXIR.TARGET"}}</label>
+    <select id="elixir-throw-target">
+      {{selectOptions tokens selected=preselect valueAttr="id" labelAttr="name"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}bonus{{/if}}">
+    <label for="elixir-throw-modifier">{{localize "DIALOG.MODIFIER"}}</label>
+    <input id="elixir-throw-modifier" type="number" value="{{dazedModifier}}" data-dtype="Number"/>
+  </div>
+  <div class="favour">
+    <label class="lblfavour">{{radioBoxes "elixir-throw-favour" favourChoices checked="0" localize=true}}</label>
+  </div>
+  {{#if dazedLine}}
+  <div class="simplebox">
+    <p>{{dazedLine}}</p>
+  </div>
+  {{/if}}
+</div>

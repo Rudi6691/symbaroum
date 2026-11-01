@@ -27,6 +27,10 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/container.hbs',
     'systems/symbaroum/template/sheet/tab/bonus.hbs',
     'systems/symbaroum/template/sheet/tab/artifact.hbs',
+    // Elixier-Automatisierung v1: GM-only Wirkungsfelder (system.elixirEffect)
+    // als gemeinsames Partial der klassischen und modernen Ausrüstungsblätter
+    // (Foundry registriert Partials NICHT automatisch - LERNWEIS v1.1)
+    'systems/symbaroum/template/sheet/tab/elixir-effect.hbs',
     'systems/symbaroum/template/sheet/attributes.hbs',
     'systems/symbaroum/template/chat/item.hbs',
     'systems/symbaroum/template/chat/ability.hbs',

@@ -81,6 +81,27 @@
                 </div>
             </div>
         {{/if}}
+        {{!-- Elixier-Automatisierung v1 (alchemistische Munition):
+            Betäubungsbolzen-Zielprobe [Stärke–Schaden] nach Treffer,
+            INLINE-Muster wie Betäubungs-/Stolpern-Block; Misslingen =
+            zu Boden (prone über die GM-Anwendungskarte). --}}
+        {{#if printStunBolt}}
+            <h4>{{removeMarkup stunBoltIntro}}</h4>
+            <div class="finalTxt">{{removeMarkup stunBoltRollString}}</div>
+            <div class="finalTxt">
+                <div class="tooltip">
+                    <p>{{removeMarkup stunBoltChat}}</p>
+                    <span class="tooltiptext">{{stunBoltToolTip}}</span>
+                </div>
+            </div>
+        {{/if}}
+        {{!-- Elixier-Automatisierung v1: Treffpfeil-Hinweiszeile (keine
+            Sichtlinien-Automatisierung, nur Erinnerung an die Szene). --}}
+        {{#if printAmmoEffectHint}}
+            <div class="finalTxt">
+                <p>{{removeMarkup ammoEffectHintText}}</p>
+            </div>
+        {{/if}}
         {{#if printCorruption}}
         <div class="finalTxt">
             <div class="tooltip">
