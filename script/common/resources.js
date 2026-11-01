@@ -286,7 +286,15 @@ export function openConsumeResourceDialog(item) {
 	const html = `<div class="symbaroum modern-give-dialog modern-resource-dialog">
 		<div class="m-give-from">${L('RESOURCE.CONSUME_FROM')}: <b>${item.name}</b></div>
 		<label class="m-sec-label" for="resource-consume-amount">${L('RESOURCE.CONSUME_AMOUNT')}</label>
-		<input class="m-give-quantity" id="resource-consume-amount" type="number" min="1" max="${current}" value="1" step="1"/>
+		<!-- Munitionsverbrauch v1.3 (Rudolfs Testrunde 3, Punkt 4): Mengen-
+		     Feld im Stepper-Layout analog dem A6v8-Anzahl-Dialog; die CSS-
+		     Regeln der m-eq-Row sind v1.3 um .modern-give-dialog erweitert
+		     und gelten damit auch hier. Klemmung 1..Bestand, siehe onRender. -->
+		<div class="m-eq-row">
+			<button type="button" class="m-eq-btn" data-dir="-1" data-tooltip="${L('MODERN.QTY_DECREASE')}"><i class="fas fa-caret-left"></i></button>
+			<input class="m-give-quantity" id="resource-consume-amount" type="number" min="1" max="${current}" value="1" step="1"/>
+			<button type="button" class="m-eq-btn" data-dir="1" data-tooltip="${L('MODERN.QTY_INCREASE')}"><i class="fas fa-caret-right"></i></button>
+		</div>
 		<div class="m-give-note">
 			<i class="fas fa-circle-info"></i>
 			<span>${F('RESOURCE.CONSUME_HINT', { count: current, category: categoryLabel })}</span>
@@ -297,6 +305,20 @@ export function openConsumeResourceDialog(item) {
 		content: html,
 		classes: modernDialogClasses('modern-give-dialog', 'modern-resource-dialog'),
 		width: 440,
+		// Munitionsverbrauch v1.3 (Punkt 4): Stepper-Buttons NACH dem Render
+		// am Live-DOM verdrahten (onRender-Hook, Loot-v1.3-Lernweis),
+		// Klemmung analog dem A6v8-Anzahl-Dialog: 1..Bestand.
+		onRender: (element) => {
+			const input = element?.querySelector?.('#resource-consume-amount');
+			if (!input) return;
+			element.querySelectorAll('.m-eq-btn').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const dir = parseInt(btn.dataset.dir, 10) || 0;
+					const raw = parseInt(input.value, 10) || 1;
+					input.value = Math.min(current, Math.max(1, raw + dir));
+				});
+			});
+		},
 		buttons: {
 			consume: {
 				icon: '<i class="fas fa-droplet"></i>',

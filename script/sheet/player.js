@@ -95,11 +95,19 @@ class CMPowerMenu extends foundry.applications.ux.ContextMenu {
 		// Eintrag gehört nur in den Ausrüstungs-Tab (modern .m-gear /
 		// klassisch .gear, Rudolfs Vorgabe: nie Kampf- oder Kräfte-Tab), und
 		// .symbaroum-contextmenu sitzt auf Zeilen MEHRERER Tabs.
-		this.menuItems = (
-			item
-				? this.originalMenuItems.filter((elem) => elem.visible(item) && elem.visibleEl?.(target, item) !== false)
-				: this.originalMenuItems
-		).map(({ visible, ...entry }) => entry);
+		// Munitionsverbrauch v1.3 (Rudolfs Testrunde-3-Entscheidung): Das
+		// Menü ist die SCHLANKE Liste für BEIDE Ansichten (das klassische
+		// Blatt wird ohnehin bald abgeschaltet). Damit bleiben für Zeilen
+		// ohne passenden Eintrag (Kräfte-Kacheln, „Keine Rüstung“, Kampf-
+		// /Kräfte-Tab-Zeilen) NULL Einträge übrig - dann wird das Menü GAR
+		// NICHT geöffnet statt als leeres Popup. Der frühere Unfilter-Fall
+		// (item null => alle Einträge) wäre mit der schlanken Liste kaputt
+		// und fällt ebenfalls unter den Guard.
+		const filtered = item
+			? this.originalMenuItems.filter((elem) => elem.visible(item) && elem.visibleEl?.(target, item) !== false)
+			: [];
+		if (filtered.length === 0) return;
+		this.menuItems = filtered.map(({ visible, ...entry }) => entry);
 		return super.render(target, options);
 	}
 }
@@ -1098,9 +1106,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		// öffnet jetzt IMMER das Kontextmenü (auch bei Munitions-Stapeln; der
 		// v1.1-Skip für Munition ist ersatzlos weg). Der A6v8-Anzahl-Dialog
 		// ist als Menü-Eintrag „Anzahl …“ integriert (siehe _getPowerMenuItems
-		// - gleiche Zielmenge: Ausrüstung + stapelbare Items, nur moderner
-		// Ausrüstungs-Tab, nur mit Editierrechten). Klassische Blätter und
-		// die übrigen Tabs verhalten sich unverändert.
+		// - gleiche Zielmenge: Ausrüstung + stapelbare Items, nur mit
+		// Editierrechten). Munitionsverbrauch v1.3: Der Eintrag gilt jetzt
+		// für BEIDE Ansichten (.m-gear UND .gear) und das Menü ist die
+		// schlanke 3-Eintrags-Liste; Zeilen ohne passenden Eintrag öffnen
+		// dank des CMPowerMenu-Leer-Guards gar kein Menü.
 		// Übergabe v1.2 (Rudolfs Testrunde 1): Klick auf das Item-Icon am
 		// Zeilenkopf des Ausrüstungs-Tabs öffnet den Geben-Dialog direkt -
 		// erspart das Item-Blatt-Fenster und den Kopf-Button-Klick. Drag&Drop
@@ -1173,141 +1183,67 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		// den Icon-Klick (beides weiter unten gebunden).
 	}
 
+	/* Munitionsverbrauch v1.3 (Rudolfs Testrunde 3, Punkt 2 + Chat-
+	 * Entscheidung): SCHLANKE Menüliste für BEIDE Ansichten (das
+	 * klassische Blatt wird ohnehin bald abgeschaltet) - nur noch
+	 * „Anzahl …“, „Geben an …“ und für kategorisierte Ressourcen
+	 * „Ressource verbrauchen …“. Die früheren Einträge sind alle
+	 * woanders erreichbar: Nutzen Waffe/Rüstung/Fähigkeit = Inline-
+	 * Buttons (roll-weapon/roll-armor/activate-ability, beide
+	 * Ansichten), ansehen = Name-Klick (item-edit), Menge +/− =
+	 * Stepper im Anzahl-Dialog, löschen = Anzahl-Dialog (Ausrüstung)
+	 * bzw. Item-Blatt. Rudolfs Leer-Menü-Korrektur: Waffen- und
+	 * Rüstungs-Zeilen behalten mindestens „Geben an …“ (GIVE_TYPES);
+	 * echte Leer-Fälle (Kräfte-Kacheln, „Keine Rüstung“) öffnen dank
+	 * des CMPowerMenu-Guards gar kein Menü. Die Methoden _prepareActivate-
+	 * Ability/_prepareRollWeapon/_prepareRollArmor bleiben von den
+	 * Inline-Buttons genutzt; die Menü-exklusiven Helfer (_itemQuantity-
+	 * Update/_itemEdit/_itemDelete) sind nun ungenutzt und werden mit
+	 * dem Abschalten des klassischen Blatts mit entfernt. */
 	_getPowerMenuItems() {
 		return [
 			{
-				label: `TOOLTIP.USE_ABILITY`,
-				icon: `<i class="fa-solid fa-bolt-lightning"></i>`,
-				visible: (elem) => {
-					if (elem.system?.hasScript && elem.system?.isPower) return true;
-					return false;
-				},
-				onClick: (event, elem) => this._prepareActivateAbility(elem),
-			},
-			{
-				label: 'TOOLTIP.USE_WEAPON',
-				icon: `<i class="fa-solid fa-hand-fist"></i>`,
-				visible: (elem) => {
-					return elem.system?.isWeapon && elem.system?.isActive;
-				},
-				onClick: (event, elem) => {
-					this._prepareRollWeapon(elem);
-				},
-			},
-			{
-				label: 'TOOLTIP.USE_ARMOR',
-				icon: `<i class="fa-solid fa-shield"></i>`,
-				visible: (elem) => {
-					return elem == game.symbaroum.config.noArmorID || (elem.system.isArmor && elem.system.isActive);
-				},
-				onClick: (event, elem) => {
-					this._prepareRollArmor(elem);
-				},
-			},
-			{
-				label: 'TOOLTIP.INCREASE_COUNT',
-				icon: `<i class="fa-regular fa-square-plus"></i>`,
-				visible: (elem) => {
-					return elem.system?.isEquipment;
-				},
-				onClick: (event, elem) => {
-					this._itemQuantityUpdate(elem, true, false);
-				},
-			},
-			{
-				label: game.i18n.format('TOOLTIP.INCREASE_COUNT_DEFAULT', {
-					quantity: game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag),
-					sign: '+',
-				}),
-				icon: `<i class="fa-regular fa-square-plus"></i>`,
-				visible: (elem) => {
-					let quantity = game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag);
-					return elem.system?.isEquipment && quantity;
-				},
-				onClick: (event, elem) => {
-					this._itemQuantityUpdate(elem, true, true);
-				},
-			},
-			{
-				label: 'TOOLTIP.DECREASE_COUNT',
-				icon: `<i class="fa-regular fa-square-minus"></i>`,
-				visible: (elem) => {
-					return elem.system?.isEquipment && elem.system?.number > 0;
-				},
-				onClick: (event, elem) => {
-					this._itemQuantityUpdate(elem, false, false);
-				},
-			},
-			{
-				label: game.i18n.format('TOOLTIP.DECREASE_COUNT_DEFAULT', {
-					quantity: game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag),
-					sign: '-',
-				}),
-				icon: `<i class="fa-regular fa-square-minus"></i>`,
-				visible: (elem) => {
-					let quantity = game.user.getFlag(game.system.id, game.symbaroum.config.CONTEXT_MENU.equipmentAddRemoveFlag);
-					return elem.system?.isEquipment && quantity && quantity <= elem.system?.number;
-				},
-				onClick: (event, elem) => {
-					this._itemQuantityUpdate(elem, false, true);
-				},
-			},
-			{
-				// Munitionsverbrauch v1.2 (Rudolfs Auswahlrunde-Antwort c,
-				// A6v8-Konflikt aus Testrunde 2): Der A6v8-Anzahl-Dialog
-				// (Testrunde 7) ist als EINTRAG ins Kontextmenü integriert -
-				// der Rechtsklick auf Ausrüstungs-Zeilen des modernen
-				// Ausrüstungs-Tabs öffnet jetzt IMMER das Menü (der v1.1-
-				// Rechtsklick-Abfang mit Munitions-Skip ist entfallen).
-				// Gleiche Zielmenge wie das alte Zeilen-Binding: Ausrüstung
-				// und stapelbare Items (AP2-v2-Regel, deckt Wurfwaffen- und
-				// Rüstungs-Stapel mit Flag ab), nur moderner Ausrüstungs-Tab
-				// (visibleEl .m-gear), nur mit Editierrechten. Der Dialog
-				// selbst (inkl. Trennen/Abwahl-Löschen) ist unverändert.
+				// Munitionsverbrauch v1.2 (Rudolfs Auswahlrunde-Antwort c):
+				// Der A6v8-Anzahl-Dialog als Menü-EINTRAG (Rechtsklick öffnet
+				// IMMER das Menü statt des Direktdialogs). v1.3: Der Eintrag
+				// gilt jetzt für BEIDE Ansichten (visibleEl um .gear erweitert)
+				// - gleiche Zielmenge: Ausrüstung + stapelbare Items, nur
+				// Ausrüstungs-Tab, nur mit Editierrechten. Der Dialog selbst
+				// (inkl. Trennen/Löschen) ist unverändert.
 				label: 'TOOLTIP.EDIT_COUNT',
 				icon: `<i class="fa-solid fa-pen-to-square"></i>`,
 				visible: (elem) => {
 					return (elem?.system?.isEquipment || isStackableItem(elem)) && elem.isOwner;
 				},
-				visibleEl: (target) => !!target.closest('.m-gear'),
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					this._openEquipmentDialog(this._ctxItem(elem));
 				},
 			},
 			{
-				label: 'TOOLTIP.VIEW_ITEM',
-				icon: `<i class="fa-regular fa-eye"></i>`,
-				visible: (elem) => {
-					return elem != game.symbaroum.config.noArmorID;
-				},
-				onClick: (event, elem) => {
-					this._itemEdit(elem);
-				},
-			},
-			{
-				// Übergabe v1: Item an Anwesenden/Charakter/NPC übergeben - nur im
-				// Ausrüstungs-Tab (visibleEl prüft die Zeile im DOM) und nur für
-				// physische Typen; aktive Waffen bleiben übertragbar (landen am
-				// Ziel inaktiv). Behälter laufen über den Geben-Button im
+				// Übergabe v1: Item an Anwesenden/Charakter/NPC übergeben - nur
+				// im Ausrüstungs-Tab (visibleEl prüft die Zeile im DOM) und nur
+				// für physische Typen; aktive Waffen bleiben übertragbar (landen
+				// am Ziel inaktiv). Behälter laufen über den Geben-Button im
 				// Container-Dialog (v1.2, siehe _openContainerDialog).
 				label: 'TOOLTIP.GIVE_ITEM',
 				icon: `<i class="fa-solid fa-gift"></i>`,
 				visible: (elem) => {
 					return elem?.type !== 'container' && GIVE_TYPES.includes(elem?.type) && elem != game.symbaroum.config.noArmorID;
 				},
-				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openGiveDialog(this.actor, this._ctxItem(elem));
 				},
 			},
 			{
 				// Ressourcen v1 (Rudolfs Runde-2-Entscheidung): Kontextmenü
-				// „Ressource verbrauchen…" an kategorisierten Ausrüstungs-
+				// „Ressource verbrauchen…“ an kategorisierten Ausrüstungs-
 				// Items - der generische Verbrauchsweg für Ressourcen ohne
 				// System-Trigger (Alchemiezutat, bis der Brau-Dialog des
 				// Ökonomie-Projekts existiert). GM und Blattbesitzer
 				// (elem.isOwner deckt den GM mit ab), nur im Ausrüstungs-Tab
-				// (gleiche visibleEl-Regel wie Geben), nur mit Menge > 0.
+				// (gleiche visibleEl-Regel wie Geben), nur mit Bestand > 0.
 				// Vom Welt-Setting unabhängig: reine Inventar-Pflege.
 				label: 'RESOURCE.CONSUME_MENU',
 				icon: `<i class="fa-solid fa-droplet"></i>`,
@@ -1316,21 +1252,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						elem?.type === 'equipment' &&
 						!!elem.system?.resourceCategory &&
 						Number(elem.system?.number) > 0 &&
-						elem.isOwner
+							elem.isOwner
 					);
 				},
-				visibleEl: (target, elem) => !!target.closest('.m-gear, .gear'),
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openConsumeResourceDialog(this._ctxItem(elem));
 				},
-			},
-			{
-				label: `TOOLTIP.DELETE_ITEM`,
-				icon: `<i class='fas fa-trash'></i>`,
-				visible: (elem) => {
-					return elem != game.symbaroum.config.noArmorID;
-				},
-				onClick: (event, elem) => this._itemDelete(elem),
 			},
 		];
 	}

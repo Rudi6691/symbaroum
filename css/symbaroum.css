@@ -7300,13 +7300,23 @@ dialog.symb-dialog.modern-dialog .hint {
   color: var(--m-muted);
 }
 
-.symbaroum.modern-equip-dialog .m-eq-row {
+/* Munitionsverbrauch v1.3 (Rudolfs Testrunde 3, Punkte 3+4): Die Stepper-
+   Zeile wird ausser im A6v8-Anzahl-Dialog jetzt auch im Geben-Dialog
+   (stapelbare Items) und im Ressource-verbrauchen-Dialog genutzt - beide
+   laufen unter .modern-give-dialog (der Ressourcen-Dialog zusaetzlich
+   unter .modern-resource-dialog). Hausstil Selektor-Erweiterung statt
+   Spiegelregeln: Die fuenf Geometrie-Regeln (row/btn/hover/focus/input)
+   erhalten den zweiten Scope; Titel/Loeschen/Trennen bleiben exklusiv
+   im Anzahl-Dialog. */
+.symbaroum.modern-equip-dialog .m-eq-row,
+.symbaroum.modern-give-dialog .m-eq-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.symbaroum.modern-equip-dialog .m-eq-btn {
+.symbaroum.modern-equip-dialog .m-eq-btn,
+.symbaroum.modern-give-dialog .m-eq-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7323,18 +7333,22 @@ dialog.symb-dialog.modern-dialog .hint {
   cursor: pointer;
 }
 
-.symbaroum.modern-equip-dialog .m-eq-btn:hover {
+.symbaroum.modern-equip-dialog .m-eq-btn:hover,
+.symbaroum.modern-give-dialog .m-eq-btn:hover {
   color: var(--m-accent);
   border-color: var(--m-accent);
 }
 
 .symbaroum.modern-equip-dialog .m-eq-btn:focus,
-.symbaroum.modern-equip-dialog .m-eq-btn:focus-visible {
+.symbaroum.modern-equip-dialog .m-eq-btn:focus-visible,
+.symbaroum.modern-give-dialog .m-eq-btn:focus,
+.symbaroum.modern-give-dialog .m-eq-btn:focus-visible {
   outline: none;
   box-shadow: none;
 }
 
-.symbaroum.modern-equip-dialog .m-eq-row input {
+.symbaroum.modern-equip-dialog .m-eq-row input,
+.symbaroum.modern-give-dialog .m-eq-row input {
   flex: 0 0 4.5rem;
   text-align: center;
 }

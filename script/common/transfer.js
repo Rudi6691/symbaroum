@@ -550,6 +550,23 @@ export async function openGiveDialog(sourceActor, item) {
 		content: html,
 		classes: dialogClasses('modern-give-dialog'),
 		width: 440,
+		// Munitionsverbrauch v1.3 (Rudolfs Testrunde 3, Punkt 3): Stepper-
+		// Buttons des Mengenfelds verdrahten - NACH dem Render am Live-DOM
+		// (onRender-Hook, Loot-v1.3-Lernweis: Listener am vorgebauten
+		// Content-Element erreichen den Dialog nie). Klemmung analog dem
+		// A6v8-Anzahl-Dialog: 1..max. Nur bei stapelbaren Items - nur dann
+		// rendert das Template die m-eq-row mit den Buttons.
+		onRender: (element) => {
+			if (!stackable || !element?.querySelector?.('#give-quantity')) return;
+			const input = element.querySelector('#give-quantity');
+			element.querySelectorAll('.m-eq-btn').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const dir = parseInt(btn.dataset.dir, 10) || 0;
+					const current = parseInt(input.value, 10) || 1;
+					input.value = Math.min(max, Math.max(1, current + dir));
+				});
+			});
+		},
 		buttons: {
 			give: {
 				icon: '<i class="fas fa-gift"></i>',

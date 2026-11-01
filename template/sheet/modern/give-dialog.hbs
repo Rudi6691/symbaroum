@@ -45,8 +45,17 @@
         <span class="m-give-summary">{{item.summary}}</span>
     </div>
     {{else if item.stackable}}
+    {{!-- Munitionsverbrauch v1.3 (Rudolfs Testrunde 3, Punkt 3): Anzahl-
+         Auswahl im Stepper-Layout analog dem A6v8-Anzahl-Dialog (m-eq-row/
+         m-eq-btn; die CSS-Regeln sind v1.3 um .modern-give-dialog erweitert,
+         sie gelten damit auch für den Ressource-verbrauchen-Dialog). Ohne
+         Löschen/Trennen - der Geben-Dialog ist reine Mengenwahl. --}}
     <label class="m-sec-label" for="give-quantity">{{localize "GIVE.QUANTITY"}}</label>
-    <input id="give-quantity" class="m-give-quantity" type="number" min="1" max="{{item.max}}" value="1" data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+    <div class="m-eq-row">
+        <button type="button" class="m-eq-btn" data-dir="-1" data-tooltip="{{localize "MODERN.QTY_DECREASE"}}"><i class="fas fa-caret-left"></i></button>
+        <input id="give-quantity" class="m-give-quantity" type="number" min="1" max="{{item.max}}" value="1" data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
+        <button type="button" class="m-eq-btn" data-dir="1" data-tooltip="{{localize "MODERN.QTY_INCREASE"}}"><i class="fas fa-caret-right"></i></button>
+    </div>
     {{/if}}
     {{/if}}
 
