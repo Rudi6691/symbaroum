@@ -260,6 +260,76 @@ async function resolveAttributeChoice(parsedGroups) {
 /* Selbst-Elixiere (elixirUsage 'self')                              */
 /* ---------------------------------------------------------------- */
 
+/* Elixiere v1.5 (Selbst-Elixiere auf andere, Rudolfs Freigabe 02.11.):
+   Zielauswahl fuer Selbst-Elixiere. Fast-Pfad: kein anderes Token auf der
+   Szene ODER keine maschinenlesbaren Wirkungsfelder am Item (Notiz-only)
+   -> Anwendung auf den Anwender selbst, ganz ohne Dialog (bisheriges
+   Verhalten). Sonst ein kompakter Auswahl-Dialog: "Selbst" ist VORGEWAEHLT
+   (bestehendes Verhalten bleibt der Standard), jedes platzierte Token der
+   Szene ist zusaetzlich waehlbar (Muster Wurf-Elixier-Dialog; GM sieht alle,
+   Spieler wuerfen ohnehin nur auf sichtbare Ziele). Abbruch = keine Dosis
+   verloren. Rueckgabe: { actor, name } | null. */
+async function pickSelfElixirTarget(actor, eff) {
+	const hasEffectFields =
+		String(eff.heal ?? '').trim() !== '' ||
+		String(eff.healPerRound ?? '').trim() !== '' ||
+		String(eff.corruptionRemove ?? '').trim() !== '' ||
+		String(eff.corruptionGain ?? '').trim() !== '' ||
+		String(eff.corruptionPerRound ?? '').trim() !== '' ||
+		String(eff.condition ?? '').trim() !== '' ||
+		String(eff.removeCondition ?? '').trim() !== '' ||
+		String(eff.attributeMods ?? '').trim() !== '' ||
+		eff.antidot === true || eff.antidot === 'true';
+	if (!hasEffectFields) return { actor, name: actor.name ?? '' };
+	const tokens = (canvas.tokens?.placeables ?? []).filter((t) => t.actor);
+	const others = tokens.filter((t) => t.actor?.id !== actor.id);
+	if (others.length === 0) return { actor, name: actor.name ?? '' };
+	const modernRoll = isModernDialogActive();
+	const options = [
+		`<option value="self" selected>${F('ELIXIR.TARGET_SELF', { name: actor.name ?? '' })}</option>`,
+		...others.map((t) => `<option value="${t.id}">${t.name ?? t.actor.name ?? ''}</option>`),
+	].join('');
+	const dialogHtml = `
+<div style="display:flex; flex-direction:column; gap:0.5rem;">
+	<label for="elixir-self-target" style="margin:0;">${L('ELIXIR.TARGET_LABEL')}</label>
+	<select id="elixir-self-target" style="width:100%;">${options}</select>
+</div>`;
+	return await new Promise((resolve) => {
+		symbDialog({
+			title: L('ELIXIR.TARGET_TITLE'),
+			content: dialogHtml,
+			classes: ['symb-roll-dialog', ...(modernRoll ? modernDialogClasses('modern-roll-dialog') : [])],
+			width: 380,
+			buttons: {
+				apply: {
+					icon: '<i class="fas fa-flask"></i>',
+					label: L('ELIXIR.TARGET_BUTTON'),
+					callback: (html) => {
+						const value = html[0].querySelector('#elixir-self-target')?.value;
+						if (value === 'self' || !value) {
+							resolve({ actor, name: actor.name ?? '' });
+							return;
+						}
+						const token = others.find((t) => t.id === value);
+						if (!token) {
+							resolve({ actor, name: actor.name ?? '' });
+							return;
+						}
+						resolve({ actor: token.actor, name: token.name ?? token.actor.name ?? '' });
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: L('BUTTON.CANCEL'),
+					callback: () => resolve(null),
+				},
+			},
+			default: 'apply',
+			close: () => resolve(null),
+		});
+	});
+}
+
 export async function useSelfElixir(item) {
 	const actor = item?.parent;
 	if (!actor) {
@@ -267,6 +337,15 @@ export async function useSelfElixir(item) {
 		return;
 	}
 	const eff = getElixirEffect(item);
+
+	// Elixiere v1.5: Zielauswahl VOR allem anderen (auch vor der Attributs-
+	// Wahl und dem Verbrauch) - Abbruch kostet bewusst keine Dosis. Ohne
+	// andere Token bzw. ohne Wirkungsfelder: Schnellpfad ohne Dialog.
+	const target = await pickSelfElixirTarget(actor, eff);
+	if (target === null) return;
+	const targetActor = target.actor;
+	const targetName = target.name;
+	const appliedToOther = targetActor.id !== actor.id;
 
 	// Wahl-Syntax (Kriegsbemalung) VOR dem Verbrauch auflösen — Abbruch
 	// (Dialog-Cancel) verbraucht bewusst noch keine Dosis.
@@ -289,9 +368,11 @@ export async function useSelfElixir(item) {
 	// Sofort-Heilung (Kräuterarznei ohne Medikus +1, Weihwasser +2) —
 	// positive toughnessChange = Heilung; die GM-Karte stabilisiert
 	// sterbende Charaktere generisch mit (Ressourcen v1.4-Regel).
+	// Elixiere v1.5: alle Wirkungen laufen auf den GEWAEHLTEN Empfaenger
+	// (targetActor.id) - Selbst wie Ziel, derselbe Code.
 	const heal = Number(eff.heal);
 	if (Number.isFinite(heal) && heal > 0) {
-		flagDataArray.push({ actorId: actor.id, toughnessChange: heal });
+		flagDataArray.push({ actorId: targetActor.id, toughnessChange: heal });
 		lines.push(F('ELIXIR.CHAT_HEAL', { amount: heal }));
 	}
 
@@ -299,12 +380,12 @@ export async function useSelfElixir(item) {
 	const corruptionRemove = String(eff.corruptionRemove ?? '').trim();
 	if (corruptionRemove !== '') {
 		const removed = await rollFormula(corruptionRemove, rolls);
-		flagDataArray.push({ actorId: actor.id, corruptionChange: -1 * removed });
+		flagDataArray.push({ actorId: targetActor.id, corruptionChange: -1 * removed });
 		lines.push(F('ELIXIR.CHAT_CORRUPTION_REMOVE', { amount: removed }));
 	}
 	const corruptionGain = Number(eff.corruptionGain);
 	if (Number.isFinite(corruptionGain) && corruptionGain !== 0) {
-		flagDataArray.push({ actorId: actor.id, corruptionChange: corruptionGain });
+		flagDataArray.push({ actorId: targetActor.id, corruptionChange: corruptionGain });
 		lines.push(F('ELIXIR.CHAT_CORRUPTION_GAIN', { amount: corruptionGain }));
 	}
 
@@ -313,8 +394,17 @@ export async function useSelfElixir(item) {
 	// removeEffect-Pfad der GM-Karte (removeCondition akzeptiert die ID).
 	const removeConditionId = String(eff.removeCondition ?? '').trim();
 	if (removeConditionId !== '') {
-		flagDataArray.push({ actorId: actor.id, removeEffect: removeConditionId });
+		flagDataArray.push({ actorId: targetActor.id, removeEffect: removeConditionId });
 		lines.push(F('ELIXIR.CHAT_REMOVE_CONDITION', { condition: conditionName(findStatusEffect(removeConditionId)) }));
+	}
+
+	// Elixiere v1.5 (Gift-/Antidot-Integration): der Antidot-Marker reitet
+	// auf der GM-Anwendungskarte mit - die Regraduierung (neu wuerfeln fuer
+	// niedrigere Stufe - verstrichene Runden, Rudolfs Modell) laeuft im
+	// Apply-Pfad (hooks.js) mit frischem Zielzustand samt Ergebnis-Zeile.
+	if (eff.antidot === true || eff.antidot === 'true') {
+		flagDataArray.push({ actorId: targetActor.id, poisonAntidot: true });
+		lines.push(L('ELIXIR.CHAT_ANTIDOT'));
 	}
 
 	// Pro-Runde-Wirkungen (Lebenselixier): Heilung je Runde UND/ODER
@@ -335,7 +425,7 @@ export async function useSelfElixir(item) {
 				// turnEndRounds der A34-Engine); die N Ticks am Zugbeginn
 				// (A28) bleiben unverändert.
 				flagDataArray.push({
-					actorId: actor.id,
+					actorId: targetActor.id,
 					addEffect: healCarrier,
 					turnEnd: true,
 					effectDuration: rounds,
@@ -351,7 +441,7 @@ export async function useSelfElixir(item) {
 			if (corruptionCarrier) {
 				// v1.2: wie der Heil-Träger - Zugende-Löschung (A34).
 				flagDataArray.push({
-					actorId: actor.id,
+					actorId: targetActor.id,
 					addEffect: corruptionCarrier,
 					turnEnd: true,
 					effectDuration: rounds,
@@ -365,20 +455,31 @@ export async function useSelfElixir(item) {
 	}
 
 	// Bedingung mit Rundenlauf (z. B. benommen/geblendet auf sich selbst).
-	const condition = String(eff.condition ?? '').trim();
-	if (condition !== '') {
-		const effect = findStatusEffect(condition);
-		if (effect) {
-			const rounds = await rollRounds(eff.rounds, rolls);
+	// Elixiere v1.5 (Drohnentau): das Feld akzeptiert jetzt KOMMA-
+	// GETRENnte Condition-Ids ("sleeping,dazed") - alle Conditions teilen
+	// EINE gewuerfelte Wirkungsdauer (ein rounds-Wurf am Item, bestehende
+	// Einzelnutzung unveraendert); Benommen auf einem ANDEREN traegt den
+	// Malus der Alchemie-Stufe (Wurf-Elixier-Muster).
+	const conditionRaw = String(eff.condition ?? '').trim();
+	const conditionIds = conditionRaw !== '' ? conditionRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+	if (conditionIds.length > 0) {
+		const rounds = await rollRounds(eff.rounds, rolls);
+		for (const conditionId of conditionIds) {
+			const effect = findStatusEffect(conditionId);
+			if (!effect) continue;
 			// v1.2: Zugende-Löschung (turnEnd-Marker, Rudolfs Entscheidung) -
 			// die Bedingung wirkt, solange der Träger dran ist, und
 			// verschwindet beim Weiterschalten (A34-Engine + Beendet-Karte).
+			const conditionData = {};
+			if (conditionId === 'dazed') {
+				conditionData.dazedPenalty = getDazedPenaltyForLevel(getAlchemyLevel(item));
+			}
 			flagDataArray.push({
-				actorId: actor.id,
+				actorId: targetActor.id,
 				addEffect: effect,
 				turnEnd: true,
 				effectDuration: rounds,
-				conditionData: {},
+				conditionData,
 			});
 			lines.push(F('ELIXIR.CHAT_CONDITION', { condition: conditionName(effect), rounds }));
 		}
@@ -395,7 +496,7 @@ export async function useSelfElixir(item) {
 		const attrCarrier = findStatusEffect('elixirattr');
 		if (attrCarrier) {
 			flagDataArray.push({
-				actorId: actor.id,
+				actorId: targetActor.id,
 				addEffect: attrCarrier,
 				conditionData: {
 					attrSymbol: true,
@@ -405,7 +506,7 @@ export async function useSelfElixir(item) {
 			lines.push(L('ELIXIR.CHAT_ATTR_SYMBOL'));
 		}
 		for (const change of attributeChanges) {
-			flagDataArray.push({ actorId: actor.id, attributeName: change.attr, attributeChange: change.value });
+			flagDataArray.push({ actorId: targetActor.id, attributeName: change.attr, attributeChange: change.value });
 			lines.push(F('ELIXIR.CHAT_ATTRMOD', { attribute: L(`ATTRIBUTE.${change.attr.toUpperCase()}`), value: change.value }));
 		}
 	}
@@ -417,7 +518,13 @@ export async function useSelfElixir(item) {
 		lines.push(L('ELIXIR.CHAT_NO_EFFECT_FIELDS'));
 	}
 
-	await postElixirCard(actor, F('ELIXIR.CHAT_SELF_INTRO', { name: actor.name, elixir: item.name }), lines, rolls);
+	// Elixiere v1.5: Karten-Intro nennt den Empfaenger bei Anwendung auf
+	// andere; Selbst-Anwendung bleibt beim gewohnten Intro.
+	const introKey = appliedToOther ? 'ELIXIR.CHAT_APPLIED_TO' : 'ELIXIR.CHAT_SELF_INTRO';
+	const introData = appliedToOther
+		? { name: actor.name, elixir: item.name, target: targetName }
+		: { name: actor.name, elixir: item.name };
+	await postElixirCard(actor, F(introKey, introData), lines, rolls);
 	if (flagDataArray.length > 0) {
 		await createModifyTokenChatButton(flagDataArray);
 	}

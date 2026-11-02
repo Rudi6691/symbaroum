@@ -69,6 +69,24 @@
             <label for="{{id}}-system.elixirEffect.targetConditionRounds" data-tooltip="{{localize "ELIXIR.FIELD_TARGET_CONDITION_ROUNDS_TOOLTIP"}}">{{localize "ELIXIR.FIELD_TARGET_CONDITION_ROUNDS"}}</label>
             <input id="{{id}}-system.elixirEffect.targetConditionRounds" name="system.elixirEffect.targetConditionRounds" type="text" value="{{system.elixirEffect.targetConditionRounds}}" data-dtype="String"/>
         </div>
+        {{!-- Elixiere v1.5 (Gift-/Antidot-Integration, Rudolfs Freigabe
+            02.11.): Gift-Grad (1-5, Schluessel der Formel-Tabelle in
+            config.js) - macht das Item zur wahlbaren Waffen-Beschichtung im
+            Wuerfeldialog; Formel/Dauer kommen aus den Schaden/Runden- und
+            Runden-Feldern. Antidot: Markierung fuer die Regraduierung eines
+            liegenden Gifts (neu wuerfeln niedrigere Stufe - verstrichene
+            Runden), Ausfuehrung auf der GM-Anwendungskarte. --}}
+        <div class="elixir-effect-field">
+            <label for="{{id}}-system.elixirEffect.poisonGrade" data-tooltip="{{localize "ELIXIR.FIELD_POISON_GRADE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_POISON_GRADE"}}</label>
+            <input id="{{id}}-system.elixirEffect.poisonGrade" name="system.elixirEffect.poisonGrade" type="text" value="{{system.elixirEffect.poisonGrade}}" data-dtype="String"/>
+        </div>
+        <div class="elixir-effect-field">
+            <label for="{{id}}-system.elixirEffect.antidot" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ANTIDOT"}}</label>
+            <select id="{{id}}-system.elixirEffect.antidot" name="system.elixirEffect.antidot" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">
+                <option value="" {{#unless system.elixirEffect.antidot}}selected{{/unless}}>{{localize "ELIXIR.ANTIDOT_OFF"}}</option>
+                <option value="true" {{#if system.elixirEffect.antidot}}selected{{/if}}>{{localize "ELIXIR.ANTIDOT_ON"}}</option>
+            </select>
+        </div>
     </div>
     <div class="elixir-effect-field elixir-effect-wide">
         <label for="{{id}}-system.elixirEffect.note" data-tooltip="{{localize "ELIXIR.FIELD_NOTE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_NOTE"}}</label>

@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -920,6 +920,15 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	}
 	if (corruptionDamage > 0) lines.push(game.i18n.format('COMBAT.DOT_TOTAL_CORRUPTION', { damage: corruptionDamage }));
 
+	// Elixiere v1.5 (Korruptionsschwellen-Karte): der A28-Tick ist einer der
+	// ZWEI generischen Auslieferungspunkte fuer Korruption - Lebenselixier
+	// 1 Korr./Runde (elixirregress) und jede kuenftige Korruptions-DoT feuern
+	// die Karte beim Ueberschreiten der Schwelle bzw. des Max (Vorwarnung bei
+	// Schwelle-1/Max-1), exakt wie der Faehigkeitspfad (ehem. Rollzeit-Aufruf
+	// in item.js, entfernt). Der Check liest den VOR-Stand (value + Zuwachs
+	// gegen die Schwelle) - deshalb VOR dem batched Update.
+	if (corruptionDamage > 0) await checkCorruptionThreshold(actor, corruptionDamage);
+
 	// ONE batched actor update for all sources (A28-2 performance rule)
 	const updateData = {};
 	let oldToughness;
@@ -1492,8 +1501,80 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						// ihre Werte bereits an der Quelle (Blackbreath: min mit
 						// temporary), das generische Klemmen hier ist damit reine
 						// Absicherung ohne Verhaltensaenderung.
+						// Elixiere v1.5 (Korruptionsschwellen-Karte): der GM-Apply-
+						// Pfad ist der ZWEITE generische Auslieferungspunkt - bei
+						// ANSTIEG (nicht bei Heilung) feuert die Karte hier, beim
+						// tatsaechlichen Klick (nicht zur Wurfzeit). Deckt
+						// Faehigkeiten (freigegebene Kosten), verseuchte Angriffe
+						// (Ziel), Heiliges Feld (Mystiker-Kosten), Schwarzatem
+						// (Ziel), Selbst-Elixiere und alle kuenftigen flagData-
+						// Pfade ab.
+						if (flagData.corruptionChange > 0) await checkCorruptionThreshold(actor, flagData.corruptionChange);
 						let newCorruption = Math.max(0, actor.system.health.corruption.temporary + flagData.corruptionChange);
 						await actor.update({ 'system.health.corruption.temporary': newCorruption });
+					}
+					// Elixiere v1.5 (Antidot-Regraduierung, Rudolfs Modell "neu
+					// wuerfeln fuer niedrigere Stufe - verstrichene Runden"):
+					// flagData.poisonAntidot ist ein reiner Marker - die Logik
+					// laeuft hier am APPLY-Zeitpunkt mit frischem Aktor-Zustand:
+					// 1. Gift-Effekt am Ziel suchen (Condition 'poison'), Metadaten
+					//    aus flagData.conditionData.poison {grade, rounds, roundsFormula};
+					//    Altbestand ohne Metadaten: Stufe per Formel-Rueckschlag,
+					//    Dauerformel-Fallback 1d4, verstrichene Runden 0.
+					// 2. Neue Stufe = 1d(Grad-1) (Stufe 1 = Gift besiegt, Effekt
+					//    wird geloescht); Restdauer = neu gewuerfelte Dauer minus
+					//    verstrichene Runden (verstrichen = Gesamtdauer - aktueller
+					//    Zaehler), <= 0 = ebenfalls geheilt.
+					// 3. DoT-Formel wird auf den Tabellenwert der neuen Stufe
+					//    gesetzt (config.poisonGradeFormulas = kanonische SL-
+					//    Kalibrierung), Metadaten am Effekt aktualisiert.
+					// Ergebnis je als eigene Chat-Zeile (Muster CHAT.STABILIZED).
+					if (flagData.poisonAntidot) {
+						const poisonEffect = actor.effects.find((e) => e.statuses.has('poison'));
+						if (!poisonEffect) {
+							ui.notifications.info(game.i18n.format('POISON.ANTIDOT_NO_POISON', { name: token?.name ?? actor.name ?? '' }));
+						} else {
+							const fd = poisonEffect.getFlag(game.system.id, 'flagData') ?? {};
+							const meta = fd.conditionData?.poison ?? {};
+							const gradeTable = game.symbaroum.config.poisonGradeFormulas ?? {};
+							let grade = Number(meta.grade);
+							if (!Number.isFinite(grade) || grade < 1) {
+								grade = game.symbaroum.config.poisonGradeFromFormula?.(fd.dot?.formula ?? '') ?? 1;
+							}
+							const totalRounds = Number(meta.rounds);
+							const remaining = Number(fd.durationRounds);
+							const elapsed = Number.isFinite(totalRounds) && Number.isFinite(remaining) ? Math.max(0, totalRounds - remaining) : 0;
+							const roundsFormula = String(meta.roundsFormula ?? '').trim() || '1d4';
+							let newGrade = 0;
+							if (grade > 1) {
+								const gradeRoll = await new Roll(`1d${grade - 1}`).evaluate();
+								newGrade = gradeRoll.total;
+							}
+							let newRemaining = 0;
+							if (newGrade > 0) {
+								const roundsRoll = await new Roll(roundsFormula).evaluate();
+								newRemaining = roundsRoll.total - elapsed;
+							}
+							if (newGrade < 1 || newRemaining <= 0) {
+								await poisonEffect.delete();
+								await ChatMessage.create({
+									speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+									content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('POISON.ANTIDOT_CURED', { name: token?.name ?? actor.name ?? '' })}</p></div></div></div>`,
+								});
+							} else {
+								const newFormula = gradeTable[newGrade] ?? '1';
+								const newMeta = { grade: newGrade, rounds: newRemaining + elapsed, roundsFormula };
+								await poisonEffect.update({
+									[`flags.${game.system.id}.flagData.conditionData.poison`]: newMeta,
+									[`flags.${game.system.id}.flagData.dot.formula`]: newFormula,
+									[`flags.${game.system.id}.flagData.durationRounds`]: newRemaining,
+								});
+								await ChatMessage.create({
+									speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+									content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('POISON.ANTIDOT_REGRADED', { name: token?.name ?? actor.name ?? '', grade: newGrade, rounds: newRemaining })}</p></div></div></div>`,
+								});
+							}
+						}
 					}
 					if (flagData.addObject == 'blessedshield') {
 						await createBlessedShield(actor, flagData.protection);

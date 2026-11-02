@@ -208,6 +208,19 @@
         </div>
       </fieldset>
     {{/if}}
+    {{!-- Elixiere v1.5 (Rudolfs Freigabe 02.11.): Gift-Beschichtung aus dem
+         Inventar (Select, Muster Giffter-Zeile im modernen Rahmen) --}}
+    {{#if askPoisonCoating}}
+      <div class="m-roll-row">
+        <label for="poisonCoating-{{did}}" title="{{localize "DIALOG.POISON_COATING_HINT"}}">{{localize "DIALOG.POISON_COATING"}}</label>
+        <select id="poisonCoating-{{did}}">
+          <option value="none" selected>{{localize "DIALOG.POISON_COATING_NONE"}}</option>
+          {{#each poisonCoatingChoices as |choice|}}
+          <option value="{{choice.id}}">{{choice.name}} ({{localize "EQUIPMENT.QUANTITY_SHORT"}} {{choice.count}})</option>
+          {{/each}}
+        </select>
+      </div>
+    {{/if}}
     {{#if askAttackNb}}
       <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes attNbRadio weaponModifiers.radioAttacks localize=false}}</label></div>
     {{/if}}

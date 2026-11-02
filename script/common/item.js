@@ -3308,7 +3308,18 @@ export function formatRollResult(rollDataElement) {
   return rollResult;
 }
 
-async function checkCorruptionThreshold(actor, corruptionGained) {
+/* Elixiere v1.5 (Korruptionsschwellen-Karte, Rudolfs Freigabe 02.11.): jetzt
+   EXPORTIERT - die Karte haengt nicht mehr an zwei lokalen Aufrufstellen
+   (Faeigkeiten/verseuchter Angriff), sondern an den ZWEI generischen
+   Auslieferungspunkten fuer Korruption (GM-Anwendungskarte und A28-Tick in
+   hooks.js). Damit feuert sie bei JEDEM Korruptionsanstieg im System:
+   Faehigkeiten, verseuchte Angriffe, Lebenselixier-Runde fuer Runde,
+   Selbst-Elixiere, Heiliges Feld (Mystiker-Kosten), Schwarzatem - und alle
+   kuenftigen Pfade. Design-Entscheidung (Rudolfs Paket-Freigabe): die Karte
+   kommt bei TATSAECHLICHER Anwendung - bei GM-Freigabe-Karten also erst beim
+   Klick, nicht schon zur Wurfzeit. Die beiden ehemaligen Rollzeit-Aufrufe
+   sind bewusst ENTFERNT (sonst Doppelkarten). */
+export async function checkCorruptionThreshold(actor, corruptionGained) {
   let img = "icons/magic/air/wind-vortex-swirl-purple.webp";
   let introText = actor.name + game.i18n.localize("CORRUPTION.CHAT_WARNING");
   let finalText = actor.name + game.i18n.localize("CORRUPTION.CHAT_WARNING");
@@ -5901,7 +5912,8 @@ async function attackResult(rollData, functionStuff) {
     rolls.push(corruptionRoll);
     corruptionChatResult = game.i18n.localize("COMBAT.CHAT_CORRUPTED_ATTACK") + corruptionRoll.total.toString();
     corruptionTooltip = new Handlebars.SafeString(await corruptionRoll.getTooltip());
-    checkCorruptionThreshold(functionStuff.targetData.actor, corruptionRoll.total);
+    // Elixiere v1.5: Rollzeit-Check entfernt - die Karte kommt im GM-Apply-Pfad
+    // (hooks.js) bei tatsaechlicher Anwendung.
     flagDataArray.push({
       tokenId: functionStuff.targetData.tokenId,
       corruptionChange: corruptionRoll.total,
@@ -5996,6 +6008,70 @@ async function attackResult(rollData, functionStuff) {
     rolls.push(poisonRes.roll);
     if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
     templateData = Object.assign(templateData, poisonRes);
+  }
+  // Elixiere v1.5 (Gift auftragen, Rudolfs Freigabe 02.11.): Waffenbeschichtung
+  // aus dem INVENTAR - der Spieler hat im Wuerfeldialog einen Gift-Dosis-
+  // Stapel gewaehlt (dialog.js, 1 Dosis je Angriff abgebucht, Muster
+  // Spezialmunition-Opt-in; ecData.poisonCoating). Bei Treffer mit Schaden
+  // laeuft die einseitige Probe [Staerke gegen Staerke] des Angreifers
+  // (Rudolfs Beschichtungsmodell) INLINE auf der Angriffskarte (Gift-Muster
+  // der Karte); bei Gelingen Gift-DoT mit den ITEM-Wirkungsfeldern: Formel
+  // aus damagePerRound, Dauer aus rounds, Grad aus poisonGrade bzw. Formel-
+  // Rueckschlag (Formel-Tabelle) - inklusive Antidot-Metadaten. Immunitaet
+  // (damageProt.poison = 0) und NOTEXTEND (bereits vergiftet) wie beim
+  // Waffenqualitaets-Gift. Bewusst UNABHAENGIG vom Giffter-Pfad oben: der
+  // gilt weiterhin fuer die virtuellen Dosen des Giffter-Merkmals.
+  if (
+    functionStuff.poisonCoating &&
+    !targetDies &&
+    damageTot > 0 &&
+    functionStuff.targetData?.hasTarget &&
+    rollData.some((r) => r.trueActorSucceeded) &&
+    functionStuff.targetData.actor.system.combat.damageProt.poison
+  ) {
+    if (functionStuff.targetData.actor.hasCondition?.("poison")) {
+      templateData.printPoison = true;
+      templateData.poisonChatIntro = game.i18n.format("COMBAT.CHAT_POISON_COATING_INTRO", { poison: functionStuff.poisonCoating.name });
+      templateData.poisonChatResult = game.i18n.localize("COMBAT.CHAT_POISON_NOTEXTEND");
+    } else {
+      const coatingRoll = await baseRoll(functionStuff.actor, "strong", functionStuff.targetData.actor, "strong", 0, 0, false);
+      rolls.push(...coatingRoll.rolls);
+      templateData.printPoison = true;
+      templateData.poisonChatIntro = game.i18n.format("COMBAT.CHAT_POISON_COATING_INTRO", { poison: functionStuff.poisonCoating.name });
+      templateData.poisonRollString = await formatRollString(coatingRoll, true, 0);
+      templateData.poisonRollResultString = await formatRollResult(coatingRoll);
+      if (coatingRoll.trueActorSucceeded) {
+        const coatingRounds = await new Roll(functionStuff.poisonCoating.roundsFormula).evaluate();
+        rolls.push(coatingRounds);
+        templateData.poisonChatResult =
+          functionStuff.targetData.name +
+          game.i18n.format("COMBAT.CHAT_POISON_COATING_SUCCESS", { damage: functionStuff.poisonCoating.formula, rounds: coatingRounds.total }) +
+          game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+        const poisonEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison"));
+        flagDataArray.push({
+          tokenId: functionStuff.targetData.tokenId,
+          addEffect: poisonEffect,
+          effectDuration: coatingRounds.total,
+          dot: {
+            label: "QUALITY.POISON",
+            formula: functionStuff.poisonCoating.formula,
+            resource: "toughness",
+            damageType: "poison",
+            stackable: false,
+            separateRoll: false,
+          },
+          conditionData: {
+            poison: {
+              grade: functionStuff.poisonCoating.grade,
+              rounds: coatingRounds.total,
+              roundsFormula: functionStuff.poisonCoating.roundsFormula,
+            },
+          },
+        });
+      } else {
+        templateData.poisonChatResult = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_POISON_COATING_RESIST");
+      }
+    }
   }
   // Axtkünstler v1 (Novize, Rudolfs Freigabe 29.10. — "vollautomatische
   // Kette"): nach einem TREFFER des Kurzen Hiebs läuft die Betäubungs-Probe
@@ -6713,6 +6789,20 @@ async function poisonCalc(functionStuff, poisonRoll) {
           stackable: false,
           separateRoll: false,
         },
+        // Elixiere v1.5 (Gift-/Antidot-Integration): Grad-Metadaten fuer das
+        // Antidot-Modell - Stufe wird ueber die Formel-Tabelle abgeleitet
+        // (1W4 = Stufe 2, fix 2 = Fallback Stufe 1), Gesamtdauer + Dauer-
+        // Formel fuer die Antidot-Regraduierung ("neu wuerfeln fuer niedrigere
+        // Stufe - verstrichene Runden", Ausfuehrung im GM-Apply-Pfad hooks.js).
+        conditionData: {
+          poison: {
+            grade: game.symbaroum.config.poisonGradeFromFormula(
+              functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2"
+            ),
+            rounds: NewPoisonRounds,
+            roundsFormula: poisonDamage,
+          },
+        },
       };
       poisonRes.poisonChatResult =
         functionStuff.targetData.name +
@@ -6786,9 +6876,13 @@ async function standardPowerResult(rollData, functionStuff) {
     corruption = await functionStuff.actor.getCorruption(functionStuff);
     corruptionText = game.i18n.localize("POWER.CHAT_CORRUPTION") + corruption.value;
     if (corruption.sorceryRoll) corruptionText += " (sorcery roll result:" + corruption.sorceryRoll.diceResult + ")";
-    checkCorruptionThreshold(functionStuff.actor, corruption.value);
+    // Elixiere v1.5: Rollzeit-Check entfernt - die Karte kommt im GM-Apply-Pfad
+    // (hooks.js) bei tatsaechlicher Anwendung (confirmDialog-Pfad: siehe dort).
     if (functionStuff.confirmDialog) {
       // the player already confirmed the corruption cost in the dialog - apply it directly, no GM approval card
+      // Elixiere v1.5: direkte Anwendung = dritter generischer Auslieferungs-
+      // punkt - Schwellenkarte hier (GM-Karten-Pfad: hooks.js Handler).
+      if (corruption.value > 0) await checkCorruptionThreshold(functionStuff.actor, corruption.value);
       await functionStuff.actor.update({ "system.health.corruption.temporary": functionStuff.actor.system.health.corruption.temporary + corruption.value });
     } else {
       flagDataArray.push({

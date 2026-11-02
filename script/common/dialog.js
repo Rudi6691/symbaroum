@@ -7,7 +7,9 @@ import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.j
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
 import { consumeAmmoForAttack, getAmmoEffectTotal, consumeAmmoEffectForAttack } from './ammo.js';
 // Elixier-Automatisierung v1: Benommen-Malus (Nebelball) als Dialog-Vorbelegung
-import { getDazedPenalty } from './elixirs.js';
+import { getDazedPenalty, consumeElixirDose } from './elixirs.js';
+// Elixiere v1.5: Gift-Beschichtung - Bestandspruefung der Dosis-Stapel
+import { getItemCount } from './resources.js';
 
 let roll_defaults = {};
 
@@ -260,6 +262,38 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       }
     }
   }
+  // Elixiere v1.5 (Gift auftragen, Rudolfs Freigabe 02.11.): Waffen-
+  // beschichtung aus dem INVENTAR - Kandidaten sind Ausruestungs-Items mit
+  // gesetztem GM-Feld elixirEffect.poisonGrade (Grad 1-5 der Formel-Tabelle)
+  // und Bestand > 0. Formel = damagePerRound, Dauer = rounds (beide mit
+  // Fallback 1d4, falls der SL nur den Grad getaggt hat). Nah- UND Fern-
+  // kampf (Klingen wie Bolzen tragen Gift); 1 Dosis je Angriff, Abbuchung
+  // beim Wurf-Submit, Wirkung bei Treffer inline auf der Angriffskarte
+  // ([Staerke gegen Staerke], Ausfuehrung attackResult). Muster:
+  // Spezialmunition-Opt-in (explizite Spielerentscheidung, nicht Setting-
+  // gebunden; Block nur mit Bestand im Inventar).
+  let askPoisonCoating = false;
+  let poisonCoatingChoices = [];
+  if (weapon !== null) {
+    const poisonCoatingItems = actor.items.filter((it) => {
+      if (it?.type !== "equipment") return false;
+      const eff = it.system?.elixirEffect ?? {};
+      return String(eff.poisonGrade ?? "").trim() !== "" && getItemCount(it) > 0;
+    });
+    if (poisonCoatingItems.length > 0) {
+      askPoisonCoating = true;
+      poisonCoatingChoices = poisonCoatingItems.map((it) => {
+        const eff = it.system.elixirEffect ?? {};
+        const formula = String(eff.damagePerRound ?? "").trim() || "1d4";
+        const roundsFormula = String(eff.rounds ?? "").trim() || "1d4";
+        const rawGrade = Number(String(eff.poisonGrade).trim());
+        const grade = Number.isFinite(rawGrade) && rawGrade >= 1
+          ? Math.min(5, Math.round(rawGrade))
+          : (game.symbaroum.config.poisonGradeFromFormula?.(formula) ?? 1);
+        return { id: it.id, name: it.name, count: getItemCount(it), formula, roundsFormula, grade };
+      });
+    }
+  }
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
   targetAttribute_selection.defense = {
     id: "defense",
@@ -323,7 +357,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "askCheapshot": askCheapshot,
     "cheapshotChoices": cheapshotChoices,
     "askAmmoEffect": askAmmoEffect,
-    "ammoEffectChoices": ammoEffectChoices
+    "ammoEffectChoices": ammoEffectChoices,
+    "askPoisonCoating": askPoisonCoating,
+    "poisonCoatingChoices": poisonCoatingChoices
   });
 
   const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName);
@@ -701,6 +737,25 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
                 return;
               }
               if(specialAmmoLabel) ecData.autoParams += specialAmmoLabel + ", ";
+            }
+          }
+          // Elixiere v1.5 (Gift auftragen): Beschichtungs-Select lesen, 1
+          // Dosis vom gewaehlten Stapel abbuchen (bewusst NACH dem Spezial-
+          // munitions-Block, gleiche Block-Semantik: false = kein Wurf,
+          // Notification kam aus dem Elixier-Modul) und die Wirkung als
+          // ecData.poisonCoating fuer die Angriffskarte mitgeben.
+          if(askPoisonCoating) {
+            const coatingChoice = html[0].querySelector("#poisonCoating-"+did)?.value ?? "none";
+            if(coatingChoice !== "none") {
+              const choice = poisonCoatingChoices.find((c) => c.id === coatingChoice);
+              const poisonItem = actor.items.get(coatingChoice);
+              if(choice && poisonItem && await consumeElixirDose(poisonItem)) {
+                ecData.poisonCoating = { name: poisonItem.name, formula: choice.formula, roundsFormula: choice.roundsFormula, grade: choice.grade };
+                ecData.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: poisonItem.name }) + ", ";
+              } else {
+                resolve(false);
+                return;
+              }
             }
           }
           if(weapon && game.settings.get('symbaroum', 'combatAutomation')){

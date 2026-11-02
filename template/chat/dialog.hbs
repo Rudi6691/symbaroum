@@ -129,6 +129,21 @@
         {{/each}}
       </div>
     {{/if}}
+    {{!-- Elixiere v1.5 (Rudolfs Freigabe 02.11.): Gift-Beschichtung aus dem
+         Inventar (Select, Muster Giffter-Dosiszeile) - nur mit Dosis-Stapel
+         im Bestand; 1 Dosis je Angriff wird beim Würfeln abgebucht, die
+         [Stärke gegen Stärke]-Probe feuert bei Treffer auf der Karte --}}
+    {{#if askPoisonCoating}}
+      <div class="bonus">
+        <label title="{{localize "DIALOG.POISON_COATING_HINT"}}">{{localize "DIALOG.POISON_COATING"}}</label>
+        <select id="poisonCoating-{{did}}">
+          <option value="none" selected>{{localize "DIALOG.POISON_COATING_NONE"}}</option>
+          {{#each poisonCoatingChoices as |choice|}}
+          <option value="{{choice.id}}">{{choice.name}} ({{localize "EQUIPMENT.QUANTITY_SHORT"}} {{choice.count}})</option>
+          {{/each}}
+        </select>
+      </div>
+    {{/if}}
       <div class="damagemodifier">
         <label for="dammodifier-{{did}}">{{localize "DIALOG.DAMAGE_MODIFIER"}}</label> <input id="dammodifier-{{did}}" value="{{roll_defaults.additionalModifier}}" type="text" data-dtype="Text"/> 
       </div>

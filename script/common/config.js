@@ -699,6 +699,17 @@ SYMBAROUM.systemConditionEffects = [
     icon: "icons/svg/aura.svg",
   },
   {
+    // Elixiere v1.5 (Selbst-Elixiere auf andere, Rudolfs Freigabe 02.11.):
+    // Schlafend als eigenes Status-Symbol - Drohnentau setzt es (zusammen
+    // mit Benommen) auf das Ziel; wie die anderen Elixiere-Conditions ein
+    // Core-Icon im HUD-Paletten-Stil. Keine Engine-Anbindung: Rundenlauf
+    // kommt ueber die gewohnte condition+rounds-Feldkombination.
+    id: "sleeping",
+    label: "CONDITION.SLEEPING",
+    name: "CONDITION.SLEEPING",
+    icon: "icons/svg/sleep.svg",
+  },
+  {
     // A35: regeneration trait condition - engine-managed heal tick (resource
     // 'heal', no durationRounds: ticks at the carrier's turn start forever);
     // applied automatically when a trait carrier enters a combat (hooks.js)
@@ -1413,6 +1424,36 @@ SYMBAROUM.ELIXIR_REMOVE_CONDITION_SELECTION = {
     id: "dazed",
     label: "ELIXIR.REMOVE_DAZED",
   },
+};
+
+/* Elixiere v1.5 (Gift-/Antidot-Integration, Rudolfs Freigabe 02.11.):
+   Gift-Grad-Modell - die kanonische Zuordnung Stufe -> Schaden/Runde-Formel.
+   Ein Gift-DoT-Effekt traegt in flagData.conditionData.poison seine Metadaten
+   { grade, rounds (Gesamtdauer), roundsFormula (Wuerfelformel der Dauer) };
+   das Antidot wuerfelt auf eine NIEDRIGERE Stufe neu (1d(Grad-1), Grad 1 =
+   Gift besiegt) und setzt die DoT-Formel auf den Tabellenwert der neuen
+   Stufe, die Restdauer ist der neu gewuerfelte Lauf minus der bereits
+   verstrichenen Runden (Rudolfs Modell: "neu wuerfeln fuer niedrigere Stufe
+   - verstrichene Runden"). Die Tabelle ist bewusst als Konfiguration
+   ausgelegt: SL-Kalibrierung (z. B. haerteres Gift) ist eine Eintraege-
+   Aenderung, kein Code. Umgekehrter Lookup: Effekte ohne Metadaten (Altbestand
+   vor v1.5) leiten ihre Stufe ueber die Formel ab, Fallback Stufe 1. */
+SYMBAROUM.poisonGradeFormulas = {
+  1: "1",
+  2: "1d4",
+  3: "1d6",
+  4: "2d4",
+  5: "2d6",
+};
+
+/* Hilfslookup fuer den Umgekehrten Weg (Formel -> Stufe) - vereinheitlicht
+   klein-/grossgeschriebene Formeln und Whitespace. */
+SYMBAROUM.poisonGradeFromFormula = function (formula) {
+  const normalized = String(formula ?? "").trim().toLowerCase();
+  for (const [grade, tableFormula] of Object.entries(SYMBAROUM.poisonGradeFormulas)) {
+    if (tableFormula.toLowerCase() === normalized) return Number(grade);
+  }
+  return 1;
 };
 
 /* Auswahl der Waffen-Grundschaden-Wuerfel (Original-Bestand, beim Elixier-

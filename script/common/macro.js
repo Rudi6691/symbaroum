@@ -1,6 +1,13 @@
 import { prepareRollAttribute } from "../common/dialog.js";
 import { symbDialog } from "../common/symbDialog.js";
 import { getCurrencyRates, parseCostString, getItemPriceBase, convertToBase } from "../common/currency.js";
+// Elixiere v1.5 (Bergen-Makro-Integration, Rudolfs Freigabe 02.11.):
+// Schwellen- und Alchemie-Kanonik direkt aus dem System-Modul - der
+// ehemalige Welt-Makro-Import (Bergen v1.3, dynamischer Import mit Feld-
+// Fallback) wird damit ueberfluessig; das Standalone-Weltmakro bleibt
+// funktionsfaehig (v1.3 laeuft unveraendert weiter, Rudolf kann auf den
+// Einzeiler game.symbaroum.macros.recoverAmmunition() umsteigen).
+import { getAmmoThreshold, isAmmoAlchemical } from "../common/ammo.js";
 
 export class SymbaroumMacros {
 	constructor() {}
@@ -2202,5 +2209,181 @@ export class SymbaroumMacros {
 			},
 			default: "Accept",
 		});
+	}
+	/**********************************************
+	 * Elixiere v1.5 (Rudolfs Freigabe 02.11.): Bergen v1.3 als SYSTEM-METHODE
+	 * (frueherer Welt-Makro-Import entfaellt) - Bergung verschossener
+	 * Geschosse als Munitionsverbrauch-Laufzeitfunktion: Aktor und Munitions-
+	 * Stapel waehlen, N Geschosse suchen, 1W20 je Stueck als EINEN Wurf -
+	 * geborgen ist jeder Wurf <= Schwelle (Standard 10, Qualitaet 15,
+	 * mystisch 17, Kanonik ueber ammo.js). Geborgene Stuecke werden dem
+	 * Stapel zugeschrieben, die Wuerfel erscheinen KLICKBAR in der Chat-Karte
+	 * (roll.render).
+	 * Featurestand 1:1 aus Bergen v1.3 (Elixiere-v1.2-Auslieferung):
+	 * - Zweischritt-Dialog (erst Aktor, dann Stapel+Anzahl) mit den Klassen
+	 *   ['symb-dialog', 'modern-dialog', 'modern-theme-dark'] (css-Checkliste
+	 *   Abschnitt 3, v1.1-Optik); komplett statischer Content, Listener erst
+	 *   nach dem Render, Formularwerte NUR im Button-Callback.
+	 * - Einheitlicher Dropdown-Pfad fuer Spieler UND GM (Spieler nur
+	 *   besessene Aktoren, GM alle; nur Aktoren mit bergbaren Geschossen),
+	 *   Vorselektion bei genau einem kontrollierten Token.
+	 * - Alchemistische Munition NIE bergbar (isAmmoAlchemical), Stapel mit
+	 *   Bestand 0 ausdruecklich waehlbar, system.ammoRecoverable === false
+	 *   schliesst Einzelstapel aus, Feuerrohr-Ladungen NIE; kategorisierte
+	 *   Bergbare: pfeilbolzen, ballista, raketenbatterie, schleuderstein,
+	 *   blasrohrpfeil, wurfspeer (lokalisiertes Kategorie-Label).
+	 * Unterschied zum Welt-Makro: direkt lokalisiert (i18n statt hartko-
+	 * dierter de-Strings) und die System-API aus dem Modulimport statt
+	 * dynamischem Import mit Fallback. Aufruf als Einzeiler-Makro oder
+	 * Konsole: game.symbaroum.macros.recoverAmmunition()
+	 */
+	async recoverAmmunition() {
+		const L = (key) => game.i18n.localize(key);
+		const F = (key, data) => game.i18n.format(key, data);
+		// Gate: beide Welt-Settings (Bergungsoption = Makro-Gate)
+		if (!game.settings.get("symbaroum", "ammoConsumption") || !game.settings.get("symbaroum", "ammoRecovery")) {
+			ui.notifications.warn(L("MACRO.BERGEN_GATE_OFF"));
+			return;
+		}
+		const thresholdFor = (item) => getAmmoThreshold(item);
+		function stackCount(item) {
+			const n = Number(item?.system?.number);
+			return Number.isFinite(n) && n >= 0 ? Math.round(n) : 1;
+		}
+		// Bergbare Ressourcen-Kategorien (Feuerrohr NIE, v1.2-Design);
+		// alchemistische Munition NIE bergbar (v1.2); ammoRecoverable ===
+		// false schliesst Einzelstapel aus (v1.1).
+		const RECOVERABLE = ["pfeilbolzen", "ballista", "raketenbatterie", "schleuderstein", "blasrohrpfeil", "wurfspeer"];
+		const recoverableStacks = (actor) =>
+			actor.items.filter((it) => {
+				if (it.type !== "equipment" && it.type !== "weapon") return false;
+				if (!RECOVERABLE.includes(it.system?.resourceCategory ?? "")) return false;
+				if (isAmmoAlchemical(it)) return false;
+				if (it.system?.ammoRecoverable === false) return false;
+				return true;
+			});
+		// Aktor-Wahl: einheitlicher Dropdown-Pfad fuer Spieler+GM (v1.1)
+		const ownedOnly = !game.user.isGM;
+		const candidates = [];
+		for (const a of game.actors) {
+			if (ownedOnly && !a.isOwner) continue;
+			const stacks = recoverableStacks(a);
+			if (stacks.length > 0) candidates.push({ a, stacks });
+		}
+		if (candidates.length === 0) {
+			ui.notifications.warn(L(ownedOnly ? "MACRO.BERGEN_NO_CANDIDATES_OWN" : "MACRO.BERGEN_NO_CANDIDATES_WORLD"));
+			return;
+		}
+		// Vorselektion (v1.1): genau EIN kontrollierter Token, dessen Aktor
+		// unter den Kandidaten - sonst keine Vorselektion.
+		let preselect = "";
+		if (canvas?.tokens?.controlled?.length === 1) {
+			const controlledId = canvas.tokens.controlled[0].actor?.id;
+			if (controlledId && candidates.some((c) => c.a.id === controlledId)) preselect = controlledId;
+		}
+		// Dialog 1: Aktor (v1.1-Optik: DialogV2, modernes dunkles Theme)
+		const options = candidates
+			.map((c) => `<option value="${c.a.id}"${c.a.id === preselect ? " selected" : ""}>${c.a.name} (${c.stacks.length} ${L(c.stacks.length > 1 ? "MACRO.BERGEN_KINDS_PLURAL" : "MACRO.BERGEN_KINDS_SINGLE")})</option>`)
+			.join("");
+		const pick = { actorId: "" };
+		const action = await foundry.applications.api.DialogV2.wait({
+			window: { title: L("MACRO.BERGEN_TITLE_ACTOR") },
+			classes: ["symb-dialog", "modern-dialog", "modern-theme-dark"],
+			position: { width: 440 },
+			content: `<div><p style="margin-top:0;">${L("MACRO.BERGEN_ACTOR_QUESTION")}</p>
+  <select id="bergen-actor" style="width:100%;">${options}</select></div>`,
+			buttons: [
+				{
+					action: "ok",
+					label: L("MACRO.BERGEN_NEXT"),
+					default: true,
+					callback: (event, button, dialog) => {
+						const root = dialog?.element ?? event?.target?.closest("dialog") ?? document;
+						pick.actorId = root.querySelector("#bergen-actor")?.value ?? "";
+					},
+				},
+				{ action: "cancel", label: L("BUTTON.CANCEL") },
+			],
+		});
+		if (action !== "ok") return;
+		const actor = game.actors.get(pick.actorId) ?? null;
+		if (!actor) {
+			ui.notifications.error(L("MACRO.BERGEN_ACTOR_MISSING"));
+			return;
+		}
+		const stacks = recoverableStacks(actor);
+		if (stacks.length === 0) {
+			ui.notifications.warn(F("MACRO.BERGEN_NO_STACKS", { name: actor.name }));
+			return;
+		}
+		stacks.sort((x, y) => (x.name ?? "").localeCompare(y.name ?? ""));
+		// Dialog 2: Geschoss-Art + Anzahl (kompakt, v1.1-Optik)
+		const labelFor = (sel, id) => {
+			const key = sel?.[id]?.label ?? "";
+			return key ? game.i18n.localize(key) : id;
+		};
+		const catSel = game.symbaroum?.config?.AMMO_CATEGORY_SELECTION ?? {};
+		const options2 = stacks
+			.map((it) => {
+				const cat = it.system?.resourceCategory ?? "";
+				const label = labelFor(catSel, cat) || it.name;
+				return `<option value="${it.id}">${it.name} — ${label} (${L("MACRO.BERGEN_STOCK")} ${stackCount(it)}, ${L("MACRO.BERGEN_THRESHOLD")} ${thresholdFor(it)})</option>`;
+			})
+			.join("");
+		const opts = { stackId: "", amount: 1 };
+		const result = await foundry.applications.api.DialogV2.wait({
+			window: { title: F("MACRO.BERGEN_TITLE_STACK", { name: actor.name }) },
+			classes: ["symb-dialog", "modern-dialog", "modern-theme-dark"],
+			position: { width: 480 },
+			content: `<div>
+  <p style="margin-top:0;">${L("MACRO.BERGEN_STACK_QUESTION")}</p>
+  <div style="margin-bottom:0.6rem;"><label style="display:block;margin-bottom:0.25rem;">${L("MACRO.BERGEN_STACK_LABEL")}</label>
+  <select id="bergen-stack" style="width:100%;">${options2}</select></div>
+  <div><label style="display:block;margin-bottom:0.25rem;">${L("MACRO.BERGEN_AMOUNT_LABEL")}</label>
+  <input type="number" id="bergen-amount" value="1" min="1" step="1" style="width:6rem;"></div>
+</div>`,
+			buttons: [
+				{
+					action: "bergen",
+					label: L("MACRO.BERGEN_BUTTON"),
+					default: true,
+					// Formularwerte NUR im Button-Callback lesen (DialogV2.wait
+					// loest erst nach dem Schliessen auf)
+					callback: (event, button, dialog) => {
+						const root = dialog?.element ?? event?.target?.closest("dialog") ?? document;
+						opts.stackId = root.querySelector("#bergen-stack")?.value ?? "";
+						opts.amount = Math.max(1, Math.round(Number(root.querySelector("#bergen-amount")?.value ?? 1)) || 1);
+					},
+				},
+				{ action: "cancel", label: L("BUTTON.CANCEL") },
+			],
+		});
+		if (result !== "bergen" || !opts.stackId) return;
+		const stack = actor.items.get(opts.stackId);
+		if (!stack) {
+			ui.notifications.error(L("MACRO.BERGEN_STACK_MISSING"));
+			return;
+		}
+		const fired = opts.amount;
+		const threshold = thresholdFor(stack);
+		// Bergungswuerfe: 1W20 je Stueck, EIN Roll-Objekt (klickbar)
+		const roll = await new Roll(`${fired}d20`).evaluate();
+		const faces = (roll.dice?.[0]?.results ?? []).map((r) => r.result ?? 0);
+		const recovered = faces.filter((v) => v <= threshold).length;
+		const lost = fired - recovered;
+		const bestand = stackCount(stack);
+		await stack.update({ "system.number": bestand + recovered });
+		const rollHTML = await roll.render();
+		const content = `<div class="symbaroum ammo-recovery-card">
+  <div class="ammo-recovery-header">${F("MACRO.BERGEN_CARD_HEADER", { name: actor.name })}</div>
+  <div class="ammo-recovery-line">${stack.name}: <strong>${recovered} ${L("MACRO.BERGEN_OF")} ${fired}</strong> ${L("MACRO.BERGEN_RECOVERED")} (${L("MACRO.BERGEN_THRESHOLD")} ${threshold})${lost > 0 ? F("MACRO.BERGEN_LOST", { lost }) : ""} — ${L("MACRO.BERGEN_NEW_STOCK")}: <strong>${bestand + recovered}</strong></div>
+  <div class="ammo-recovery-dice">${rollHTML}</div>
+</div>`;
+		await ChatMessage.create({
+			content,
+			rolls: [roll],
+			speaker: ChatMessage.getSpeaker({ actor }),
+		});
+		ui.notifications.info(F("MACRO.BERGEN_TOAST", { recovered, fired, stack: stack.name }));
 	}
 }
