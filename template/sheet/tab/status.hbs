@@ -16,6 +16,11 @@
         bleibt erhalten. Der Tab selbst ist GM-only, das Gating hier ist
         ein zweiter Gürtel für direkte Partial-Nutzung. --}}
     {{#if symbaroumOptions.isGM}}
+    {{!-- Status-Tab v1.1 (Rudolfs Ergänzung): Artefakt + Stapelbar in
+        EINER Zeile (Muster moderne Rüstungsblatt-/m-grid-Doppelreihe);
+        Zeilen-Styles der Kinder greifen weiter, .status-double-row setzt
+        nur das Zeilen-Flex. --}}
+    <div class="status-double-row">
     <div class="number">
         <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
         {{#if system.isArtifact}}
@@ -38,6 +43,7 @@
         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
         {{/if}}
     </div>
+    </div>{{!-- /status-double-row --}}
     {{!-- Ressourcen v1: Ressourcen-Kategorie (GM-only) - additives Feld
         system.resourceCategory statt Flags; steuert den kategorie-
         basierten Verbrauch (Medicus bucht Kraeuterarznei beim Wurf ab,

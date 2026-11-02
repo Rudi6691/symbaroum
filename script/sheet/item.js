@@ -100,6 +100,24 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			bonusPlus: function (event) {
 				this._onBonusAdjust(event, 1);
 			},
+			/* Status-Tab v1.1 (Rudolfs Freigabe): Chip-Klick der
+			   „Bewirkt Zustand“-Checkbox-Liste - toggelt die Condition-Id
+			   im komma-join des HIDDEN-Inputs (Foundry-Submit-Landmine:
+			   mehrere Checkboxen mit gleichem name liefern nur den
+			   letzten Wert); der bubbling change-Event stößt den
+			   submitOnChange-Save an. */
+			toggleCondition: function (event) {
+				event.preventDefault();
+				const id = event.currentTarget?.dataset?.conditionId;
+				const input = this.form?.querySelector('input[name="system.elixirEffect.condition"]');
+				if (!id || !input) return;
+				const ids = String(input.value ?? '').trim() === '' ? [] : String(input.value).split(',').map((c) => c.trim()).filter(Boolean);
+				const index = ids.indexOf(id);
+				if (index >= 0) ids.splice(index, 1);
+				else ids.push(id);
+				input.value = ids.join(',');
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+			},
 		},
 	};
 
@@ -194,6 +212,37 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
+		/* Status-Tab v1.1 (Rudolfs Freigabe): Werfenprobe als
+		   Attribut-Dropdown statt Frei-Text-Kürzel - '' = „Keine“
+		   (ungehinderte Auslösung), sonst die 8 Attribute. */
+		context.resist_attribute_selection = [
+			{ id: '', label: game.i18n.localize('ELIXIR.RESIST_NONE') },
+			...Object.values(game.symbaroum.config.ATTRIBUTE_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			})),
+		];
+		/* Status-Tab v1.1: „Bewirkt Zustand“ als Chip-Checkbox-Liste
+		   (Mehrfachauswahl) über CONFIG.statusEffects (V14: id-indiziert,
+		   name lokalisiert); interne Elixier-Träger bleiben ausge-
+		   blendet. Aktiv-Zustand aus dem komma-join im Feld
+		   system.elixirEffect.condition; persistiert wird der gesamte
+		   String (Alt-Frei-Text bleibt kompatibel erhalten). */
+		const conditionString = String(this.item.system.elixirEffect?.condition ?? '').trim();
+		const conditionActive = conditionString === '' ? [] : conditionString.split(',').map((c) => c.trim()).filter(Boolean);
+		context.elixir_conditions = Object.values(CONFIG.statusEffects)
+			.filter((status) => !['elixirheal', 'elixirregress', 'elixirattr'].includes(status.id))
+			.map((status) => ({
+				id: status.id,
+				label: status.name ?? status.label ?? status.id,
+				checked: conditionActive.includes(status.id),
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
+		/* Status-Tab v1.1 (Rudolfs Ergänzung): ReadOnly-Alchemiestufe
+		   auf dem Beschreibungs-Tab - nur bei alchemistisch=„Ja“,
+		   Spieler-sichtbar, nicht editierbar; '' = „Keine“. */
+		const alchemyEntry = context.alchemyLevel ? game.symbaroum.config.ALCHEMY_LEVEL_SELECTION[context.alchemyLevel] : null;
+		context.alchemyLevelLabel = alchemyEntry ? game.i18n.localize(alchemyEntry.label) : game.i18n.localize('ALCHEMY_LEVEL.NONE');
 		/* Status-Tab v1 (Rudolfs Freigabe 02.11.): „Ist alchemistisch?“
 		   (system.alchemical, ''/'true') - Anzeige-Initial nach Rudolfs
 		   Entscheidung: „Ja“ nur bei gefüllten Wirkungsfeldern, nur

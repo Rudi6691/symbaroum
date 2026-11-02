@@ -9850,67 +9850,183 @@ dialog.symb-dialog .symbaroum.dialog .simplebox.bandage-status {
 }
 
 /* ------------------------------------------------------------------ */
-/* Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.) — GM-only Wirkungs-
-   felder (system.elixirEffect) auf dem Ausrüstungsblatt, gemeinsames
-   Partial der klassischen und modernen Ansicht. Kompaktes Zwei-Spalten-
-   Raster mit Label-Spalte (Muster .resourcecategory-Zeilen); der Block
-   liegt im Beschreibungs-Tab und bricht auf schmalen Fenstern auf eine
-   Spalte um. Selects der Alchemie-Stufe/Verwendungsform/Munitionswirkung
-   nutzen die bestehenden .resourcecategory- (klassisch) bzw.
-   .m-inline-field-Zeilen (modern) und brauchen kein eigenes CSS. */
-/* Elixier-Automatisierung v1 */
-.elixir-effect-block {
+/* ------------------------------------------------------------------ */
+/* Status-Tab v1.1 (Rudolfs Freigabe 02.11.) — Relayout der Alchemie-
+   eigenschaften (Partial elixir-effect.hbs, gemeinsame Basis): fieldset
+   mit legend als Rahmen, Titel in der Rahmenlinie (Muster m-ability-
+   frame der Wurf-Dialoge), Zeilen-Layout .elixir-row (zwei Felder je
+   Zeile, breite Felder 100 %), Korruption als Unterblock-fieldset,
+   „Bewirkt Zustand“ als Chip-Checkbox-Liste (Mehrfachauswahl),
+   Alchemiestufe ReadOnly auf dem Beschreibungs-Tab, Artefakt+Stapelbar
+   als Doppelzeile im klassischen Status-Tab. Die alten .elixir-effect-
+   block-Grid-Regeln (v1) sind damit ersetzt. */
+fieldset.elixir-effect-frame {
   margin: 5px;
-  padding: 6px 8px;
+  padding: 4px 10px 8px 10px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.03);
+  min-width: 0;
 }
-.elixir-effect-block h3 {
-  margin: 0 0 4px 0;
-  font-size: 0.95em;
+fieldset.elixir-effect-frame legend {
+  padding: 0 6px;
+  font-size: 0.85em;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.85;
+  opacity: 0.9;
 }
-.elixir-effect-block .elixir-effect-hint {
+fieldset.elixir-effect-frame .elixir-effect-hint {
   margin: 0 0 6px 0;
   font-size: 0.75em;
   opacity: 0.7;
 }
-.elixir-effect-block .elixir-effect-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 12px;
+fieldset.elixir-effect-frame .elixir-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
-.elixir-effect-block .elixir-effect-field {
+fieldset.elixir-effect-frame .elixir-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+}
+fieldset.elixir-effect-frame .elixir-row .elixir-effect-field {
+  flex: 1 1 45%;
+}
+fieldset.elixir-effect-frame .elixir-row-wide .elixir-effect-field {
+  flex: 1 1 100%;
+}
+fieldset.elixir-effect-frame .elixir-effect-field {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
-.elixir-effect-block .elixir-effect-field label {
+fieldset.elixir-effect-frame .elixir-effect-field label {
   flex: 0 0 45%;
   margin: 0;
   font-size: 0.85em;
   opacity: 0.85;
 }
-.elixir-effect-block .elixir-effect-field input {
+fieldset.elixir-effect-frame .elixir-effect-field input,
+fieldset.elixir-effect-frame .elixir-effect-field select {
   flex: 1 1 auto;
   min-width: 0;
 }
-.elixir-effect-block .elixir-effect-wide {
-  margin-top: 4px;
+/* „Bewirkt Zustand“: Label über volle Breite, Chips flexibel umbrechen. */
+fieldset.elixir-effect-frame .elixir-field-conditions {
+  align-items: flex-start;
 }
-.symbaroum.sheet.item.modern .elixir-effect-block,
-.modern-item-root .elixir-effect-block {
+fieldset.elixir-effect-frame .elixir-field-conditions > label {
+  flex: 0 0 100%;
+  margin: 2px 0;
+}
+fieldset.elixir-effect-frame .elixir-condition-list {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.elixir-condition-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  font-size: 0.8em;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.04);
+  opacity: 0.75;
+  user-select: none;
+}
+.elixir-condition-chip:hover {
+  opacity: 1;
+}
+.elixir-condition-chip.active {
+  opacity: 1;
+  font-weight: 600;
+  border-color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.09);
+}
+/* Korruption-Unterblock (fieldset im fieldset, eigene Rahmenlinie). */
+fieldset.elixir-effect-frame fieldset.elixir-subblock {
+  margin: 4px 0 2px 0;
+  padding: 2px 8px 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  min-width: 0;
+}
+fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
+  padding: 0 5px;
+  font-size: 0.8em;
+  font-weight: 600;
+  opacity: 0.85;
+}
+/* Moderne Ansicht: Rahmen-/Chip-Farben aus den m-Variablen. */
+.symbaroum.sheet.item.modern fieldset.elixir-effect-frame,
+.modern-item-root fieldset.elixir-effect-frame,
+.symbaroum.sheet.item.modern fieldset.elixir-effect-frame fieldset.elixir-subblock,
+.modern-item-root fieldset.elixir-effect-frame fieldset.elixir-subblock {
   border-color: var(--m-border, rgba(255, 255, 255, 0.15));
   background: var(--m-box-bg, rgba(255, 255, 255, 0.05));
 }
-@media (max-width: 420px) {
-  .elixir-effect-block .elixir-effect-grid {
-    grid-template-columns: 1fr;
-  }
+.symbaroum.sheet.item.modern .elixir-condition-chip,
+.modern-item-root .elixir-condition-chip {
+  border-color: var(--m-border, rgba(255, 255, 255, 0.25));
+  background: var(--m-box-bg, rgba(255, 255, 255, 0.08));
+}
+.symbaroum.sheet.item.modern .elixir-condition-chip.active,
+.modern-item-root .elixir-condition-chip.active {
+  border-color: var(--m-border, rgba(255, 255, 255, 0.6));
+  background: var(--m-box-bg, rgba(255, 255, 255, 0.15));
+}
+/* Alchemiestufe ReadOnly auf dem Beschreibungs-Tab (klassisch + modern). */
+.symbaroum.sheet.item .alchemylevel-readonly {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 6px 0;
+  font-size: 0.85em;
+}
+.symbaroum.sheet.item .alchemylevel-readonly label {
+  margin: 0;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.symbaroum.sheet.item .alchemylevel-readonly span {
+  padding: 1px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.03);
+  opacity: 0.9;
+}
+.symbaroum.sheet.item.modern .alchemylevel-readonly span,
+.modern-item-root .alchemylevel-readonly span {
+  border-color: var(--m-border, rgba(255, 255, 255, 0.15));
+  background: var(--m-box-bg, rgba(255, 255, 255, 0.05));
+}
+/* Klassischer Status-Tab v1.1: Artefakt + Stapelbar in EINER Zeile
+   (Rudolfs Ergänzung; Kinder behalten ihre .number/.stackable-Styles,
+   .status-double-row überschreibt nur Basis und Layout — 5 Klassen
+   Spezifität schlägt die 4 des Basismusters). */
+.symbaroum.sheet.item .status-double-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  min-width: 0;
+}
+.symbaroum.sheet.item .status-double-row .number,
+.symbaroum.sheet.item .status-double-row .stackable {
+  flex: 1 1 45%;
+  min-width: 0;
 }
 

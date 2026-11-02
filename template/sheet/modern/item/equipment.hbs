@@ -14,6 +14,16 @@
                 v1.2-Interim-Scroll-Fix (m-panel-ovY) entfällt komplett. --}}
             <div class="m-panel">
                 <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                {{!-- Status-Tab v1.1 (Rudolfs Ergänzung): ReadOnly-
+                    Alchemiestufe auf dem Beschreibungs-Tab - nur bei
+                    alchemistisch=„Ja“, für Spieler sichtbar, nicht
+                    editierbar; Wertpflege bleibt im Status-Tab. --}}
+                {{#if alchemical}}
+                <div class="alchemylevel-readonly">
+                    <label>{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
+                    <span>{{alchemyLevelLabel}}</span>
+                </div>
+                {{/if}}
                 <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
             </div>
         </div>

@@ -1,100 +1,153 @@
-{{!-- Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.): GM-only Wirkungs-
-    felder (system.elixirEffect) - gemeinsam für klassische und moderne
-    Ausrüstungsblätter. Alle Felder sind Freitext mit dokumentierter Syntax
-    (Tooltips): Zahlen oder Würfelformeln, Attribut-Kürzel, Condition-Ids.
-    Der Elixier-Tagging-Makro v5 setzt die Standardwerte für die ~25
-    maschinenlesbaren Vault-Elixiere. --}}
-<div class="elixir-effect-block">
-    <h3>{{localize "ELIXIR.EFFECT_TITLE"}}</h3>
+{{!-- Status-Tab v1.1 (Rudolfs Freigabe 02.11.): Relayout des Alchemie-
+    eigenschaften-Blocks nach Rudolfs Standard-Layout-Liste aus dem
+    v1.0.1-Nachtest. Rahmen mit Titel in der Rahmenlinie als fieldset/
+    legend (Muster m-ability-frame aus den Würfeldialogen). Änderungen:
+    - „Bewirkt Zustand“ (heute: Bedingung) = Checkbox-Liste der System-
+      Status (Mehrfachauswahl, persists als komma-join im selben Feld
+      system.elixirEffect.condition — Alt-Freitext bleibt lesbar, auch
+      ids außerhalb der Liste bleiben im String erhalten).
+    - Werfenprobe = Attribut-Select (statt Freitext-Kürzel).
+    - Attributsveränderung = 3-Wert-Select (Nein / Festwerte / Wahl);
+      die WERTE stehen im Bonus-Tab des Items (8 Attributfelder);
+      Altbestand attributeMods wird als Fallback gelesen.
+    - Korruption = eigener Unterblock (fieldset/legend) mit Senkung
+      sowie Erhöhung + Erhöhung/Runde.
+    - Wirkdauer 0 = Einmalwirkung sofort (Auswertung in elixirs.js).
+    - Ziel-Bedingung + Ziel-Bedingung Runden sind KONSOLIDIERT und
+      entfallen aus dem UI: „Bewirkt Zustand“ + Wirkdauer decken sie
+      ab; Altbestand wird im Wurf-Pfad als Fallback weitergelesen.
+    Zeilen-Layout: .elixir-row (flexible Zeile, zwei Felder je Zeile),
+    gemeinsam für klassische und moderne Ausrüstungsblätter. --}}
+<fieldset class="elixir-effect-frame">
+    <legend class="elixir-effect-legend">{{localize "ELIXIR.EFFECT_TITLE"}}</legend>
     <div class="elixir-effect-hint">{{localize "ELIXIR.EFFECT_HINT"}}</div>
-    <div class="elixir-effect-grid">
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.heal" data-tooltip="{{localize "ELIXIR.FIELD_HEAL_TOOLTIP"}}">{{localize "ELIXIR.FIELD_HEAL"}}</label>
-            <input id="{{id}}-system.elixirEffect.heal" name="system.elixirEffect.heal" type="text" value="{{system.elixirEffect.heal}}" data-dtype="String"/>
+    <div class="elixir-rows">
+        {{!-- Zeile 1: Wirkdauer + Bewirkt Zustand (Checkbox-Liste). --}}
+        <div class="elixir-row">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.rounds" data-tooltip="{{localize "ELIXIR.FIELD_ROUNDS_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ROUNDS"}}</label>
+                <input id="{{id}}-system.elixirEffect.rounds" name="system.elixirEffect.rounds" type="text" value="{{system.elixirEffect.rounds}}" data-dtype="String"/>
+            </div>
+            <div class="elixir-effect-field elixir-field-conditions">
+                <label data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CONDITION"}}</label>
+                <div class="elixir-condition-list">
+                    {{#each elixir_conditions as | cond |}}
+                    <span class="elixir-condition-chip{{#if cond.checked}} active{{/if}}" data-action="toggleCondition" data-condition-id="{{cond.id}}" role="button" tabindex="0">
+                        <i class="fa-solid {{#if cond.checked}}fa-square-check{{else}}fa-square{{/if}}"></i>{{cond.label}}
+                    </span>
+                    {{/each}}
+                    {{!-- Hidden-Input führt den komma-join-String (Foundry
+                        serialisiert versteckte Felder normal); die Chips
+                        togglen über die Sheet-Action toggleCondition. --}}
+                    <input type="hidden" name="system.elixirEffect.condition" value="{{system.elixirEffect.condition}}" data-dtype="String"/>
+                </div>
+            </div>
         </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.healPerRound" data-tooltip="{{localize "ELIXIR.FIELD_HEAL_PER_ROUND_TOOLTIP"}}">{{localize "ELIXIR.FIELD_HEAL_PER_ROUND"}}</label>
-            <input id="{{id}}-system.elixirEffect.healPerRound" name="system.elixirEffect.healPerRound" type="text" value="{{system.elixirEffect.healPerRound}}" data-dtype="String"/>
+        {{!-- Zeile 2: Heilung + Heilung/Runde. --}}
+        <div class="elixir-row">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.heal" data-tooltip="{{localize "ELIXIR.FIELD_HEAL_TOOLTIP"}}">{{localize "ELIXIR.FIELD_HEAL"}}</label>
+                <input id="{{id}}-system.elixirEffect.heal" name="system.elixirEffect.heal" type="text" value="{{system.elixirEffect.heal}}" data-dtype="String"/>
+            </div>
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.healPerRound" data-tooltip="{{localize "ELIXIR.FIELD_HEAL_PER_ROUND_TOOLTIP"}}">{{localize "ELIXIR.FIELD_HEAL_PER_ROUND"}}</label>
+                <input id="{{id}}-system.elixirEffect.healPerRound" name="system.elixirEffect.healPerRound" type="text" value="{{system.elixirEffect.healPerRound}}" data-dtype="String"/>
+            </div>
         </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.rounds" data-tooltip="{{localize "ELIXIR.FIELD_ROUNDS_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ROUNDS"}}</label>
-            <input id="{{id}}-system.elixirEffect.rounds" name="system.elixirEffect.rounds" type="text" value="{{system.elixirEffect.rounds}}" data-dtype="String"/>
+        {{!-- Zeile 3: Heilt Zustand (Select mit verifizierten Ids, v1.2). --}}
+        <div class="elixir-row">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.removeCondition" data-tooltip="{{localize "ELIXIR.REMOVE_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.REMOVE_CONDITION_LABEL"}}</label>
+                <select id="{{id}}-system.elixirEffect.removeCondition" name="system.elixirEffect.removeCondition" data-tooltip="{{localize "ELIXIR.REMOVE_CONDITION_TOOLTIP"}}">
+                    {{selectOptions remove_condition_selection selected=removeCondition valueAttr="id" labelAttr="label"}}
+                </select>
+            </div>
         </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.corruptionRemove" data-tooltip="{{localize "ELIXIR.FIELD_CORRUPTION_REMOVE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CORRUPTION_REMOVE"}}</label>
-            <input id="{{id}}-system.elixirEffect.corruptionRemove" name="system.elixirEffect.corruptionRemove" type="text" value="{{system.elixirEffect.corruptionRemove}}" data-dtype="String"/>
+        {{!-- Zeile 4: Schaden + Schaden/Runde. --}}
+        <div class="elixir-row">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.damage" data-tooltip="{{localize "ELIXIR.FIELD_DAMAGE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_DAMAGE"}}</label>
+                <input id="{{id}}-system.elixirEffect.damage" name="system.elixirEffect.damage" type="text" value="{{system.elixirEffect.damage}}" data-dtype="String"/>
+            </div>
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.damagePerRound" data-tooltip="{{localize "ELIXIR.FIELD_DAMAGE_PER_ROUND_TOOLTIP"}}">{{localize "ELIXIR.FIELD_DAMAGE_PER_ROUND"}}</label>
+                <input id="{{id}}-system.elixirEffect.damagePerRound" name="system.elixirEffect.damagePerRound" type="text" value="{{system.elixirEffect.damagePerRound}}" data-dtype="String"/>
+            </div>
         </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.corruptionGain" data-tooltip="{{localize "ELIXIR.FIELD_CORRUPTION_GAIN_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CORRUPTION_GAIN"}}</label>
-            <input id="{{id}}-system.elixirEffect.corruptionGain" name="system.elixirEffect.corruptionGain" type="text" value="{{system.elixirEffect.corruptionGain}}" data-dtype="String"/>
+        {{!-- Zeile 5: Werfenprobe — Attribut-Select statt Freitext-Kürzel
+            (Status-Tab v1.1); Widerstands-Gate des Wurfs: misslingt die
+            Probe des Ziels, greift „Bewirkt Zustand“ am Wurfziel. --}}
+        <div class="elixir-row">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.resistAttribute" data-tooltip="{{localize "ELIXIR.FIELD_RESIST_TOOLTIP"}}">{{localize "ELIXIR.FIELD_RESIST"}}</label>
+                <select id="{{id}}-system.elixirEffect.resistAttribute" name="system.elixirEffect.resistAttribute" data-tooltip="{{localize "ELIXIR.FIELD_RESIST_TOOLTIP"}}">
+                    {{selectOptions resist_attribute_selection selected=system.elixirEffect.resistAttribute valueAttr="id" labelAttr="label"}}
+                </select>
+            </div>
         </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.corruptionPerRound" data-tooltip="{{localize "ELIXIR.FIELD_CORRUPTION_PER_ROUND_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CORRUPTION_PER_ROUND"}}</label>
-            <input id="{{id}}-system.elixirEffect.corruptionPerRound" name="system.elixirEffect.corruptionPerRound" type="text" value="{{system.elixirEffect.corruptionPerRound}}" data-dtype="String"/>
+        {{!-- Zeile 6: Waffengift + Antidot (beide Selects, v1.6/v1.7). --}}
+        <div class="elixir-row">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.weaponPoison" data-tooltip="{{localize "ELIXIR.FIELD_WEAPON_POISON_TOOLTIP"}}">{{localize "ELIXIR.FIELD_WEAPON_POISON"}}</label>
+                <select id="{{id}}-system.elixirEffect.weaponPoison" name="system.elixirEffect.weaponPoison" data-tooltip="{{localize "ELIXIR.FIELD_WEAPON_POISON_TOOLTIP"}}">
+                    <option value="" {{#unless system.elixirEffect.weaponPoison}}selected{{/unless}}>{{localize "ELIXIR.WEAPON_POISON_OFF"}}</option>
+                    <option value="true" {{#if system.elixirEffect.weaponPoison}}selected{{/if}}>{{localize "ELIXIR.WEAPON_POISON_ON"}}</option>
+                </select>
+            </div>
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.antidotGrade" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ANTIDOT"}}</label>
+                <select id="{{id}}-system.elixirEffect.antidotGrade" name="system.elixirEffect.antidotGrade" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">
+                    <option value="" {{#unless system.elixirEffect.antidotGrade}}selected{{/unless}}>{{localize "ELIXIR.ANTIDOT_OFF"}}</option>
+                    <option value="1" {{#ife system.elixirEffect.antidotGrade "1"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_1"}}</option>
+                    <option value="2" {{#ife system.elixirEffect.antidotGrade "2"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_2"}}</option>
+                    <option value="3" {{#ife system.elixirEffect.antidotGrade "3"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_3"}}</option>
+                </select>
+            </div>
         </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.condition" data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CONDITION"}}</label>
-            <input id="{{id}}-system.elixirEffect.condition" name="system.elixirEffect.condition" type="text" value="{{system.elixirEffect.condition}}" data-dtype="String"/>
+        {{!-- Zeile 7: Attributsveränderung (Status-Tab v1.1) — 3-Wert-Select:
+            Nein / Ja – Festwerte (alle gefüllten Bonus-Tab-Felder wirken) /
+            Ja – Wahl (Anwender wählt EINEN gefüllten Wert beim Auftragen,
+            Kriegsbemalung-Muster). Altbestand attributeMods (Freitext)
+            bleibt als Fallback lesbar, das Feld entfällt aus dem UI. --}}
+        <div class="elixir-row">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.attributeMode" data-tooltip="{{localize "ELIXIR.FIELD_ATTRMODE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ATTRMODE"}}</label>
+                <select id="{{id}}-system.elixirEffect.attributeMode" name="system.elixirEffect.attributeMode" data-tooltip="{{localize "ELIXIR.FIELD_ATTRMODE_TOOLTIP"}}">
+                    <option value="" {{#unless system.elixirEffect.attributeMode}}selected{{/unless}}>{{localize "ELIXIR.ATTRMODE_NO"}}</option>
+                    <option value="fest" {{#ife system.elixirEffect.attributeMode "fest"}}selected{{/ife}}>{{localize "ELIXIR.ATTRMODE_FEST"}}</option>
+                    <option value="choice" {{#ife system.elixirEffect.attributeMode "choice"}}selected{{/ife}}>{{localize "ELIXIR.ATTRMODE_CHOICE"}}</option>
+                </select>
+            </div>
         </div>
-        {{!-- Elixier-Automatisierung v1.2 (Rudolfs Testfund Augentropfen):
-            Zustandsheilung am Anwender - Select statt Freitext, nur
-            verifizierte Condition-Ids (siehe config.js-Selection). --}}
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.removeCondition" data-tooltip="{{localize "ELIXIR.REMOVE_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.REMOVE_CONDITION_LABEL"}}</label>
-            <select id="{{id}}-system.elixirEffect.removeCondition" name="system.elixirEffect.removeCondition" data-tooltip="{{localize "ELIXIR.REMOVE_CONDITION_TOOLTIP"}}">
-                {{selectOptions remove_condition_selection selected=removeCondition valueAttr="id" labelAttr="label"}}
-            </select>
-        </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.attributeMods" data-tooltip="{{localize "ELIXIR.FIELD_ATTRMODS_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ATTRMODS"}}</label>
-            <input id="{{id}}-system.elixirEffect.attributeMods" name="system.elixirEffect.attributeMods" type="text" value="{{system.elixirEffect.attributeMods}}" data-dtype="String"/>
-        </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.damage" data-tooltip="{{localize "ELIXIR.FIELD_DAMAGE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_DAMAGE"}}</label>
-            <input id="{{id}}-system.elixirEffect.damage" name="system.elixirEffect.damage" type="text" value="{{system.elixirEffect.damage}}" data-dtype="String"/>
-        </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.damagePerRound" data-tooltip="{{localize "ELIXIR.FIELD_DAMAGE_PER_ROUND_TOOLTIP"}}">{{localize "ELIXIR.FIELD_DAMAGE_PER_ROUND"}}</label>
-            <input id="{{id}}-system.elixirEffect.damagePerRound" name="system.elixirEffect.damagePerRound" type="text" value="{{system.elixirEffect.damagePerRound}}" data-dtype="String"/>
-        </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.resistAttribute" data-tooltip="{{localize "ELIXIR.FIELD_RESIST_TOOLTIP"}}">{{localize "ELIXIR.FIELD_RESIST"}}</label>
-            <input id="{{id}}-system.elixirEffect.resistAttribute" name="system.elixirEffect.resistAttribute" type="text" value="{{system.elixirEffect.resistAttribute}}" data-dtype="String"/>
-        </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.targetCondition" data-tooltip="{{localize "ELIXIR.FIELD_TARGET_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.FIELD_TARGET_CONDITION"}}</label>
-            <input id="{{id}}-system.elixirEffect.targetCondition" name="system.elixirEffect.targetCondition" type="text" value="{{system.elixirEffect.targetCondition}}" data-dtype="String"/>
-        </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.targetConditionRounds" data-tooltip="{{localize "ELIXIR.FIELD_TARGET_CONDITION_ROUNDS_TOOLTIP"}}">{{localize "ELIXIR.FIELD_TARGET_CONDITION_ROUNDS"}}</label>
-            <input id="{{id}}-system.elixirEffect.targetConditionRounds" name="system.elixirEffect.targetConditionRounds" type="text" value="{{system.elixirEffect.targetConditionRounds}}" data-dtype="String"/>
-        </div>
-        {{!-- Elixiere v1.5 (Gift-/Antidot-Integration, Rudolfs Freigabe
-            02.11.): Gift-Grad (1-5, Schluessel der Formel-Tabelle in
-            config.js) - macht das Item zur wahlbaren Waffen-Beschichtung im
-            Wuerfeldialog; Formel/Dauer kommen aus den Schaden/Runden- und
-            Runden-Feldern. Antidot: Stufen-Selektion fuer die Absenkung
-            des konstanten Rundenschadens eines liegenden Gifts (-2 je
-            Stufe, <= 0 = geheilt), Ausfuehrung auf der GM-Anwendungskarte. --}}
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.weaponPoison" data-tooltip="{{localize "ELIXIR.FIELD_WEAPON_POISON_TOOLTIP"}}">{{localize "ELIXIR.FIELD_WEAPON_POISON"}}</label>
-            <select id="{{id}}-system.elixirEffect.weaponPoison" name="system.elixirEffect.weaponPoison" data-tooltip="{{localize "ELIXIR.FIELD_WEAPON_POISON_TOOLTIP"}}">
-                <option value="" {{#unless system.elixirEffect.weaponPoison}}selected{{/unless}}>{{localize "ELIXIR.WEAPON_POISON_OFF"}}</option>
-                <option value="true" {{#if system.elixirEffect.weaponPoison}}selected{{/if}}>{{localize "ELIXIR.WEAPON_POISON_ON"}}</option>
-            </select>
-        </div>
-        <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.antidotGrade" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ANTIDOT"}}</label>
-            <select id="{{id}}-system.elixirEffect.antidotGrade" name="system.elixirEffect.antidotGrade" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">
-                <option value="" {{#unless system.elixirEffect.antidotGrade}}selected{{/unless}}>{{localize "ELIXIR.ANTIDOT_OFF"}}</option>
-                <option value="1" {{#ife system.elixirEffect.antidotGrade "1"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_1"}}</option>
-                <option value="2" {{#ife system.elixirEffect.antidotGrade "2"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_2"}}</option>
-                <option value="3" {{#ife system.elixirEffect.antidotGrade "3"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_3"}}</option>
-            </select>
+        {{!-- Korruption-Unterblock (Rudolfs Liste): eigener Rahmen mit
+            Senkung sowie Erhöhung + Erhöhung/Runde. --}}
+        <fieldset class="elixir-subblock">
+            <legend>{{localize "ELIXIR.FIELD_CORRUPTION_BLOCK"}}</legend>
+            <div class="elixir-rows">
+                <div class="elixir-row">
+                    <div class="elixir-effect-field">
+                        <label for="{{id}}-system.elixirEffect.corruptionRemove" data-tooltip="{{localize "ELIXIR.FIELD_CORRUPTION_REMOVE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CORRUPTION_REMOVE"}}</label>
+                        <input id="{{id}}-system.elixirEffect.corruptionRemove" name="system.elixirEffect.corruptionRemove" type="text" value="{{system.elixirEffect.corruptionRemove}}" data-dtype="String"/>
+                    </div>
+                </div>
+                <div class="elixir-row">
+                    <div class="elixir-effect-field">
+                        <label for="{{id}}-system.elixirEffect.corruptionGain" data-tooltip="{{localize "ELIXIR.FIELD_CORRUPTION_GAIN_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CORRUPTION_GAIN"}}</label>
+                        <input id="{{id}}-system.elixirEffect.corruptionGain" name="system.elixirEffect.corruptionGain" type="text" value="{{system.elixirEffect.corruptionGain}}" data-dtype="String"/>
+                    </div>
+                    <div class="elixir-effect-field">
+                        <label for="{{id}}-system.elixirEffect.corruptionPerRound" data-tooltip="{{localize "ELIXIR.FIELD_CORRUPTION_PER_ROUND_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CORRUPTION_PER_ROUND"}}</label>
+                        <input id="{{id}}-system.elixirEffect.corruptionPerRound" name="system.elixirEffect.corruptionPerRound" type="text" value="{{system.elixirEffect.corruptionPerRound}}" data-dtype="String"/>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+        {{!-- Notiz (breit, bleibt Schlusszeile des Blocks). --}}
+        <div class="elixir-row elixir-row-wide">
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.note" data-tooltip="{{localize "ELIXIR.FIELD_NOTE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_NOTE"}}</label>
+                <input id="{{id}}-system.elixirEffect.note" name="system.elixirEffect.note" type="text" value="{{system.elixirEffect.note}}" data-dtype="String"/>
+            </div>
         </div>
     </div>
-    <div class="elixir-effect-field elixir-effect-wide">
-        <label for="{{id}}-system.elixirEffect.note" data-tooltip="{{localize "ELIXIR.FIELD_NOTE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_NOTE"}}</label>
-        <input id="{{id}}-system.elixirEffect.note" name="system.elixirEffect.note" type="text" value="{{system.elixirEffect.note}}" data-dtype="String"/>
-    </div>
-</div>
+</fieldset>

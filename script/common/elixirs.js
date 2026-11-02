@@ -120,12 +120,16 @@ async function rollFormula(formula, rolls) {
 	return roll.total;
 }
 
-/** Runden-Formel ('' / Zahl / Würfelformel) → gerundete Runden (min 1). */
+/** Runden-Formel ('' / Zahl / Würfelformel) → gerundete Runden.
+ * Status-Tab v1.1 (Rudolfs Layout-Liste): 0 ist jetzt ein GÜLTIGER Wert
+ * und bedeutet „Einmalwirkung sofort“ — die Aufrufstellen entscheiden,
+ * was sofort heißt (/Runde-Felder: 1× sofort ohne Zeitsymbol;
+ * Bedingungen: Wirkung bis Zugende). '' bleibt 1 Runde (Bestandswert). */
 async function rollRounds(formula, rolls) {
 	const raw = String(formula ?? '').trim();
 	if (raw === '') return 1;
-	if (/^\d+$/.test(raw)) return Math.max(1, parseInt(raw, 10));
-	return Math.max(1, await rollFormula(raw, rolls));
+	if (/^\d+$/.test(raw)) return Math.max(0, parseInt(raw, 10));
+	return Math.max(0, await rollFormula(raw, rolls));
 }
 
 /* ---------------------------------------------------------------- */
@@ -304,6 +308,7 @@ async function pickSelfElixirTarget(actor, eff) {
 		String(eff.condition ?? '').trim() !== '' ||
 		String(eff.removeCondition ?? '').trim() !== '' ||
 		String(eff.attributeMods ?? '').trim() !== '' ||
+		String(eff.attributeMode ?? '').trim() !== '' ||
 		String(eff.antidotGrade ?? '').trim() !== '' ||
 		eff.antidot === true ||
 		eff.antidot === 'true';
@@ -417,8 +422,36 @@ export async function useSelfElixir(item) {
 	// Wahl-Syntax (Kriegsbemalung) VOR dem Verbrauch auflösen — Abbruch
 	// (Dialog-Cancel) verbraucht bewusst noch keine Dosis.
 	let attributeChanges = [];
+	/* Status-Tab v1.1 (Rudolfs Freigabe 02.11.): Attributsveraenderung
+	   wird ueber den 3-Wert-Select gesteuert - die WERTE kommen aus dem
+	   BONUS-TAB des Items (system.bonus.<attr>, die 8 Attributfelder;
+	   sie werden von keinem Actor-Pfad automatisch verrechnet, sind
+	   also als Quelle nebenwirkungsfrei). 'fest' = alle gefuellten
+	   Felder wirken (Wildpfriem-Muster); 'choice' = der Anwender
+	   waehlt beim Auftragen EINEN gefuellten Wert (Kriegsbemalungs-
+	   Muster, bestehender Auswahldialog). Fallback: das alte Frei-
+	   text-Feld attributeMods bleibt lesbar, solange der neue Select
+	   nicht gesetzt ist - kein Massen-Write noetig. */
+	const attrMode = String(eff.attributeMode ?? '').trim();
 	const rawMods = String(eff.attributeMods ?? '').trim();
-	if (rawMods !== '') {
+	if (attrMode === 'fest' || attrMode === 'choice') {
+		const bonusCandidates = [];
+		for (const attrId of Object.keys(game.symbaroum.config.ATTRIBUTE_SELECTION)) {
+			const bonusValue = Number(item.system.bonus?.[attrId] ?? 0);
+			if (Number.isFinite(bonusValue) && bonusValue !== 0) {
+				bonusCandidates.push({ attr: attrId, value: bonusValue });
+			}
+		}
+		if (attrMode === 'fest') {
+			attributeChanges = bonusCandidates;
+		} else if (bonusCandidates.length > 1) {
+			const chosen = await resolveAttributeChoice([bonusCandidates]);
+			if (chosen === null) return;
+			attributeChanges = chosen;
+		} else {
+			attributeChanges = bonusCandidates;
+		}
+	} else if (rawMods !== '') {
 		const parsed = parseAttributeMods(rawMods);
 		if (parsed === null) return;
 		const resolved = await resolveAttributeChoice(parsed);
@@ -489,6 +522,31 @@ export async function useSelfElixir(item) {
 	const corruptionPerRound = String(eff.corruptionPerRound ?? '').trim();
 	if (healPerRound !== '' || corruptionPerRound !== '') {
 		const rounds = await rollRounds(eff.rounds, rolls);
+		if (rounds === 0) {
+			/* Status-Tab v1.1 (Rudolfs Layout-Liste): Wirkdauer 0 =
+			   Einmalwirkung sofort - die /Runde-Felder wirken EXAKT
+			   EINMAL sofort, ganz ohne Zeitsymbol (vor der Kampf-
+			   Gabel, also kampfunabhaengig). */
+			lines.push(L('ELIXIR.CHAT_IMMEDIATE'));
+			if (healPerRound !== '') {
+				const healOnce = await rollFormula(healPerRound, rolls);
+				if (healOnce > 0) {
+					flagDataArray.push({ actorId: targetActor.id, toughnessChange: healOnce });
+					lines.push(F('ELIXIR.CHAT_HEAL', { amount: healOnce }));
+				}
+			}
+			if (corruptionPerRound !== '') {
+				const corruptionOnce = await rollFormula(corruptionPerRound, rolls);
+				if (corruptionOnce !== 0) {
+					flagDataArray.push({ actorId: targetActor.id, corruptionChange: corruptionOnce });
+					lines.push(
+						F(corruptionOnce > 0 ? 'ELIXIR.CHAT_CORRUPTION_GAIN' : 'ELIXIR.CHAT_CORRUPTION_REMOVE', {
+							amount: Math.abs(corruptionOnce),
+						})
+					);
+				}
+			}
+		} else {
 		lines.push(F('ELIXIR.CHAT_PER_ROUND', { rounds }));
 		// Elixiere v1.6 (Rudolfs Zwischenlösung „bis auf weiteres"): AUSSERHALB
 		// eines aktiven Kampfes tickt die Runden-Engine nicht (A28/A34 haengen
@@ -556,6 +614,7 @@ export async function useSelfElixir(item) {
 				lines.push(F('ELIXIR.CHAT_CORRUPTION_PER_ROUND', { formula: corruptionPerRound }));
 			}
 		}
+		}
 	}
 
 	// Bedingung mit Rundenlauf (z. B. benommen/geblendet auf sich selbst).
@@ -568,6 +627,11 @@ export async function useSelfElixir(item) {
 	const conditionIds = conditionRaw !== '' ? conditionRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
 	if (conditionIds.length > 0) {
 		const rounds = await rollRounds(eff.rounds, rolls);
+		/* Status-Tab v1.1: Wirkdauer 0 = Einmalwirkung sofort - die
+		   kuerzeste sinnvolle Zustandsdauer ist die Wirkung bis zum
+		   Zugende des Traegers (turnEnd + effectDuration 1, A34-
+		   Engine), konsistent zur v1.2-Zugende-Semantik. */
+		const conditionRounds = rounds === 0 ? 1 : rounds;
 		for (const conditionId of conditionIds) {
 			const effect = findStatusEffect(conditionId);
 			if (!effect) continue;
@@ -582,10 +646,10 @@ export async function useSelfElixir(item) {
 				actorId: targetActor.id,
 				addEffect: effect,
 				turnEnd: true,
-				effectDuration: rounds,
+				effectDuration: conditionRounds,
 				conditionData,
 			});
-			lines.push(F('ELIXIR.CHAT_CONDITION', { condition: conditionName(effect), rounds }));
+			lines.push(F('ELIXIR.CHAT_CONDITION', { condition: conditionName(effect), rounds: conditionRounds }));
 		}
 	}
 
@@ -777,48 +841,69 @@ async function applyThrownEffectsOnHit(item, token, eff, rolls, flagDataArray, t
 	const damagePerRound = String(eff.damagePerRound ?? '').trim();
 	if (damagePerRound !== '') {
 		const rounds = await rollRounds(eff.rounds, rolls);
-		const acidEffect = findStatusEffect('acid');
-		if (acidEffect) {
-			// v1.2: Zugende-Löschung (A34) - N Ticks am Zugbeginn bleiben.
-			flagDataArray.push({
-				tokenId: token.id,
-				addEffect: acidEffect,
-				turnEnd: true,
-				effectDuration: rounds,
-				conditionData: {
-					dot: { label: 'CONDITION.ACID', formula: damagePerRound, resource: 'toughness', damageType: 'acid', separateRoll: false },
-				},
-			});
+		if (rounds === 0) {
+			/* Status-Tab v1.1 (Rudolfs Layout-Liste): Wirkdauer 0 =
+			   Einmalwirkung sofort - EIN Tick sofort, ohne acid-Symbol. */
+			const once = await rollFormula(damagePerRound, rolls);
+			flagDataArray.push({ tokenId: token.id, toughnessChange: -1 * once });
+			lines.push(F('ELIXIR.CHAT_DAMAGE', { target: targetName, damage: once, formula: damagePerRound }));
+		} else {
+			const acidEffect = findStatusEffect('acid');
+			if (acidEffect) {
+				// v1.2: Zugende-Löschung (A34) - N Ticks am Zugbeginn bleiben.
+				flagDataArray.push({
+					tokenId: token.id,
+					addEffect: acidEffect,
+					turnEnd: true,
+					effectDuration: rounds,
+					conditionData: {
+						dot: { label: 'CONDITION.ACID', formula: damagePerRound, resource: 'toughness', damageType: 'acid', separateRoll: false },
+					},
+				});
+			}
+			lines.push(F('ELIXIR.CHAT_DAMAGE_PER_ROUND', { target: targetName, formula: damagePerRound, rounds }));
 		}
-		lines.push(F('ELIXIR.CHAT_DAMAGE_PER_ROUND', { target: targetName, formula: damagePerRound, rounds }));
 	}
 
 	// Ziel-Probe (Blitzstaub → Gewandtheit, Nebelball → Stärke): einseitige
-	// Probe gegen den Attributswert; bei Misslingen Bedingung + Rundenlauf
-	// (Nebelball: dazed mit Malus je Alchemie-Stufe über flagData).
+	// Probe gegen den Attributswert. Status-Tab v1.1 (Rudolfs Freigabe
+	// 02.11.): „Bewirkt Zustand“ ist KONSOLIDIERT - die Felder Ziel-
+	// Bedingung und Ziel-Bedingung Runden entfallen aus dem UI. Fallback-
+	// Reihenfolge: eff.condition (Mehrfach, komma-getrennt), sonst Alt-
+	// bestand eff.targetCondition (Tagging v5). Die Werfenprobe bleibt
+	// das Widerstands-Gate (misslingt die Probe des Ziels, greift der
+	// Zustand); OHNE Werfenprobe trifft der Zustand ungehindert (vorher:
+	// gar keine Auslösung). Dauer: Altbestand targetConditionRounds
+	// gewinnt, sonst die allgemeine Wirkdauer (0 = Wirkung bis Zugende,
+	// wie der Selbst-Pfad). Nebelball: dazed mit Malus je Alchemie-Stufe.
 	const resistAttribute = String(eff.resistAttribute ?? '').trim();
+	let resisted = false;
 	if (resistAttribute !== '' && game.symbaroum.config.ATTRIBUTE_SELECTION[resistAttribute]) {
 		const probe = await baseRoll(targetActor, resistAttribute, null, null, 0, 0, false);
 		rolls.push(...probe.rolls);
-		const resisted = probe.trueActorSucceeded;
+		resisted = probe.trueActorSucceeded;
 		lines.push(
 			`<div class="tooltip"><p>${F('ELIXIR.CHAT_RESIST_LINE', { target: targetName, attribute: probe.actingAttributeLabel, result: L(resisted ? 'ELIXIR.RESIST_SUCCESS' : 'ELIXIR.RESIST_FAILURE') })}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 		);
-		const targetCondition = String(eff.targetCondition ?? '').trim();
-		if (!resisted && targetCondition !== '') {
-			const effect = findStatusEffect(targetCondition);
-			if (effect) {
-				const rounds = await rollRounds(eff.targetConditionRounds, rolls);
-				// v1.2 (Rudolfs Entscheidung): Benommen wirkt, solange der
-				// Träger dran ist, und verschwindet beim Weiterschalten -
-				// Zugende-Löschung über die A34-Engine (turnEnd-Marker).
-				const conditionData = {};
-				if (targetCondition === 'dazed') {
-					conditionData.dazedPenalty = getDazedPenaltyForLevel(getAlchemyLevel(item));
-				}
-				flagDataArray.push({ tokenId: token.id, addEffect: effect, turnEnd: true, effectDuration: rounds, conditionData });
-				lines.push(F('ELIXIR.CHAT_TARGET_CONDITION', { target: targetName, condition: conditionName(effect), rounds }));
+	}
+	const thrownConditionRaw = String(eff.condition ?? '').trim() || String(eff.targetCondition ?? '').trim();
+	const thrownConditionIds =
+		thrownConditionRaw !== '' ? thrownConditionRaw.split(',').map((c) => c.trim()).filter(Boolean) : [];
+	if (!resisted && thrownConditionIds.length > 0) {
+		// v1.2 (Rudolfs Entscheidung): Benommen wirkt, solange der
+		// Träger dran ist, und verschwindet beim Weiterschalten -
+		// Zugende-Löschung über die A34-Engine (turnEnd-Marker).
+		const roundsRaw = String(eff.targetConditionRounds ?? '').trim() !== '' ? eff.targetConditionRounds : eff.rounds;
+		const rounds = Math.max(1, await rollRounds(roundsRaw, rolls));
+		for (const conditionId of thrownConditionIds) {
+			const effect = findStatusEffect(conditionId);
+			if (!effect) continue;
+			const conditionData = {};
+			if (conditionId === 'dazed') {
+				conditionData.dazedPenalty = getDazedPenaltyForLevel(getAlchemyLevel(item));
 			}
+			flagDataArray.push({ tokenId: token.id, addEffect: effect, turnEnd: true, effectDuration: rounds, conditionData });
+			lines.push(F('ELIXIR.CHAT_TARGET_CONDITION', { target: targetName, condition: conditionName(effect), rounds }));
 		}
 	}
 	return lines;
