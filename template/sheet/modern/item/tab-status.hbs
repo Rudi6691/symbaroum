@@ -1,0 +1,78 @@
+{{!-- Status-Tab v1 (Rudolfs Freigabe 02.11.): GM-only „Status“-Tab auf dem
+    modernen Ausrüstungsblatt - zieht die GM-Felder aus dem Beschreibungs-
+    Panel heraus (strukturelle Lösung des v1.2-Scroll-Interims; die
+    m-panel-ovY-Klasse entfällt damit komplett). Muster wie der Stats-Tab
+    des modernen Waffenblatts (m-panel + m-grid + m-inline-field, CSS-
+    Checkliste Abschnitt 8). Reihenfolge nach Rudolfs Liste: Artefakt,
+    Stapelbar, Ressourcen-Kategorie, „Ist alchemistisch?“, dann bei „Ja“
+    die Alchemieeigenschaften (gemeinsames elixir-effect-Partial). --}}
+<div class="m-panel">
+    <h1>{{localize "TITLE.STATS"}}</h1>
+    <div class="m-grid">
+        {{#if symbaroumOptions.isGM}}
+        <div class="m-inline-field m-check">
+            <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
+            <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
+        </div>
+        <div class="m-inline-field m-check">
+            <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
+            {{#if stackableChecked}}
+            <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+            {{else}}
+            <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+            {{/if}}
+        </div>
+        {{#if showResourceCategory}}
+        <div class="m-inline-field">
+            <label for="{{id}}-system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">{{localize "RESOURCE_CATEGORY.LABEL"}}</label>
+            <select id="{{id}}-system.resourceCategory" name="system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">
+                {{selectOptions resource_category_selection selected=resourceCategory valueAttr="id" labelAttr="label"}}
+            </select>
+        </div>
+        {{/if}}
+        {{!-- Status-Tab v1: „Ist alchemistisch?“ (system.alchemical,
+            ''/'true') - alleinige Auswertungs-Kanonik (Kontextmenü,
+            useElixir-Router); Anzeige-Initial für Alt-Items: gefüllte
+            Wirkungsfelder = „Ja“, nur Verwendungsform = „Nein“; der
+            Select persistiert beim ersten Form-Submit. --}}
+        {{#if showElixirFields}}
+        <div class="m-inline-field">
+            <label for="{{id}}-system.alchemical" data-tooltip="{{localize "ELIXIR.ALCHEMICAL_TOOLTIP"}}">{{localize "ELIXIR.ALCHEMICAL_LABEL"}}</label>
+            <select id="{{id}}-system.alchemical" name="system.alchemical" data-tooltip="{{localize "ELIXIR.ALCHEMICAL_TOOLTIP"}}">
+                <option value="" {{#unless alchemical}}selected{{/unless}}>{{localize "ELIXIR.ALCHEMICAL_NO"}}</option>
+                <option value="true" {{#if alchemical}}selected{{/if}}>{{localize "ELIXIR.ALCHEMICAL_YES"}}</option>
+            </select>
+        </div>
+        {{#if showAlchemy}}
+        {{!-- Elixier-Automatisierung v1: Alchemieeigenschaften (GM-only) -
+            Alchemie-Stufe + Verwendungsform, Munitionswirkung nur auf
+            Munitions-Items; Wirkungsfelder im gemeinsamen Partial
+            unterhalb des Grids. --}}
+        <div class="m-inline-field">
+            <label for="{{id}}-system.alchemyLevel" data-tooltip="{{localize "ALCHEMY_LEVEL.TOOLTIP"}}">{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
+            <select id="{{id}}-system.alchemyLevel" name="system.alchemyLevel" data-tooltip="{{localize "ALCHEMY_LEVEL.TOOLTIP"}}">
+                {{selectOptions alchemy_level_selection selected=alchemyLevel valueAttr="id" labelAttr="label"}}
+            </select>
+        </div>
+        <div class="m-inline-field">
+            <label for="{{id}}-system.elixirUsage" data-tooltip="{{localize "ELIXIR.USAGE_TOOLTIP"}}">{{localize "ELIXIR.USAGE_LABEL"}}</label>
+            <select id="{{id}}-system.elixirUsage" name="system.elixirUsage" data-tooltip="{{localize "ELIXIR.USAGE_TOOLTIP"}}">
+                {{selectOptions elixir_usage_selection selected=elixirUsage valueAttr="id" labelAttr="label"}}
+            </select>
+        </div>
+        {{#if showAmmoEffect}}
+        <div class="m-inline-field">
+            <label for="{{id}}-system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">{{localize "AMMO_EFFECT.LABEL"}}</label>
+            <select id="{{id}}-system.ammoEffect" name="system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">
+                {{selectOptions ammo_effect_selection selected=ammoEffect valueAttr="id" labelAttr="label"}}
+            </select>
+        </div>
+        {{/if}}
+        {{/if}}
+        {{/if}}
+        {{/if}}
+    </div>
+    {{#if showAlchemy}}
+    {{> systems/symbaroum/template/sheet/tab/elixir-effect.hbs}}
+    {{/if}}
+</div>

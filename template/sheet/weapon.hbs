@@ -48,6 +48,57 @@
             <div class="tab" data-group="primary" data-tab="stats">
                 <div class="stats foreground border">
                     <h1>{{localize "TITLE.STATS"}}</h1>
+                    {{!-- Status-Tab v1 (02.11.): GM-Block (Artefakt, Stapelbar,
+                        Munition, Ressourcen-Kategorie) an den Anfang des
+                        Stats-Tabs gezogen - vor den Spieler-Zeilen. --}}
+                    {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
+                        Punkt 3): Artefakt- und Stapelbar-Checkbox sind
+                        SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
+                        - für Spieler ausgeblendet, der WERT bleibt erhalten. --}}
+                    {{#if symbaroumOptions.isGM}}
+                    <div class="number">
+                        <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
+                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
+                    </div>
+                    <div class="stackable">
+                        <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
+                        {{!-- AP2 v2 (Uniform-Regel): Waffen sind default NICHT stapelbar -
+                            hier wird pro Item explizit opt-in (oder bei stapelbaren
+                            Alt-/Favoriten-Waffen opt-out) entschieden. stackableChecked
+                            (item.js) zeigt den EFFEKTIVEN Zustand. --}}
+                        {{#if stackableChecked}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{else}}
+                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
+                        {{/if}}
+                    </div>
+                    {{!-- Munitionsverbrauch v1 (31.10.): waffenseitige
+                        Munitions-Konfiguration - GM-only wie Artefakt/
+                        Stapelbar (Welt-/SL-Taxonomie). Leere Kategorie =
+                        kein Verbrauch; Menge je Angriff (Standard 1).
+                        Die Ressourcen-Kategorie-Zeile darunter taggt die
+                        Waffe selbst als Munitions-Stapel (Wurfspeer). --}}
+                    {{#if showAmmunition}}
+                    <div class="ammunition">
+                        <label for="{{id}}-system.ammunition.category" data-tooltip="{{localize "AMMO.CATEGORY_TOOLTIP"}}">{{localize "AMMO.CATEGORY_LABEL"}}</label>
+                        <select id="{{id}}-system.ammunition.category" name="system.ammunition.category" data-tooltip="{{localize "AMMO.CATEGORY_TOOLTIP"}}">
+                            {{selectOptions ammo_category_selection selected=ammunitionCategory valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="ammunition">
+                        <label for="{{id}}-system.ammunition.amount" data-tooltip="{{localize "AMMO.AMOUNT_TOOLTIP"}}">{{localize "AMMO.AMOUNT_LABEL"}}</label>
+                        <input id="{{id}}-system.ammunition.amount" name="system.ammunition.amount" type="number" value="{{ammunitionAmount}}" min="1" step="1" data-tooltip="{{localize "AMMO.AMOUNT_TOOLTIP"}}"/>
+                    </div>
+                    {{/if}}
+                    {{#if showResourceCategory}}
+                    <div class="resourcecategory">
+                        <label for="{{id}}-system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">{{localize "RESOURCE_CATEGORY.LABEL"}}</label>
+                        <select id="{{id}}-system.resourceCategory" name="system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">
+                            {{selectOptions resource_category_selection selected=resourceCategory valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    {{/if}}
+                    {{/if}}
                     <div class="attribute">
                         <label for="{{id}}-system.attribute">{{localize "WEAPON.ATTRIBUTE"}}</label>
                         <select id="{{id}}-system.attribute" name="system.attribute">
@@ -105,54 +156,6 @@
                             erst beim Speichern geschrieben. --}}
                         <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize "WEIGHT.TOOLTIP"}}">{{{weightOptions item}}}</select>
                     </div>
-                    {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
-                        Punkt 3): Artefakt- und Stapelbar-Checkbox sind
-                        SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
-                        - für Spieler ausgeblendet, der WERT bleibt erhalten. --}}
-                    {{#if symbaroumOptions.isGM}}
-                    <div class="number">
-                        <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
-                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
-                    </div>
-                    <div class="stackable">
-                        <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
-                        {{!-- AP2 v2 (Uniform-Regel): Waffen sind default NICHT stapelbar -
-                            hier wird pro Item explizit opt-in (oder bei stapelbaren
-                            Alt-/Favoriten-Waffen opt-out) entschieden. stackableChecked
-                            (item.js) zeigt den EFFEKTIVEN Zustand. --}}
-                        {{#if stackableChecked}}
-                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
-                        {{else}}
-                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
-                        {{/if}}
-                    </div>
-                    {{!-- Munitionsverbrauch v1 (31.10.): waffenseitige
-                        Munitions-Konfiguration - GM-only wie Artefakt/
-                        Stapelbar (Welt-/SL-Taxonomie). Leere Kategorie =
-                        kein Verbrauch; Menge je Angriff (Standard 1).
-                        Die Ressourcen-Kategorie-Zeile darunter taggt die
-                        Waffe selbst als Munitions-Stapel (Wurfspeer). --}}
-                    {{#if showAmmunition}}
-                    <div class="ammunition">
-                        <label for="{{id}}-system.ammunition.category" data-tooltip="{{localize "AMMO.CATEGORY_TOOLTIP"}}">{{localize "AMMO.CATEGORY_LABEL"}}</label>
-                        <select id="{{id}}-system.ammunition.category" name="system.ammunition.category" data-tooltip="{{localize "AMMO.CATEGORY_TOOLTIP"}}">
-                            {{selectOptions ammo_category_selection selected=ammunitionCategory valueAttr="id" labelAttr="label"}}
-                        </select>
-                    </div>
-                    <div class="ammunition">
-                        <label for="{{id}}-system.ammunition.amount" data-tooltip="{{localize "AMMO.AMOUNT_TOOLTIP"}}">{{localize "AMMO.AMOUNT_LABEL"}}</label>
-                        <input id="{{id}}-system.ammunition.amount" name="system.ammunition.amount" type="number" value="{{ammunitionAmount}}" min="1" step="1" data-tooltip="{{localize "AMMO.AMOUNT_TOOLTIP"}}"/>
-                    </div>
-                    {{/if}}
-                    {{#if showResourceCategory}}
-                    <div class="resourcecategory">
-                        <label for="{{id}}-system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">{{localize "RESOURCE_CATEGORY.LABEL"}}</label>
-                        <select id="{{id}}-system.resourceCategory" name="system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">
-                            {{selectOptions resource_category_selection selected=resourceCategory valueAttr="id" labelAttr="label"}}
-                        </select>
-                    </div>
-                    {{/if}}
-                    {{/if}}
                     <div class="quality">
                         <label for="{{id}}-system.quality">{{localize "WEAPON.QUALITY"}}</label>
                         <input name="system.quality" type="text" value="{{system.quality}}"/>

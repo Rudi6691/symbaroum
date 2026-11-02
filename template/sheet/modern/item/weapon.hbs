@@ -16,38 +16,9 @@
             <div class="m-panel">
                 <h1>{{localize "TITLE.STATS"}}</h1>
                 <div class="m-grid">
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.attribute">{{localize "WEAPON.ATTRIBUTE"}}</label>
-                        <select id="{{id}}-system.attribute" name="system.attribute">
-                            {{selectOptions attribute_selection selected=system.attribute labelAttr="label"}}
-                        </select>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.reference">{{localize "WEAPON_CLASS.LABEL"}}</label>
-                        <select id="{{id}}-system.reference" name="system.reference">
-                            {{selectOptions weapon_type_selection selected=system.reference labelAttr="label"}}
-                        </select>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.baseDamage">{{localize "WEAPON.BASE_DAMAGE"}}</label>
-                        <select id="{{id}}-system.baseDamage" name="system.baseDamage">
-                            {{selectOptions weapon_damage_selection selected=system.baseDamage labelAttr="label"}}
-                        </select>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.bonusDamage">{{localize "WEAPON.BONUS_DAMAGE"}}</label>
-                        <input id="{{id}}-system.bonusDamage" name="system.bonusDamage" type="text" value="{{system.bonusDamage}}"/>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.alternativeDamage">{{localize "TRAIT_LABEL.ALTERNATIVEDAMAGE"}}</label>
-                        <select id="{{id}}-system.alternativeDamage" name="system.alternativeDamage">
-                            {{selectOptions alternative_selection selected=system.alternativeDamage labelAttr="label"}}
-                        </select>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.quality">{{localize "WEAPON.QUALITY"}}</label>
-                        <input id="{{id}}-system.quality" name="system.quality" type="text" value="{{system.quality}}"/>
-                    </div>
+                    {{!-- Status-Tab v1 (02.11.): GM-Block (Artefakt, Stapelbar,
+                        Munition, Ressourcen-Kategorie) an den Anfang des
+                        Stats-Grids gezogen - vor den Spieler-Zeilen. --}}
                     {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
                         Punkt 3): Artefakt- und Stapelbar-Checkbox sind
                         SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
@@ -91,6 +62,38 @@
                     </div>
                     {{/if}}
                     {{/if}}
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.attribute">{{localize "WEAPON.ATTRIBUTE"}}</label>
+                        <select id="{{id}}-system.attribute" name="system.attribute">
+                            {{selectOptions attribute_selection selected=system.attribute labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.reference">{{localize "WEAPON_CLASS.LABEL"}}</label>
+                        <select id="{{id}}-system.reference" name="system.reference">
+                            {{selectOptions weapon_type_selection selected=system.reference labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseDamage">{{localize "WEAPON.BASE_DAMAGE"}}</label>
+                        <select id="{{id}}-system.baseDamage" name="system.baseDamage">
+                            {{selectOptions weapon_damage_selection selected=system.baseDamage labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.bonusDamage">{{localize "WEAPON.BONUS_DAMAGE"}}</label>
+                        <input id="{{id}}-system.bonusDamage" name="system.bonusDamage" type="text" value="{{system.bonusDamage}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.alternativeDamage">{{localize "TRAIT_LABEL.ALTERNATIVEDAMAGE"}}</label>
+                        <select id="{{id}}-system.alternativeDamage" name="system.alternativeDamage">
+                            {{selectOptions alternative_selection selected=system.alternativeDamage labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.quality">{{localize "WEAPON.QUALITY"}}</label>
+                        <input id="{{id}}-system.quality" name="system.quality" type="text" value="{{system.quality}}"/>
+                    </div>
                 </div>
             </div>
         </div>

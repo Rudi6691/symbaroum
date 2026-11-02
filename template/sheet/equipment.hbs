@@ -23,6 +23,14 @@
             {{#if system.isArtifact}}
             <b class="item" data-tab="power">{{localize "TAB.POWER"}}</b>
             {{/if}}
+            {{!-- Status-Tab v1 (Rudolfs Freigabe 02.11.): GM-only „Status“-
+                Tab zwischen Beschreibung und Bonus - Artefakt/Stapelbar/
+                Ressourcen-Kategorie/„Ist alchemistisch?“ (+ Alchemie-
+                eigenschaften bei Ja) ziehen aus dem Beschreibungs-Tab
+                hierher; Spieler sehen den Tab nicht. --}}
+            {{#if symbaroumOptions.isGM}}
+            <b class="item" data-tab="stats">{{localize "TAB.STATS"}}</b>
+            {{/if}}
             <b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>
         </div>
 
@@ -56,81 +64,25 @@
                             erst beim Speichern geschrieben. --}}
                         <select id="{{id}}-system.weight" name="system.weight" data-tooltip="{{localize "WEIGHT.TOOLTIP"}}">{{{weightOptions item}}}</select>
                     </div>
-                    {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
-                        Punkt 3): Artefakt- und Stapelbar-Checkbox sind
-                        SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
-                        - für Spieler ausgeblendet, der WERT bleibt erhalten. --}}
-                    {{#if symbaroumOptions.isGM}}
-                    <div class="number">
-                        <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
-                        {{#if system.isArtifact}}
-                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" checked/>
-                        {{else}}
-                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact"/>
-                        {{/if}}
-                    </div>
-                    {{!-- AP2 v2 (Uniform-Regel): Die Stapelbar-Zeile ist jetzt IMMER
-                        sichtbar (nicht mehr nur bei Artefakt-Ausrüstung). Ausrüstung
-                        ohne Artefakt-Flag ist default stapelbar (Merge-on-Drop bleibt
-                        an - Rationen etc.); abwählen = expliziter Opt-out. Artefakt-
-                        Ausrüstung bleibt default NICHT stapelbar, anwählen = Opt-in.
-                        stackableChecked (item.js) zeigt den EFFEKTIVEN Zustand, damit
-                        der erste Form-Submit undefined nicht fälschlich als false
-                        festnagelt. --}}
-                    <div class="stackable">
-                        <label for="{{id}}-system.stackable">{{localize "STACK.LABEL"}}</label>
-                        {{#if stackableChecked}}
-                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" checked data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
-                        {{else}}
-                        <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
-                        {{/if}}
-                    </div>
-                    {{/if}}
-                    {{!-- Ressourcen v1: Ressourcen-Kategorie (GM-only) - additives
-                        Feld system.resourceCategory statt Flags; steuert den
-                        kategoriebasierten Verbrauch (Medicus bucht Kraeuterarznei
-                        beim Wurf ab, Kontextmenü „Ressource verbrauchen" am
-                        Inventar-Item). Leere Auswahl = keine Ressource. --}}
-                    {{#if showResourceCategory}}
-                    <div class="resourcecategory">
-                        <label for="{{id}}-system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">{{localize "RESOURCE_CATEGORY.LABEL"}}</label>
-                        <select id="{{id}}-system.resourceCategory" name="system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">
-                            {{selectOptions resource_category_selection selected=resourceCategory valueAttr="id" labelAttr="label"}}
-                        </select>
-                    </div>
-                    {{/if}}
-                    {{!-- Elixier-Automatisierung v1: Elixier-Steuerung (GM-only) -
-                        Alchemie-Stufe + Verwendungsform, Munitionswirkung nur auf
-                        Munitions-Items; Wirkungsfelder im gemeinsamen Partial. --}}
-                    {{#if showElixirFields}}
-                    <div class="resourcecategory">
-                        <label for="{{id}}-system.alchemyLevel" data-tooltip="{{localize "ALCHEMY_LEVEL.TOOLTIP"}}">{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
-                        <select id="{{id}}-system.alchemyLevel" name="system.alchemyLevel" data-tooltip="{{localize "ALCHEMY_LEVEL.TOOLTIP"}}">
-                            {{selectOptions alchemy_level_selection selected=alchemyLevel valueAttr="id" labelAttr="label"}}
-                        </select>
-                    </div>
-                    <div class="resourcecategory">
-                        <label for="{{id}}-system.elixirUsage" data-tooltip="{{localize "ELIXIR.USAGE_TOOLTIP"}}">{{localize "ELIXIR.USAGE_LABEL"}}</label>
-                        <select id="{{id}}-system.elixirUsage" name="system.elixirUsage" data-tooltip="{{localize "ELIXIR.USAGE_TOOLTIP"}}">
-                            {{selectOptions elixir_usage_selection selected=elixirUsage valueAttr="id" labelAttr="label"}}
-                        </select>
-                    </div>
-                    {{#if showAmmoEffect}}
-                    <div class="resourcecategory">
-                        <label for="{{id}}-system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">{{localize "AMMO_EFFECT.LABEL"}}</label>
-                        <select id="{{id}}-system.ammoEffect" name="system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">
-                            {{selectOptions ammo_effect_selection selected=ammoEffect valueAttr="id" labelAttr="label"}}
-                        </select>
-                    </div>
-                    {{/if}}
-                    {{> systems/symbaroum/template/sheet/tab/elixir-effect.hbs}}
-                    {{/if}}
+                    {{!-- Status-Tab v1 (02.11.): Die GM-Felder (Artefakt,
+                        Stapelbar, Ressourcen-Kategorie, „Ist alchemistisch?“
+                        und die Alchemieeigenschaften) sind in den GM-only
+                        Status-Tab (data-tab="stats") gezogen - der
+                        Beschreibungs-Tab bleibt bei Preis/Anzahl/Gewicht +
+                        Text. --}}
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>
             <div class="tab" data-group="primary" data-tab="bonus">
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
             </div>
+            {{!-- Status-Tab v1: Inhalt als eigenes Partial (klassisch),
+                GM-only gegated - Spieler rendern den Tab-Inhalt nicht. --}}
+            {{#if symbaroumOptions.isGM}}
+            <div class="tab" data-group="primary" data-tab="stats">
+                {{> systems/symbaroum/template/sheet/tab/status.hbs}}
+            </div>
+            {{/if}}
             {{#if system.isArtifact}}
             <div class="tab" data-group="primary" data-tab="power">
                 {{> systems/symbaroum/template/sheet/tab/artifact.hbs}}

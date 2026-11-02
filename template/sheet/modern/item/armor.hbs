@@ -14,20 +14,9 @@
             <div class="m-panel">
                 <h1>{{localize "TITLE.STATS"}}</h1>
                 <div class="m-grid">
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.baseProtection">{{localize "ARMOR.BASE_PROT"}}</label>
-                        <select id="{{id}}-system.baseProtection" name="system.baseProtection">
-                            {{selectOptions protection_selection selected=system.baseProtection labelAttr="label"}}
-                        </select>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.bonusProtection">{{localize "ARMOR.BONUS_PROT"}}</label>
-                        <input id="{{id}}-system.bonusProtection" name="system.bonusProtection" type="text" value="{{system.bonusProtection}}"/>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.quality">{{localize "ARMOR.QUALITY"}}</label>
-                        <input id="{{id}}-system.quality" name="system.quality" type="text" value="{{system.quality}}"/>
-                    </div>
+                    {{!-- Status-Tab v1 (02.11.): GM-Block (Artefakt, Stapelbar)
+                        an den Anfang des Stats-Grids gezogen - vor
+                        den Spieler-Zeilen. --}}
                     {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu
                         Punkt 3): Artefakt- und Stapelbar-Checkbox sind
                         SL-Sache (Item-Taxonomie wie die Ressourcen-Kategorie)
@@ -44,6 +33,20 @@
                         {{else}}
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseProtection">{{localize "ARMOR.BASE_PROT"}}</label>
+                        <select id="{{id}}-system.baseProtection" name="system.baseProtection">
+                            {{selectOptions protection_selection selected=system.baseProtection labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.bonusProtection">{{localize "ARMOR.BONUS_PROT"}}</label>
+                        <input id="{{id}}-system.bonusProtection" name="system.bonusProtection" type="text" value="{{system.bonusProtection}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.quality">{{localize "ARMOR.QUALITY"}}</label>
+                        <input id="{{id}}-system.quality" name="system.quality" type="text" value="{{system.quality}}"/>
+                    </div>
                     </div>
                     {{/if}}
                 </div>

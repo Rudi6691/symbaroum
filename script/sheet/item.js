@@ -10,6 +10,9 @@ import { symbDialog } from '../common/symbDialog.js';
 import { allocateFromBase, getDenominations } from '../common/currency.js';
 // Elixier-Automatisierung v1: Munitionswirkung nur auf Munitions-Items anzeigen
 import { isAmmoCategory } from '../common/ammo.js';
+// Status-Tab v1: „Ist alchemistisch?“-Kanonik (abgeleitete Anzeige für
+// Alt-Items ohne Flag) aus elixirs.js
+import { isAlchemical } from '../common/elixirs.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -191,6 +194,16 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
+		/* Status-Tab v1 (Rudolfs Freigabe 02.11.): „Ist alchemistisch?“
+		   (system.alchemical, ''/'true') - Anzeige-Initial nach Rudolfs
+		   Entscheidung: „Ja“ nur bei gefüllten Wirkungsfeldern, nur
+		   Verwendungsform gesetzt = „Nein“ (das Tagging v7 hat die
+		   Verwendungsform auf ALLE Gear-Items geschrieben). isAlchemical
+		   (elixirs.js) löst das für Alt-Items ohne Flag ab; gespeicherte
+		   Werte gewinnen. Der Select persistiert beim ersten Form-Submit.
+		   showAlchemy gatet die Alchemieeigenschaften im Status-Tab. */
+		context.alchemical = isAlchemical(this.item.system) ? 'true' : '';
+		context.showAlchemy = context.showElixirFields && context.alchemical === 'true';
 		context.elixirEffect = this.item.system.elixirEffect ?? {};
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;

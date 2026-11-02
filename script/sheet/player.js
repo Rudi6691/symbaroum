@@ -31,7 +31,7 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 // des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
 import { openConsumeResourceDialog, getItemCount } from '../common/resources.js';
 // Elixier-Automatisierung v1: Kontextmenü-Eintrag „Elixier verwenden“
-import { useElixir } from '../common/elixirs.js';
+import { useElixir, isAlchemical } from '../common/elixirs.js';
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
  * Filters the menu entries per item document (visible receives the Item, not the HTML
@@ -1275,12 +1275,17 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				// als Favorit angeheftet ist - .m-tiles sind die Favoriten-
 				// Kacheln des Kampf-Tabs (die Kacheln des Kräfte-Tabs fallen
 				// am visible-item-Gate raus, da keine equipment-Items).
+				// Status-Tab v1 (02.11.): Gating auf die Alchemie-Kanonik
+				// „Ist alchemistisch?“ (system.alchemical) umgestellt -
+				// das alte elixirUsage-Gating zeigte den Eintrag auf JEDEM
+				// Gear-Item, weil das Tagging v7 die Verwendungsform auf
+				// alle Gear-Items schrieb (Rudolfs Befund).
 				label: 'ELIXIR.CONSUME_MENU',
 				icon: `<i class="fa-solid fa-flask"></i>`,
 				visible: (elem) => {
 					return (
 						elem?.type === 'equipment' &&
-						!!elem.system?.elixirUsage &&
+						isAlchemical(elem.system) &&
 						getItemCount(elem) > 0 &&
 						elem.isOwner
 					);

@@ -736,6 +736,10 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 	//   elixirEffect  maschinenlesbare Wirkungsangaben ({}, GM-only)
 	//   ammoEffect    alchemistische Munitionswirkung (''/stunBolt/
 	//                 seekingArrow, nur Munitions-Items)
+	//   alchemical    „Ist alchemistisch?“ (''/'true', Status-Tab v1) -
+	//                 alleinige Auswertungs-Kanonik; Alt-Items ohne Flag
+	//                 leiten sich aus gefüllten Wirkungsfeldern ab
+	//                 (isAlchemical in elixirs.js)
 	if (doc.type === 'equipment') {
 		if (doc.system.alchemyLevel === undefined) {
 			doc.updateSource({ 'system.alchemyLevel': '' });
@@ -748,6 +752,9 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 		}
 		if (doc.system.ammoEffect === undefined) {
 			doc.updateSource({ 'system.ammoEffect': '' });
+		}
+		if (doc.system.alchemical === undefined) {
+			doc.updateSource({ 'system.alchemical': '' });
 		}
 	}
 });

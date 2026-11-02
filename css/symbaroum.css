@@ -9914,29 +9914,3 @@ dialog.symb-dialog .symbaroum.dialog .simplebox.bandage-status {
   }
 }
 
-/* ---------- Elixier-Automatisierung v1.2 (Rudolfs Testfund: Beschrei-
-   bungs-Tab mit GM-Feldern scrollt nicht) ------------------------------------
-   Das Fill-Layout des Beschreibungs-Tabs (siehe oben, "Nur der Beschrei-
-   bungs-Tab: Fill-Layout") gibt genau EINEM Element einen Scroll-Container:
-   dem Editor. Das reicht fuer reine Beschreibungen - mit den GM-Elixier-
-   Feldern (Wirkung, Notizen etc.) werden die Feldzeilen ueber dem Editor
-   aber abgeschnitten und sind unerreischbar. Immer wenn das Item Elixier-
-   Felder zeigt, setzt das Template die Klasse .m-panel-ovY auf das Panel
-   (siehe equipment.hbs): Das PANEL selbst scrollt dann als Ganzes (EIN
-   Scrollbalken ueber Felder + Beschreibung), der Editor fuellt nicht mehr
-   unbegrenzt, sondern behaelt seine Mindesthoehe und waechst mit dem
-   Inhalt. Strukturell geloest wird das erst durch den geplanten Status-Tab,
-   der die GM-Felder aus dem Beschreibungs-Tab herauszieht. */
-.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] > .m-panel.m-panel-ovY {
-  overflow-y: auto;
-}
-.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] > .m-panel.m-panel-ovY prose-mirror {
-  flex: 0 1 auto;
-  min-height: 8rem;
-}
-.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] > .m-panel.m-panel-ovY prose-mirror > div {
-  overflow-y: visible;
-}
-.symbaroum.sheet.item .modern-root .m-item-body > .tab.active[data-tab='description'] > .m-panel.m-panel-ovY .editor-content {
-  max-height: none;
-}

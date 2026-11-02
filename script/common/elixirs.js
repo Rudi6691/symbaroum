@@ -62,6 +62,31 @@ export function getElixirEffect(item) {
 	return item?.system?.elixirEffect && typeof item.system.elixirEffect === 'object' ? item.system.elixirEffect : {};
 }
 
+/* Status-Tab v1 (Rudolfs Freigabe 02.11.): „Ist alchemistisch?“
+   (system.alchemical, ''/'true') ist die alleinige Auswertungs-Kanonik -
+   Verwendungsform und Wirkungsfelder werden nur bei 'true' ausgewertet
+   (Kontextmenü „Elixier verwenden“, useElixir-Router). Alt-Items ohne
+   Flag (undefined, Feld existiert erst seit dem Status-Tab): abgeleitet
+   aus gefüllten Wirkungsfeldern - nur eine Verwendungsform zu haben
+   genügt NICHT, da das Tagging v7 die Verwendungsform auf ALLE Gear-
+   Items geschrieben hat (Rudolfs Befund, 02.11.). Gespeicherte Werte
+   gewinnen: '' = bewusst Nein, 'true' = bewusst Ja. Leere Objekte/
+   Arrays zählen nicht als gefüllt. */
+export function isAlchemical(system) {
+	const flag = system?.alchemical;
+	if (flag !== undefined && flag !== null) return flag === 'true';
+	const effect = system?.elixirEffect;
+	if (!effect || typeof effect !== 'object') return false;
+	for (const value of Object.values(effect)) {
+		if (value === undefined || value === null || value === '') continue;
+		if (typeof value === 'object') {
+			if (Array.isArray(value) ? value.length === 0 : Object.keys(value).length === 0) continue;
+		}
+		return true;
+	}
+	return false;
+}
+
 /** Nebelball-Malus je Alchemie-Stufe: Schwach −1, Moderat −3, Stark −5. */
 export function getDazedPenaltyForLevel(level) {
 	if (level === 'master') return 5;
@@ -840,6 +865,12 @@ export async function useNarrativeElixir(item) {
 /* ---------------------------------------------------------------- */
 
 export function useElixir(item) {
+	/* Status-Tab v1: Alchemie-Kanonik-Guard am Router-Eingang - nicht-
+	   alchemistische Items (Flag '' bzw. Altbestand ohne gefüllte
+	   Wirkungsfelder) laufen NICHT in die Automatik, egal welche
+	   Tagging-Alt-Daten (Verwendungsform etc.) anliegen. Der Warnhinweis
+	   bleibt den getaggten Elixieren (ohne Verwendungsform) vorbehalten. */
+	if (!isAlchemical(item?.system)) return;
 	const usage = getElixirUsage(item);
 	if (usage === '') {
 		ui.notifications.warn(F('ELIXIR.ERR_NO_USAGE', { name: item?.name ?? '' }));
