@@ -1,0 +1,24 @@
+{{!-- Status-Tab v1.2 (Rudolfs Freigabe 02.11.): Zustandsdialog für
+    „Bewirkt Zustand“ — aufgerufen über das Zahnrad neben dem Ja/Nein-
+    Select im Alchemieeigenschaften-Block (Muster Eigenschaftsdialog:
+    symbDialog mit Bestätigen/Abbrechen, Theme folgt dem Blatt-Design).
+    Inhalt: Pill-Chips der System-Status als MEHRFACHAUSWAHL. Die Chips
+    sind Label-Elemente mit NATIVER Checkbox dahinter (visuell ver-
+    steckt, aktiver Zustand über :has(input:checked)) — das Lesen er-
+    folgt im Bestätigen-Callback über das DOM (DialogV2-Landmine um-
+    gangen: KEINE vorab gebundenen Listener, native Inputs überleben
+    das Content-Serialisieren). Interne Träger-Conditions (acid,
+    elixirheal, elixirregress, elixirattr) sind im Kontext gefiltert.
+    Das Template wird per renderTemplate geladen — KEIN templatePaths-
+    Eintrag nötig (Muster attributes-dialog.hbs). --}}
+<div class="symbaroum elixir-condition-dialog">
+    <p class="hint">{{localize "ELIXIR.CONDITION_DIALOG_INTRO"}}</p>
+    <div class="elixir-condition-grid">
+        {{#each elixir_conditions as | cond |}}
+        <label class="elixir-condition-chip{{#if cond.checked}} active{{/if}}" data-tooltip="{{cond.label}}">
+            <input type="checkbox" data-condition-id="{{cond.id}}" {{checked cond.checked}}/>
+            <span class="chip-label">{{cond.label}}</span>
+        </label>
+        {{/each}}
+    </div>
+</div>

@@ -5,7 +5,7 @@ import { openGiveDialog } from '../common/transfer.js';
 // dem GLOBALEN Umschalter pro Nutzer (Rudolfs Entscheidung 27.10.) - schaltet
 // ein Nutzer sein Spieler-/Monsterblatt um, gelten ALLE seiner Blätter
 // (inkl. Items) als modern; klassische Item-Templates bleiben erhalten.
-import { getModernSheetUserStyle, getModernSheetEffectiveDesign } from '../common/modernSheetConfig.js';
+import { getModernSheetUserStyle, getModernSheetEffectiveDesign, modernDialogClasses } from '../common/modernSheetConfig.js';
 import { symbDialog } from '../common/symbDialog.js';
 import { allocateFromBase, getDenominations } from '../common/currency.js';
 // Elixier-Automatisierung v1: Munitionswirkung nur auf Munitions-Items anzeigen
@@ -100,23 +100,55 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			bonusPlus: function (event) {
 				this._onBonusAdjust(event, 1);
 			},
-			/* Status-Tab v1.1 (Rudolfs Freigabe): Chip-Klick der
-			   „Bewirkt Zustand“-Checkbox-Liste - toggelt die Condition-Id
-			   im komma-join des HIDDEN-Inputs (Foundry-Submit-Landmine:
-			   mehrere Checkboxen mit gleichem name liefern nur den
-			   letzten Wert); der bubbling change-Event stößt den
-			   submitOnChange-Save an. */
-			toggleCondition: function (event) {
+			/* Status-Tab v1.2 (Rudolfs Zustandsdialog, Muster Eigen-
+			   schaftsdialog): Zahnrad neben dem Ja/Nein-Select „Bewirkt
+			   Zustand“ öffnet den DIALOG mit den Pill-Chips — die Chip-
+			   Liste ist aus dem Blatt ausgelagert. Bestätigen schreibt
+			   den komma-join direkt per item.update (kein hidden-Input,
+			   keine Form-Submit-Landmine); Ids außerhalb der Chip-Liste
+			   (Altbestand) bleiben im String erhalten; Abbrechen ver-
+			   wirft. Theme-Klassen folgen dem Blatt-Design (modern/
+			   klassisch), Kanonik wie context.renderModern. */
+			openConditionDialog: async function (event) {
 				event.preventDefault();
-				const id = event.currentTarget?.dataset?.conditionId;
-				const input = this.form?.querySelector('input[name="system.elixirEffect.condition"]');
-				if (!id || !input) return;
-				const ids = String(input.value ?? '').trim() === '' ? [] : String(input.value).split(',').map((c) => c.trim()).filter(Boolean);
-				const index = ids.indexOf(id);
-				if (index >= 0) ids.splice(index, 1);
-				else ids.push(id);
-				input.value = ids.join(',');
-				input.dispatchEvent(new Event('change', { bubbles: true }));
+				const item = this.item;
+				if (!item) return;
+				const eff = item.system.elixirEffect ?? {};
+				const conditionRaw = String(eff.condition ?? '').trim();
+				const currentIds = conditionRaw === '' ? [] : conditionRaw.split(',').map((c) => c.trim()).filter(Boolean);
+				const chips = this._getElixirConditions(currentIds);
+				const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/sheet/tab/elixir-condition-dialog.hbs', {
+					elixir_conditions: chips,
+				});
+				const modernEnabled = !!game.settings.get('symbaroum', 'modernSheetEnabled');
+				const renderModern = !!(modernEnabled && getModernSheetUserStyle() === 'modern');
+				symbDialog({
+					title: game.i18n.localize('ELIXIR.FIELD_CONDITION'),
+					content: html,
+					classes: renderModern ? modernDialogClasses('modern-condition-dialog') : [],
+					width: 460,
+					buttons: {
+						confirm: {
+							icon: '<i class="fas fa-check"></i>',
+							label: game.i18n.localize('BUTTON.CONFIRM'),
+							callback: async (html) => {
+								const checkedIds = Array.from(html[0].querySelectorAll('input[data-condition-id]:checked')).map((el) => el.dataset.conditionId);
+								/* Alt-Ids ohne Chip (z. B. künftig umbenannte
+								   Status) bleiben erhalten statt verloren zu
+								   gehen. */
+								const chipIds = new Set(chips.map((c) => c.id));
+								const preserved = currentIds.filter((id) => !chipIds.has(id));
+								const value = [...preserved, ...checkedIds].join(',');
+								await item.update({ 'system.elixirEffect.condition': value });
+							},
+						},
+						cancel: {
+							icon: '<i class="fas fa-times"></i>',
+							label: game.i18n.localize('BUTTON.CANCEL'),
+							callback: async () => {},
+						},
+					},
+				});
 			},
 		},
 	};
@@ -222,22 +254,21 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				label: game.i18n.localize(c.label),
 			})),
 		];
-		/* Status-Tab v1.1: „Bewirkt Zustand“ als Chip-Checkbox-Liste
-		   (Mehrfachauswahl) über CONFIG.statusEffects (V14: id-indiziert,
-		   name lokalisiert); interne Elixier-Träger bleiben ausge-
-		   blendet. Aktiv-Zustand aus dem komma-join im Feld
-		   system.elixirEffect.condition; persistiert wird der gesamte
-		   String (Alt-Frei-Text bleibt kompatibel erhalten). */
+		/* Status-Tab v1.2 (Rudolfs Zustandsdialog): „Bewirkt Zustand“ ist
+		   ein Ja/Nein-Gate (system.elixirEffect.conditionActive, ''/'true',
+		   additives Feld, Muster alchemical/weaponPoison) - die Zustände
+		   selbst wählt der DIALOG über das Zahnrad (Action openConditionDialog,
+		   Chip-Quelle _getElixirConditions inkl. acid-Träger-Filter). Der
+		   komma-join bleibt im Feld system.elixirEffect.condition gespeichert
+		   (auch bei „Nein“, dann greift das GATE in elixirs.js und die
+		   Zustände wirken NIRGENDS). Altbestand ohne Gate-Feld: gefülltes
+		   condition-Feld gilt als „Ja“ (abgeleitete Anzeige, persistiert
+		   beim ersten Form-Submit - Muster alchemical-Kanonik). */
 		const conditionString = String(this.item.system.elixirEffect?.condition ?? '').trim();
-		const conditionActive = conditionString === '' ? [] : conditionString.split(',').map((c) => c.trim()).filter(Boolean);
-		context.elixir_conditions = Object.values(CONFIG.statusEffects)
-			.filter((status) => !['elixirheal', 'elixirregress', 'elixirattr'].includes(status.id))
-			.map((status) => ({
-				id: status.id,
-				label: status.name ?? status.label ?? status.id,
-				checked: conditionActive.includes(status.id),
-			}))
-			.sort((a, b) => a.label.localeCompare(b.label));
+		const conditionActiveIds = conditionString === '' ? [] : conditionString.split(',').map((c) => c.trim()).filter(Boolean);
+		const conditionGateRaw = String(this.item.system.elixirEffect?.conditionActive ?? '').trim();
+		context.conditionActive = conditionGateRaw !== '' ? (conditionGateRaw === 'true' ? 'true' : '') : (conditionActiveIds.length > 0 ? 'true' : '');
+		context.elixir_conditions = this._getElixirConditions(conditionActiveIds);
 		/* Status-Tab v1.1 (Rudolfs Ergänzung): ReadOnly-Alchemiestufe
 		   auf dem Beschreibungs-Tab - nur bei alchemistisch=„Ja“,
 		   Spieler-sichtbar, nicht editierbar; '' = „Keine“. */
@@ -703,6 +734,30 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 	/**
 	 * ItemSheets v2.1 (Bonus-Tab-Überarbeitung): Caret-Stepper für die
 	 * Modifikator-Felder - gleiche Optik wie die Anzahl-Pfeile im Kopf.
+	/**
+	 * Status-Tab v1.2 (Rudolfs Zustandsdialog): Chip-Quelle für den
+	 * Zustandsdialog - Pill-Chips der System-Status (CONFIG.statusEffects,
+	 * V14: id-indiziert, name lokalisiert), interne Träger-Conditions
+	 * (acid = Säure-DoT-Engine, elixirheal/elixirregress/elixirattr =
+	 * Elixier-Träger) bleiben ausgefiltert. 'checked' aus dem komma-join
+	 * des Felds system.elixirEffect.condition; sortiert localeCompare.
+	 * Geteilt zwischen dem render-Kontext und der Action openConditionDialog.
+	 * @param {string[]} activeIds aktuell gewählte Condition-Ids
+	 * @returns {{id: string, label: string, checked: boolean}[]}
+	 */
+	_getElixirConditions(activeIds) {
+		const active = new Set(activeIds ?? []);
+		return Object.values(CONFIG.statusEffects)
+			.filter((status) => !['acid', 'elixirheal', 'elixirregress', 'elixirattr'].includes(status.id))
+			.map((status) => ({
+				id: status.id,
+				label: status.name ?? status.label ?? status.id,
+				checked: active.has(status.id),
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
+	}
+
+	/**
 	 * Ober-/Untergrenze: Feld war unbegrenzt, Rudolfs Vorgabe -10/+10
 	 * (Klemmung hier UND min/max-Attribute am Input im Template).
 	 * Alt-Werte undefined/'' zählen als 0 (Foundry rendert sie als 0).

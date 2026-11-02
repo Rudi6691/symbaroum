@@ -1,45 +1,47 @@
-{{!-- Status-Tab v1.1 (Rudolfs Freigabe 02.11.): Relayout des Alchemie-
-    eigenschaften-Blocks nach Rudolfs Standard-Layout-Liste aus dem
-    v1.0.1-Nachtest. Rahmen mit Titel in der Rahmenlinie als fieldset/
-    legend (Muster m-ability-frame aus den Würfeldialogen). Änderungen:
-    - „Bewirkt Zustand“ (heute: Bedingung) = Checkbox-Liste der System-
-      Status (Mehrfachauswahl, persists als komma-join im selben Feld
-      system.elixirEffect.condition — Alt-Freitext bleibt lesbar, auch
-      ids außerhalb der Liste bleiben im String erhalten).
-    - Werfenprobe = Attribut-Select (statt Freitext-Kürzel).
-    - Attributsveränderung = 3-Wert-Select (Nein / Festwerte / Wahl);
-      die WERTE stehen im Bonus-Tab des Items (8 Attributfelder);
-      Altbestand attributeMods wird als Fallback gelesen.
-    - Korruption = eigener Unterblock (fieldset/legend) mit Senkung
-      sowie Erhöhung + Erhöhung/Runde.
-    - Wirkdauer 0 = Einmalwirkung sofort (Auswertung in elixirs.js).
-    - Ziel-Bedingung + Ziel-Bedingung Runden sind KONSOLIDIERT und
-      entfallen aus dem UI: „Bewirkt Zustand“ + Wirkdauer decken sie
-      ab; Altbestand wird im Wurf-Pfad als Fallback weitergelesen.
-    Zeilen-Layout: .elixir-row (flexible Zeile, zwei Felder je Zeile),
-    gemeinsam für klassische und moderne Ausrüstungsblätter. --}}
+{{!-- Status-Tab v1.2 (Rudolfs Freigabe 02.11., Nachtest v1.1): Relayout
+    des Alchemieeigenschaften-Blocks. v1.1-Relayout (Rahmen mit Titel in
+    der Rahmenlinie als fieldset/legend, Muster m-ability-frame) blieb;
+    „Bewirkt Zustand“ ist jetzt ein Ja/Nein-Gate mit ZUSTANDSDIALOG statt
+    der Chip-Liste im Blatt (Rudolfs Vorschlag, Muster Eigenschafts-
+    dialog): Bei „Ja“ öffnet das Zahnrad-Rad den Dialog mit den Pill-
+    Chips (Mehrfachauswahl). Der komma-join bleibt im Feld
+    system.elixirEffect.condition gespeichert (auch bei „Nein“ —
+    gewählte Zustände dürfen dann aber nirgends wirken: GATE in
+    elixirs.js via system.elixirEffect.conditionActive; Altbestand ohne
+    Gate-Feld: gefülltes condition-Feld gilt weiter als „Ja“). Der
+    Dialog schreibt direkt per item.update — kein hidden-Input und keine
+    Chip-Toggle-Action im Blatt mehr; Altbestand-Ids außerhalb der
+    Chip-Liste bleiben im String erhalten. Werfenprobe = Attribut-
+    Select; Attributsveränderung = 3-Wert-Select (Bonus-Tab-Werte,
+    attributeMods-Fallback); Korruption-Unterblock; Wirkdauer 0 =
+    Einmalwirkung sofort; Ziel-Bedingung konsolidiert (Fallback im
+    Wurf-Pfad). Zeilen-Layout .elixir-row, klassisch + modern. --}}
 <fieldset class="elixir-effect-frame">
     <legend class="elixir-effect-legend">{{localize "ELIXIR.EFFECT_TITLE"}}</legend>
     <div class="elixir-effect-hint">{{localize "ELIXIR.EFFECT_HINT"}}</div>
     <div class="elixir-rows">
-        {{!-- Zeile 1: Wirkdauer + Bewirkt Zustand (Checkbox-Liste). --}}
+        {{!-- Zeile 1: Wirkdauer + Bewirkt Zustand (Ja/Nein-Gate, Zustände
+            im Dialog über das Zahnrad). --}}
         <div class="elixir-row">
             <div class="elixir-effect-field">
                 <label for="{{id}}-system.elixirEffect.rounds" data-tooltip="{{localize "ELIXIR.FIELD_ROUNDS_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ROUNDS"}}</label>
                 <input id="{{id}}-system.elixirEffect.rounds" name="system.elixirEffect.rounds" type="text" value="{{system.elixirEffect.rounds}}" data-dtype="String"/>
             </div>
-            <div class="elixir-effect-field elixir-field-conditions">
-                <label data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CONDITION"}}</label>
-                <div class="elixir-condition-list">
-                    {{#each elixir_conditions as | cond |}}
-                    <span class="elixir-condition-chip{{#if cond.checked}} active{{/if}}" data-action="toggleCondition" data-condition-id="{{cond.id}}" role="button" tabindex="0">
-                        <i class="fa-solid {{#if cond.checked}}fa-square-check{{else}}fa-square{{/if}}"></i>{{cond.label}}
-                    </span>
-                    {{/each}}
-                    {{!-- Hidden-Input führt den komma-join-String (Foundry
-                        serialisiert versteckte Felder normal); die Chips
-                        togglen über die Sheet-Action toggleCondition. --}}
-                    <input type="hidden" name="system.elixirEffect.condition" value="{{system.elixirEffect.condition}}" data-dtype="String"/>
+            <div class="elixir-effect-field">
+                <label for="{{id}}-system.elixirEffect.conditionActive" data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CONDITION"}}</label>
+                <div class="elixir-condition-toggle">
+                    <select id="{{id}}-system.elixirEffect.conditionActive" name="system.elixirEffect.conditionActive" data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">
+                        <option value="" {{#unless conditionActive}}selected{{/unless}}>{{localize "ELIXIR.ALCHEMICAL_NO"}}</option>
+                        <option value="true" {{#ife conditionActive "true"}}selected{{/ife}}>{{localize "ELIXIR.ALCHEMICAL_YES"}}</option>
+                    </select>
+                    {{#ife conditionActive "true"}}
+                    {{!-- Status-Tab v1.2: Zahnrad öffnet den Zustandsdialog
+                        (Muster Eigenschaftsdialog-Stammleiste); die Chips
+                        leben im Dialog, nicht mehr im Blatt. --}}
+                    <button type="button" class="elixir-condition-edit" data-action="openConditionDialog" data-tooltip="{{localize "ELIXIR.CONDITION_DIALOG_HINT"}}">
+                        <i class="fas fa-gear"></i>
+                    </button>
+                    {{/ife}}
                 </div>
             </div>
         </div>

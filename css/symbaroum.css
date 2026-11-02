@@ -9851,47 +9851,56 @@ dialog.symb-dialog .symbaroum.dialog .simplebox.bandage-status {
 
 /* ------------------------------------------------------------------ */
 /* ------------------------------------------------------------------ */
-/* Status-Tab v1.1 (Rudolfs Freigabe 02.11.) — Relayout der Alchemie-
-   eigenschaften (Partial elixir-effect.hbs, gemeinsame Basis): fieldset
-   mit legend als Rahmen, Titel in der Rahmenlinie (Muster m-ability-
-   frame der Wurf-Dialoge), Zeilen-Layout .elixir-row (zwei Felder je
-   Zeile, breite Felder 100 %), Korruption als Unterblock-fieldset,
-   „Bewirkt Zustand“ als Chip-Checkbox-Liste (Mehrfachauswahl),
-   Alchemiestufe ReadOnly auf dem Beschreibungs-Tab, Artefakt+Stapelbar
-   als Doppelzeile im klassischen Status-Tab. Die alten .elixir-effect-
-   block-Grid-Regeln (v1) sind damit ersetzt. */
+/* ------------------------------------------------------------------ */
+/* Status-Tab v1.2 (Rudolfs Freigabe 02.11., Nachtest v1.1) — Alchemie-
+   eigenschaften-Block: fieldset/legend-Rahmen (Muster m-ability-frame),
+   Zeilen-Layout .elixir-row; „Bewirkt Zustand“ ist ein Ja/Nein-Gate mit
+   Zahnrad-Button (öffnet den ZUSTANDSDIALOG — die Pill-Chips leben im
+   Dialog, nicht mehr im Blatt). Standard-Abgleich nach css-Checkliste
+   v1.0 (Rudolfs Nachtest-Punkt „Design abweichend vom Standard“):
+   rem statt em; moderne Palette über --m-line/--m-panel (die v1.1-
+   Overrides referenzierten die NIE DEFINIERTEN Variablen --m-border/
+   --m-box-bg und fielen auf Hart-Fallbacks zurück); Legend-Typografie
+   nach dem m-ability-label-Master (0.65rem/600/uppercase/0.06em/
+   --m-muted); Feld-Labels OHNE eigenen Größen-Override wie die
+   .resourcecategory-Nachbarzeilen. Klassische Optik (Beige-Blatt,
+   Hartwerte) und moderne Optik (Palette) sind getrennte Scopes;
+   moderne Input-/Select-Optik erbt .symbaroum.sheet.item .modern-root
+   input/select (~7787). */
+/* Status-Tab v1.2 — Rahmen (gemeinsame Basis, klassische Optik). */
 fieldset.elixir-effect-frame {
   margin: 5px;
-  padding: 4px 10px 8px 10px;
+  padding: 0.35rem 0.5rem 0.4rem;
   border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
+  border-radius: 0.35rem;
   background: rgba(0, 0, 0, 0.03);
   min-width: 0;
 }
 fieldset.elixir-effect-frame legend {
-  padding: 0 6px;
-  font-size: 0.85em;
+  padding: 0 0.3rem;
+  margin: 0;
+  font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   opacity: 0.9;
 }
 fieldset.elixir-effect-frame .elixir-effect-hint {
-  margin: 0 0 6px 0;
-  font-size: 0.75em;
+  margin: 0 0 0.35rem 0;
+  font-size: 0.8rem;
   opacity: 0.7;
 }
 fieldset.elixir-effect-frame .elixir-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.2rem;
   min-width: 0;
 }
 fieldset.elixir-effect-frame .elixir-row {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  gap: 0.2rem 0.6rem;
   min-width: 0;
 }
 fieldset.elixir-effect-frame .elixir-row .elixir-effect-field {
@@ -9904,13 +9913,15 @@ fieldset.elixir-effect-frame .elixir-effect-field {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 0.35rem;
   min-width: 0;
 }
+/* Labels OHNE eigenen font-size-Override: die Zeilen erben die Blatt-
+   Schrift wie die .resourcecategory-Nachbarn (Rudolfs Standard-Punkt);
+   nur die label-typische Sperrigkeit bleibt. */
 fieldset.elixir-effect-frame .elixir-effect-field label {
   flex: 0 0 45%;
   margin: 0;
-  font-size: 0.85em;
   opacity: 0.85;
 }
 fieldset.elixir-effect-frame .elixir-effect-field input,
@@ -9918,83 +9929,103 @@ fieldset.elixir-effect-frame .elixir-effect-field select {
   flex: 1 1 auto;
   min-width: 0;
 }
-/* „Bewirkt Zustand“: Label über volle Breite, Chips flexibel umbrechen. */
-fieldset.elixir-effect-frame .elixir-field-conditions {
-  align-items: flex-start;
-}
-fieldset.elixir-effect-frame .elixir-field-conditions > label {
-  flex: 0 0 100%;
-  margin: 2px 0;
-}
-fieldset.elixir-effect-frame .elixir-condition-list {
+/* Ja/Nein-Gate + Zahnrad (Zustandsdialog) — Select und Button in einer
+   Reihe; der Button öffnet den Dialog (Action openConditionDialog). */
+fieldset.elixir-effect-frame .elixir-condition-toggle {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-  flex: 1 1 100%;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1 1 auto;
   min-width: 0;
 }
-.elixir-condition-chip {
+fieldset.elixir-effect-frame .elixir-condition-toggle select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* 4 Klassen gegen die klassische .symbaroum.sheet.item button-Textur
+   (0,3,1; css-Checkliste: Buttons im Blatt ausreichend scopen). */
+.symbaroum.sheet.item .elixir-effect-frame .elixir-condition-edit {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
   display: inline-flex;
   align-items: center;
-  padding: 1px 8px;
-  font-size: 0.8em;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  font-size: 0.9rem;
   cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.04);
-  opacity: 0.75;
-  user-select: none;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.05);
 }
-.elixir-condition-chip:hover {
-  opacity: 1;
-}
-.elixir-condition-chip.active {
-  opacity: 1;
-  font-weight: 600;
-  border-color: rgba(0, 0, 0, 0.45);
-  background: rgba(0, 0, 0, 0.09);
+.symbaroum.sheet.item .elixir-effect-frame .elixir-condition-edit:hover {
+  background: rgba(0, 0, 0, 0.12);
 }
 /* Korruption-Unterblock (fieldset im fieldset, eigene Rahmenlinie). */
 fieldset.elixir-effect-frame fieldset.elixir-subblock {
-  margin: 4px 0 2px 0;
-  padding: 2px 8px 6px 8px;
+  margin: 0.2rem 0 0.1rem 0;
+  padding: 0.15rem 0.4rem 0.3rem 0.4rem;
   border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 4px;
+  border-radius: 0.35rem;
   min-width: 0;
 }
 fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
-  padding: 0 5px;
-  font-size: 0.8em;
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   opacity: 0.85;
 }
-/* Moderne Ansicht: Rahmen-/Chip-Farben aus den m-Variablen. */
+/* Moderne Ansicht: Palette-Variablen statt Hart-Fallbacks (v1.1 nutzte
+   die nie definierten --m-border/--m-box-bg); Legend nach m-ability-
+   label-Master (0.65rem, --m-muted auf --m-panel). */
 .symbaroum.sheet.item.modern fieldset.elixir-effect-frame,
 .modern-item-root fieldset.elixir-effect-frame,
 .symbaroum.sheet.item.modern fieldset.elixir-effect-frame fieldset.elixir-subblock,
 .modern-item-root fieldset.elixir-effect-frame fieldset.elixir-subblock {
-  border-color: var(--m-border, rgba(255, 255, 255, 0.15));
-  background: var(--m-box-bg, rgba(255, 255, 255, 0.05));
+  border-color: var(--m-line, rgba(255, 255, 255, 0.15));
+  background: var(--m-panel, rgba(255, 255, 255, 0.05));
 }
-.symbaroum.sheet.item.modern .elixir-condition-chip,
-.modern-item-root .elixir-condition-chip {
-  border-color: var(--m-border, rgba(255, 255, 255, 0.25));
-  background: var(--m-box-bg, rgba(255, 255, 255, 0.08));
+.symbaroum.sheet.item.modern fieldset.elixir-effect-frame legend,
+.modern-item-root fieldset.elixir-effect-frame legend {
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  color: var(--m-muted, #8fa192);
+  background: var(--m-panel, rgba(255, 255, 255, 0.05));
+  opacity: 1;
 }
-.symbaroum.sheet.item.modern .elixir-condition-chip.active,
-.modern-item-root .elixir-condition-chip.active {
-  border-color: var(--m-border, rgba(255, 255, 255, 0.6));
-  background: var(--m-box-bg, rgba(255, 255, 255, 0.15));
+.symbaroum.sheet.item.modern fieldset.elixir-effect-frame .elixir-effect-hint,
+.modern-item-root fieldset.elixir-effect-frame .elixir-effect-hint {
+  color: var(--m-muted, #8fa192);
+  opacity: 1;
+}
+.symbaroum.sheet.item.modern fieldset.elixir-effect-frame .elixir-effect-field label,
+.modern-item-root fieldset.elixir-effect-frame .elixir-effect-field label {
+  color: var(--m-ink, #dfe6df);
+  opacity: 1;
+}
+.symbaroum.sheet.item.modern .elixir-effect-frame .elixir-condition-edit,
+.modern-item-root .elixir-effect-frame .elixir-condition-edit {
+  border-color: var(--m-line, rgba(255, 255, 255, 0.15));
+  background: var(--m-input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--m-ink, #dfe6df);
+}
+.symbaroum.sheet.item.modern .elixir-effect-frame .elixir-condition-edit:hover,
+.modern-item-root .elixir-effect-frame .elixir-condition-edit:hover {
+  border-color: var(--m-accent, #c9a227);
+  color: var(--m-accent, #c9a227);
 }
 /* Alchemiestufe ReadOnly auf dem Beschreibungs-Tab (klassisch + modern). */
 .symbaroum.sheet.item .alchemylevel-readonly {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-  margin: 2px 0 6px 0;
-  font-size: 0.85em;
+  gap: 0.4rem;
+  margin: 0.1rem 0 0.3rem 0;
+  font-size: 0.85rem;
 }
 .symbaroum.sheet.item .alchemylevel-readonly label {
   margin: 0;
@@ -10002,31 +10033,120 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
   opacity: 0.75;
 }
 .symbaroum.sheet.item .alchemylevel-readonly span {
-  padding: 1px 8px;
+  padding: 0.05rem 0.4rem;
   border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
+  border-radius: 0.25rem;
   background: rgba(0, 0, 0, 0.03);
   opacity: 0.9;
 }
 .symbaroum.sheet.item.modern .alchemylevel-readonly span,
 .modern-item-root .alchemylevel-readonly span {
-  border-color: var(--m-border, rgba(255, 255, 255, 0.15));
-  background: var(--m-box-bg, rgba(255, 255, 255, 0.05));
+  border-color: var(--m-line, rgba(255, 255, 255, 0.15));
+  background: var(--m-panel, rgba(255, 255, 255, 0.05));
+  color: var(--m-ink, #dfe6df);
 }
-/* Klassischer Status-Tab v1.1: Artefakt + Stapelbar in EINER Zeile
-   (Rudolfs Ergänzung; Kinder behalten ihre .number/.stackable-Styles,
-   .status-double-row überschreibt nur Basis und Layout — 5 Klassen
-   Spezifität schlägt die 4 des Basismusters). */
-.symbaroum.sheet.item .status-double-row {
+/* Klassischer Status-Tab v1.2 (Nachtest v1.1, Punkt 2): Artefakt +
+   Stapelbar in EINER Zeile — die Basisregel .symbaroum.sheet.item
+   .equipment .tab .number/.stackable (~3564) setzt flex-basis: 100%
+   und schlug mit 6 Klassen die v1.1-Doppelzeilen-Regel (5 Klassen);
+   der Selektor hier führt .equipment .tab mit (7 Klassen) und
+   überschreibt die Basis wieder. */
+.symbaroum.sheet.item .equipment .tab .status-double-row {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   gap: 0 12px;
   min-width: 0;
 }
-.symbaroum.sheet.item .status-double-row .number,
-.symbaroum.sheet.item .status-double-row .stackable {
+.symbaroum.sheet.item .equipment .tab .status-double-row .number,
+.symbaroum.sheet.item .equipment .tab .status-double-row .stackable {
   flex: 1 1 45%;
   min-width: 0;
 }
-
+/* ------------------------------------------------------------------ */
+/* Status-Tab v1.2: ZUSTANDSDIALOG (symbDialog über das Zahnrad am
+   Ja/Nein-Gate) — Pill-Chips als Label mit NATIVER Checkbox dahinter
+   (visuell versteckt, Klick läuft über das label/for- bzw. label-wrap-
+  -Muster, submit-sicher: Bestätigen liest die Checkboxen aus dem DOM;
+   DialogV2-Landmine vorab gebundener Listener umgangen). Aktiver
+   Zustand: initial gerenderte .active-Klasse PLUS :has(input:checked)
+   für das Live-Toggling; Häkchen als ::before-Inhalt. Klassischer
+   Dialog: Beige-Optik mit Hartwerten; moderner Dialog (.modern-dialog
+   am Fenster-Root): Palette-Variablen des symbDialog-Fensters
+   (css-Checkliste Abschnitte 2/3). */
+.symbaroum.elixir-condition-dialog .hint {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+.symbaroum.elixir-condition-dialog .elixir-condition-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.35rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  min-width: 0;
+}
+/* Chip = label-Element; 3 Klassen gegen die klassische dialog-label-
+   Basis (Textur-Reset nur mit .dialog-Root am Template — trifft dieses
+   Root nicht; die eigene Regel gewinnt sicher). */
+.symbaroum.elixir-condition-dialog .elixir-condition-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  border: 0.0625rem solid rgba(0, 0, 0, 0.25);
+  border-radius: 0.7rem;
+  background: rgba(0, 0, 0, 0.05);
+  user-select: none;
+  white-space: nowrap;
+}
+.symbaroum.elixir-condition-dialog .elixir-condition-chip:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+.symbaroum.elixir-condition-dialog .elixir-condition-chip.active,
+.symbaroum.elixir-condition-dialog .elixir-condition-chip:has(input:checked) {
+  font-weight: 600;
+  border-color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.12);
+}
+.symbaroum.elixir-condition-dialog .elixir-condition-chip.active::before,
+.symbaroum.elixir-condition-dialog .elixir-condition-chip:has(input:checked)::before {
+  content: "\2713\00a0";
+  font-size: 0.75rem;
+}
+/* Native Checkbox visuell versteckt (funktional erhalten — Bestätigen
+   liest input:checked). */
+.symbaroum.elixir-condition-dialog .elixir-condition-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+/* Moderner Dialog: Palette am Fenster-Root (modern-dialog deklariert
+   die --m-*-Variablen, A6v9-Block ~7105). */
+.symb-dialog.modern-dialog .elixir-condition-dialog .hint {
+  color: var(--m-muted, #8fa192);
+  opacity: 1;
+}
+.symb-dialog.modern-dialog .elixir-condition-dialog .elixir-condition-chip {
+  border-color: var(--m-line, #37443a);
+  background: var(--m-panel2, #212c23);
+  color: var(--m-ink, #dfe6df);
+}
+.symb-dialog.modern-dialog .elixir-condition-dialog .elixir-condition-chip:hover {
+  background: var(--m-panel, #182019);
+}
+.symb-dialog.modern-dialog .elixir-condition-dialog .elixir-condition-chip.active,
+.symb-dialog.modern-dialog .elixir-condition-dialog .elixir-condition-chip:has(input:checked) {
+  border-color: var(--m-accent, #c9a227);
+  background: var(--m-panel, #182019);
+  color: var(--m-accent, #c9a227);
+}

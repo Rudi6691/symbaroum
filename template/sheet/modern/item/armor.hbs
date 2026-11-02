@@ -33,6 +33,7 @@
                         {{else}}
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
+                    </div>{{!-- Status-Tab v1.2 (Nachtest v1.1): fehlender Schließer des Stapelbar-Felds - beim v1-Reorder der Rüstungsfelder hinter sie verschoben, lagen Basis-Schutz/Bonus-Schutz/Qualität als Kinder im Stapelbar-div statt als m-grid-Geschwister (Rudolfs Befund "fest mit Stapelbar verbunden"); zurück an die Original-Position (40.1.8). --}}
                     <div class="m-inline-field">
                         <label for="{{id}}-system.baseProtection">{{localize "ARMOR.BASE_PROT"}}</label>
                         <select id="{{id}}-system.baseProtection" name="system.baseProtection">
@@ -46,7 +47,6 @@
                     <div class="m-inline-field">
                         <label for="{{id}}-system.quality">{{localize "ARMOR.QUALITY"}}</label>
                         <input id="{{id}}-system.quality" name="system.quality" type="text" value="{{system.quality}}"/>
-                    </div>
                     </div>
                     {{/if}}
                 </div>

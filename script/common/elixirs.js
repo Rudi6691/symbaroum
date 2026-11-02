@@ -87,6 +87,21 @@ export function isAlchemical(system) {
 	return false;
 }
 
+/* Status-Tab v1.2 (Rudolfs Zustandsdialog, Klärungsrunde): „Bewirkt
+   Zustand“ ist ein GATE - der komma-join im Feld system.elixirEffect.
+   condition bleibt gespeichert (auch bei „Nein“, der Dialog zeigt die
+   alte Auswahl vorausewählt), aber bei conditionActive != 'true'
+   wirken die Zustände NIRGENDS (Selbst-Pfad, Wurf-Pfad inkl.
+   targetCondition-Fallback, Zielauswahl-Wirkungsfeld-Check). Altbestand
+   ohne Gate-Feld (undefined): gefülltes condition-Feld gilt weiter als
+   aktiv - kein Massen-Write nötig (Muster isAlchemical). Gespeicherte
+   Werte gewinnen: '' = bewusst Nein, 'true' = bewusst Ja. */
+export function isConditionActive(eff) {
+	const gate = String(eff?.conditionActive ?? '').trim();
+	if (gate !== '') return gate === 'true';
+	return String(eff?.condition ?? '').trim() !== '';
+}
+
 /** Nebelball-Malus je Alchemie-Stufe: Schwach −1, Moderat −3, Stark −5. */
 export function getDazedPenaltyForLevel(level) {
 	if (level === 'master') return 5;
@@ -305,7 +320,10 @@ async function pickSelfElixirTarget(actor, eff) {
 		String(eff.corruptionRemove ?? '').trim() !== '' ||
 		String(eff.corruptionGain ?? '').trim() !== '' ||
 		String(eff.corruptionPerRound ?? '').trim() !== '' ||
-		String(eff.condition ?? '').trim() !== '' ||
+		/* Status-Tab v1.2: condition zählt nur als Wirkungsfeld, wenn das
+		   Ja/Nein-Gate offen ist (sonst öffnet sich der Zielauswahl-Dialog
+		   trotz deaktivierter Zustandswirkung). */
+		isConditionActive(eff) ||
 		String(eff.removeCondition ?? '').trim() !== '' ||
 		String(eff.attributeMods ?? '').trim() !== '' ||
 		String(eff.attributeMode ?? '').trim() !== '' ||
@@ -625,7 +643,10 @@ export async function useSelfElixir(item) {
 	// Malus der Alchemie-Stufe (Wurf-Elixier-Muster).
 	const conditionRaw = String(eff.condition ?? '').trim();
 	const conditionIds = conditionRaw !== '' ? conditionRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
-	if (conditionIds.length > 0) {
+	/* Status-Tab v1.2: Ja/Nein-Gate - bei „Nein“ bleibt der komma-join
+	   gespeichert, wirkt hier aber nicht (isConditionActive, Altbestand-
+	   Fallback: gefülltes Feld ohne Gate-Feld gilt weiter als aktiv). */
+	if (conditionIds.length > 0 && isConditionActive(eff)) {
 		const rounds = await rollRounds(eff.rounds, rolls);
 		/* Status-Tab v1.1: Wirkdauer 0 = Einmalwirkung sofort - die
 		   kuerzeste sinnvolle Zustandsdauer ist die Wirkung bis zum
@@ -889,7 +910,11 @@ async function applyThrownEffectsOnHit(item, token, eff, rolls, flagDataArray, t
 	const thrownConditionRaw = String(eff.condition ?? '').trim() || String(eff.targetCondition ?? '').trim();
 	const thrownConditionIds =
 		thrownConditionRaw !== '' ? thrownConditionRaw.split(',').map((c) => c.trim()).filter(Boolean) : [];
-	if (!resisted && thrownConditionIds.length > 0) {
+	/* Status-Tab v1.2: Ja/Nein-Gate - bei „Nein“ (conditionActive='')
+	   wirken die gewählten Zustände auch im Wurf-Pfad NICHT (inkl.
+	   targetCondition-Fallback: dasselbe Feature; Rudolfs Klärung
+	   „nirgends angewendet“); Altbestand ohne Gate-Feld bleibt aktiv. */
+	if (!resisted && thrownConditionIds.length > 0 && isConditionActive(eff)) {
 		// v1.2 (Rudolfs Entscheidung): Benommen wirkt, solange der
 		// Träger dran ist, und verschwindet beim Weiterschalten -
 		// Zugende-Löschung über die A34-Engine (turnEnd-Marker).
