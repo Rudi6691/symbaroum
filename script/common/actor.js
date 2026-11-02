@@ -1136,7 +1136,6 @@ export class SymbaroumActor extends Actor {
 			askIgnoreArmor: true,
 			askTargetAttribute: false,
 			askCastingAttribute: false,
-			askPoison: false,
 			numberofAttacks: 1,
 			attackFromPC: this.system.isPlayer,
 			autoParams: "",
@@ -1173,8 +1172,10 @@ export class SymbaroumActor extends Actor {
 		// axeArtistNovice/axeArtistDouble aus dem Fähigkeits-Trigger)
 		// reisen mit dem functionStuff durch den EC-Dialog bis attackResult.
 		Object.assign(functionStuff, presets ?? {});
-		let poisoner = this.items.filter((item) => item.system?.reference === "poisoner" || item.system?.reference === "poisonous");
-		functionStuff.askPoison = poisoner.length != 0;
+		// Elixiere v1.7: die alte Grad-Zeile "Gift aufgetragen?" (askPoison)
+		// ist entfallen - die Waffengift-Zeile im EC-Dialog (dialog.js)
+		// ermoeglicht jetzt Inventar-Gift UND Eigengift (Vergifter/Giftig)
+		// und berechnet die Kandidaten selbst.
 		return prepareRollAttribute(this, weapon.attribute, null, weapon, functionStuff);
 	}
 }

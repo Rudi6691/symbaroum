@@ -15,10 +15,12 @@ import { isModernDialogActive, modernDialogClasses } from "./modernSheetConfig.j
 // Ressourcen v1: Verbraucher-Registry + Abbuch-/Verfügbarkeits-Helfer des
 // kategoriebasierten Ressourcenverbrauchs (Kategorie Kraeuterarznei für den
 // Medicus; Setting „Ressourcenverbrauch" GM-seitig, Default AUS)
-import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailability, consumeHerbalCure, getBandageAvailability, consumeBandage } from "./resources.js";
+import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailability, consumeHerbalCure, getBandageAvailability, consumeBandage, getItemCount } from "./resources.js";
 // Elixier-Automatisierung v1: Benommen-Malus-Vorbelegung im Faehigkeits-
 // Wuerfeldialog (Nebelball) - Helfer aus elixirs.js
-import { getDazedPenalty } from "./elixirs.js";
+// Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): + consumeElixirDose
+// fuer die vereinheitlichte Waffengift-Zeile im Modifier-Dialog
+import { getDazedPenalty, consumeElixirDose } from "./elixirs.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3541,6 +3543,50 @@ export async function modifierDialog(functionStuff) {
     functionStuff.modifier = (Number(functionStuff.modifier) || 0) - elixirDazedPenalty;
     functionStuff.autoParams += game.i18n.format("ELIXIR.DAZED_AUTOPARAM", { penalty: elixirDazedPenalty }) + ", ";
   }
+  // Elixiere v1.7 (Rudolfs Waffengift-Dialog-Vereinheitlichung): die alte
+  // Grad-Zeile "Gift aufgetragen?" im Modifier-Dialog entfaellt - DIE
+  // Waffengift-Zeile ist "Gift auftragen" (gleiche Zeile wie im EC-Dialog,
+  // dialog.js): Inventar-Gifte (Ausruestungs-Items mit Waffengift-Flag bzw.
+  // Legacy-Giftstufe, Bestand > 0, 1 Dosis je Angriff, Abbuchung beim
+  // Wuerfeln) PLUS die unbegrenzte EIGENGIFT-Option fuer Traeger des
+  // Merkmals Vergifter (poisoner) bzw. Giftig (poisonous) - Grad aus der
+  // Merkmalsstufe (1 = Leichtes, 2 = Mittleres, 3 = Starkes Gift, bei
+  // beiden Referenzen die hoehere Stufe), im Dialog VORSELEKTIERT, ohne
+  // Ressourcenverbrauch. Eigengift laeuft ueber den Vergifter-Pfad
+  // (functionStuff.poison -> poisonCalc), Inventar-Gift ueber den
+  // Coating-Pfad (functionStuff.poisonCoating).
+  let askPoisonCoating = false;
+  let poisonCoatingChoices = [];
+  let ownPoison = null;
+  if (isWeaponRoll) {
+    const poisonCoatingItems = functionStuff.actor.items.filter((it) => {
+      if (it?.type !== "equipment") return false;
+      const eff = it.system?.elixirEffect ?? {};
+      const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
+      return isWeaponPoison && getItemCount(it) > 0;
+    });
+    if (poisonCoatingItems.length > 0) {
+      askPoisonCoating = true;
+      poisonCoatingChoices = poisonCoatingItems.map((it) => {
+        const eff = it.system.elixirEffect ?? {};
+        const formula = String(eff.damagePerRound ?? "").trim() || String(eff.damage ?? "").trim() || "1d4";
+        const roundsFormula = String(eff.rounds ?? "").trim() || "1d4";
+        return { id: it.id, name: it.name, count: getItemCount(it), formula, roundsFormula };
+      });
+    }
+    const ownPoisonGrade = Math.max(getActorAbilityLevel(functionStuff.actor, "poisoner"), getActorAbilityLevel(functionStuff.actor, "poisonous"));
+    if (ownPoisonGrade > 0) {
+      ownPoison = {
+        grade: ownPoisonGrade,
+        label: game.i18n.format("DIALOG.OWN_POISON_OPTION", {
+          grade: game.i18n.localize(
+            ownPoisonGrade === 1 ? "DIALOG.LIGHT_POISON" : ownPoisonGrade === 2 ? "DIALOG.MEDIUM_POISON" : "DIALOG.STRONG_POISON"
+          ),
+        }),
+      };
+      askPoisonCoating = true;
+    }
+  }
   const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
     askCastingAttribute: functionStuff.askCastingAttribute,
@@ -3576,6 +3622,9 @@ export async function modifierDialog(functionStuff) {
     herbalCureUnavailable: herbalCureUnavailable,
     bandageStatus: bandageAvailable !== null,
     bandageAvailable: !!bandageAvailable,
+    askPoisonCoating: askPoisonCoating,
+    poisonCoatingChoices: poisonCoatingChoices,
+    ownPoison: ownPoison,
     poisoner: poisoner,
     hasRoll: hasRoll,
   });
@@ -3780,7 +3829,30 @@ export async function modifierDialog(functionStuff) {
             // vorbelegt (siehe Vorbelegung vor dem renderTemplate); die
             // Checkbox gewinnt, der Meister kann abwaehlen
             if (functionStuff.ignoreArm) functionStuff.autoParams += game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_IGN_ARMOR") + ", ";
-            functionStuff.poison = Number(html[0].querySelector("#poison").value);
+            // Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): die
+            // Grad-Zeile "Gift aufgetragen?" (#poison) ist ENTFALLEN -
+            // gelesen wird die vereinheitlichte Zeile "Gift auftragen"
+            // (#poisonCoating): 'ownpoison' = Eigengift (Grad aus der
+            // Merkmalsstufe, kein Verbrauch, Vergifter-Pfad), Inventar-
+            // Item = 1 Dosis abgebucht + Coating-Pfad (Muster dialog.js;
+            // bei fehlgeschlagener Abbuchung KEIN Wurf - die Notification
+            // kam aus dem Elixier-Modul), 'none' = kein Gift.
+            if (askPoisonCoating) {
+              const coatingChoice = html[0].querySelector("#poisonCoating")?.value ?? "none";
+              if (coatingChoice === "ownpoison") {
+                functionStuff.poison = ownPoison.grade;
+                functionStuff.autoParams += game.i18n.localize("DIALOG.OWN_POISON_PARAM") + ", ";
+              } else if (coatingChoice !== "none") {
+                const choice = poisonCoatingChoices.find((c) => c.id === coatingChoice);
+                const poisonItem = functionStuff.actor.items.get(coatingChoice);
+                if (choice && poisonItem && (await consumeElixirDose(poisonItem))) {
+                  functionStuff.poisonCoating = { name: poisonItem.name, formula: choice.formula, roundsFormula: choice.roundsFormula };
+                  functionStuff.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: poisonItem.name }) + ", ";
+                } else {
+                  return;
+                }
+              }
+            }
           }
           if (medicus) {
             if (hasTarget) {

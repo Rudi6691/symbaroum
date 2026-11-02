@@ -1662,6 +1662,8 @@
   "DIALOG.POISON_COATING_NONE": "Kein Gift",
   "DIALOG.POISON_COATING_HINT": "Verbraucht 1 Dosis des gewählten Waffengifts. Bei Treffer: Stärke–[Schaden]-Probe des Ziels; bei Misslingen Gift-DoT (Rundenschaden einmal gewürfelt und konstant, Dauer gewürfelt).",
   "DIALOG.POISON_COATING_PARAM": "Gift: {name} (−1 Dosis)",
+  "DIALOG.OWN_POISON_OPTION": "Eigengift — {grade} (unbegrenzt)",
+  "DIALOG.OWN_POISON_PARAM": "Eigengift (ohne Verbrauch)",
   "COMBAT.CHAT_POISON_COATING_INTRO": "Gift-Coating – {poison}: Stärke–[Schaden]-Probe",
   "COMBAT.CHAT_POISON_COATING_SUCCESS": " ist vergiftet. Schaden pro Runde: {damage}, Dauer {rounds} Runden.",
   "COMBAT.CHAT_POISON_COATING_RESIST": " widersteht dem Gift.",

@@ -1662,6 +1662,8 @@
   "DIALOG.POISON_COATING_NONE": "No poison",
   "DIALOG.POISON_COATING_HINT": "Consumes 1 dose of the selected weapon poison. On a hit: target's Strength–[damage] resist test; on failure a poison DoT (round damage rolled once and constant, rolled duration).",
   "DIALOG.POISON_COATING_PARAM": "Poison: {name} (−1 dose)",
+  "DIALOG.OWN_POISON_OPTION": "Own poison — {grade} (unlimited)",
+  "DIALOG.OWN_POISON_PARAM": "Own poison (no consumption)",
   "COMBAT.CHAT_POISON_COATING_INTRO": "Poison Coating – {poison}: Strength–[damage] test",
   "COMBAT.CHAT_POISON_COATING_SUCCESS": " is poisoned. Damage per round: {damage}, duration {rounds} rounds.",
   "COMBAT.CHAT_POISON_COATING_RESIST": " resists the poison.",

@@ -113,7 +113,6 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   let askCorruptedTarget = ecData.askCorruptedTarget ?? false;
   let weaponDamage = "";
   let hasTarget = false;
-  let askPoison = false;
   let askAttackNb = false;
   let ecOn = game.settings.get('symbaroum', 'combatAutomation');
   if(ecOn && weapon !== null) {
@@ -121,7 +120,6 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     askImpeding = ecData.askImpeding;
     attri_defaults.impeding = ecData.impeding;
     hasTarget = ecData.targetData.hasTarget;
-    askPoison = ecData.askPoison;
   } else {
     askTargetAttribute = targetTokens.length > 0;
   }
@@ -274,6 +272,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   // gebunden; Block nur mit Bestand im Inventar).
   let askPoisonCoating = false;
   let poisonCoatingChoices = [];
+  let ownPoison = null;
   if (weapon !== null) {
     const poisonCoatingItems = actor.items.filter((it) => {
       if (it?.type !== "equipment") return false;
@@ -296,6 +295,26 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
         const roundsFormula = String(eff.rounds ?? "").trim() || "1d4";
         return { id: it.id, name: it.name, count: getItemCount(it), formula, roundsFormula };
       });
+    }
+    // Elixiere v1.7 (Rudolfs Waffengift-Dialog-Vereinheitlichung): EIGEN-
+    // GIFT als unbegrenzte Option - Traeger des Merkmals Vergifter (poisoner)
+    // bzw. Giftig (poisonous) tragen ihr eigenes Gift auf die Waffe auf,
+    // OHNE Ressourcenverbrauch ("Giftig" = unbegrenzter Vorrat, Rudolfs
+    // Klaerung). Die Giftstufe ist durch die Stufe des Merkmals vorgegeben
+    // (1 = Leichtes, 2 = Mittleres, 3 = Starkes Gift, bei beiden Referenzen
+    // die hoehere Stufe) und im Dialog VORSELEKTIERT. Die Zeile erscheint
+    // damit auch fuer Vergifter OHNE Giftvorrat im Inventar.
+    const ownPoisonGrade = Math.max(getActorAbilityLevel(actor, "poisoner"), getActorAbilityLevel(actor, "poisonous"));
+    if (ownPoisonGrade > 0) {
+      ownPoison = {
+        grade: ownPoisonGrade,
+        label: game.i18n.format("DIALOG.OWN_POISON_OPTION", {
+          grade: game.i18n.localize(
+            ownPoisonGrade === 1 ? "DIALOG.LIGHT_POISON" : ownPoisonGrade === 2 ? "DIALOG.MEDIUM_POISON" : "DIALOG.STRONG_POISON"
+          ),
+        }),
+      };
+      askPoisonCoating = true;
     }
   }
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
@@ -338,7 +357,6 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   const dialoghtml = await foundry.applications.handlebars.renderTemplate(modernRoll ? 'systems/symbaroum/template/chat/dialog-modern.hbs' : 'systems/symbaroum/template/chat/dialog.hbs', {
     "did":did,
     "askTargetAttribute": askTargetAttribute,
-    "askPoison": askPoison,
     "isWeaponRoll" : weapon !== null,
     "weaponDamage" : weaponDamage,
     "askIgnoreArmor" : askIgnoreArmor,
@@ -363,7 +381,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "askAmmoEffect": askAmmoEffect,
     "ammoEffectChoices": ammoEffectChoices,
     "askPoisonCoating": askPoisonCoating,
-    "poisonCoatingChoices": poisonCoatingChoices
+    "poisonCoatingChoices": poisonCoatingChoices,
+    "ownPoison": ownPoison
   });
 
   const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName);
@@ -659,9 +678,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               }
             }
           }
-          if(askPoison){
-            ecData.poison = Number(html[0].querySelector("#poison-"+did).value);
-          }
+          // Elixiere v1.7: die alte Grad-Zeile "Gift aufgetragen?" ist
+          // ENTFALLEN - ecData.poison wird nur noch ueber die vereinheit-
+          // lichte Waffengift-Zeile gesetzt (Eigengift siehe unten).
           if(askCorruptedTarget){
             ecData.targetFullyCorrupted = html[0].querySelector("#targetCorrupt-"+did).checked;
           }
@@ -748,9 +767,18 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           // munitions-Block, gleiche Block-Semantik: false = kein Wurf,
           // Notification kam aus dem Elixier-Modul) und die Wirkung als
           // ecData.poisonCoating fuer die Angriffskarte mitgeben.
+          // Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): dies ist
+          // jetzt DIE Gift-Zeile des Waffen-Dialogs - zusaetzlich zur
+          // Inventar-Option gibt es das EIGENGIFT des Vergifters/Giftigen
+          // (unbegrenzt, ohne Verbrauch, Grad aus der Merkmalsstufe, im
+          // Dialog vorselektiert); es laeuft ueber den Vergifter-Pfad
+          // (ecData.poison -> poisonCalc), nicht ueber den Coating-Pfad.
           if(askPoisonCoating) {
             const coatingChoice = html[0].querySelector("#poisonCoating-"+did)?.value ?? "none";
-            if(coatingChoice !== "none") {
+            if(coatingChoice === "ownpoison") {
+              ecData.poison = ownPoison.grade;
+              ecData.autoParams += game.i18n.localize("DIALOG.OWN_POISON_PARAM") + ", ";
+            } else if(coatingChoice !== "none") {
               const choice = poisonCoatingChoices.find((c) => c.id === coatingChoice);
               const poisonItem = actor.items.get(coatingChoice);
               if(choice && poisonItem && await consumeElixirDose(poisonItem)) {

@@ -590,8 +590,21 @@ export async function useSelfElixir(item) {
 		}
 	}
 
-	if (String(eff.note ?? '').trim() !== '') {
-		lines.push(F('ELIXIR.CHAT_NOTE', { note: String(eff.note).trim() }));
+	// Elixiere v1.7 (Rudolfs Nachtest P6): Die Notiz am Kartenende verschiebt
+	// sich als TOOLTIP auf die erste Wirkungszeile der Karte (Muster
+	// Treffer-/Probenzeilen: div.tooltip mit p + span.tooltiptext; div-in-div
+	// ist valide, postElixirCard wickelt Zeilen seit v1.4 ohne innere p-
+	// Huelle). Nur bei reinen Notiz-Karten (keine Wirkungszeile vorhanden,
+	// z. B. Blautropfen/Schutzoel/Schlaftropfen) bleibt die Notiz als
+	// sichtbare Zeile stehen. Gilt NUR fuer Selbst-Elixir-Karten - die
+	// geworfenen und narrativen Karten behalten ihre sichtbare Notizzeile.
+	const noteText = String(eff.note ?? '').trim();
+	if (noteText !== '') {
+		if (lines.length > 0) {
+			lines[0] = `<div class="tooltip"><p>${lines[0]}</p><span class="tooltiptext">${noteText}</span></div>`;
+		} else {
+			lines.push(F('ELIXIR.CHAT_NOTE', { note: noteText }));
+		}
 	}
 	if (flagDataArray.length === 0 && lines.length === 0) {
 		lines.push(L('ELIXIR.CHAT_NO_EFFECT_FIELDS'));
