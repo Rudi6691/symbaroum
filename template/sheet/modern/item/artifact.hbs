@@ -75,7 +75,7 @@
                 <prose-mirror toggled name="system.power3.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.power3.description}}">{{{system.power3.description}}}</prose-mirror>
             </div>
         </div>
-        {!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Rail-Button UND Inhalt. --}
+        {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Rail-Button UND Inhalt. --}}
         {{#if symbaroumOptions.isGM}}
         <div class="tab" data-group="primary" data-tab="bonus">
             {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}

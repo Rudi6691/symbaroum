@@ -110,7 +110,7 @@
                     <prose-mirror toggled name="system.power3.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.power3.description}}">{{{system.power3.description}}}</prose-mirror>
                 </div>
             </div>
-            {!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Reiter UND Inhalt - Spieler sehen den Tab nicht, Werte bleiben erhalten. --}
+            {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Reiter UND Inhalt - Spieler sehen den Tab nicht, Werte bleiben erhalten. --}}
             {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="bonus">
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
