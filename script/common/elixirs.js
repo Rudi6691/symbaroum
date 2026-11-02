@@ -279,15 +279,57 @@ async function pickSelfElixirTarget(actor, eff) {
 		String(eff.condition ?? '').trim() !== '' ||
 		String(eff.removeCondition ?? '').trim() !== '' ||
 		String(eff.attributeMods ?? '').trim() !== '' ||
-		eff.antidot === true || eff.antidot === 'true';
+		String(eff.antidotGrade ?? '').trim() !== '' ||
+		eff.antidot === true ||
+		eff.antidot === 'true';
 	if (!hasEffectFields) return { actor, name: actor.name ?? '' };
-	const tokens = (canvas.tokens?.placeables ?? []).filter((t) => t.actor);
-	const others = tokens.filter((t) => t.actor?.id !== actor.id);
-	if (others.length === 0) return { actor, name: actor.name ?? '' };
+	// Elixiere v1.6 (Rudolfs Klärungsrunde): Kandidaten sind ALLE besessenen
+	// Aktoren der ANWESENDEN Spieler (aktive User - Hauptcharakter plus
+	// explizit zugewiesene Besitzrechte), nicht mehr nur Szenen-Token; ist
+	// der eigene Token des Anwenders angewählt, bleibt self vorgewählt
+	// (ansonsten ein angewählter Kandidaten-Token, sonst self). Ohne
+	// Kandidaten (Solo-/GM-Test ohne anwesende Spieler) greift der alte
+	// Szenen-Token-Fallback - ganz ohne Kandidaten läuft der stille
+	// Schnellpfad wie bisher.
+	const activePlayers = game.users.filter((u) => u.active && u.id !== game.user.id);
+	const candidateMap = new Map();
+	for (const u of activePlayers) {
+		if (u.character && u.character.id !== actor.id) candidateMap.set(u.character.id, u.character);
+		for (const a of game.actors) {
+			if (a.id !== actor.id && (a.ownership?.[u.id] ?? 0) >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER) {
+				candidateMap.set(a.id, a);
+			}
+		}
+	}
+	let entries;
+	if (candidateMap.size > 0) {
+		entries = [...candidateMap.values()].map((a) => ({
+			key: `actor-${a.id}`,
+			label: a.name ?? '',
+			actor: a,
+		}));
+	} else {
+		const others = (canvas.tokens?.placeables ?? []).filter((t) => t.actor && t.actor.id !== actor.id);
+		if (others.length === 0) return { actor, name: actor.name ?? '' };
+		entries = others.map((t) => ({
+			key: `token-${t.id}`,
+			label: t.name ?? t.actor?.name ?? '',
+			actor: t.actor,
+		}));
+	}
+	// Vorauswahl: eigener angewählter Token -> self; sonst ein angewählter
+	// Kandidaten-Token -> dieser; Default self.
+	const controlled = canvas?.tokens?.controlled ?? [];
+	let preselectKey = 'self';
+	for (const ct of controlled) {
+		if (ct.actor?.id === actor.id) { preselectKey = 'self'; break; }
+		const hit = entries.find((e) => e.actor?.id === ct.actor?.id);
+		if (hit) { preselectKey = hit.key; break; }
+	}
 	const modernRoll = isModernDialogActive();
 	const options = [
-		`<option value="self" selected>${F('ELIXIR.TARGET_SELF', { name: actor.name ?? '' })}</option>`,
-		...others.map((t) => `<option value="${t.id}">${t.name ?? t.actor.name ?? ''}</option>`),
+		`<option value="self"${preselectKey === 'self' ? ' selected' : ''}>${F('ELIXIR.TARGET_SELF', { name: actor.name ?? '' })}</option>`,
+		...entries.map((e) => `<option value="${e.key}"${preselectKey === e.key ? ' selected' : ''}>${e.label}</option>`),
 	].join('');
 	const dialogHtml = `
 <div style="display:flex; flex-direction:column; gap:0.5rem;">
@@ -310,12 +352,12 @@ async function pickSelfElixirTarget(actor, eff) {
 							resolve({ actor, name: actor.name ?? '' });
 							return;
 						}
-						const token = others.find((t) => t.id === value);
-						if (!token) {
+						const entry = entries.find((e) => e.key === value);
+						if (!entry?.actor) {
 							resolve({ actor, name: actor.name ?? '' });
 							return;
 						}
-						resolve({ actor: token.actor, name: token.name ?? token.actor.name ?? '' });
+						resolve({ actor: entry.actor, name: entry.label || (entry.actor.name ?? '') });
 					},
 				},
 				cancel: {
@@ -398,59 +440,96 @@ export async function useSelfElixir(item) {
 		lines.push(F('ELIXIR.CHAT_REMOVE_CONDITION', { condition: conditionName(findStatusEffect(removeConditionId)) }));
 	}
 
-	// Elixiere v1.5 (Gift-/Antidot-Integration): der Antidot-Marker reitet
-	// auf der GM-Anwendungskarte mit - die Regraduierung (neu wuerfeln fuer
-	// niedrigere Stufe - verstrichene Runden, Rudolfs Modell) laeuft im
-	// Apply-Pfad (hooks.js) mit frischem Zielzustand samt Ergebnis-Zeile.
-	if (eff.antidot === true || eff.antidot === 'true') {
-		flagDataArray.push({ actorId: targetActor.id, poisonAntidot: true });
-		lines.push(L('ELIXIR.CHAT_ANTIDOT'));
+	// Elixiere v1.6 (Rudolfs Antidot-Modell): Antidotstufen-Select am Item
+	// (1-3) - die Anwendung auf ein vergiftetes Ziel senkt den KONSTANTEN
+	// Rundenschaden um 2 Punkte je Stufe (<= 0 = geheilt, Ausfuehrung im
+	// Apply-Pfad hooks.js); v1.5-Altbestand (antidot 'true') wirkt als
+	// Stufe 1. Kein proaktiver Einsatz (ohne Gift nur Notification).
+	const antidotGradeRaw = String(eff.antidotGrade ?? '').trim();
+	const antidotLegacy = eff.antidot === true || eff.antidot === 'true';
+	if (antidotGradeRaw !== '' || antidotLegacy) {
+		const antidotGrade =
+			antidotGradeRaw !== '' ? Math.max(1, Math.round(Number(antidotGradeRaw) || 1)) : 1;
+		flagDataArray.push({ actorId: targetActor.id, poisonAntidot: true, antidotGrade });
+		lines.push(F('ELIXIR.CHAT_ANTIDOT', { grade: antidotGrade, amount: 2 * antidotGrade }));
 	}
 
 	// Pro-Runde-Wirkungen (Lebenselixier): Heilung je Runde UND/ODER
 	// temporäre Korruption je Runde über die A28-Runden/DoT-Engine —
 	// jedes Ressourcen-Band braucht eine EIGENE Bedingung (die Engine
 	// liest genau einen dot-Block pro Effect), beide teilen die gewürfelte
-	// Wirkungsdauer; außerhalb eines Kampfes tickt nichts (K6-Präzedenz).
+	// Wirkungsdauer. Elixiere v1.6: ohne aktiven Kampf VOLLE Wirkung sofort
+	// (Rudolfs Zwischenlösung - Details im Block unten).
 	const healPerRound = String(eff.healPerRound ?? '').trim();
 	const corruptionPerRound = String(eff.corruptionPerRound ?? '').trim();
 	if (healPerRound !== '' || corruptionPerRound !== '') {
 		const rounds = await rollRounds(eff.rounds, rolls);
 		lines.push(F('ELIXIR.CHAT_PER_ROUND', { rounds }));
-		if (healPerRound !== '') {
-			const healCarrier = findStatusEffect('elixirheal');
-			if (healCarrier) {
-				// v1.2 (Rudolfs Entscheidung „Weiterschalten weg vom Träger"):
-				// Löschung am ZUGENDE (turnEnd-Marker + effectDuration →
-				// turnEndRounds der A34-Engine); die N Ticks am Zugbeginn
-				// (A28) bleiben unverändert.
-				flagDataArray.push({
-					actorId: targetActor.id,
-					addEffect: healCarrier,
-					turnEnd: true,
-					effectDuration: rounds,
-					conditionData: {
-						dot: { label: 'ELIXIR.DOT_HEAL', formula: healPerRound, resource: 'heal', damageType: 'healing', separateRoll: false },
-					},
-				});
+		// Elixiere v1.6 (Rudolfs Zwischenlösung „bis auf weiteres"): AUSSERHALB
+		// eines aktiven Kampfes tickt die Runden-Engine nicht (A28/A34 haengen
+		// am Kampf-Update-Hook) - positive Selbst-Elixiere (Lebenselixier,
+		// Purpursaft) wirken deshalb sofort mit der VOLLEN Wirkung ueber die
+		// Gesamtdauer (je Runde gewuerfelt, summiert) statt ein nie tickendes
+		// Symbol anzulegen. Gift/Bedingungen bleiben ausserhalb des Kampfs
+		// SL-Verwaltung; echte Zeit-Ticks (Simple Calendar) als Folgeprojekt.
+		if (!(game.combat?.active ?? false)) {
+			lines.push(L('ELIXIR.CHAT_NO_COMBAT_FULL'));
+			if (healPerRound !== '') {
+				let healTotal = 0;
+				for (let i = 0; i < rounds; i++) healTotal += await rollFormula(healPerRound, rolls);
+				if (healTotal > 0) {
+					flagDataArray.push({ actorId: targetActor.id, toughnessChange: healTotal });
+					lines.push(F('ELIXIR.CHAT_HEAL', { amount: healTotal }));
+				}
 			}
-			lines.push(F('ELIXIR.CHAT_HEAL_PER_ROUND', { formula: healPerRound }));
-		}
-		if (corruptionPerRound !== '') {
-			const corruptionCarrier = findStatusEffect('elixirregress');
-			if (corruptionCarrier) {
-				// v1.2: wie der Heil-Träger - Zugende-Löschung (A34).
-				flagDataArray.push({
-					actorId: targetActor.id,
-					addEffect: corruptionCarrier,
-					turnEnd: true,
-					effectDuration: rounds,
-					conditionData: {
-						dot: { label: 'ELIXIR.DOT_CORRUPTION', formula: corruptionPerRound, resource: 'corruption', separateRoll: false },
-					},
-				});
+			if (corruptionPerRound !== '') {
+				let corruptionTotal = 0;
+				for (let i = 0; i < rounds; i++) corruptionTotal += await rollFormula(corruptionPerRound, rolls);
+				if (corruptionTotal !== 0) {
+					flagDataArray.push({ actorId: targetActor.id, corruptionChange: corruptionTotal });
+					lines.push(
+						F(corruptionTotal > 0 ? 'ELIXIR.CHAT_CORRUPTION_GAIN' : 'ELIXIR.CHAT_CORRUPTION_REMOVE', {
+							amount: Math.abs(corruptionTotal),
+						})
+					);
+				}
 			}
-			lines.push(F('ELIXIR.CHAT_CORRUPTION_PER_ROUND', { formula: corruptionPerRound }));
+		} else {
+			if (healPerRound !== '') {
+				const healCarrier = findStatusEffect('elixirheal');
+				if (healCarrier) {
+					// v1.2 (Rudolfs Entscheidung „Weiterschalten weg vom Träger"):
+					// Löschung am ZUGENDE (turnEnd-Marker + effectDuration →
+					// turnEndRounds der A34-Engine); die N Ticks am Zugbeginn
+					// (A28) bleiben unverändert.
+					flagDataArray.push({
+						actorId: targetActor.id,
+						addEffect: healCarrier,
+						turnEnd: true,
+						effectDuration: rounds,
+						conditionData: {
+							dot: { label: 'ELIXIR.DOT_HEAL', formula: healPerRound, resource: 'heal', damageType: 'healing', separateRoll: false },
+						},
+					});
+				}
+				lines.push(F('ELIXIR.CHAT_HEAL_PER_ROUND', { formula: healPerRound }));
+			}
+			if (corruptionPerRound !== '') {
+				const corruptionCarrier = findStatusEffect('elixirregress');
+				if (corruptionCarrier) {
+					// v1.2: wie der Heil-Träger - Zugende-Löschung (A34).
+					flagDataArray.push({
+						actorId: targetActor.id,
+						addEffect: corruptionCarrier,
+						turnEnd: true,
+						effectDuration: rounds,
+						conditionData: {
+							dot: { label: 'ELIXIR.DOT_CORRUPTION', formula: corruptionPerRound, resource: 'corruption', separateRoll: false },
+						},
+					});
+				}
+				lines.push(F('ELIXIR.CHAT_CORRUPTION_PER_ROUND', { formula: corruptionPerRound }));
+			}
 		}
 	}
 

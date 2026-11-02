@@ -1235,6 +1235,18 @@ export class SymbaroumMacros {
 				img: "icons/svg/clockwork.svg",
 			},
 			{
+				// Elixiere v1.6 (Rudolfs Punkt-8-Testkommentar): Bergen als
+				// System-Utility-Makro im "Symbaroum System Macros"-Ordner -
+				// Muster "Regeneration abbrechen", aber BEWUSST mit Spieler-
+				// Sichtbarkeit (OBSERVER, wie die Item-Makros): Bergen ist ein
+				// Spieler-Feature (Dropdown ueber besessene Aktoren). Das
+				// Standalone-Weltmakro v1.3 bleibt unberuehrt funktionsfaehig.
+				name: game.i18n.localize("MACRO.BERGEN_NAME"),
+				command: "game.symbaroum.macros.recoverAmmunition();",
+				img: "icons/svg/item-bag.svg",
+				ownership: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER,
+			},
+			{
 				// A38 Währungssystem: Einmal-Migration der alten money-Werte
 				// und cost-Freitexte in das neue Crucible-Modell
 				name: game.i18n.localize("MACRO.CURRENCY_MIGRATION_NAME"),
@@ -1293,6 +1305,9 @@ export class SymbaroumMacros {
 				command: def.command,
 				flags: { "symbaroum.gmUtilityMacro": true },
 				folder: folder?.id,
+				// Elixiere v1.6: optionale Sichtbarkeit je Utility (Bergen =
+				// Spieler-Feature, OBSERVER wie die Item-Makros)
+				...(def.ownership != null ? { "ownership.default": def.ownership } : {}),
 			});
 		}
 	}

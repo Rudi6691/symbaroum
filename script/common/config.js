@@ -1426,35 +1426,12 @@ SYMBAROUM.ELIXIR_REMOVE_CONDITION_SELECTION = {
   },
 };
 
-/* Elixiere v1.5 (Gift-/Antidot-Integration, Rudolfs Freigabe 02.11.):
-   Gift-Grad-Modell - die kanonische Zuordnung Stufe -> Schaden/Runde-Formel.
-   Ein Gift-DoT-Effekt traegt in flagData.conditionData.poison seine Metadaten
-   { grade, rounds (Gesamtdauer), roundsFormula (Wuerfelformel der Dauer) };
-   das Antidot wuerfelt auf eine NIEDRIGERE Stufe neu (1d(Grad-1), Grad 1 =
-   Gift besiegt) und setzt die DoT-Formel auf den Tabellenwert der neuen
-   Stufe, die Restdauer ist der neu gewuerfelte Lauf minus der bereits
-   verstrichenen Runden (Rudolfs Modell: "neu wuerfeln fuer niedrigere Stufe
-   - verstrichene Runden"). Die Tabelle ist bewusst als Konfiguration
-   ausgelegt: SL-Kalibrierung (z. B. haerteres Gift) ist eine Eintraege-
-   Aenderung, kein Code. Umgekehrter Lookup: Effekte ohne Metadaten (Altbestand
-   vor v1.5) leiten ihre Stufe ueber die Formel ab, Fallback Stufe 1. */
-SYMBAROUM.poisonGradeFormulas = {
-  1: "1",
-  2: "1d4",
-  3: "1d6",
-  4: "2d4",
-  5: "2d6",
-};
-
-/* Hilfslookup fuer den Umgekehrten Weg (Formel -> Stufe) - vereinheitlicht
-   klein-/grossgeschriebene Formeln und Whitespace. */
-SYMBAROUM.poisonGradeFromFormula = function (formula) {
-  const normalized = String(formula ?? "").trim().toLowerCase();
-  for (const [grade, tableFormula] of Object.entries(SYMBAROUM.poisonGradeFormulas)) {
-    if (tableFormula.toLowerCase() === normalized) return Number(grade);
-  }
-  return 1;
-};
+/* Elixiere v1.6 (Rudolfs Antidot-Modell): das v1.5-Gift-Grad-Modell (Stufen-
+   Tabelle + Formel-Rueckschlag) ist ENTFALLEN - der Rundenschaden eines
+   Gifts wird bei der Anwendung EINMAL gewuerfelt und bleibt konstant
+   (dot.fixedDamage); das Antidot senkt diesen Festwert um 2 Punkte je
+   Antidotstufe (Ausfuehrung im GM-Apply-Pfad hooks.js, Metadaten in
+   flagData.conditionData.poison { damage, formula, rounds, roundsFormula }). */
 
 /* Auswahl der Waffen-Grundschaden-Wuerfel (Original-Bestand, beim Elixier-
    v1.0-Versand versehentlich verschluckter Header - Sammel-Fix 01.11.:

@@ -6006,6 +6006,8 @@ async function attackResult(rollData, functionStuff) {
     let poisonFunctionStuff = Object.assign(functionStuff, { modifier: -1 * targetResMod.modifier, favour: poisonFavour });
     let poisonRes = await poisonCalc(poisonFunctionStuff, poisonRoll);
     rolls.push(poisonRes.roll);
+    // Elixiere v1.6: konstanter Gift-Rundenschaden als eigener Wurf auf der Karte
+    if (poisonRes.poisonDotRoll) rolls.push(poisonRes.poisonDotRoll);
     if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
     templateData = Object.assign(templateData, poisonRes);
   }
@@ -6043,9 +6045,16 @@ async function attackResult(rollData, functionStuff) {
       if (coatingRoll.trueActorSucceeded) {
         const coatingRounds = await new Roll(functionStuff.poisonCoating.roundsFormula).evaluate();
         rolls.push(coatingRounds);
+        // Elixiere v1.6 (Rudolfs Antidot-Modell): der Rundenschaden eines
+        // Gifts wird bei der Anwendung EINMAL gewuerfelt und bleibt fuer
+        // die gesamte Rundenlaufzeit KONSTANT (dot.fixedDamage - die A28-
+        // Tick-Engine wendet den Festwert an statt je Runde neu zu wuerfeln;
+        // das Antidot senkt genau diesen Wert um 2 Punkte je Stufe).
+        const coatingDamage = await new Roll(functionStuff.poisonCoating.formula).evaluate();
+        rolls.push(coatingDamage);
         templateData.poisonChatResult =
           functionStuff.targetData.name +
-          game.i18n.format("COMBAT.CHAT_POISON_COATING_SUCCESS", { damage: functionStuff.poisonCoating.formula, rounds: coatingRounds.total }) +
+          game.i18n.format("COMBAT.CHAT_POISON_COATING_SUCCESS", { damage: coatingDamage.total, rounds: coatingRounds.total }) +
           game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
         const poisonEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison"));
         flagDataArray.push({
@@ -6055,6 +6064,7 @@ async function attackResult(rollData, functionStuff) {
           dot: {
             label: "QUALITY.POISON",
             formula: functionStuff.poisonCoating.formula,
+            fixedDamage: coatingDamage.total,
             resource: "toughness",
             damageType: "poison",
             stackable: false,
@@ -6062,7 +6072,8 @@ async function attackResult(rollData, functionStuff) {
           },
           conditionData: {
             poison: {
-              grade: functionStuff.poisonCoating.grade,
+              damage: coatingDamage.total,
+              formula: functionStuff.poisonCoating.formula,
               rounds: coatingRounds.total,
               roundsFormula: functionStuff.poisonCoating.roundsFormula,
             },
@@ -6773,6 +6784,14 @@ async function poisonCalc(functionStuff, poisonRoll) {
       poisonRes.poisonChatResult = game.i18n.localize("COMBAT.CHAT_POISON_NOTEXTEND");
     } else {
       //new poisoning
+      // Elixiere v1.6 (Rudolfs Antidot-Modell): der Rundenschaden eines
+      // Gifts wird bei der Anwendung EINMAL gewuerfelt und bleibt fuer
+      // die Rundenlaufzeit KONSTANT (dot.fixedDamage, A28-Tick wendet den
+      // Festwert an; Antidot senkt ihn um 2 Punkte je Stufe, <= 0 = geheilt)
+      const poisonDotFormula =
+        functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2";
+      const poisonDotRoll = await new Roll(poisonDotFormula).evaluate();
+      poisonRes.poisonDotRoll = poisonDotRoll;
       poisonRes.flagData = {
         tokenId: functionStuff.targetData.tokenId,
         addEffect: effect,
@@ -6783,22 +6802,21 @@ async function poisonCalc(functionStuff, poisonRoll) {
         // of rounds, first tick on the victim's next turn, armor ignored
         dot: {
           label: "QUALITY.POISON",
-          formula: functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2",
+          formula: poisonDotFormula,
+          fixedDamage: poisonDotRoll.total,
           resource: "toughness",
           damageType: "poison",
           stackable: false,
           separateRoll: false,
         },
-        // Elixiere v1.5 (Gift-/Antidot-Integration): Grad-Metadaten fuer das
-        // Antidot-Modell - Stufe wird ueber die Formel-Tabelle abgeleitet
-        // (1W4 = Stufe 2, fix 2 = Fallback Stufe 1), Gesamtdauer + Dauer-
-        // Formel fuer die Antidot-Regraduierung ("neu wuerfeln fuer niedrigere
-        // Stufe - verstrichene Runden", Ausfuehrung im GM-Apply-Pfad hooks.js).
+        // Elixiere v1.6: Festwert-Metadaten fuer das Antidot (Hooks-Handler
+        // senkt conditionData.poison.damage um 2 je Antidotstufe und schreibt
+        // dot.fixedDamage mit); Restdauer UNVERAENDERT (Rudolfs Modell,
+        // ersetzt das v1.5-Regraduierungs-Geruest).
         conditionData: {
           poison: {
-            grade: game.symbaroum.config.poisonGradeFromFormula(
-              functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2"
-            ),
+            damage: poisonDotRoll.total,
+            formula: poisonDotFormula,
             rounds: NewPoisonRounds,
             roundsFormula: poisonDamage,
           },
@@ -6807,7 +6825,7 @@ async function poisonCalc(functionStuff, poisonRoll) {
       poisonRes.poisonChatResult =
         functionStuff.targetData.name +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS1") +
-        poisonDamage +
+        poisonDotRoll.total.toString() +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
         NewPoisonRounds.toString() +
         game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
@@ -6989,6 +7007,8 @@ async function standardPowerResult(rollData, functionStuff) {
   if (functionStuff.usePoison) {
     let poisonRes = await poisonCalc(functionStuff, rollData[0]);
     rolls.push(poisonRes.roll);
+    // Elixiere v1.6: konstanter Gift-Rundenschaden als eigener Wurf auf der Karte
+    if (poisonRes.poisonDotRoll) rolls.push(poisonRes.poisonDotRoll);
 
     introText = poisonRes.poisonChatIntro;
     resultText = poisonRes.poisonChatResult;

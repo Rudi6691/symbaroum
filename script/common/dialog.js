@@ -278,19 +278,23 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     const poisonCoatingItems = actor.items.filter((it) => {
       if (it?.type !== "equipment") return false;
       const eff = it.system?.elixirEffect ?? {};
-      return String(eff.poisonGrade ?? "").trim() !== "" && getItemCount(it) > 0;
+      // Elixiere v1.6 (Rudolfs Waffengift-Modell): Gate ist das Waffengift-
+      // Flag am Item (Select Ja/Nein, Foundry-Form-Submit-Landmine) statt
+      // des v1.5-Giftstufen-Felds; Altbestand mit gesetzter Giftstufe bleibt
+      // waffengift-faehig (Fallback). Gifte definieren sich ueber die
+      // bestehenden Felder "Schaden/Runde" (bzw. "Schaden") + "Runden".
+      const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
+      return isWeaponPoison && getItemCount(it) > 0;
     });
     if (poisonCoatingItems.length > 0) {
       askPoisonCoating = true;
       poisonCoatingChoices = poisonCoatingItems.map((it) => {
         const eff = it.system.elixirEffect ?? {};
-        const formula = String(eff.damagePerRound ?? "").trim() || "1d4";
+        // Formel-Kette: "Schaden/Runde" -> "Schaden" (Sofortfeld als DoT) ->
+        // Default 1d4 (GM-Kalibrierung); Dauer aus "Runden" (Default 1d4).
+        const formula = String(eff.damagePerRound ?? "").trim() || String(eff.damage ?? "").trim() || "1d4";
         const roundsFormula = String(eff.rounds ?? "").trim() || "1d4";
-        const rawGrade = Number(String(eff.poisonGrade).trim());
-        const grade = Number.isFinite(rawGrade) && rawGrade >= 1
-          ? Math.min(5, Math.round(rawGrade))
-          : (game.symbaroum.config.poisonGradeFromFormula?.(formula) ?? 1);
-        return { id: it.id, name: it.name, count: getItemCount(it), formula, roundsFormula, grade };
+        return { id: it.id, name: it.name, count: getItemCount(it), formula, roundsFormula };
       });
     }
   }
@@ -750,7 +754,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               const choice = poisonCoatingChoices.find((c) => c.id === coatingChoice);
               const poisonItem = actor.items.get(coatingChoice);
               if(choice && poisonItem && await consumeElixirDose(poisonItem)) {
-                ecData.poisonCoating = { name: poisonItem.name, formula: choice.formula, roundsFormula: choice.roundsFormula, grade: choice.grade };
+                ecData.poisonCoating = { name: poisonItem.name, formula: choice.formula, roundsFormula: choice.roundsFormula };
                 ecData.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: poisonItem.name }) + ", ";
               } else {
                 resolve(false);

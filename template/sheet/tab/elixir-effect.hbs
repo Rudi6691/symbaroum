@@ -73,18 +73,23 @@
             02.11.): Gift-Grad (1-5, Schluessel der Formel-Tabelle in
             config.js) - macht das Item zur wahlbaren Waffen-Beschichtung im
             Wuerfeldialog; Formel/Dauer kommen aus den Schaden/Runden- und
-            Runden-Feldern. Antidot: Markierung fuer die Regraduierung eines
-            liegenden Gifts (neu wuerfeln niedrigere Stufe - verstrichene
-            Runden), Ausfuehrung auf der GM-Anwendungskarte. --}}
+            Runden-Feldern. Antidot: Stufen-Selektion fuer die Absenkung
+            des konstanten Rundenschadens eines liegenden Gifts (-2 je
+            Stufe, <= 0 = geheilt), Ausfuehrung auf der GM-Anwendungskarte. --}}
         <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.poisonGrade" data-tooltip="{{localize "ELIXIR.FIELD_POISON_GRADE_TOOLTIP"}}">{{localize "ELIXIR.FIELD_POISON_GRADE"}}</label>
-            <input id="{{id}}-system.elixirEffect.poisonGrade" name="system.elixirEffect.poisonGrade" type="text" value="{{system.elixirEffect.poisonGrade}}" data-dtype="String"/>
+            <label for="{{id}}-system.elixirEffect.weaponPoison" data-tooltip="{{localize "ELIXIR.FIELD_WEAPON_POISON_TOOLTIP"}}">{{localize "ELIXIR.FIELD_WEAPON_POISON"}}</label>
+            <select id="{{id}}-system.elixirEffect.weaponPoison" name="system.elixirEffect.weaponPoison" data-tooltip="{{localize "ELIXIR.FIELD_WEAPON_POISON_TOOLTIP"}}">
+                <option value="" {{#unless system.elixirEffect.weaponPoison}}selected{{/unless}}>{{localize "ELIXIR.WEAPON_POISON_OFF"}}</option>
+                <option value="true" {{#if system.elixirEffect.weaponPoison}}selected{{/if}}>{{localize "ELIXIR.WEAPON_POISON_ON"}}</option>
+            </select>
         </div>
         <div class="elixir-effect-field">
-            <label for="{{id}}-system.elixirEffect.antidot" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ANTIDOT"}}</label>
-            <select id="{{id}}-system.elixirEffect.antidot" name="system.elixirEffect.antidot" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">
-                <option value="" {{#unless system.elixirEffect.antidot}}selected{{/unless}}>{{localize "ELIXIR.ANTIDOT_OFF"}}</option>
-                <option value="true" {{#if system.elixirEffect.antidot}}selected{{/if}}>{{localize "ELIXIR.ANTIDOT_ON"}}</option>
+            <label for="{{id}}-system.elixirEffect.antidotGrade" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ANTIDOT"}}</label>
+            <select id="{{id}}-system.elixirEffect.antidotGrade" name="system.elixirEffect.antidotGrade" data-tooltip="{{localize "ELIXIR.FIELD_ANTIDOT_TOOLTIP"}}">
+                <option value="" {{#unless system.elixirEffect.antidotGrade}}selected{{/unless}}>{{localize "ELIXIR.ANTIDOT_OFF"}}</option>
+                <option value="1" {{#ife system.elixirEffect.antidotGrade "1"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_1"}}</option>
+                <option value="2" {{#ife system.elixirEffect.antidotGrade "2"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_2"}}</option>
+                <option value="3" {{#ife system.elixirEffect.antidotGrade "3"}}selected{{/ife}}>{{localize "ELIXIR.ANTIDOT_GRADE_3"}}</option>
             </select>
         </div>
     </div>

@@ -882,9 +882,19 @@ Hooks.on('updateCombat', async (combat, changed) => {
 			}
 			lines.push(game.i18n.format('COMBAT.DOT_RESIST_FAILED', { label: resistLabel, roll: resistRoll.total, target: resistTarget }));
 		}
-		const roll = await new Roll(dot.formula).evaluate();
-		rolls.push(roll);
-		const amount = roll.total * (dot.stacks ?? 1);
+		// Elixiere v1.6 (Rudolfs Antidot-Modell): Gifte tragen ihren Rundenschaden
+		// als FESTWERT (dot.fixedDamage) - die Formel wird bei der Anwendung
+		// EINMAL gewuerfelt und bleibt ueber die Rundenlaufzeit konstant; das
+		// Antidot senkt genau diesen Wert um 2 Punkte je Stufe. Nur Legacy-DoTs
+		// ohne Festwert wuerfeln wie bisher je Runde.
+		let amount;
+		if (dot.fixedDamage != null) {
+			amount = Math.max(0, Math.round(Number(dot.fixedDamage) || 0)) * (dot.stacks ?? 1);
+		} else {
+			const roll = await new Roll(dot.formula).evaluate();
+			rolls.push(roll);
+			amount = roll.total * (dot.stacks ?? 1);
+		}
 		if (dot.resource === 'corruption') corruptionDamage += amount;
 		// A35: the heal resource turns a dot into a healing tick (Regeneration
 		// trait) - the amount is ADDED to toughness in the batched update below
@@ -1515,20 +1525,18 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 					}
 					// Elixiere v1.5 (Antidot-Regraduierung, Rudolfs Modell "neu
 					// wuerfeln fuer niedrigere Stufe - verstrichene Runden"):
-					// flagData.poisonAntidot ist ein reiner Marker - die Logik
-					// laeuft hier am APPLY-Zeitpunkt mit frischem Aktor-Zustand:
-					// 1. Gift-Effekt am Ziel suchen (Condition 'poison'), Metadaten
-					//    aus flagData.conditionData.poison {grade, rounds, roundsFormula};
-					//    Altbestand ohne Metadaten: Stufe per Formel-Rueckschlag,
-					//    Dauerformel-Fallback 1d4, verstrichene Runden 0.
-					// 2. Neue Stufe = 1d(Grad-1) (Stufe 1 = Gift besiegt, Effekt
-					//    wird geloescht); Restdauer = neu gewuerfelte Dauer minus
-					//    verstrichene Runden (verstrichen = Gesamtdauer - aktueller
-					//    Zaehler), <= 0 = ebenfalls geheilt.
-					// 3. DoT-Formel wird auf den Tabellenwert der neuen Stufe
-					//    gesetzt (config.poisonGradeFormulas = kanonische SL-
-					//    Kalibrierung), Metadaten am Effekt aktualisiert.
-					// Ergebnis je als eigene Chat-Zeile (Muster CHAT.STABILIZED).
+					// Elixiere v1.6 (Rudolfs Antidot-Modell, ersetzt das v1.5-
+					// Regraduierungs-Geruest): der Rundenschaden eines Gifts ist
+					// ein KONSTANTER Wert ueber die Rundenlaufzeit (bei der
+					// Anwendung einmal gewuerfelt, dot.fixedDamage). Das Antidot
+					// senkt diesen Festwert um 2 Punkte je Antidotstufe
+					// (flagData.antidotGrade aus dem Stufen-Select am Item;
+					// v1.5-Altbestand antidot 'true' wirkt als Stufe 1); faellt
+					// er auf <= 0, ist das Gift gestoppt (Effekt + Symbol weg).
+					// Restdauer UNVERAENDERT. Altbestand ohne Festwert
+					// (v1.5-Giftstufen oderaeltere Effekte): Festwert hier
+					// einmal aus der DoT-Formel festlegen, dann senken. Kein
+					// proaktiver Einsatz: ohne liegendes Gift nur Notification.
 					if (flagData.poisonAntidot) {
 						const poisonEffect = actor.effects.find((e) => e.statuses.has('poison'));
 						if (!poisonEffect) {
@@ -1536,42 +1544,33 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						} else {
 							const fd = poisonEffect.getFlag(game.system.id, 'flagData') ?? {};
 							const meta = fd.conditionData?.poison ?? {};
-							const gradeTable = game.symbaroum.config.poisonGradeFormulas ?? {};
-							let grade = Number(meta.grade);
-							if (!Number.isFinite(grade) || grade < 1) {
-								grade = game.symbaroum.config.poisonGradeFromFormula?.(fd.dot?.formula ?? '') ?? 1;
+							let damage = Number(meta.damage);
+							if (!Number.isFinite(damage)) {
+								const legacyRoll = await new Roll(String(fd.dot?.formula ?? '').trim() || '1d4').evaluate();
+								damage = legacyRoll.total;
 							}
-							const totalRounds = Number(meta.rounds);
-							const remaining = Number(fd.durationRounds);
-							const elapsed = Number.isFinite(totalRounds) && Number.isFinite(remaining) ? Math.max(0, totalRounds - remaining) : 0;
-							const roundsFormula = String(meta.roundsFormula ?? '').trim() || '1d4';
-							let newGrade = 0;
-							if (grade > 1) {
-								const gradeRoll = await new Roll(`1d${grade - 1}`).evaluate();
-								newGrade = gradeRoll.total;
-							}
-							let newRemaining = 0;
-							if (newGrade > 0) {
-								const roundsRoll = await new Roll(roundsFormula).evaluate();
-								newRemaining = roundsRoll.total - elapsed;
-							}
-							if (newGrade < 1 || newRemaining <= 0) {
+							const antidotGrade = Math.max(1, Math.round(Number(flagData.antidotGrade) || 1));
+							const reduced = damage - 2 * antidotGrade;
+							if (reduced <= 0) {
 								await poisonEffect.delete();
 								await ChatMessage.create({
 									speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
 									content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('POISON.ANTIDOT_CURED', { name: token?.name ?? actor.name ?? '' })}</p></div></div></div>`,
 								});
 							} else {
-								const newFormula = gradeTable[newGrade] ?? '1';
-								const newMeta = { grade: newGrade, rounds: newRemaining + elapsed, roundsFormula };
 								await poisonEffect.update({
-									[`flags.${game.system.id}.flagData.conditionData.poison`]: newMeta,
-									[`flags.${game.system.id}.flagData.dot.formula`]: newFormula,
-									[`flags.${game.system.id}.flagData.durationRounds`]: newRemaining,
+									[`flags.${game.system.id}.flagData.conditionData.poison`]: {
+										damage: reduced,
+										formula: String(meta.formula ?? fd.dot?.formula ?? ''),
+										rounds: meta.rounds,
+										roundsFormula: meta.roundsFormula,
+									},
+									[`flags.${game.system.id}.flagData.dot.fixedDamage`]: reduced,
 								});
+								const remainingRounds = Number(fd.durationRounds);
 								await ChatMessage.create({
 									speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
-									content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('POISON.ANTIDOT_REGRADED', { name: token?.name ?? actor.name ?? '', grade: newGrade, rounds: newRemaining })}</p></div></div></div>`,
+									content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('POISON.ANTIDOT_REDUCED', { name: token?.name ?? actor.name ?? '', damage: reduced, rounds: Number.isFinite(remainingRounds) ? remainingRounds : 0 })}</p></div></div></div>`,
 								});
 							}
 						}
