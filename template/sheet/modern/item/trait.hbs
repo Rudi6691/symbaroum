@@ -75,9 +75,12 @@
             </div>
         </div>
         {{/ifn}}
+        {!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Rail-Button UND Inhalt. --}
+        {{#if symbaroumOptions.isGM}}
         <div class="tab" data-group="primary" data-tab="bonus">
             {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
+        {{/if}}
     </div>
 </div>
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
@@ -87,6 +90,6 @@
         <button type="button" class="modern-rail-btn{{#if modern.levelLearned.adept}} m-level-learned{{/if}}" data-tab="adept" data-tooltip="{{localize 'TAB.ADEPT'}}"><i class="fas fa-leaf"></i></button>
         <button type="button" class="modern-rail-btn{{#if modern.levelLearned.master}} m-level-learned{{/if}}" data-tab="master" data-tooltip="{{localize 'TAB.MASTER'}}"><i class="fas fa-crown"></i></button>
         {{/ifn}}
-        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>
+        {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>{{/if}}
     </nav>
 </div>

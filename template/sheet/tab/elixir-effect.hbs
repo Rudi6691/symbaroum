@@ -15,10 +15,16 @@
     Select; Attributsveränderung = 3-Wert-Select (Bonus-Tab-Werte,
     attributeMods-Fallback); Korruption-Unterblock; Wirkdauer 0 =
     Einmalwirkung sofort; Ziel-Bedingung konsolidiert (Fallback im
-    Wurf-Pfad). Zeilen-Layout .elixir-row, klassisch + modern. --}}
+    Wurf-Pfad). Zeilen-Layout .elixir-row, klassisch + modern.
+    v1.3 (Rudolfs Nachtest v1.2): Gate DREIWERTIG - der Select
+    persistiert 'true'/'false' ('' bleibt Altbestand-Ableitung und
+    persistiert erst beim Submit, Muster alchemical-Kanonik; ein
+    leeres „Nein“ ließ sich bei gespeicherten Zuständen nie halten,
+    weil die Ableitung es sofort wieder zu „Ja“ hob). Der Hinweistext
+    EFFECT_HINT steht als Tooltip an der Legende statt als Zeile
+    (Rudolfs Wunsch, weniger Platz im Block). --}}
 <fieldset class="elixir-effect-frame">
-    <legend class="elixir-effect-legend">{{localize "ELIXIR.EFFECT_TITLE"}}</legend>
-    <div class="elixir-effect-hint">{{localize "ELIXIR.EFFECT_HINT"}}</div>
+    <legend class="elixir-effect-legend" data-tooltip="{{localize "ELIXIR.EFFECT_HINT"}}">{{localize "ELIXIR.EFFECT_TITLE"}}</legend>
     <div class="elixir-rows">
         {{!-- Zeile 1: Wirkdauer + Bewirkt Zustand (Ja/Nein-Gate, Zustände
             im Dialog über das Zahnrad). --}}
@@ -31,7 +37,7 @@
                 <label for="{{id}}-system.elixirEffect.conditionActive" data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CONDITION"}}</label>
                 <div class="elixir-condition-toggle">
                     <select id="{{id}}-system.elixirEffect.conditionActive" name="system.elixirEffect.conditionActive" data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">
-                        <option value="" {{#unless conditionActive}}selected{{/unless}}>{{localize "ELIXIR.ALCHEMICAL_NO"}}</option>
+                        <option value="false" {{#ife conditionActive "false"}}selected{{/ife}}>{{localize "ELIXIR.ALCHEMICAL_NO"}}</option>
                         <option value="true" {{#ife conditionActive "true"}}selected{{/ife}}>{{localize "ELIXIR.ALCHEMICAL_YES"}}</option>
                     </select>
                     {{#ife conditionActive "true"}}

@@ -75,9 +75,12 @@
                 <prose-mirror toggled name="system.power3.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.power3.description}}">{{{system.power3.description}}}</prose-mirror>
             </div>
         </div>
+        {!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Rail-Button UND Inhalt. --}
+        {{#if symbaroumOptions.isGM}}
         <div class="tab" data-group="primary" data-tab="bonus">
             {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
+        {{/if}}
     </div>
 </div>
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
@@ -85,6 +88,6 @@
         <button type="button" class="modern-rail-btn" data-tab="power1" data-tooltip="{{localize 'TAB.POWER'}} 1"><i class="fas fa-wand-magic-sparkles"></i></button>
         <button type="button" class="modern-rail-btn" data-tab="power2" data-tooltip="{{localize 'TAB.POWER'}} 2"><i class="fas fa-wand-magic-sparkles"></i></button>
         <button type="button" class="modern-rail-btn" data-tab="power3" data-tooltip="{{localize 'TAB.POWER'}} 3"><i class="fas fa-wand-magic-sparkles"></i></button>
-        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>
+        {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>{{/if}}
     </nav>
 </div>

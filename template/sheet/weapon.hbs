@@ -36,7 +36,7 @@
             {{#if system.isArtifact}}
             <b class="item" data-tab="power">{{localize "TAB.POWER"}}</b>
             {{/if}}
-            <b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>
+            {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2) --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>{{/if}}
         </div>
         <div class="sheet-body">
             <div class="tab" data-group="primary" data-tab="description">
@@ -184,9 +184,12 @@
                 </div>
                 {{/if_nempty}}
             </div>
+            {!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Reiter UND Inhalt - Spieler sehen den Tab nicht, Werte bleiben erhalten. --}
+            {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="bonus">
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
             </div>
+            {{/if}}
             {{#if system.isArtifact}}
             <div class="tab" data-group="primary" data-tab="power">
                 {{> systems/symbaroum/template/sheet/tab/artifact.hbs}}

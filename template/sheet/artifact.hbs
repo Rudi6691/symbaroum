@@ -24,7 +24,7 @@
             <b class="item" data-tab="power1">{{localize "TAB.POWER"}} 1</b>
             <b class="item" data-tab="power2">{{localize "TAB.POWER"}} 2</b>
             <b class="item" data-tab="power3">{{localize "TAB.POWER"}} 3</b>
-            <b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>
+            {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2) --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>{{/if}}
         </div>
         <div class="sheet-body">
             <div class="tab" data-group="primary" data-tab="description">
@@ -110,9 +110,12 @@
                     <prose-mirror toggled name="system.power3.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.power3.description}}">{{{system.power3.description}}}</prose-mirror>
                 </div>
             </div>
+            {!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Reiter UND Inhalt - Spieler sehen den Tab nicht, Werte bleiben erhalten. --}
+            {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="bonus">
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
             </div>
+            {{/if}}
         </div>
     </div>
 {{/if}}

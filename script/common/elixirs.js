@@ -87,19 +87,25 @@ export function isAlchemical(system) {
 	return false;
 }
 
-/* Status-Tab v1.2 (Rudolfs Zustandsdialog, Klärungsrunde): „Bewirkt
-   Zustand“ ist ein GATE - der komma-join im Feld system.elixirEffect.
-   condition bleibt gespeichert (auch bei „Nein“, der Dialog zeigt die
-   alte Auswahl vorausewählt), aber bei conditionActive != 'true'
-   wirken die Zustände NIRGENDS (Selbst-Pfad, Wurf-Pfad inkl.
-   targetCondition-Fallback, Zielauswahl-Wirkungsfeld-Check). Altbestand
-   ohne Gate-Feld (undefined): gefülltes condition-Feld gilt weiter als
-   aktiv - kein Massen-Write nötig (Muster isAlchemical). Gespeicherte
-   Werte gewinnen: '' = bewusst Nein, 'true' = bewusst Ja. */
+/* Status-Tab v1.3 (Rudolfs Nachtest v1.2, Punkte 9+10): „Bewirkt
+   Zustand“ ist ein GATE mit DREI Zuständen - der komma-join im Feld
+   system.elixirEffect.condition bleibt gespeichert (auch bei „Nein“,
+   der Dialog zeigt die alte Auswahl vorausewählt), aber bei
+   conditionActive = 'false' wirken die Zustände NIRGENDS (Selbst-Pfad,
+   Wurf-Pfad inkl. targetCondition-Fallback, Zielauswahl-Wirkungsfeld-
+   Check). '' = Altbestand OHNE Gate-Feld (undefined): gefülltes
+   condition- ODER targetCondition-Feld (v1.2-Regression: Makro v7
+   taggt Blitzstaub/Nebelball nur per targetCondition) gilt als
+   „Ja“-Ableitung - kein Massen-Write nötig (Muster isAlchemical).
+   Gespeicherte Werte gewinnen: 'true' = bewusst Ja, 'false' =
+   bewusst Nein (dreiwertig statt v1.2 '' = Nein: der leere Wert
+   verriet sich selbst als „ableiten“, das Gate ließ sich bei
+   gespeicherten Zuständen nicht mehr auf „Nein“ stellen). */
 export function isConditionActive(eff) {
 	const gate = String(eff?.conditionActive ?? '').trim();
-	if (gate !== '') return gate === 'true';
-	return String(eff?.condition ?? '').trim() !== '';
+	if (gate === 'true') return true;
+	if (gate === 'false') return false;
+	return String(eff?.condition ?? '').trim() !== '' || String(eff?.targetCondition ?? '').trim() !== '';
 }
 
 /** Nebelball-Malus je Alchemie-Stufe: Schwach −1, Moderat −3, Stark −5. */

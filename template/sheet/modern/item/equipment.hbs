@@ -36,9 +36,12 @@
             {{> systems/symbaroum/template/sheet/modern/item/tab-status.hbs}}
         </div>
         {{/if}}
+        {!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Rail-Button UND Inhalt. --}
+        {{#if symbaroumOptions.isGM}}
         <div class="tab" data-group="primary" data-tab="bonus">
             {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
+        {{/if}}
     </div>
 </div>
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
@@ -47,6 +50,6 @@
         <button type="button" class="modern-rail-btn" data-tab="power" data-tooltip="{{localize 'TAB.POWER'}}"><i class="fas fa-wand-magic-sparkles"></i></button>
         {{/if}}
         {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="stats" data-tooltip="{{localize 'TAB.STATS'}}"><i class="fas fa-gear"></i></button>{{/if}}
-        <button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>
+        {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>{{/if}}
     </nav>
 </div>

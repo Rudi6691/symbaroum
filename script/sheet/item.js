@@ -255,20 +255,38 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			})),
 		];
 		/* Status-Tab v1.2 (Rudolfs Zustandsdialog): „Bewirkt Zustand“ ist
-		   ein Ja/Nein-Gate (system.elixirEffect.conditionActive, ''/'true',
+		   ein Ja/Nein-Gate (system.elixirEffect.conditionActive,
 		   additives Feld, Muster alchemical/weaponPoison) - die Zustände
-		   selbst wählt der DIALOG über das Zahnrad (Action openConditionDialog,
-		   Chip-Quelle _getElixirConditions inkl. acid-Träger-Filter). Der
-		   komma-join bleibt im Feld system.elixirEffect.condition gespeichert
-		   (auch bei „Nein“, dann greift das GATE in elixirs.js und die
-		   Zustände wirken NIRGENDS). Altbestand ohne Gate-Feld: gefülltes
-		   condition-Feld gilt als „Ja“ (abgeleitete Anzeige, persistiert
-		   beim ersten Form-Submit - Muster alchemical-Kanonik). */
+		   selbst wählt der DIALOG über das Zahnrad (Action
+		   openConditionDialog, Chip-Quelle _getElixirConditions inkl.
+		   acid-Träger-Filter). Der komma-join bleibt im Feld
+		   system.elixirEffect.condition gespeichert (auch bei „Nein“,
+		   dann greift das GATE in elixirs.js und die Zustände wirken
+		   NIRGENDS). */
 		const conditionString = String(this.item.system.elixirEffect?.condition ?? '').trim();
 		const conditionActiveIds = conditionString === '' ? [] : conditionString.split(',').map((c) => c.trim()).filter(Boolean);
+		/* Status-Tab v1.3 (Rudolfs Nachtest v1.2, Punkte 9+10): DREI
+		   Gate-Zustände - '' = Altbestand ohne Gate-Feld (Ableitung aus
+		   condition ODER targetCondition: das Tagging-Makro v7 taggt
+		   Blitzstaub/Nebelball nur per targetCondition, die v1.2-
+		   Ableitung zeigte dafür fälschlich „Nein“ und blockte den
+		   Wurf-Pfad - v1.2-Regression), 'true' = bewusst Ja, 'false' =
+		   bewusst Nein (dreiwertig statt v1.2 '' = Nein: das Gate ließ
+		   sich bei gespeicherten Zuständen nicht auf „Nein“ stellen,
+		   weil der leere Wert sofort wieder als „aus condition ableiten“
+		   galt). Der Select rendert/persistiert nur 'true'/'false' -
+		   die Altbestand-Ableitung persistiert beim ersten Form-Submit
+		   (Muster alchemical-Kanonik). Die Dialog-Chips zeigen die
+		   Vereinigung aus condition UND targetCondition an, damit der
+		   Altbestand-Fallback im Dialog sichtbar und steuerbar ist
+		   (Bestätigen schreibt nach condition, targetCondition bleibt
+		   als Fallback unangetastet). */
+		const targetConditionString = String(this.item.system.elixirEffect?.targetCondition ?? '').trim();
+		const targetConditionIds = targetConditionString === '' ? [] : targetConditionString.split(',').map((c) => c.trim()).filter(Boolean);
 		const conditionGateRaw = String(this.item.system.elixirEffect?.conditionActive ?? '').trim();
-		context.conditionActive = conditionGateRaw !== '' ? (conditionGateRaw === 'true' ? 'true' : '') : (conditionActiveIds.length > 0 ? 'true' : '');
-		context.elixir_conditions = this._getElixirConditions(conditionActiveIds);
+		const hasLegacyCondition = conditionActiveIds.length > 0 || targetConditionIds.length > 0;
+		context.conditionActive = conditionGateRaw === 'true' || conditionGateRaw === 'false' ? conditionGateRaw : hasLegacyCondition ? 'true' : 'false';
+		context.elixir_conditions = this._getElixirConditions([...new Set([...conditionActiveIds, ...targetConditionIds])]);
 		/* Status-Tab v1.1 (Rudolfs Ergänzung): ReadOnly-Alchemiestufe
 		   auf dem Beschreibungs-Tab - nur bei alchemistisch=„Ja“,
 		   Spieler-sichtbar, nicht editierbar; '' = „Keine“. */
@@ -749,11 +767,17 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		const active = new Set(activeIds ?? []);
 		return Object.values(CONFIG.statusEffects)
 			.filter((status) => !['acid', 'elixirheal', 'elixirregress', 'elixirattr'].includes(status.id))
-			.map((status) => ({
-				id: status.id,
-				label: status.name ?? status.label ?? status.id,
-				checked: active.has(status.id),
-			}))
+			.map((status) => {
+				/* Status-Tab v1.3 (Rudolfs Nachtest v1.2, Punkt 6): name
+				   liefert bei System-Status teils den rohen i18n-Key
+				   („CONDITION.DAZED“) statt der lokalisierten Bezeichnung
+				   - existiert der Key, wird lokalisiert, sonst bleibt der
+				   Rohwert (bereits lokalisierte Namen haben keinen
+				   Key-Treffer). */
+				const raw = String(status.name ?? status.label ?? status.id);
+				const label = game.i18n.has(raw) ? game.i18n.localize(raw) : raw;
+				return { id: status.id, label, checked: active.has(status.id) };
+			})
 			.sort((a, b) => a.label.localeCompare(b.label));
 	}
 

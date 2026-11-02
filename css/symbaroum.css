@@ -9885,11 +9885,8 @@ fieldset.elixir-effect-frame legend {
   letter-spacing: 0.06em;
   opacity: 0.9;
 }
-fieldset.elixir-effect-frame .elixir-effect-hint {
-  margin: 0 0 0.35rem 0;
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
+/* v1.3: Hint-Zeile entfernt - EFFECT_HINT steht als Tooltip an der
+   Legende (Rudolfs Nachtest v1.2). */
 fieldset.elixir-effect-frame .elixir-rows {
   display: flex;
   flex-direction: column;
@@ -9997,26 +9994,31 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
   background: var(--m-panel, rgba(255, 255, 255, 0.05));
   opacity: 1;
 }
-.symbaroum.sheet.item.modern fieldset.elixir-effect-frame .elixir-effect-hint,
-.modern-item-root fieldset.elixir-effect-frame .elixir-effect-hint {
-  color: var(--m-muted, #8fa192);
-  opacity: 1;
-}
 .symbaroum.sheet.item.modern fieldset.elixir-effect-frame .elixir-effect-field label,
 .modern-item-root fieldset.elixir-effect-frame .elixir-effect-field label {
   color: var(--m-ink, #dfe6df);
   opacity: 1;
 }
-.symbaroum.sheet.item.modern .elixir-effect-frame .elixir-condition-edit,
-.modern-item-root .elixir-effect-frame .elixir-condition-edit {
+/* Status-Tab v1.3 (Rudolfs Nachtest v1.2, Punkt 4): Zahnrad im dunklen
+   modernen Design war schwarz - die klassische Button-Textur
+   (.symbaroum.sheet.item button, css ~4744: color var(--color-label))
+   hat mit ihrem button-Element (0,3,1) gegen die v1.2-Override-Regel
+   (0,3,0) gewonnen. Element im Selektor => gleiche Spezifität, später
+   im Stylesheet gewinnt der Override; Icon erbt die Button-Farbe
+   (Schriftfarbe, Rudolfs Wunsch). */
+.symbaroum.sheet.item.modern .elixir-effect-frame button.elixir-condition-edit,
+.modern-item-root .elixir-effect-frame button.elixir-condition-edit {
   border-color: var(--m-line, rgba(255, 255, 255, 0.15));
   background: var(--m-input-bg, rgba(255, 255, 255, 0.06));
   color: var(--m-ink, #dfe6df);
 }
-.symbaroum.sheet.item.modern .elixir-effect-frame .elixir-condition-edit:hover,
-.modern-item-root .elixir-effect-frame .elixir-condition-edit:hover {
+.symbaroum.sheet.item.modern .elixir-effect-frame button.elixir-condition-edit:hover,
+.modern-item-root .elixir-effect-frame button.elixir-condition-edit:hover {
   border-color: var(--m-accent, #c9a227);
   color: var(--m-accent, #c9a227);
+}
+.modern-item-root .elixir-effect-frame .elixir-condition-edit i {
+  color: inherit;
 }
 /* Alchemiestufe ReadOnly auf dem Beschreibungs-Tab (klassisch + modern). */
 .symbaroum.sheet.item .alchemylevel-readonly {
@@ -10119,6 +10121,19 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
   content: "\2713\00a0";
   font-size: 0.75rem;
 }
+/* Status-Tab v1.3 (Rudolfs Nachtest v1.2, Punkt 7): die initial
+   gerenderte .active-Klasse bleibt beim Abwählen stehen, die
+   :has(input:checked)-Optik greift nur in eine Richtung - Reset über
+   :has(input:not(:checked)) mit identischer Spezifität NACH der
+   aktiven Regel (Quellenreihenfolge entscheidet), Werte = Basisregel. */
+.symbaroum.elixir-condition-dialog .elixir-condition-chip:has(input:not(:checked)) {
+  font-weight: 400;
+  border-color: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.05);
+}
+.symbaroum.elixir-condition-dialog .elixir-condition-chip:has(input:not(:checked))::before {
+  content: none;
+}
 /* Native Checkbox visuell versteckt (funktional erhalten — Bestätigen
    liest input:checked). */
 .symbaroum.elixir-condition-dialog .elixir-condition-chip input {
@@ -10149,4 +10164,13 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
   border-color: var(--m-accent, #c9a227);
   background: var(--m-panel, #182019);
   color: var(--m-accent, #c9a227);
+}
+/* v1.3 (Punkt 7): Abwahl-Reset, Werte = moderne Basisregel. */
+.symb-dialog.modern-dialog .elixir-condition-dialog .elixir-condition-chip:has(input:not(:checked)) {
+  border-color: var(--m-line, #37443a);
+  background: var(--m-panel2, #212c23);
+  color: var(--m-ink, #dfe6df);
+}
+.symb-dialog.modern-dialog .elixir-condition-dialog .elixir-condition-chip:has(input:not(:checked))::before {
+  content: none;
 }
