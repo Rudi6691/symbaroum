@@ -1052,6 +1052,18 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	const expireIds = [];
 	for (const e of turnEndEffects) {
 		const fd = e.getFlag(game.system.id, 'flagData');
+		// v1.3 (Rudolfs Nachtest, Restbefund A): Elixier-Zugende-Effekte, die
+		// WAHREND DES EIGENEN ZUGS des Empfaengers angewendet wurden, tragen
+		// den Einmal-Marker skipFirstTurnEnd - das Ende des Anwendungszugs
+		// dekrementiert NICHT (das war der Off-by-One, der den Status eine
+		// Runde zu frueh entfernte). Der Marker wird geloescht, danach laeuft
+		// der Countdown ganz normal - insgesamt wieder GENAU N Ticks/Runden.
+		if (fd.skipFirstTurnEnd === true) {
+			// unsetFlag loescht den Blatt-Key wirklich (ein batched Update
+			// wuerde das Objekt nur MERGEN und der Marker bliebe liegen)
+			await e.unsetFlag(game.system.id, 'flagData.skipFirstTurnEnd');
+			continue;
+		}
 		const remaining = Math.max(0, Number(fd.turnEndRounds) - 1);
 		if (remaining <= 0) expireIds.push(e.id);
 		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.turnEndRounds`]: remaining, 'duration.value': remaining });
@@ -1393,6 +1405,25 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							// unberuehrt).
 							if (flagData.conditionData) {
 								conditionData = foundry.utils.mergeObject(conditionData ?? {}, flagData.conditionData);
+								// v1.3 (Rudolfs Nachtest, Restbefund A - Status wurde
+								// eine Runde zu frueh entfernt): Ein Zugende-Elixier,
+								// das WAHREND DES EIGENEN ZUGS des Empfaengers angewendet
+								// wird, verlor sofort eine Runde - das Ende des
+								// Anwendungszugs dekrementierte ohne vergangene Runde
+								// (N-Runden-Elixiere tickten nur N-1 mal). Der Einmal-
+								// Marker laesst die A34-Engine genau dieses erste Zugende
+								// aussetzen; alle anderen Zeitpunkte (Anwendung im Zug
+								// eines anderen, ausserhalb des Kampfes) bleiben exakt
+								// wie zuvor - genau N Ticks/Runden. Bewusst NUR im
+								// Elixier-Pfad (conditionData vorhanden): die A34-Kampf-
+								// kraefte (Dominanz-Angst, Battlesymbol, Prios-
+								// Betaubung) behalten ihr Verhalten unveraendert.
+								if (flagData.turnEnd) {
+									const activeActor = game.combat?.combatant?.actor;
+									if (activeActor && (activeActor.id === actor.id || activeActor.uuid === actor.uuid)) {
+										conditionData.skipFirstTurnEnd = true;
+									}
+								}
 							}
 							await actor.addCondition(flagData.addEffect, conditionData);
 						}

@@ -514,9 +514,11 @@ async function resolveThrownElixir(actor, item, token, favour, modifier) {
 	await postElixirCard(actor, F('ELIXIR.CHAT_THROW_INTRO', { name: actor.name, elixir: item.name, target: targetName }), [
 		formatElixirRollString(attackRoll, true, modifier),
 		`<div class="tooltip"><p>${hit ? targetName + L('ELIXIR.CHAT_HIT') + faLevelLabel(attackRoll) : targetName + L('ELIXIR.CHAT_MISS')}</p><span class="tooltiptext">${attackRoll.toolTip}</span></div>`,
-		// v1.2 (Rudolfs Testfund): Leerzeile zwischen Treffer- und
-		// Ziel-Probe-Zeile - die Wirkungszeilen sind optisch getrennt.
-		...(hit ? ['&nbsp;'] : []),
+		// v1.3 (Rudolfs Nachtest, Restbefund B): die v1.2 eingefügte Leerzeile
+		// ('&nbsp;' als eigenes Kartenelement) erwies sich im Chat als 2-3
+		// sichtbare Leerzeilen (jede Kartenzeile ist ein div.finalTxt mit
+		// 15px Rand) - ersatzlos gestrichen; der reguläre Zeilenabstand
+		// bleibt als optische Trennung.
 		...(hit ? await applyThrownEffectsOnHit(item, token, eff, rolls, flagDataArray, targetName) : []),
 		...(String(eff.note ?? '').trim() !== '' ? [F('ELIXIR.CHAT_NOTE', { note: String(eff.note).trim() })] : []),
 	], rolls);
