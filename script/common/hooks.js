@@ -979,7 +979,11 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		if (fd.durationRounds == null) continue;
 		const remaining = Math.max(0, Number(fd.durationRounds) - 1);
 		if (remaining <= 0) expireIds.push(e.id);
-		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.durationRounds`]: remaining, 'duration.value': remaining });
+		// Elixiere v1.4.1: kein 'duration.value'-Rueckschreibweg mehr - seit
+		// Foundry 14.368 (#14725) wuerde jede duration-Schreiberei die Core-Uhr
+		// neu aufziehen (Doppel-Countdown, Suppression nach ~N/2). Der flagData-
+		// Zaehler ist allein autoritativ.
+		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.durationRounds`]: remaining });
 	}
 	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
 	if (expireIds.length > 0) await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
@@ -1066,7 +1070,9 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		}
 		const remaining = Math.max(0, Number(fd.turnEndRounds) - 1);
 		if (remaining <= 0) expireIds.push(e.id);
-		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.turnEndRounds`]: remaining, 'duration.value': remaining });
+		// Elixiere v1.4.1: kein 'duration.value'-Rueckschreibweg mehr (Core-Uhr
+		// seit 14.368/#14725 sonst wieder scharf) - flagData allein autoritativ.
+		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.turnEndRounds`]: remaining });
 	}
 	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
 	if (expireIds.length > 0) {

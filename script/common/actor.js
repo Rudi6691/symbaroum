@@ -845,36 +845,23 @@ export class SymbaroumActor extends Actor {
 			}
 			if( flagData ) {
 				effect[`flags.${game.system.id}.flagData`] = flagData;
-				// A28 Stufe 1: engine-managed conditions carry their round duration on the
-				// ActiveEffect (UI display only). The tick hook in hooks.js owns the
-				// countdown and the deletion (tick-then-expiry with exactly N damage
-				// ticks); every legacy application without durationRounds (K6 precedent:
-				// permanent conditions) keeps its exact current behaviour.
-				// Elixiere v1.4 (v1.3-Nachtest, Rudolfs Befund): NO `expiry` is written
-				// here - DELIBERATELY. Since Foundry V14, `expiry` + `units` are live
-				// core-schema fields that arm the core's own combat auto-expiry: core
-				// treats duration.value as a MAXIMUM minus elapsed combat time while
-				// our engines treat it as a decrementing counter - that double
-				// countdown expired effects after roughly half the duration and core
-				// SUPPRESSED them (expired flag, icon gone, effect NOT deleted); the
-				// suppressed zombie then blocked re-application via hasCondition.
-				// A number with a null expiry ends only on world time progress, which
-				// never advances during combat - so the flagData counters remain the
-				// sole authority and duration.value is a display field.
-				if (flagData.durationRounds != null) {
-					effect.duration = {
-						value: Number(flagData.durationRounds),
-						units: "rounds",
-					};
-				} else if (flagData.turnEndRounds != null) {
-					// A34: turn-end conditions display the same round counter, but their
-					// clock runs to the END of the victim's turn - the countdown and the
-					// deletion are owned by the A34 hook in hooks.js
-					effect.duration = {
-						value: Number(flagData.turnEndRounds),
-						units: "rounds",
-					};
-				}
+				// Elixiere v1.4.1 (v1.4-Nachtest, Rudolfs Befund): engine-managed
+				// conditions get NO duration object at all - DELIBERATELY. Since
+				// Foundry 14.368 (foundryvtt#14725) the core ActiveEffect registry
+				// checks duration.remaining <= 0 on EVERY combat event and marks
+				// effects expired/suppressed whenever it can compute a remaining
+				// value from {value, units} - regardless of the expiry field. Our
+				// engines treat duration.value as a decrementing counter while core
+				// treats it as a maximum minus elapsed combat time: that double
+				// countdown suppressed effects after roughly half the duration
+				// (v1.3: with expiry field, v1.4: without). The only state core
+				// leaves alone is the documented "truly indefinite duration" -
+				// value AND expiry null (API: ActiveEffectDuration) - the very
+				// state permanent conditions (K6 precedent) have always lived in.
+				// The flagData round counters (hooks.js A28 tick / A34 turn-end
+				// engines) remain the sole authority, the round count keeps living
+				// in the chat cards, and the token icon stays visible because
+				// showIcon is ALWAYS (see below).
 			}
 			// V14: statuses must be the array of status ids (a plain id string is not accepted by the
 			// data model), showIcon ALWAYS displays the icon on the token for permanent conditions
