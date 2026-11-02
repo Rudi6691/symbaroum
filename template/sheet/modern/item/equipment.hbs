@@ -6,7 +6,15 @@
 {{> systems/symbaroum/template/sheet/modern/item/header.hbs}}
     <div class="sheet-body m-item-body">
         <div class="tab" data-group="primary" data-tab="description">
-            <div class="m-panel">
+            {{!-- Elixier-Automatisierung v1.2 (Rudolfs Testfund: Beschrei-
+                bungs-Tab scrollt nicht mit den GM-Feldern): Das Fill-Layout
+                des Beschreibungs-Tabs gibt nur dem Editor einen Scroll-
+                Container - die GM-Feldzeilen darüber werden bei Platz-
+                mangel abgeschnitten. Mit Elixier-Feldern (GM + equipment)
+                scrollt das PANEL als Ganzes (EIN Scrollbalken). Strukturell
+                geloest wird das erst durch den geplanten Status-Tab, der
+                die GM-Felder aus dem Beschreibungs-Tab herauszieht. --}}
+            <div class="m-panel{{#if showElixirFields}} m-panel-ovY{{/if}}">
                 <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                 <div class="m-row">
                     {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu

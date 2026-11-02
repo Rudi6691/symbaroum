@@ -687,6 +687,18 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/powers/blackbreath.svg",
   },
   {
+    // Elixier-Automatisierung v1.2 (Rudolfs Beschluss: alle anhaltenden
+    // Effekte bekommen ein loeschbares Statussymbol): Traeger-Symbol fuer
+    // Attribut-Verschiebungen (Kriegsbemalung, Wildpfriem). Die konkreten
+    // Verschiebungen reiten in flagData.attributeChanges - Entfernen des
+    // Symbols setzt die temporaryMod-Werte automatisch zurueck
+    // (deleteActiveEffect-Haken in hooks.js).
+    id: "elixirattr",
+    label: "CONDITION.ELIXIR_ATTR",
+    name: "CONDITION.ELIXIR_ATTR",
+    icon: "icons/svg/aura.svg",
+  },
+  {
     // A35: regeneration trait condition - engine-managed heal tick (resource
     // 'heal', no durationRounds: ticks at the carrier's turn start forever);
     // applied automatically when a trait carrier enters a combat (hooks.js)
@@ -1380,6 +1392,26 @@ SYMBAROUM.AMMO_EFFECT_SELECTION = {
   seekingArrow: {
     id: "seekingArrow",
     label: "AMMO_EFFECT.SEEKING_ARROW",
+  },
+};
+
+/* Elixier-Automatisierung v1.2 (Rudolfs Testfund Augentropfen): Zustand,
+   den ein Elixier am ANWENDER heilt (system.elixirEffect.removeCondition) -
+   laeuft ueber den removeEffect-Pfad der GM-Karte. Nur verifizierte IDs
+   des Systems/Cores (blind = Geblendet, dazed = Benommen); die Liste waechst
+   mit kuenftigen Anwendungen (Antidot/Gift kommt in v1.3). */
+SYMBAROUM.ELIXIR_REMOVE_CONDITION_SELECTION = {
+  "": {
+    id: "",
+    label: "ELIXIR.REMOVE_NONE",
+  },
+  blind: {
+    id: "blind",
+    label: "ELIXIR.REMOVE_BLIND",
+  },
+  dazed: {
+    id: "dazed",
+    label: "ELIXIR.REMOVE_DAZED",
   },
 };
 

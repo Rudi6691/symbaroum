@@ -184,6 +184,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
+		/* Elixier-Automatisierung v1.2: Zustandsheilung am Anwender
+		   (Augentropfen heilt Geblendet) - Select mit verifizierten Ids. */
+		context.removeCondition = this.item.system.elixirEffect?.removeCondition ?? '';
+		context.remove_condition_selection = Object.values(game.symbaroum.config.ELIXIR_REMOVE_CONDITION_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
 		context.elixirEffect = this.item.system.elixirEffect ?? {};
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;

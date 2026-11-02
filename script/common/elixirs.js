@@ -301,6 +301,15 @@ export async function useSelfElixir(item) {
 		lines.push(F('ELIXIR.CHAT_CORRUPTION_GAIN', { amount: corruptionGain }));
 	}
 
+	// v1.2 (Rudolfs Testrunde, Augentropfen): Zustandsheilung am Anwender -
+	// removeCondition entfernt die Condition über den bestehenden
+	// removeEffect-Pfad der GM-Karte (removeCondition akzeptiert die ID).
+	const removeConditionId = String(eff.removeCondition ?? '').trim();
+	if (removeConditionId !== '') {
+		flagDataArray.push({ actorId: actor.id, removeEffect: removeConditionId });
+		lines.push(F('ELIXIR.CHAT_REMOVE_CONDITION', { condition: conditionName(findStatusEffect(removeConditionId)) }));
+	}
+
 	// Pro-Runde-Wirkungen (Lebenselixier): Heilung je Runde UND/ODER
 	// temporäre Korruption je Runde über die A28-Runden/DoT-Engine —
 	// jedes Ressourcen-Band braucht eine EIGENE Bedingung (die Engine
@@ -314,12 +323,17 @@ export async function useSelfElixir(item) {
 		if (healPerRound !== '') {
 			const healCarrier = findStatusEffect('elixirheal');
 			if (healCarrier) {
+				// v1.2 (Rudolfs Entscheidung „Weiterschalten weg vom Träger"):
+				// Löschung am ZUGENDE (turnEnd-Marker + effectDuration →
+				// turnEndRounds der A34-Engine); die N Ticks am Zugbeginn
+				// (A28) bleiben unverändert.
 				flagDataArray.push({
 					actorId: actor.id,
 					addEffect: healCarrier,
+					turnEnd: true,
+					effectDuration: rounds,
 					conditionData: {
 						dot: { label: 'ELIXIR.DOT_HEAL', formula: healPerRound, resource: 'heal', damageType: 'healing', separateRoll: false },
-						durationRounds: rounds,
 					},
 				});
 			}
@@ -328,12 +342,14 @@ export async function useSelfElixir(item) {
 		if (corruptionPerRound !== '') {
 			const corruptionCarrier = findStatusEffect('elixirregress');
 			if (corruptionCarrier) {
+				// v1.2: wie der Heil-Träger - Zugende-Löschung (A34).
 				flagDataArray.push({
 					actorId: actor.id,
 					addEffect: corruptionCarrier,
+					turnEnd: true,
+					effectDuration: rounds,
 					conditionData: {
 						dot: { label: 'ELIXIR.DOT_CORRUPTION', formula: corruptionPerRound, resource: 'corruption', separateRoll: false },
-						durationRounds: rounds,
 					},
 				});
 			}
@@ -347,21 +363,44 @@ export async function useSelfElixir(item) {
 		const effect = findStatusEffect(condition);
 		if (effect) {
 			const rounds = await rollRounds(eff.rounds, rolls);
+			// v1.2: Zugende-Löschung (turnEnd-Marker, Rudolfs Entscheidung) -
+			// die Bedingung wirkt, solange der Träger dran ist, und
+			// verschwindet beim Weiterschalten (A34-Engine + Beendet-Karte).
 			flagDataArray.push({
 				actorId: actor.id,
 				addEffect: effect,
-				conditionData: { durationRounds: rounds },
+				turnEnd: true,
+				effectDuration: rounds,
+				conditionData: {},
 			});
 			lines.push(F('ELIXIR.CHAT_CONDITION', { condition: conditionName(effect), rounds }));
 		}
 	}
 
 	// Attributsverschiebungen (Kriegsbemalung +1, Wildpfriem 2-Punkte-
-	// Verschiebung) — temporäre Attributsmodifikatoren, Szenen-Dauer ist
-	// SL-Buchhaltung (kein Zustands-Tracking in v1, dokumentierte Begrenzung).
-	for (const change of attributeChanges) {
-		flagDataArray.push({ actorId: actor.id, attributeName: change.attr, attributeChange: change.value });
-		lines.push(F('ELIXIR.CHAT_ATTRMOD', { attribute: L(`ATTRIBUTE.${change.attr.toUpperCase()}`), value: change.value }));
+	// Verschiebung) — v1.2 (Rudolfs Beschluss): die Boni laufen über ein
+	// LÖSCHBARES STATUS-SYMBOL (Condition 'elixirattr'); Löschen des Symbols
+	// setzt die temporaryMod-Werte automatisch zurück (deleteActiveEffect-
+	// Haken in hooks.js liest flagData.attributeChanges). Solange das Symbol
+	// liegt, wirken die Verschiebungen - Szenen-Ende ist damit SL-Handarbeit
+	// EINEM Griff (Symbol abziehen) statt Feldebuchhaltung.
+	if (attributeChanges.length > 0) {
+		const attrCarrier = findStatusEffect('elixirattr');
+		if (attrCarrier) {
+			flagDataArray.push({
+				actorId: actor.id,
+				addEffect: attrCarrier,
+				conditionData: {
+					attrSymbol: true,
+					attributeChanges: attributeChanges.map((c) => ({ name: c.attr, value: c.value })),
+				},
+			});
+			lines.push(L('ELIXIR.CHAT_ATTR_SYMBOL'));
+		}
+		for (const change of attributeChanges) {
+			flagDataArray.push({ actorId: actor.id, attributeName: change.attr, attributeChange: change.value });
+			lines.push(F('ELIXIR.CHAT_ATTRMOD', { attribute: L(`ATTRIBUTE.${change.attr.toUpperCase()}`), value: change.value }));
+		}
 	}
 
 	if (String(eff.note ?? '').trim() !== '') {
@@ -370,9 +409,6 @@ export async function useSelfElixir(item) {
 	if (flagDataArray.length === 0 && lines.length === 0) {
 		lines.push(L('ELIXIR.CHAT_NO_EFFECT_FIELDS'));
 	}
-
-	// 1×/Abenteuer-Grundsatz (Konzept-Beschluss 3): nur Erinnerungszeile.
-	lines.push(L('ELIXIR.CHAT_ONCE_PER_ADVENTURE'));
 
 	await postElixirCard(actor, F('ELIXIR.CHAT_SELF_INTRO', { name: actor.name, elixir: item.name }), lines, rolls);
 	if (flagDataArray.length > 0) {
@@ -478,9 +514,11 @@ async function resolveThrownElixir(actor, item, token, favour, modifier) {
 	await postElixirCard(actor, F('ELIXIR.CHAT_THROW_INTRO', { name: actor.name, elixir: item.name, target: targetName }), [
 		formatElixirRollString(attackRoll, true, modifier),
 		`<div class="tooltip"><p>${hit ? targetName + L('ELIXIR.CHAT_HIT') + faLevelLabel(attackRoll) : targetName + L('ELIXIR.CHAT_MISS')}</p><span class="tooltiptext">${attackRoll.toolTip}</span></div>`,
+		// v1.2 (Rudolfs Testfund): Leerzeile zwischen Treffer- und
+		// Ziel-Probe-Zeile - die Wirkungszeilen sind optisch getrennt.
+		...(hit ? ['&nbsp;'] : []),
 		...(hit ? await applyThrownEffectsOnHit(item, token, eff, rolls, flagDataArray, targetName) : []),
 		...(String(eff.note ?? '').trim() !== '' ? [F('ELIXIR.CHAT_NOTE', { note: String(eff.note).trim() })] : []),
-		L('ELIXIR.CHAT_ONCE_PER_ADVENTURE'),
 	], rolls);
 	if (flagDataArray.length > 0) {
 		await createModifyTokenChatButton(flagDataArray);
@@ -508,12 +546,14 @@ async function applyThrownEffectsOnHit(item, token, eff, rolls, flagDataArray, t
 		const rounds = await rollRounds(eff.rounds, rolls);
 		const acidEffect = findStatusEffect('acid');
 		if (acidEffect) {
+			// v1.2: Zugende-Löschung (A34) - N Ticks am Zugbeginn bleiben.
 			flagDataArray.push({
 				tokenId: token.id,
 				addEffect: acidEffect,
+				turnEnd: true,
+				effectDuration: rounds,
 				conditionData: {
 					dot: { label: 'CONDITION.ACID', formula: damagePerRound, resource: 'toughness', damageType: 'acid', separateRoll: false },
-					durationRounds: rounds,
 				},
 			});
 		}
@@ -536,11 +576,14 @@ async function applyThrownEffectsOnHit(item, token, eff, rolls, flagDataArray, t
 			const effect = findStatusEffect(targetCondition);
 			if (effect) {
 				const rounds = await rollRounds(eff.targetConditionRounds, rolls);
-				const conditionData = { durationRounds: rounds };
+				// v1.2 (Rudolfs Entscheidung): Benommen wirkt, solange der
+				// Träger dran ist, und verschwindet beim Weiterschalten -
+				// Zugende-Löschung über die A34-Engine (turnEnd-Marker).
+				const conditionData = {};
 				if (targetCondition === 'dazed') {
 					conditionData.dazedPenalty = getDazedPenaltyForLevel(getAlchemyLevel(item));
 				}
-				flagDataArray.push({ tokenId: token.id, addEffect: effect, conditionData });
+				flagDataArray.push({ tokenId: token.id, addEffect: effect, turnEnd: true, effectDuration: rounds, conditionData });
 				lines.push(F('ELIXIR.CHAT_TARGET_CONDITION', { target: targetName, condition: conditionName(effect), rounds }));
 			}
 		}
@@ -580,7 +623,6 @@ export async function useNarrativeElixir(item) {
 	} else {
 		lines.push(F('ELIXIR.CHAT_SL_NOTE', { name: item.name }));
 	}
-	lines.push(L('ELIXIR.CHAT_ONCE_PER_ADVENTURE'));
 	const introKey = NARRATIVE_INTRO[getElixirUsage(item)] ?? 'ELIXIR.CHAT_SPECIAL_INTRO';
 	await postElixirCard(actor, F(introKey, { name: actor.name, elixir: item.name }), lines);
 }
@@ -609,5 +651,9 @@ export function useElixir(item) {
 /* ---------------------------------------------------------------- */
 
 function conditionName(effect) {
-	return effect?.name ? String(effect.name) : effect?.label ? L(effect.label) : '';
+	// v1.2 (Rudolfs Testfund: Nebelball-Karte zeigte den Roh-Key
+	// „CONDITION.DAZED"): CONFIG-Einträge tragen in name/label die i18n-KEYS -
+	// lokalisiertes label bevorzugen (localize gibt Nicht-Keys unverändert
+	// zurück, Core-Conditions mit fertigem Text bleiben also auch korrekt).
+	return effect?.label ? L(effect.label) : effect?.name ? String(effect.name) : '';
 }

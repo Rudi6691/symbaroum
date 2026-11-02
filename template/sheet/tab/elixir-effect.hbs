@@ -36,6 +36,15 @@
             <label for="{{id}}-system.elixirEffect.condition" data-tooltip="{{localize "ELIXIR.FIELD_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.FIELD_CONDITION"}}</label>
             <input id="{{id}}-system.elixirEffect.condition" name="system.elixirEffect.condition" type="text" value="{{system.elixirEffect.condition}}" data-dtype="String"/>
         </div>
+        {{!-- Elixier-Automatisierung v1.2 (Rudolfs Testfund Augentropfen):
+            Zustandsheilung am Anwender - Select statt Freitext, nur
+            verifizierte Condition-Ids (siehe config.js-Selection). --}}
+        <div class="elixir-effect-field">
+            <label for="{{id}}-system.elixirEffect.removeCondition" data-tooltip="{{localize "ELIXIR.REMOVE_CONDITION_TOOLTIP"}}">{{localize "ELIXIR.REMOVE_CONDITION_LABEL"}}</label>
+            <select id="{{id}}-system.elixirEffect.removeCondition" name="system.elixirEffect.removeCondition" data-tooltip="{{localize "ELIXIR.REMOVE_CONDITION_TOOLTIP"}}">
+                {{selectOptions remove_condition_selection selected=removeCondition valueAttr="id" labelAttr="label"}}
+            </select>
+        </div>
         <div class="elixir-effect-field">
             <label for="{{id}}-system.elixirEffect.attributeMods" data-tooltip="{{localize "ELIXIR.FIELD_ATTRMODS_TOOLTIP"}}">{{localize "ELIXIR.FIELD_ATTRMODS"}}</label>
             <input id="{{id}}-system.elixirEffect.attributeMods" name="system.elixirEffect.attributeMods" type="text" value="{{system.elixirEffect.attributeMods}}" data-dtype="String"/>

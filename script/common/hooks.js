@@ -896,9 +896,13 @@ Hooks.on('updateCombat', async (combat, changed) => {
 			? game.i18n.format('COMBAT.HEAL_SOURCE_LINE', { label, damage: amount })
 			: game.i18n.format('COMBAT.DOT_SOURCE_LINE', { label, damage: amount });
 		if (dot.separateRoll) line += game.i18n.localize('COMBAT.DOT_SEPARATE');
-		if (fd.durationRounds != null) {
+		// v1.2 (elixirs): dot effects on the A34 turn-end clock (dot + turnEnd,
+		// no durationRounds) show the same remaining-rounds suffix - their
+		// counter is fd.turnEndRounds; the deletion itself stays with A34.
+		const displayRounds = fd.durationRounds ?? fd.turnEndRounds;
+		if (displayRounds != null) {
 			// this very tick is running: one round of the duration is consumed
-			const remaining = Number(fd.durationRounds) - 1;
+			const remaining = Number(displayRounds) - 1;
 			line += remaining > 0 ? game.i18n.format('COMBAT.DOT_ROUNDS_LEFT', { count: remaining }) : game.i18n.localize('COMBAT.DOT_EXPIRED');
 		}
 		lines.push(line);
@@ -1062,6 +1066,35 @@ Hooks.on('updateCombat', async (combat, changed) => {
 			user: game.user.id,
 			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
 			content: html,
+		});
+	}
+});
+
+/* Elixier-Automatisierung v1.2 (Rudolfs Beschluss „alle anhaltenden
+   Effekte bekommen ein löschbares Statussymbol, beim Löschen werden die
+   Boni automatisch zurückgesetzt"): Attributsverschiebungen
+   (Kriegsbemalung, Wildpfriem) laufen über die Condition 'elixirattr',
+   deren flagData die Verschiebungen als attributeChanges-Liste mitführt.
+   Der SL beendet die Wirkung, indem er das Symbol entfernt - dieser Haken
+   zieht jeden Eintrag vom jeweiligen temporaryMod ab. Re-Anwendung legt
+   ein weiteres Symbol (bzw. erweitert ein bestehendes, siehe addCondition),
+   jedes Symbol reverts nur SEINE eigenen Verschiebungen. */
+Hooks.on('deleteActiveEffect', async (effect) => {
+	const fd = effect?.getFlag?.(game.system.id, 'flagData');
+	if (!fd?.attrSymbol || !Array.isArray(fd.attributeChanges)) return;
+	const actor = effect.parent;
+	if (!actor?.system?.attributes) return;
+	const updateData = {};
+	for (const change of fd.attributeChanges) {
+		const attr = actor.system.attributes?.[change.name];
+		if (!attr) continue;
+		updateData[`system.attributes.${change.name}.temporaryMod`] = attr.temporaryMod - Number(change.value ?? 0);
+	}
+	if (!foundry.utils.isEmpty(updateData)) {
+		await actor.update(updateData);
+		await ChatMessage.create({
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('ELIXIR.CHAT_ATTR_REVERTED', { name: actor.name })}</p></div></div></div>`,
 		});
 	}
 });
@@ -1288,7 +1321,12 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						continue;
 					}
 					let token = flagData.tokenId ? canvas.tokens.objects.children.find((token) => token.id === flagData.tokenId) : null;
-					let actor = token?.actor ?? game.actors.get(flagData.actorId);
+					// v1.2 (Rudolfs Weihwasser-Fund, bestätigt an unverknüpfter
+					// SL-Test-Puppe): game.actors.get findet synthetische Token-
+					// Actor NICHT - dritter Fallback sucht das Canvas-Token
+					// über dessen Actor-Id, damit GM-Karten mit actorId an
+					// verknüpften wie unverknüpften Token wirken.
+					let actor = token?.actor ?? game.actors.get(flagData.actorId) ?? canvas.tokens?.objects?.children?.find((t) => t.actor?.id === flagData.actorId)?.actor;
 					if (!actor) {
 						continue;
 					}
@@ -1314,7 +1352,11 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							}
 							if (flagData.dot) {
 								const engineData = { dot: flagData.dot };
-								if (flagData.effectDuration != null) engineData.durationRounds = flagData.effectDuration;
+								// v1.2: dot + turnEnd (elixir path) runs on the A34 turn-end clock -
+								// durationRounds would pull deletion to turn start (A28). Without
+									// turnEnd the old behaviour (weapon-quality DoTs, wound transfer)
+									// stays exactly as is.
+									if (flagData.effectDuration != null && !flagData.turnEnd) engineData.durationRounds = flagData.effectDuration;
 								conditionData = foundry.utils.mergeObject(conditionData ?? {}, engineData);
 							}
 							// A34: turn-end conditions - a second, separate opt-in marker with

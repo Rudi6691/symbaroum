@@ -862,6 +862,16 @@ export class SymbaroumActor extends Actor {
 			effect.img ??= effect.icon;
 			delete effect.id;
 			return this.createEmbeddedDocuments("ActiveEffect", [effect]);
+		} else if (flagData?.attrSymbol) {
+			// Elixier-Automatisierung v1.2: eine weitere Attribut-Verschiebung
+			// (Kriegsbemalung/Wildpfriem) erweitert das liegende Bonus-Symbol -
+			// die attributeChanges-Liste wird gemerged; beim Entfernen des
+			// Symbols revertiert der deleteActiveEffect-Haken (hooks.js) ALLE
+			// gesammelten Verschiebungen auf einmal.
+			const existingFlagData = existing.getFlag(game.system.id, "flagData") ?? {};
+			const merged = [...(existingFlagData.attributeChanges ?? []), ...(flagData.attributeChanges ?? [])];
+			await existing.update({ [`flags.${game.system.id}.flagData.attributeChanges`]: merged });
+			return existing;
 		} else if (flagData?.dot?.stackable) {
 			// A28 G3 (Aderlass): another hit on an already bleeding target does not create
 			// a second condition - the existing effect's stack counter is raised by +1 and

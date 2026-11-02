@@ -1271,6 +1271,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				// „Ressource verbrauchen“ VOM WELT-SETTING UNABHÄNGIG
 				// (reine Inventar-Aktion), GM und Blattbesitzer, nur mit
 				// Bestand (getItemCount deckt nicht-stapelbare Items mit 1 ab).
+				// v1.2 (Rudolfs Wunsch): AUCH im Kampf-Tab, wenn das Elixier
+				// als Favorit angeheftet ist - .m-tiles sind die Favoriten-
+				// Kacheln des Kampf-Tabs (die Kacheln des Kräfte-Tabs fallen
+				// am visible-item-Gate raus, da keine equipment-Items).
 				label: 'ELIXIR.CONSUME_MENU',
 				icon: `<i class="fa-solid fa-flask"></i>`,
 				visible: (elem) => {
@@ -1281,7 +1285,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						elem.isOwner
 					);
 				},
-				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
+				visibleEl: (target) => !!target.closest('.m-gear, .gear, .m-tiles'),
 				onClick: (event, elem) => {
 					useElixir(this._ctxItem(elem));
 				},
