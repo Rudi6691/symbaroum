@@ -31,6 +31,11 @@ function preloadHandlebarsTemplates() {
     // als gemeinsames Partial der klassischen und modernen Ausrüstungsblätter
     // (Foundry registriert Partials NICHT automatisch - LERNWEIS v1.1)
     'systems/symbaroum/template/sheet/tab/elixir-effect.hbs',
+    // Status-Tab v1 (02.11.): GM-only Status-Tab-Inhalt der klassischen
+    // Ausrüstungsblätter (gleiche Pflicht-Registrierung wie oben - der
+    // v1.0-Lieferfehler war genau diese fehlende Zeile: "partial ... could
+    // not be found" beim Öffnen des Gear-Item-Blatts; Fix v1.0.1).
+    'systems/symbaroum/template/sheet/tab/status.hbs',
     'systems/symbaroum/template/sheet/attributes.hbs',
     'systems/symbaroum/template/chat/item.hbs',
     'systems/symbaroum/template/chat/ability.hbs',
@@ -65,6 +70,9 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/modern/item/weapon.hbs',
     // ItemSheets v2.1: modernisierter Bonus-Tab (Modifikatoren-Zweispalter)
     'systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs',
+    // Status-Tab v1 (02.11.): GM-only Status-Tab-Inhalt der modernen
+    // Ausrüstungsblätter (Pflicht-Registrierung, siehe klassischer Block).
+    'systems/symbaroum/template/sheet/modern/item/tab-status.hbs',
   ];
   return foundry.applications.handlebars.loadTemplates(templatePaths);
 }
