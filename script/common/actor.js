@@ -814,6 +814,20 @@ export class SymbaroumActor extends Actor {
 
 		let existing = this.hasCondition(effect.id);
 
+		// Elixiere v1.4 (v1.3-Nachtest, Rudolfs Befund): Liegt ein Effekt
+		// derselben Condition auf dem Aktor, den Foundry V14 Core als
+		// abgelaufen markiert hat (duration.expired - supprimiert, Icon weg,
+		// aber NICHT geloescht), blockierte er bisher den Neu-Antrag ueber den
+		// existing-Fallthrough: Das Statussymbol liess sich nicht wieder
+		// aufsetzen, bis die A34/A28-Engine den Zombie ihrerseits loeschte.
+		// Solche Reste werden jetzt entfernt und die Condition FRISCH
+		// angelegt (raeumt auch Alt-Zombies aus der Zeit vor der
+		// Core-Entwaftung des duration-Aufbaus ab).
+		if (existing && (existing.isExpired === true || existing.duration?.expired === true)) {
+			await existing.delete();
+			existing = null;
+		}
+
 		if (!existing) {
 			effect = foundry.utils.duplicate(effect);
 			effect.label = game.i18n.localize(effect.label)?.replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
@@ -832,16 +846,25 @@ export class SymbaroumActor extends Actor {
 			if( flagData ) {
 				effect[`flags.${game.system.id}.flagData`] = flagData;
 				// A28 Stufe 1: engine-managed conditions carry their round duration on the
-				// ActiveEffect (UI display / Core duration bookkeeping). The tick hook in
-				// hooks.js owns the countdown and the deletion (tick-then-expiry with
-				// exactly N damage ticks - Core never deletes expired effects by default);
-				// every legacy application without durationRounds (K6 precedent: permanent
-				// conditions) keeps its exact current behaviour.
+				// ActiveEffect (UI display only). The tick hook in hooks.js owns the
+				// countdown and the deletion (tick-then-expiry with exactly N damage
+				// ticks); every legacy application without durationRounds (K6 precedent:
+				// permanent conditions) keeps its exact current behaviour.
+				// Elixiere v1.4 (v1.3-Nachtest, Rudolfs Befund): NO `expiry` is written
+				// here - DELIBERATELY. Since Foundry V14, `expiry` + `units` are live
+				// core-schema fields that arm the core's own combat auto-expiry: core
+				// treats duration.value as a MAXIMUM minus elapsed combat time while
+				// our engines treat it as a decrementing counter - that double
+				// countdown expired effects after roughly half the duration and core
+				// SUPPRESSED them (expired flag, icon gone, effect NOT deleted); the
+				// suppressed zombie then blocked re-application via hasCondition.
+				// A number with a null expiry ends only on world time progress, which
+				// never advances during combat - so the flagData counters remain the
+				// sole authority and duration.value is a display field.
 				if (flagData.durationRounds != null) {
 					effect.duration = {
 						value: Number(flagData.durationRounds),
 						units: "rounds",
-						expiry: "turnStart",
 					};
 				} else if (flagData.turnEndRounds != null) {
 					// A34: turn-end conditions display the same round counter, but their
@@ -850,7 +873,6 @@ export class SymbaroumActor extends Actor {
 					effect.duration = {
 						value: Number(flagData.turnEndRounds),
 						units: "rounds",
-						expiry: "turnEnd",
 					};
 				}
 			}

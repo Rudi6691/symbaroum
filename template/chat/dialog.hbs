@@ -117,6 +117,18 @@
         {{/each}}
       </div>
     {{/if}}
+    {{!-- Elixiere v1.4 (Rudolfs Freigabe 02.11.): Spezialmunition-Opt-in
+         (Betäubungspfeil/Treffpfeil) - klassische Radio-Zeile, Muster
+         Axtkünstler/Dreckiger Kampf; nur EINE Wirkung wählbar, Abbuchen
+         beim Würfeln (ammo.js), Wirkung feuert im Kampfautomatik-Pfad --}}
+    {{#if askAmmoEffect}}
+      <div class="favour">
+        <label class="lblfavour">{{localize "DIALOG.AMMO_EFFECT_OPTIN"}}:</label>
+        {{#each ammoEffectChoices as |choice|}}
+        <label class="lblfavour" title="{{choice.hint}}"><input type="radio" name="ammoEffectChoice" value="{{choice.value}}" {{#if choice.checked}}checked{{/if}}> {{choice.label}}</label>
+        {{/each}}
+      </div>
+    {{/if}}
       <div class="damagemodifier">
         <label for="dammodifier-{{did}}">{{localize "DIALOG.DAMAGE_MODIFIER"}}</label> <input id="dammodifier-{{did}}" value="{{roll_defaults.additionalModifier}}" type="text" data-dtype="Text"/> 
       </div>

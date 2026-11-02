@@ -126,8 +126,15 @@ export async function consumeElixirDose(item) {
 
 async function postElixirCard(actor, title, lines, rolls = []) {
 	const safeLines = lines.filter(Boolean);
+	// Elixiere v1.4 (v1.3-Nachtest, Rudolfs Screenshot-Befund): Zeilen OHNE
+	// innere <p>-Huelle wickeln (Kampf-Engine-Muster, hooks.js A28-Tick-Karte).
+	// Die Treffer-/Probe-Zeilen sind div.tooltip-Blöcke - ein div INNERHALB
+	// eines p ist invalides HTML, der Browser-Parser schliesst das p beim div
+	// automatisch und liess einen LEEREN Absatz (sichtbare Leerzeile) vor
+	// jeder Tooltip-Zeile entstehen. CSS selektiert ohnehin nur .finalTxt
+	// selbst, die innere Huelle war stilistisch redundant.
 	const html = `<div class="symbaroum chat ability"><div class="foreground"><h4>${title}</h4>${safeLines
-		.map((line) => `<div class="finalTxt"><p>${line}</p></div>`)
+		.map((line) => `<div class="finalTxt">${line}</div>`)
 		.join('')}</div></div>`;
 	const chatData = {
 		user: game.user.id,

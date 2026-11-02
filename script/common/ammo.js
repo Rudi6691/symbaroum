@@ -310,6 +310,68 @@ export async function consumeAmmoForAttack(actor, weapon, numberofAttacks = 1, e
 }
 
 /* ---------------------------------------------------------------- */
+/* Spezialmunition-Opt-in (Elixiere v1.4: Wuerfeldialog)         */
+/* ---------------------------------------------------------------- */
+
+/**
+ * Elixiere v1.4 (Rudolfs Freigabe 02.11.): Wuerfeldialog-Opt-in fuer
+ * alchemistische Munitionswirkungen (Betaeubungspfeil/Treffpfeil). Rudolfs
+ * Design aus der v1.0-Testrunde: Auswahl im Wuerfeldialog, nur EINE
+ * Wirkung waehlbar, Abbuchen beim Wuerfeln - bewusst UNABHAENGIG vom
+ * Waffen-Munitions-Feld und vom Munitionsverbrauch-Setting (das Opt-in
+ * IST die explizite Spieler-Entscheidung). Die Wirkung feuert ueber den
+ * bestehenden EC-Stash (ecData.ammoEffect) in attackResult weiter.
+ */
+export function findAmmoEffectStacks(actor, effectId, { requireAvailable = true } = {}) {
+	if (!actor?.items || !effectId) return [];
+	return actor.items.filter((item) => {
+		if (item?.type !== 'equipment' && item?.type !== 'weapon') return false;
+		if ((item.system?.ammoEffect ?? '') !== effectId) return false;
+		return !requireAvailable || getItemCount(item) > 0;
+	});
+}
+
+/** Gesamtbestand aller Stapel mit dieser Munitionswirkung. */
+export function getAmmoEffectTotal(actor, effectId) {
+	return findAmmoEffectStacks(actor, effectId).reduce((sum, item) => sum + getItemCount(item), 0);
+}
+
+/**
+ * Opt-in-Abbuchung beim Wurf-Submit (nur bei gewaehlter Wirkung): 1 Stueck
+ * je Angriff aus den Stapeln dieser Wirkungs-id, AP2-Stapelreihenfolge
+ * (oberster Stapel zuerst, bis 0 erlaubt - wie consumeAmmoForAttack).
+ * Der Stash ueberschreibt hier einen eventuellen Mischbestands-Stash des
+ * Kategorie-Pfads: die explizite Wahl des Spielers gewinnt.
+ * Rueckgabe-Vertrag wie consumeAmmoForAttack:
+ *   false = BLOCKIERT (Notification kam hier), String = Chat-Label.
+ */
+export async function consumeAmmoEffectForAttack(actor, effectId, numberofAttacks = 1, ecData = null) {
+	const attacks = Math.max(1, Math.round(Number(numberofAttacks) || 1));
+	const stacks = findAmmoEffectStacks(actor, effectId);
+	const total = stacks.reduce((sum, item) => sum + getItemCount(item), 0);
+	if (total < attacks) {
+		ui.notifications.warn(F('AMMO.ERR_NO_SPECIAL_AMMO', { amount: attacks }));
+		return false;
+	}
+	let remaining = attacks;
+	let firstName = null;
+	for (const item of stacks) {
+		if (remaining <= 0) break;
+		const current = getItemCount(item);
+		const takeFromStack = Math.min(current, remaining);
+		// Bewusst bis 0 erlaubt - Zeile bleibt stehen (wie Ressourcen).
+		await item.update({ 'system.number': current - takeFromStack });
+		remaining -= takeFromStack;
+		if (takeFromStack > 0 && firstName === null) firstName = item.name;
+	}
+	if (ecData) {
+		ecData.ammoEffect = effectId;
+		ecData.ammoEffectName = firstName ?? '';
+	}
+	return F('AMMO.CHAT_CONSUMED', { name: firstName ?? '', amount: attacks });
+}
+
+/* ---------------------------------------------------------------- */
 /* Bergen (v1.2: Nur noch Makro-gesteuert)                          */
 /* ---------------------------------------------------------------- */
 /*

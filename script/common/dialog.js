@@ -4,7 +4,8 @@ import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
-import { consumeAmmoForAttack } from './ammo.js';
+// Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
+import { consumeAmmoForAttack, getAmmoEffectTotal, consumeAmmoEffectForAttack } from './ammo.js';
 // Elixier-Automatisierung v1: Benommen-Malus (Nebelball) als Dialog-Vorbelegung
 import { getDazedPenalty } from './elixirs.js';
 
@@ -216,6 +217,49 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       ];
     }
   }
+  // Elixiere v1.4 (Rudolfs Freigabe 02.11.): Spezialmunition-Opt-in im
+  // Wuerfeldialog des FERNKAMPF-Angriffs - Betaeubungspfeil (stunBolt) /
+  // Treffpfeil (seekingArrow), nur EINE Wirkung waehlbar, Abbuchen beim
+  // Wuerfeln (ammo.js consumeAmmoEffectForAttack). Rudolfs Design aus der
+  // v1.0-Testrunde: bewusst NICHT an das Waffen-Munitions-Feld oder das
+  // Munitionsverbrauch-Setting gebunden - das Opt-in ist die explizite
+  // Spieler-Entscheidung; die Zeilen erscheinen nur, wenn der Akteur
+  // passende Stapel IM INVENTAR hat. Die Wirkungs-Automatisierung
+  // (Staerke-[Schaden]-Probe / Treffpfeil-Hinweis) feuert im
+  // Kampfautomatik-Pfad weiter (attackResult, wie beim EC-Kategorie-Pfad).
+  let askAmmoEffect = false;
+  let ammoEffectChoices = [];
+  if (weapon !== null && weapon.isMelee !== true) {
+    const stunBoltTotal = getAmmoEffectTotal(actor, "stunBolt");
+    const seekingArrowTotal = getAmmoEffectTotal(actor, "seekingArrow");
+    if (stunBoltTotal > 0 || seekingArrowTotal > 0) {
+      askAmmoEffect = true;
+      ammoEffectChoices = [
+        {
+          value: "none",
+          checked: true,
+          label: game.i18n.localize("DIALOG.AMMO_EFFECT_NONE"),
+          hint: game.i18n.localize("DIALOG.AMMO_EFFECT_NONE_HINT"),
+        },
+      ];
+      if (stunBoltTotal > 0) {
+        ammoEffectChoices.push({
+          value: "stunBolt",
+          checked: false,
+          label: game.i18n.localize("DIALOG.AMMO_EFFECT_STUNBOLT"),
+          hint: game.i18n.localize("DIALOG.AMMO_EFFECT_STUNBOLT_HINT"),
+        });
+      }
+      if (seekingArrowTotal > 0) {
+        ammoEffectChoices.push({
+          value: "seekingArrow",
+          checked: false,
+          label: game.i18n.localize("DIALOG.AMMO_EFFECT_SEEKINGARROW"),
+          hint: game.i18n.localize("DIALOG.AMMO_EFFECT_SEEKINGARROW_HINT"),
+        });
+      }
+    }
+  }
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
   targetAttribute_selection.defense = {
     id: "defense",
@@ -277,7 +321,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "askAxeArtist": askAxeArtist,
     "axeArtistChoices": axeArtistChoices,
     "askCheapshot": askCheapshot,
-    "cheapshotChoices": cheapshotChoices
+    "cheapshotChoices": cheapshotChoices,
+    "askAmmoEffect": askAmmoEffect,
+    "ammoEffectChoices": ammoEffectChoices
   });
 
   const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName);
@@ -632,6 +678,30 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               return;
             }
             if(ammoLabel) ecData.autoParams += ammoLabel + ", ";
+          }
+          // Elixiere v1.4: Spezialmunition-Opt-in (Betaeubungspfeil/Treffpfeil)
+          // - Radio aus dem Wuerfeldialog lesen, Abbuchung NACH dem Kategorie-
+          // Pfad, damit die explizite Wahl einen eventuellen Mischbestands-
+          // Stash ueberschreibt (Opt-in gewinnt). Wie oben: false = BLOCKIERT
+          // (kein Wurf, Notification kam aus dem ammo-Modul), String = Label
+          // fuer autoParams. Nicht Setting-gebunden: das Opt-in ist die
+          // explizite Spieler-Entscheidung; 1 Stueck je Angriff.
+          if(askAmmoEffect) {
+            let ammoEffectChoice = "none";
+            let ammoEffectRadioSelection = html[0].querySelectorAll("input[name='ammoEffectChoice']");
+            for( let f of ammoEffectRadioSelection) {
+              if( f.checked ){
+                ammoEffectChoice = f.value;
+              }
+            }
+            if(ammoEffectChoice !== "none") {
+              const specialAmmoLabel = await consumeAmmoEffectForAttack(actor, ammoEffectChoice, ecData.numberofAttacks ?? 1, ecData);
+              if(specialAmmoLabel === false) {
+                resolve(false);
+                return;
+              }
+              if(specialAmmoLabel) ecData.autoParams += specialAmmoLabel + ", ";
+            }
           }
           if(weapon && game.settings.get('symbaroum', 'combatAutomation')){
             attackFromPC = actor.type !== "monster" || ecData.targetData.actor.type === "monster";
