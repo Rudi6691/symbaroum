@@ -2,7 +2,7 @@
 	"id": "symbaroum",
 	"title": "Symbaroum",
 	"description": "Twilight falls. Davokar darkens.",
-	"version": "40.1.8",
+	"version": "40.1.9",
 	"compatibility": {
 		"minimum": "14",
 		"verified": "14.360"
@@ -97,6 +97,6 @@
 ],
 	"url": "https://github.com/Rudi6691/symbaroum",
 	"manifest": "https://github.com/Rudi6691/symbaroum/releases/latest/download/system.json",
-	"download": "https://github.com/Rudi6691/symbaroum/releases/latest/download/symbaroum-v14-40.1.8.zip",
+	"download": "https://github.com/Rudi6691/symbaroum/releases/latest/download/symbaroum-v14-40.1.9.zip",
 	"license": "LICENSE.txt"
 }
