@@ -36,6 +36,12 @@
             {{#if modern.showActivate}}
             <button type="button" class="m-activate-btn" data-action="activateAbility" data-tooltip="{{item.name}}"><img src="icons/vtt-512.png" alt=""/></button>
             {{/if}}
+            {{!-- Brauen v1: Brau-Button am gehaltenen Alchemie-Fähigkeits-Item
+                (gleiche Titelzeile, eigener data-action; Geometrie wie der
+                Geben-Button). --}}
+            {{#if modern.showBrew}}
+            <button type="button" class="m-give-btn m-brew-btn" data-action="brewElixir" data-tooltip="{{localize 'BREW.BUTTON_TOOLTIP'}}"><i class="fa-solid fa-flask"></i></button>
+            {{/if}}
             {{!-- Übergabe v1: Geben-Button nur bei physischen, gehaltenen Items
                 (Waffe/Rüstung/Ausrüstung/Artefakt) - der Aktivieren-Button
                 betrifft die disjunkten Typen Fähigkeit/Merkmal/Kraft, die

@@ -32,6 +32,9 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 import { openConsumeResourceDialog, getItemCount } from '../common/resources.js';
 // Elixier-Automatisierung v1: Kontextmenü-Eintrag „Elixier verwenden“
 import { useElixir, isAlchemical } from '../common/elixirs.js';
+// Brauen v1 (Rudolfs Freigabe 02.11.): Kontextmenü „Elixier brauen…“ an der
+// Alchemie-Fähigkeits-Kachel (Dialog: brewing.js)
+import { openBrewDialog } from '../common/brewing.js';
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
  * Filters the menu entries per item document (visible receives the Item, not the HTML
@@ -1293,6 +1296,27 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target) => !!target.closest('.m-gear, .gear, .m-tiles'),
 				onClick: (event, elem) => {
 					useElixir(this._ctxItem(elem));
+				},
+			},
+			{
+				// Brauen v1 (Rudolfs Freigabe 02.11.): Kontextmenü
+				// „Elixier brauen…“ an der Alchemie-Fähigkeits-Kachel -
+				// dritter Anker neben dem Brau-Button des Fähigkeits-
+				// Blatts (klassisch + modern). visible: Item ist eine
+				// GEHALTENE Alchemie-Fähigkeit (reference 'alchemy');
+				// visibleEl: Kräfte-Kacheln beider Ansichten (modern
+				// .m-tile, klassisch .trait-Zeilen des Kräfte-Blocks).
+				// Der Dialog (brewing.js) klärt Stufe, Labor, Rezepturen
+				// und Traditions-Zugang selbst - fehlt etwas, erscheint
+				// nur der Hinweis.
+				label: 'BREW.MENU',
+				icon: `<i class="fa-solid fa-flask"></i>`,
+				visible: (elem) => {
+					return elem?.type === 'ability' && elem?.system?.reference === 'alchemy' && !!elem.isOwner;
+				},
+				visibleEl: (target) => !!target.closest('.m-tile, .trait'),
+				onClick: (event, elem) => {
+					openBrewDialog(this._ctxItem(elem));
 				},
 			},
 		];

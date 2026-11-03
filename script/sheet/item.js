@@ -13,6 +13,9 @@ import { isAmmoCategory } from '../common/ammo.js';
 // Status-Tab v1: „Ist alchemistisch?“-Kanonik (abgeleitete Anzeige für
 // Alt-Items ohne Flag) aus elixirs.js
 import { isAlchemical } from '../common/elixirs.js';
+// Brauen v1 (Rudolfs Freigabe 02.11.): Brau-Dialog am Alchemie-Fähigkeits-
+// Item (brewing.js; Ökonomie/RAW-Modi, Labor-Bonus, Zutaten-Buchung)
+import { openBrewDialog } from '../common/brewing.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -71,6 +74,17 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 					return;
 				}
 				this.item.actor.usePower(this.item);
+			},
+			/* Brauen v1: Brau-Button am Alchemie-Fähigkeits-Item (klassischer
+			   Kopf + moderner Kopf, beide Templates zeigen ihn nur bei
+			   reference==='alchemy' && isOwned) - öffnet den Brau-Dialog
+			   (brewing.js: Ökonomie/RAW-Modus, Labor-Bonus, Zutaten-Gate). */
+			brewElixir: async function (event) {
+				event.preventDefault();
+				if (!this.item.isOwned) {
+					return;
+				}
+				await openBrewDialog(this.item);
 			},
 			powerDelete: function (event) {
 				this._onPowerDelete(event);
@@ -202,6 +216,23 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
+		/* Brauen v1 (Rudolfs Freigabe 02.11.): Labor-Qualität
+		   (system.facilityCategory) auf Ausrüstungs-Blättern, GM-only
+		   (Labor-Taxonomie ist Welt-/SL-Sache, Muster Ressourcen-Kategorie);
+		   steuert den Bonus auf die Scharfsinn-Probe des Brau-Dialogs
+		   (brewing.js), '' = kein Labor. Labels vorlokalisiert
+		   (selectOptions ohne localize-Helper). */
+		context.showFacilityCategory = this.item.type === 'equipment' && !!game.user.isGM;
+		context.facilityCategory = this.item.system.facilityCategory ?? '';
+		context.facility_category_selection = Object.values(game.symbaroum.config.FACILITY_CATEGORY_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
+		/* Brauen v1: Brau-Button am GEHALTENEN Alchemie-Fähigkeits-Item
+		   (klassischer + moderner Kopf); der Dialog löst alles Weitere
+		   auf (Stufe, Labor, Kandidaten, Traditions-Gate). */
+		context.showBrewButton =
+			this.item.type === 'ability' && this.item.system?.reference === 'alchemy' && !!this.item.isOwned;
 		/* Munitionsverbrauch v1: waffenseitige Munitions-Konfiguration
 		   (system.ammunition = { category, amount }, GM-only auf dem
 		   Waffenblatt - leere Kategorie = kein Verbrauch). */
@@ -611,6 +642,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		modern.showLevel = type === 'boon' || type === 'burden';
 		modern.showComputed = type === 'weapon' || type === 'armor';
 		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
+		/* Brauen v1: Brau-Button im modernen Kopf nur am gehaltenen
+		   Alchemie-Fähigkeits-Item (kollisionsfrei zum Aktivieren-Button,
+		   gleiche Zeile, eigener data-action). */
+		modern.showBrew = type === 'ability' && item.system?.reference === 'alchemy' && !!item.isOwned;
 		/* Übergabe v1: Geben-Button in der Titelzeile nur bei physischen,
 		   gehaltenen Items. Kollisionsfrei zum Aktivieren-Button, weil
 		   showActivate die disjunkten Typen Fähigkeit/Merkmal/Kraft betrifft

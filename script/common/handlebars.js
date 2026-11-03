@@ -22,6 +22,9 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/armor.hbs',
     'systems/symbaroum/template/sheet/equipment.hbs',
     'systems/symbaroum/template/sheet/artifact.hbs',
+    // Brauen v1 (02.11.): Item-Blatt des neuen Typs „rezeptur“ (Wurzel-
+    // Template mit klassisch/modern-Zweig, Pflicht-Preload wie trait.hbs).
+    'systems/symbaroum/template/sheet/rezeptur.hbs',
     // Behältersystem: Item-Blatt des Typs "container" (wird zusätzlich
     // beim ersten Öffnen automatisch gecacht, hier aus Konsistenzgründen)
     'systems/symbaroum/template/sheet/container.hbs',
@@ -66,6 +69,10 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/modern/item/equipment.hbs',
     'systems/symbaroum/template/sheet/modern/item/mystical-power.hbs',
     'systems/symbaroum/template/sheet/modern/item/ritual.hbs',
+    // Brauen v1 (02.11.): modernes Rezeptur-Blatt (Partial des Wurzel-
+    // Templates, Pflicht-Registrierung - ohne diese Zeile bricht das
+    // Rendering mit „partial ... could not be found“).
+    'systems/symbaroum/template/sheet/modern/item/rezeptur.hbs',
     'systems/symbaroum/template/sheet/modern/item/trait.hbs',
     'systems/symbaroum/template/sheet/modern/item/weapon.hbs',
     // ItemSheets v2.1: modernisierter Bonus-Tab (Modifikatoren-Zweispalter)

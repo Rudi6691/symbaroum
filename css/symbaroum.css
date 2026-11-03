@@ -10177,3 +10177,54 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
 .symb-dialog.modern-dialog .elixir-condition-dialog .elixir-condition-chip:has(input:not(:checked))::before {
   content: none;
 }
+/* ------------------------------------------------------------------ */
+/* Brauen v1 (Rudolfs Freigabe 02.11.) — Brau-Button am klassischen     */
+/* Alchemie-Kopf, Rezeptur-Blatt-Zeilen, Drop-Hinweis. Der moderne     */
+/* Brau-Button erbt die Geometrie komplett von .m-give-btn (zweite     */
+/* Klasse im Markup); der Brau-Dialog nutzt ausschließlich bestehende  */
+/* Roll-Dialog-/Geben-Dialog-Klassen (m-roll-row, attribute,           */
+/* fieldset.m-ability-frame, .lblfavour) — bewusst KEINE neuen        */
+/* Dialog-Regeln.                                                      */
+/* Brauen v1 */
+/* Klassischer Alchemie-Kopf: Der Avatar stapelt Aktivieren (Bild) und */
+/* Kolben-Button untereinander — NUR wenn der Brau-Button existiert     */
+/* (:has-Selektor, sonst bleibt der Standard-Kopf aller Fähigkeits-    */
+/* Blätter unangetastet). */
+.symbaroum.sheet.item .ability .sheet-header .avatar:has(.brew-elixir) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+.symbaroum.sheet.item .ability .sheet-header .avatar:has(.brew-elixir) .activate-ability,
+.symbaroum.sheet.item .ability .sheet-header .avatar:has(.brew-elixir) .brew-elixir {
+  width: 96px;
+  height: 46px;
+}
+.symbaroum.sheet.item .ability .sheet-header .avatar:has(.brew-elixir) .activate-ability img {
+  width: auto;
+  height: 38px;
+  margin: 4px auto;
+}
+.symbaroum.sheet.item .ability .sheet-header .avatar:has(.brew-elixir) .brew-elixir i {
+  font-size: 26px;
+  line-height: 44px;
+}
+/* Rezeptur-Blatt (klassisch): Zeilen der Info-/GM-Felder im Muster der
+   Status-Tab-Zeilen (.equipment .tab .resourcecategory) — der Typ ist
+   neu, deshalb die eigene Zeilenregel. */
+.symbaroum.sheet.item .rezeptur .description .resourcecategory {
+  display: flex;
+  flex-direction: row;
+  flex-basis: 100%;
+  margin: 5px;
+}
+/* Drop-Hinweis des GM-Rezeptur-Tabs (klassisch + modern): dezente
+   Kursiv-Zeile. */
+.symbaroum.sheet.item .rezeptur .rezeptur-drop-hint,
+.symbaroum.sheet.item .modern-root .rezeptur-drop-hint {
+  font-style: italic;
+  opacity: 0.75;
+  font-size: 12px;
+  align-self: center;
+}

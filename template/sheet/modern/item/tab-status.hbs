@@ -30,6 +30,17 @@
             </select>
         </div>
         {{/if}}
+        {{!-- Brauen v1 (02.11.): Labor-Qualität (system.facilityCategory),
+            GM-only - steuert den Labor-Bonus des Brau-Dialogs (brewing.js).
+            Klassische Position: direkt unter der Ressourcen-Kategorie. --}}
+        {{#if showFacilityCategory}}
+        <div class="m-inline-field">
+            <label for="{{id}}-system.facilityCategory" data-tooltip="{{localize "FACILITY_CATEGORY.TOOLTIP"}}">{{localize "FACILITY_CATEGORY.LABEL"}}</label>
+            <select id="{{id}}-system.facilityCategory" name="system.facilityCategory" data-tooltip="{{localize "FACILITY_CATEGORY.TOOLTIP"}}">
+                {{selectOptions facility_category_selection selected=facilityCategory valueAttr="id" labelAttr="label"}}
+            </select>
+        </div>
+        {{/if}}
         {{!-- Status-Tab v1: „Ist alchemistisch?“ (system.alchemical,
             ''/'true') - alleinige Auswertungs-Kanonik (Kontextmenü,
             useElixir-Router); Anzeige-Initial für Alt-Items: gefüllte

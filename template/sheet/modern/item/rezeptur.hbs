@@ -1,0 +1,111 @@
+{{!-- Brauen v1: Rezeptur-Blatt, modernisierte Ansicht (Muster modern/item/
+    ritual.hbs). Kopf ohne Besitz-Felder (kein physisches Item); Beschrei-
+    bungs-Tab mit Info-Chips für alle sichtbar (Ziel/Stufe/Tradition/Wert/
+    Besitz), GM-Rezeptur-Tab mit den Editier-Feldern, Rail mit 2 Tabs. --}}
+{{> systems/symbaroum/template/sheet/modern/item/header.hbs}}
+    <div class="sheet-body m-item-body">
+        <div class="tab" data-group="primary" data-tab="description">
+            <div class="m-panel">
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                {{!-- Info-Chips (Attribut-Chip-Stil des modernen Kopfes):
+                    Spieler-Kopien bleiben lesbar, die Werte werden im
+                    GM-Rezeptur-Tab gepflegt. --}}
+                <div class="m-item-chips">
+                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.TARGET"}}">
+                        <span class="v">{{#if targetName}}{{targetName}}{{else}}{{localize "REZEPTUR.TARGET_NONE"}}{{/if}}</span>
+                        <span class="l">{{localize "REZEPTUR.TARGET"}}</span>
+                    </div>
+                    <div class="m-stat-chip" data-tooltip="{{localize "ALCHEMY_LEVEL.LABEL"}}">
+                        <span class="v">{{alchemyLevelLabel}}</span>
+                        <span class="l">{{localize "ALCHEMY_LEVEL.LABEL"}}</span>
+                    </div>
+                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.TRADITION"}}">
+                        <span class="v">{{traditionLabel}}</span>
+                        <span class="l">{{localize "REZEPTUR.TRADITION"}}</span>
+                    </div>
+                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.PRICE"}}">
+                        <span class="v">{{system.price}} Ort.</span>
+                        <span class="l">{{localize "REZEPTUR.PRICE"}}</span>
+                    </div>
+                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.OWNERSHIP"}}">
+                        <span class="v">{{ownershipLabel}}</span>
+                        <span class="l">{{localize "REZEPTUR.OWNERSHIP"}}</span>
+                    </div>
+                </div>
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+        </div>
+        {{#if symbaroumOptions.isGM}}
+        <div class="tab" data-group="primary" data-tab="rezeptur">
+            <div class="m-panel">
+                <h1>{{localize "TAB.REZEPTUR"}}</h1>
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label>{{localize "REZEPTUR.TARGET"}}</label>
+                        <input type="text" disabled value="{{#if targetName}}{{targetName}}{{else}}{{localize "REZEPTUR.TARGET_NONE"}}{{/if}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label>&nbsp;</label>
+                        <span class="rezeptur-drop-hint" data-tooltip="{{localize "REZEPTUR.TARGET_TOOLTIP"}}">{{localize "REZEPTUR.TARGET_HINT"}}</span>
+                    </div>
+                </div>
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.alchemyLevel">{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
+                        <select id="{{id}}-system.alchemyLevel" name="system.alchemyLevel">
+                            {{selectOptions alchemy_level_selection selected=system.alchemyLevel valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.alchemyTradition">{{localize "REZEPTUR.TRADITION"}}</label>
+                        <select id="{{id}}-system.alchemyTradition" name="system.alchemyTradition" data-tooltip="{{localize "REZEPTUR.TRADITION_TOOLTIP"}}">
+                            {{selectOptions rezeptur_tradition_selection selected=system.alchemyTradition valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                </div>
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.price">{{localize "REZEPTUR.PRICE"}}</label>
+                        <input id="{{id}}-system.price" name="system.price" type="number" value="{{system.price}}" data-tooltip="{{localize "REZEPTUR.PRICE_TOOLTIP"}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.ownership">{{localize "REZEPTUR.OWNERSHIP"}}</label>
+                        <select id="{{id}}-system.ownership" name="system.ownership" data-tooltip="{{localize "REZEPTUR.OWNERSHIP_TOOLTIP"}}">
+                            {{selectOptions rezeptur_ownership_selection selected=system.ownership valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                </div>
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.culture">{{localize "REZEPTUR.CULTURE"}}</label>
+                        <select id="{{id}}-system.culture" name="system.culture" data-tooltip="{{localize "REZEPTUR.CULTURE_TOOLTIP"}}">
+                            {{selectOptions rezeptur_culture_selection selected=system.culture valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.origin">{{localize "REZEPTUR.ORIGIN"}}</label>
+                        <select id="{{id}}-system.origin" name="system.origin" data-tooltip="{{localize "REZEPTUR.ORIGIN_TOOLTIP"}}">
+                            {{selectOptions rezeptur_origin_selection selected=system.origin valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                </div>
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseTarget">{{localize "REZEPTUR.BASE_TARGET"}}</label>
+                        <input id="{{id}}-system.baseTarget" name="system.baseTarget" type="text" value="{{system.baseTarget}}" data-tooltip="{{localize "REZEPTUR.BASE_TARGET_TOOLTIP"}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.invented">{{localize "REZEPTUR.INVENTED"}}</label>
+                        <input id="{{id}}-system.invented" name="system.invented" type="checkbox" value="true" {{#if inventedChecked}}checked{{/if}} data-tooltip="{{localize "REZEPTUR.INVENTED_TOOLTIP"}}"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{/if}}
+    </div>
+</div>
+    <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
+        <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
+        {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="rezeptur" data-tooltip="{{localize 'TAB.REZEPTUR'}}"><i class="fas fa-scroll"></i></button>{{/if}}
+    </nav>
+</div>

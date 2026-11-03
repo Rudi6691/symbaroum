@@ -1426,6 +1426,152 @@ SYMBAROUM.ELIXIR_REMOVE_CONDITION_SELECTION = {
   },
 };
 
+/* Brauen v1 (Rudolfs Freigabe 02.11.): Labor-Qualitaet eines Ausruestungs-
+   Items (additives Feld system.facilityCategory, Neuanlage-Default im
+   preCreate-Item-Hook hooks.js, GM-only-Select im Status-Tab) - steuert
+   den Bonus auf die Scharfsinn-Probe des Brau-Dialogs (brewing.js):
+   kein Labor = Brauen GESPERRT, einfaches Feldlabor +0, gutes Feldlabor
+   +1, einfaches stationaeres Labor +2, gutes stationaeres Labor +3
+   (Rudolfs Labor-Leiter). Ein Aktor braut mit dem BESTEN Labor seines
+   Inventars (Behaelter-Kinder inklusive, flache actor.items-Liste). */
+SYMBAROUM.FACILITY_CATEGORY_SELECTION = {
+  "": {
+    id: "",
+    label: "FACILITY_CATEGORY.NONE",
+  },
+  simpleFieldLab: {
+    id: "simpleFieldLab",
+    label: "FACILITY_CATEGORY.SIMPLE_FIELD_LAB",
+  },
+  goodFieldLab: {
+    id: "goodFieldLab",
+    label: "FACILITY_CATEGORY.GOOD_FIELD_LAB",
+  },
+  simpleLab: {
+    id: "simpleLab",
+    label: "FACILITY_CATEGORY.SIMPLE_LAB",
+  },
+  goodLab: {
+    id: "goodLab",
+    label: "FACILITY_CATEGORY.GOOD_LAB",
+  },
+};
+
+/* Brauen v1: Bonus-Map zur Labor-Kategorie ('' bleibt unbetrachtet, der
+   Brau-Dialog wertet nur Items MIT Kategorie aus). */
+SYMBAROUM.FACILITY_BONUS = {
+  "": null,
+  simpleFieldLab: 0,
+  goodFieldLab: 1,
+  simpleLab: 2,
+  goodLab: 3,
+};
+
+/* Brauen v1: Alchemie-Tradition einer Rezeptur (system.alchemyTradition,
+   '' = Hoerensagen, frei braubar). Wissens-Gate im Brau-Dialog: Zugang
+   ueber Faehigkeit/Merkmal/Kraft mit passender system.reference (TRAD_*
+   Keys) ODER Segen „Verbotenes Wissen <Tradition>“ (brewing.js). Die
+   4 Traditionen sind die Alchemie-relevanten aus Rudolfs Vault-
+   Zuordnung (Hexenwissen/Zauberei/Symbolismus/Theurgie). */
+SYMBAROUM.REZEPTUR_TRADITION_SELECTION = {
+  "": {
+    id: "",
+    label: "REZEPTUR.TRADITION_FREE",
+  },
+  witchcraft: {
+    id: "witchcraft",
+    label: "REZEPTUR.TRADITION_WITCHCRAFT",
+  },
+  sorcery: {
+    id: "sorcery",
+    label: "REZEPTUR.TRADITION_SORCERY",
+  },
+  symbolism: {
+    id: "symbolism",
+    label: "REZEPTUR.TRADITION_SYMBOLISM",
+  },
+  theurgy: {
+    id: "theurgy",
+    label: "REZEPTUR.TRADITION_THEURGY",
+  },
+};
+
+/* Brauen v1: Besitz-Stand einer Rezeptur - BEIDE Werte sind braubar
+   (Rudolfs Entscheidung: gebundene Rezepturen bedeinen das Lehen/den
+   Orden, nicht den Einzelnen); owned/bound steuert nur die Fabel. */
+SYMBAROUM.REZEPTUR_OWNERSHIP_SELECTION = {
+  owned: {
+    id: "owned",
+    label: "REZEPTUR.OWNED",
+  },
+  bound: {
+    id: "bound",
+    label: "REZEPTUR.BOUND",
+  },
+};
+
+/* Brauen v1: Kulturkreis (system.culture, mechanisch INERT - reine Fabel-
+   Angabe, keine Automatik wertet ihn aus). */
+SYMBAROUM.REZEPTUR_CULTURE_SELECTION = {
+  "": {
+    id: "",
+    label: "REZEPTUR.CULTURE_NONE",
+  },
+  zunft: {
+    id: "zunft",
+    label: "REZEPTUR.CULTURE_ZUNFT",
+  },
+  hexe: {
+    id: "hexe",
+    label: "REZEPTUR.CULTURE_HEXE",
+  },
+  goblin: {
+    id: "goblin",
+    label: "REZEPTUR.CULTURE_GOBLIN",
+  },
+  elf: {
+    id: "elf",
+    label: "REZEPTUR.CULTURE_ELF",
+  },
+  troll: {
+    id: "troll",
+    label: "REZEPTUR.CULTURE_TROLL",
+  },
+};
+
+/* Brauen v1: Herkunft der Rezeptur (system.origin, rein beschreibend -
+   das Startpaket des Rezeptur-Generators setzt z.B. 'gift'). */
+SYMBAROUM.REZEPTUR_ORIGIN_SELECTION = {
+  "": {
+    id: "",
+    label: "REZEPTUR.ORIGIN_NONE",
+  },
+  purchased: {
+    id: "purchased",
+    label: "REZEPTUR.ORIGIN_PURCHASED",
+  },
+  gift: {
+    id: "gift",
+    label: "REZEPTUR.ORIGIN_GIFT",
+  },
+  inheritance: {
+    id: "inheritance",
+    label: "REZEPTUR.ORIGIN_INHERITANCE",
+  },
+  reward: {
+    id: "reward",
+    label: "REZEPTUR.ORIGIN_REWARD",
+  },
+  reverseEngineered: {
+    id: "reverseEngineered",
+    label: "REZEPTUR.ORIGIN_REVERSE",
+  },
+  invented: {
+    id: "invented",
+    label: "REZEPTUR.ORIGIN_INVENTED",
+  },
+};
+
 /* Elixiere v1.6 (Rudolfs Antidot-Modell): das v1.5-Gift-Grad-Modell (Stufen-
    Tabelle + Formel-Rueckschlag) ist ENTFALLEN - der Rundenschaden eines
    Gifts wird bei der Anwendung EINMAL gewuerfelt und bleibt konstant

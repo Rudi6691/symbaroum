@@ -169,6 +169,7 @@
       "container",
       "equipment",
       "mysticalPower",
+      "rezeptur",
       "ritual",
       "trait",
       "weapon"
@@ -281,6 +282,19 @@
       "tradition": "",
       "description": "",
       "reference": ""
+    },
+    "rezeptur": {
+      "description": "",
+      "reference": "",
+      "target": "",
+      "alchemyLevel": "",
+      "alchemyTradition": "",
+      "price": 0,
+      "ownership": "owned",
+      "culture": "",
+      "origin": "",
+      "baseTarget": "",
+      "invented": false
     },
     "burden": {
       "templates": [

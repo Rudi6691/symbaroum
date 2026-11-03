@@ -1,0 +1,59 @@
+{{!-- Brauen v1 (Rudolfs Freigabe 02.11.): Brau-Dialog am Alchemie-Fähigkeits-
+    Item. Elixier-Auswahl (Kandidaten je Modus: Ökonomie = eigene Rezepturen,
+    RAW = Welt-Items), Labor-Zeile (Bonus), Dosen-Hinweis (RAW-Tabelle) und
+    im Ökonomie-Modus die Zutaten-Zeilen (je Dosis + Bestand); Radios
+    „Öffentlich“/„Geheim“ wie der Geben-Dialog (Geheim => Flüster-Karte).
+    Muster: elixir-throw.hbs (renderTemplate mit vollem Pfad, kein Partial,
+    theme-adaptive Zweige über renderModern). --}}
+<div class="symbaroum dialog{{#if renderModern}} modern-roll-dialog{{/if}}">
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="brew-elixir">{{localize "BREW.SELECT_ELIXIR"}}</label>
+    <select id="brew-elixir">
+      {{selectOptions candidates selected=preselect valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label>{{localize "BREW.LAB"}}</label>
+    <input type="text" disabled value="{{labName}} ({{labBonusText}})" data-tooltip="{{localize "BREW.LAB_TOOLTIP"}}"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label>{{localize "BREW.DOSES"}}</label>
+    <input id="brew-dose-hint" type="text" disabled value="{{doseHint}}" data-tooltip="{{localize "BREW.DOSES_TOOLTIP"}}"/>
+  </div>
+  {{#if economy}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label>{{localize "BREW.MATERIALS"}}</label>
+    <input id="brew-units" type="text" disabled value="{{unitsText}}" data-tooltip="{{localize "BREW.MATERIALS_TOOLTIP"}}"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label>{{localize "BREW.STOCK"}}</label>
+    <input type="text" disabled value="{{stockText}}" data-tooltip="{{localize "BREW.STOCK_TOOLTIP"}}"/>
+  </div>
+  {{/if}}
+  {{#if renderModern}}
+  <fieldset class="m-ability-frame">
+    <legend class="m-ability-label">{{localize "BREW.VISIBILITY"}}</legend>
+    <div class="m-give-vis">
+      <label class="lblfavour">
+        <input type="radio" name="brew-vis" value="public" checked/>
+        {{localize "GIVE.VISIBILITY_PUBLIC"}}
+      </label>
+      <label class="lblfavour">
+        <input type="radio" name="brew-vis" value="secret"/>
+        {{localize "GIVE.VISIBILITY_WHISPER"}}
+      </label>
+    </div>
+  </fieldset>
+  {{else}}
+  <div class="favour">
+    <label class="lblfavour">
+      <input type="radio" name="brew-vis" value="public" checked/>
+      {{localize "GIVE.VISIBILITY_PUBLIC"}}
+    </label>
+    <label class="lblfavour">
+      <input type="radio" name="brew-vis" value="secret"/>
+      {{localize "GIVE.VISIBILITY_WHISPER"}}
+    </label>
+  </div>
+  {{/if}}
+</div>

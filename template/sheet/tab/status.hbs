@@ -57,6 +57,19 @@
         </select>
     </div>
     {{/if}}
+    {{!-- Brauen v1 (02.11.): Labor-Qualität (system.facilityCategory) -
+        steuert den Bonus auf die Scharfsinn-Probe des Brau-Dialogs
+        (brewing.js): kein Labor = Brauen gesperrt, Feldlabor/„Werkstatt“
+        +0, gutes Feldlabor +1, einfaches/stationäres Labor +2, gutes
+        stationäres Labor +3. GM-only wie die Ressourcen-Kategorie. --}}
+    {{#if showFacilityCategory}}
+    <div class="resourcecategory">
+        <label for="{{id}}-system.facilityCategory" data-tooltip="{{localize "FACILITY_CATEGORY.TOOLTIP"}}">{{localize "FACILITY_CATEGORY.LABEL"}}</label>
+        <select id="{{id}}-system.facilityCategory" name="system.facilityCategory" data-tooltip="{{localize "FACILITY_CATEGORY.TOOLTIP"}}">
+            {{selectOptions facility_category_selection selected=facilityCategory valueAttr="id" labelAttr="label"}}
+        </select>
+    </div>
+    {{/if}}
     {{!-- Status-Tab v1: „Ist alchemistisch?“ (system.alchemical, ''/'true')
         - alleinige Auswertungs-Kanonik: Bei „Ja“ erscheinen die
         Alchemieeigenschaften, Kontextmenü „Elixier verwenden“ und

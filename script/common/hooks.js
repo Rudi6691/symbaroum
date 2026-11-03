@@ -40,6 +40,9 @@ import { registerResourceSettings } from './resources.js';
 // laeuft jetzt ausschliesslich ueber das Bergen-Makro (Spieler + GM, manuelle
 // Anzahl-Eingabe). Die Bergungsoption bleibt als Makro-Gate bestehen.
 import { registerAmmoSettings } from './ammo.js';
+// Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
+// der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
+import { registerBrewSettings } from './brewing.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -55,6 +58,9 @@ import { EquipmentSheet } from '../sheet/equipment.js';
 import { ArtifactSheet } from '../sheet/artifact.js';
 // Behältersystem (Projekt "Behälter" v1): Item-Blatt des neuen Typs "container"
 import { ContainerSheet } from '../sheet/container.js';
+// Brauen v1 (Rudolfs Freigabe 02.11.): Item-Blatt des neuen Typs "rezeptur"
+// (Rezepturverwaltung, Verknüpfung per Drag&drop in sheet/rezeptur.js)
+import { RezepturSheet } from '../sheet/rezeptur.js';
 import { SymbaroumWide } from '../sheet/journal.js';
 
 import { migrateWorld } from './migration.js';
@@ -82,6 +88,7 @@ Hooks.once('init', () => {
 	foundry.documents.collections.Items.registerSheet('symbaroum', EquipmentSheet, { types: ['equipment'], makeDefault: true });
 	foundry.documents.collections.Items.registerSheet('symbaroum', ArtifactSheet, { types: ['artifact'], makeDefault: true });
 	foundry.documents.collections.Items.registerSheet('symbaroum', ContainerSheet, { types: ['container'], makeDefault: true });
+	foundry.documents.collections.Items.registerSheet('symbaroum', RezepturSheet, { types: ['rezeptur'], makeDefault: true });
 	foundry.documents.collections.Journal.registerSheet('symbaroum', SymbaroumWide, {
 		label: game.i18n.localize('SYMBAROUM.OPTIONAL_CUSTOMSHEETJOURNAL'),
 		makeDefault: false,
@@ -530,6 +537,14 @@ Hooks.once('init', () => {
 	// Reihenfolge = Registrierungsreihenfolge).
 	registerAmmoSettings();
 
+	// Brauen v1 (Rudolfs Startsignal 02.11.): Welt-Setting „Brauen: Ökonomie-
+	// Modus“ (GM, scope world, Default AUS) - bewusst DIRECT UNTER den
+	// Munitions-Settings registriert (gleiche Foundry-Einstellungsliste
+	// wie lootEnabled*/resourceConsumption/ammo*, Reihenfolge =
+	// Registrierungsreihenfolge; Ökonomie = Rezeptur-Gate + Zutaten-
+	// Buchung, Default bleibt der RAW-Modus).
+	registerBrewSettings();
+
 	game.symbaroum.macros = new SymbaroumMacros();
 
 	game.symbaroum.htmlEscape = function (str) {
@@ -755,6 +770,16 @@ Hooks.on('preCreateItem', (doc, createData, options, userid) => {
 		}
 		if (doc.system.alchemical === undefined) {
 			doc.updateSource({ 'system.alchemical': '' });
+		}
+		// Brauen v1 (Rudolfs Freigabe 02.11.): Labor-Qualität des Items
+		// (facilityCategory, '' = kein Labor) - gleicher A38-Schutz wie
+		// die Elixier-Felder: nur wenn das Feld fehlt, damit Importe und
+		// GM-Taggings ihren Wert mitbringen; Alt-Items behalten undefined
+		// (alle Helfer in brewing.js pruefen ?? ''). Auswertung: bestes
+		// Labor des Inventars gibt den Bonus auf die Scharfsinn-Probe des
+		// Brau-Dialogs, ohne Labor ist Brauen gesperrt.
+		if (doc.system.facilityCategory === undefined) {
+			doc.updateSource({ 'system.facilityCategory': '' });
 		}
 	}
 });

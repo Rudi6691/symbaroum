@@ -25,6 +25,11 @@
             </div>
             <div class="avatar">
                     <button type="button" class="activate-ability" data-action="activateAbility"><img src="icons/vtt-512.png" /></button>
+                    {{!-- Brauen v1: Brau-Button am gehaltenen Alchemie-Fähigkeits-Item
+                        (Dialog: brewing.js - Ökonomie/RAW, Labor-Bonus, Zutaten). --}}
+                    {{#if showBrewButton}}
+                    <button type="button" class="brew-elixir" data-action="brewElixir" data-tooltip="{{localize "BREW.BUTTON_TOOLTIP"}}"><i class="fas fa-flask"></i></button>
+                    {{/if}}
             </div>
         </div>
 

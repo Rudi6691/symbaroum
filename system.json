@@ -29,6 +29,15 @@
 			"module": "symbaroum",
 			"type": "Adventure",
 			"banner": "systems/symbaroum/asset/image/symbaroum-compendium-banner.webp"
+		},
+		{
+			"name": "rezepturen",
+			"label": "Symbaroum Rezepturen (Brauen v1)",
+			"path": "packs/rezepturen",
+			"system": "symbaroum",
+			"module": "symbaroum",
+			"type": "Item",
+			"banner": "systems/symbaroum/asset/image/symbaroum-compendium-banner.webp"
 		}
 	],
 	"languages": [
