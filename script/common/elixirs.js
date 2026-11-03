@@ -394,7 +394,7 @@ async function pickSelfElixirTarget(actor, eff) {
 		symbDialog({
 			title: L('ELIXIR.TARGET_TITLE'),
 			content: dialogHtml,
-			classes: ['symb-roll-dialog', ...(modernRoll ? modernDialogClasses('modern-roll-dialog') : [])],
+			classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modernRoll ? modernDialogClasses('modern-roll-dialog') : [])],
 			width: 380,
 			buttons: {
 				apply: {
@@ -783,7 +783,7 @@ export async function openThrownElixirDialog(item) {
 	symbDialog({
 		title: `${L('ELIXIR.THROW_TITLE')} — ${item.name}`,
 		content: dialogHtml,
-		classes: [`symb-roll-dialog`, ...(modernRoll ? modernDialogClasses('modern-roll-dialog') : [])],
+		classes: [`symb-roll-dialog`, `symb-roll-user-${game.user.id}`, ...(modernRoll ? modernDialogClasses('modern-roll-dialog') : [])],
 		width: 440,
 		buttons: {
 			throw: {

@@ -1,7 +1,11 @@
 {{!-- Elixier-Automatisierung v1 (Rudolfs Freigabe 01.11.): Wurf-Dialog der
     Wurf-Elixiere (elixirUsage 'thrown') — Zieltoken-Auswahl, Modifikator
     (Vorbelegung bei Benommen-Malus) und Gunst, Muster Würfeldialog. --}}
-<div class="symbaroum dialog{{#if renderModern}} modern-roll-dialog{{/if}}">
+{{!-- Brauen v1.2 (Testrunde 2, P8-Labels): gleicher Fix wie der Brau-
+    Dialog - die Klasse "dialog" (klassische Label-Texturbanner, !
+    important) nur im klassischen Modus, moderner Root kanonisch wie
+    dialog-modern.hbs. --}}
+<div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="elixir-throw-target">{{localize "ELIXIR.TARGET"}}</label>
     <select id="elixir-throw-target">

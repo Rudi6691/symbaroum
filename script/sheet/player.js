@@ -1386,7 +1386,57 @@ export class PlayerSheet extends SymbaroumActorSheet {
 					openBrewDialog(this._ctxItem(elem));
 				},
 			},
+			{
+				/* Brauen v1.2 (Rudolfs Testrunde 2, Freigabe): Löschen-
+				   Eintrag für ALLE Items im eigenen Besitz - das schlanke
+				   Menü (Munition v1.3) hatte den Eintrag entfernt und der
+				   Papierkorb des Ausrüstungsdialogs öffnet nur für
+				   Ausrüstung/Stapel; Rezepturen (wie alle anderen
+				   Nicht-Ausrüstungs-Items) waren übers Blatt nicht
+				   löschbar. Ohne visibleEl-Beschränkung: überall, wo das
+				   Kontextmenü öffnet (Ausrüstungs-, Kraft-, Kampf-Zeilen
+				   beider Ansichten). Sicherheitsfrage im Ja/Nein-Dialog
+				   (Muster m-eq-delete). */
+				label: 'MODERN.DELETE',
+				icon: `<i class="fa-solid fa-trash"></i>`,
+				visible: (elem) => !!elem?.isOwner,
+				onClick: (event, elem) => {
+					this._openDeleteConfirmDialog(this._ctxItem(elem));
+				},
+			},
 		];
+	}
+
+	/* Brauen v1.2: Ja/Nein-Sicherheitsfrage vor dem Löschen (Muster des
+	   m-eq-delete-Handlers des Ausrüstungsdialogs - der Item-Name läuft
+	   über textContent und kann kein HTML einschleppen). */
+	_openDeleteConfirmDialog(item) {
+		if (!item) return;
+		const localize = (key) => game.i18n.localize(key);
+		const question = document.createElement('p');
+		question.className = 'm-eq-confirm';
+		question.textContent = game.i18n.format('MODERN.EQUIP_DELETE_CONFIRM', { name: item.name });
+		const confirmWrap = document.createElement('div');
+		confirmWrap.appendChild(question);
+		symbDialog({
+			title: localize('MODERN.DELETE'),
+			content: confirmWrap,
+			classes: this._modernDialogClasses(),
+			buttons: {
+				confirm: {
+					icon: '<i class="fas fa-check"></i>',
+					label: localize('BUTTON.YES'),
+					callback: async () => {
+						await item.delete();
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: localize('BUTTON.NO'),
+					callback: async () => {},
+				},
+			},
+		});
 	}
 	/* Munitionsverbrauch v1.2 (Fund 1 der Testrunde 2): Der V14-Core ruft
 	 * die onClick-Handler des Kontextmenüs als (event, target) auf - target

@@ -6,7 +6,13 @@
     „Öffentlich“/„Geheim“ wie der Geben-Dialog (Geheim => Flüster-Karte).
     Muster: elixir-throw.hbs (renderTemplate mit vollem Pfad, kein Partial,
     theme-adaptive Zweige über renderModern). --}}
-<div class="symbaroum dialog{{#if renderModern}} modern-roll-dialog{{/if}}">
+{{!-- Brauen v1.2 (Testrunde 2, P8-Labels): Das Wurzelelement trägt die
+    Klasse "dialog" NUR noch im klassischen Modus - im modernen Modus ist
+    der Root "symbaroum modern-roll-dialog" wie der kanonische moderne
+    Würfeldialog (dialog-modern.hbs) und der Geben-Dialog. Die Klasse
+    "dialog" zog sonst die klassische Texturbanner-Regel für Labels
+    (!important) auch in den modernen Dialog. --}}
+<div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="brew-elixir">{{localize "BREW.SELECT_ELIXIR"}}</label>
     <select id="brew-elixir">

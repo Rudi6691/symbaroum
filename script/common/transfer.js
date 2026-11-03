@@ -332,10 +332,16 @@ async function performTransfer(ctx) {
 	const { sourceActor, targetActor, targetUser, item, quantity, money, mode } = ctx;
 	const description = describeTransfer(sourceActor, item, quantity, money);
 	const payload = money != null ? { kind: 'money', money: Math.round(money) } : buildPayload(sourceActor, item, quantity);
+	/* Brauen v1.2 (Rudolfs Testrunde 2, Freigabe): Rezepturen werden als
+	   KOPIE geteilt - Wissen verbreitet sich, das Original bleibt beim
+	   Geber. Der Diebstahl-Fall (komplette Entfernung) läuft bewusst über
+	   Drag&drop zwischen den Blättern (_moveItemBetweenActors in
+	   sheet/actor.js, typagnostisch, SL oder Beide-Besitz). */
+	const keepOriginal = item?.type === 'rezeptur';
 	const direct = game.user.isGM || !!targetActor.isOwner;
 	if (direct) {
 		await applyAtTarget(targetActor, payload);
-		await removeFromSource(sourceActor, item, quantity, money);
+		if (!keepOriginal) await removeFromSource(sourceActor, item, quantity, money);
 	} else {
 		game.socket.emit('system.symbaroum', {
 			type: 'transferExecute',
@@ -348,7 +354,8 @@ async function performTransfer(ctx) {
 		});
 		// Löschen parallel zum Execute: beide Clients besitzen jeweils
 		// ihre Seite - der Geber-Client hat die Ownership an der Quelle.
-		await removeFromSource(sourceActor, item, quantity, money);
+		// Rezepturen (keepOriginal) bleiben als Kopie beim Geber.
+		if (!keepOriginal) await removeFromSource(sourceActor, item, quantity, money);
 	}
 	await sendTransferCard({
 		sourceActor,

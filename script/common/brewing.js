@@ -343,7 +343,11 @@ export async function openBrewDialog(abilityItem) {
 	symbDialog({
 		title: `${L('BREW.DIALOG_TITLE')} — ${actor.name}`,
 		content: dialogHtml,
-		classes: ['symb-roll-dialog', ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+		/* Brauen v1.2 (Testrunde 2): Nutzer-Marker wie die kanonischen
+		   Würfeldialoge (dialog.js/item.js) - closeOpenRollDialogs
+		   schließt den offenen Brau-Dialog jetzt beim Designwechsel
+		   (Rudolfs v1.2-Entscheidung, Automatisierungspaket 1). */
+		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
 		width: 440,
 		// Dosen-/Zutaten-Zeilen beim Kandidatenwechsel aktualisieren (Live-DOM,
 		// Loot-v1.3-Lernweis: onRender-Hook, Listener am vorgebauten Content).
