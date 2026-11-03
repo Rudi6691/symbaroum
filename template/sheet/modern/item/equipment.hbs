@@ -6,6 +6,8 @@
 {{> systems/symbaroum/template/sheet/modern/item/header.hbs}}
     <div class="sheet-body m-item-body">
         <div class="tab" data-group="primary" data-tab="description">
+            {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
+            {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
             {{!-- Status-Tab v1 (02.11.): Die GM-Felder (Artefakt, Stapelbar,
                 Ressourcen-Kategorie, „Ist alchemistisch?“ + Alchemie-
                 eigenschaften) sind in den GM-only Status-Tab (data-tab=

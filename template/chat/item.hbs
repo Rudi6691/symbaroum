@@ -53,7 +53,12 @@
         {{/if}}
 
         {{#if system.Ritual}}
-        <p><strong>{{localize "RITUAL.TRADITION"}}:</strong> {{system.tradition}}</p>
+        {{!-- Traditionen v1: aufgelöste Traditions-Labels statt Alt-
+            Freitext (item.js sendToChat setzt traditionsText; leer =
+            Zeile entfällt). --}}
+        {{#if traditionsText}}
+        <p><strong>{{localize "RITUAL.TRADITION"}}:</strong> {{traditionsText}}</p>
+        {{/if}}
         <p><strong>{{localize "RITUAL.DESCRIPTION"}}:</strong> {{removeStyling system.description}}</p>
         {{/if}}
 

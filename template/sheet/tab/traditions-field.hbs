@@ -1,0 +1,48 @@
+{{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): gemeinsames
+    FELD-Partial „Traditionswissen?“ — benutzt vom klassischen und modernen
+    „Traditionen“-Tab (traditions.hbs / tab-traditions.hbs) und als Zeile im
+    Ausrüstungs-Status-Tab (klassisch status.hbs, modern tab-status.hbs).
+    Zwei Zweige: „Verbotenes Wissen“-Segen = Single-Select (genau EINE Id im-
+    selben system.traditions-Feld; mehrfach erwerbbar = Segen mehrfach
+    anlegen), Standard = dreiwertiges Ja/Nein-Gate (system.traditionsActive,
+    Muster „Bewirkt Zustand“ v1.3 — '' ist Altbestand-Ableitung und
+    persistiert erst beim Submit) mit Zahnrad-Dialog (Mehrfachauswahl) und
+    read-only Chips bei „Ja“. Kontext: tradition_knowledge (item.js). --}}
+{{#if tradition_knowledge.isForbiddenKnowledge}}
+{{!-- „Verbotenes Wissen“-Zweig: Single-Select statt Gate + Dialog. --}}
+<div class="traditions-row">
+    <label for="{{id}}-system.traditions" data-tooltip="{{localize "TRADITION.VW_TOOLTIP"}}">{{localize "TRADITION.SELECT_LABEL"}}</label>
+    <select id="{{id}}-system.traditions" name="system.traditions" data-tooltip="{{localize "TRADITION.VW_TOOLTIP"}}">
+        <option value="" {{#unless tradition_knowledge.selected}}selected{{/unless}}>{{localize "TRADITION.SELECT_NONE"}}</option>
+        {{#each tradition_knowledge.knownSelection as | t |}}
+        <option value="{{t.id}}" {{#ife ../tradition_knowledge.selected t.id}}selected{{/ife}}>{{t.label}}</option>
+        {{/each}}
+    </select>
+</div>
+{{else}}
+{{!-- Standard-Zweig: Ja/Nein-Gate + Zahnrad-Dialog bei „Ja“. --}}
+<div class="traditions-row">
+    <label for="{{id}}-system.traditionsActive" data-tooltip="{{localize "TRADITION.KNOWLEDGE_HINT"}}">{{localize "TRADITION.KNOWLEDGE_LABEL"}}</label>
+    <div class="elixir-condition-toggle">
+        <select id="{{id}}-system.traditionsActive" name="system.traditionsActive" data-tooltip="{{localize "TRADITION.KNOWLEDGE_HINT"}}">
+            <option value="false" {{#ife tradition_knowledge.active "false"}}selected{{/ife}}>{{localize "TRADITION.NO"}}</option>
+            <option value="true" {{#ife tradition_knowledge.active "true"}}selected{{/ife}}>{{localize "TRADITION.YES"}}</option>
+        </select>
+        {{#ife tradition_knowledge.active "true"}}
+        <button type="button" class="elixir-condition-edit" data-action="openTraditionDialog" data-tooltip="{{localize "TRADITION.DIALOG_HINT"}}">
+            <i class="fas fa-gear"></i>
+        </button>
+        {{/ife}}
+    </div>
+</div>
+{{#ife tradition_knowledge.active "true"}}
+{{#if tradition_knowledge.labels.length}}
+<div class="traditions-display">
+    <span class="traditions-display-label">{{localize "TRADITION.DISPLAY_LABEL"}}</span>
+    {{#each tradition_knowledge.labels as | label |}}
+    <span class="tradition-chip">{{label}}</span>
+    {{/each}}
+</div>
+{{/if}}
+{{/ife}}
+{{/if}}

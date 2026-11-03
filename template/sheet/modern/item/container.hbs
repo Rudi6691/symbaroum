@@ -35,12 +35,23 @@
                         <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
                     </div>
                 </div>
+                {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
+                {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
                 <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
             </div>
         </div>
+        {{!-- Traditionen v1: GM-only „Traditionen“-Tab, modern (Behälter hat
+            klassisch keinen Bonus-Tab — eigener Anker hier). --}}
+        {{#if symbaroumOptions.isGM}}
+        <div class="tab" data-group="primary" data-tab="traditions">
+            {{> systems/symbaroum/template/sheet/modern/item/tab-traditions.hbs}}
+        </div>
+        {{/if}}
     </div>
 </div>
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
         <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
+        {{!-- Traditionen v1: Rail-Button „Traditionen“ GM-only. --}}
+        {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="traditions" data-tooltip="{{localize 'TRADITION.TAB_LABEL'}}"><i class="fas fa-gear"></i></button>{{/if}}
     </nav>
 </div>

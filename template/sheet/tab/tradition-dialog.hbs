@@ -1,0 +1,22 @@
+{{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Traditions-
+    Dialog — aufgerufen über das Zahnrad neben dem „Traditionswissen?“-Select
+    im GM-only „Traditionen“-Tab (Muster Zustandsdialog v1.2: symbDialog mit
+    Bestätigen/Abbrechen, Theme folgt dem Blatt-Design). Inhalt: Pill-Chips
+    der BEKANNTEN Traditionen als Mehrfachauswahl — dieselbe Chip-Bauweise
+    wie elixir-condition-dialog.hbs (Label-Elemente mit nativer Checkbox
+    dahinter, aktiver Zustand über :has(input:checked); das Lesen erfolgt im
+    Bestätigen-Callback über das DOM, KEINE vorab gebundenen Listener).
+    Alt-Ids außerhalb der bekannten Auswahl bleiben im komma-join erhalten
+    (z. B. später „unbekannt“ gestellte Traditionen). Geladen per
+    renderTemplate — KEIN templatePaths-Eintrag nötig. --}}
+<div class="symbaroum tradition-dialog">
+    <p class="hint">{{localize "TRADITION.DIALOG_INTRO"}}</p>
+    <div class="elixir-condition-grid">
+        {{#each traditions as | t |}}
+        <label class="elixir-condition-chip{{#if t.checked}} active{{/if}}" data-tooltip="{{t.label}}">
+            <input type="checkbox" data-tradition-id="{{t.id}}" {{checked t.checked}}/>
+            <span class="chip-label">{{t.label}}</span>
+        </label>
+        {{/each}}
+    </div>
+</div>

@@ -25,6 +25,7 @@
                 Tab-Leiste wie auf dem Ausrüstungs-Blatt gehört ohnehin zum
                 gewünschten Gear-Look (11b). --}}
             <b class="item" data-tab="description">{{localize "TAB.DESCRIPTION"}}</b>
+            {{!-- Traditionen v1 (03.11.2026): „Traditionen“-Tab GM-only, auch auf dem Behälter-Blatt. --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="traditions">{{localize "TRADITION.TAB_LABEL"}}</b>{{/if}}
         </div>
         <div class="sheet-body">
             {{!-- Testrunde-1-Wunsch (11b): Layout exakt am Ausrüstungs-Blatt -
@@ -32,6 +33,8 @@
                 und gleiche Feldreihenfolge (Kosten, Anzahl-artige Zeile, Gewicht,
                 Artefakt-Checkbox), damit die per Typ gescopeten CSS-Regeln greifen. --}}
             <div class="tab" data-group="primary" data-tab="description">
+                {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
+                {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                     <div class="cost">
@@ -100,6 +103,12 @@
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
                 </div>
             </div>
+            {{!-- Traditionen v1: GM-only „Traditionen“-Tab (Feld „Traditionswissen?“ + Zahnrad-Dialog). --}}
+            {{#if symbaroumOptions.isGM}}
+            <div class="tab" data-group="primary" data-tab="traditions">
+                {{> systems/symbaroum/template/sheet/tab/traditions.hbs}}
+            </div>
+            {{/if}}
         </div>
     </div>
 {{/if}}

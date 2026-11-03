@@ -52,6 +52,7 @@ import { isAlchemical, getAlchemyLevel } from './elixirs.js';
 import { getItemPriceBase } from './currency.js';
 import { isStackableItem, findStackTarget } from './stacking.js';
 import { checkCorruptionThreshold } from './item.js';
+import { hasTraditionAccess, hasAnyTraditionAccess, parseTraditions } from './tradition.js';
 
 /* i18n-Helfer nach elixirs.js-Muster */
 const L = (key) => game.i18n.localize(key);
@@ -167,24 +168,12 @@ export function resolveBestFacility(actor) {
 }
 
 /*
- * Traditions-Zugang: Fähigkeit/Merkmal/Mystische Kraft mit passender
- * system.reference (TRAD_*-Keys: witchcraft/sorcery/symbolism/theurgy,
- * config.js) ODER Segen „Verbotenes Wissen <Tradition>“ (Namen-Match
- * inkl. lokalisiertem Traditions-Label). Leere Tradition = Hörensagen,
- * immer frei. XP-Abbuchung bleibt manuelle GM-Sache (keine Automatik).
+ * Traditions-Zugang: AB Traditionen v1 zentral in tradition.js
+ * (Single Source; lokale Kopie entfernt). Reihenfolge: reference-Match,
+ * „Verbotenes Wissen“ mit GESETZTEM Feld, „Verbotenes Wissen“-Namen-Match.
+ * Leere Tradition = Hörensagen, immer frei. XP-Abbuchung bleibt
+ * manuelle GM-Sache (keine Automatik).
  */
-export function hasTraditionAccess(actor, tradition) {
-	if (!tradition) return true;
-	const items = actor?.items ?? [];
-	if (items.some((i) => (i?.system?.reference ?? '') === tradition)) return true;
-	const labelKey = `REZEPTUR.TRADITION_${String(tradition).toUpperCase()}`;
-	const label = String(L(labelKey) ?? '').toLowerCase();
-	return items.some((i) => {
-		const n = String(i?.name ?? '').toLowerCase();
-		if (!n.includes('verbotenes wissen') && !n.includes('forbidden knowledge')) return false;
-		return n.includes(label) || n.includes(String(tradition).toLowerCase());
-	});
-}
 
 /**
  * Zutaten je Dosis: halber Listenpreis in Schillingen (1 Alchemiezutat
@@ -215,6 +204,24 @@ function doseLabel(formula) {
 /* ---------------------------------------------------------------- */
 /*  Kandidaten                                                        */
 /* ---------------------------------------------------------------- */
+
+/*
+ * Traditionen eines Elixiers (Traditionen v1, Feld vor Namen):
+ *  - Gate 'true'  => system.traditions (Komma-Join),
+ *  - Gate 'false' => keine (bewusst abgewählt),
+ *  - Gate ''      => Altbestand: Feld falls gefüllt, sonst Namen-Fallback
+ *    über die Vault-Zuordnung (getElixirTradition). ANY-Semantik im Gate.
+ */
+function elixirTraditions(elixir) {
+	const s = elixir?.system ?? {};
+	const active = String(s.traditionsActive ?? '');
+	if (active === 'true') return parseTraditions(s.traditions);
+	if (active === 'false') return [];
+	const fromField = parseTraditions(s.traditions);
+	if (fromField.length > 0) return fromField;
+	const byName = getElixirTradition(elixir?.name);
+	return byName !== '' ? [byName] : [];
+}
 
 /*
  * Ökonomie-Modus: eigene Rezeptur-Items (Besitz owned ODER bound - beide
@@ -272,14 +279,15 @@ function buildRawCandidates(actor, ownLevel) {
 	for (const elixir of pool) {
 		const level = getAlchemyLevel(elixir);
 		if ((LEVEL_ORDER[level] ?? 0) > (LEVEL_ORDER[ownLevel] ?? 0)) continue;
-		const tradition = getElixirTradition(elixir.name);
-		if (!hasTraditionAccess(actor, tradition)) continue;
+		const traditions = elixirTraditions(elixir);
+		if (!hasAnyTraditionAccess(actor, traditions)) continue;
 		candidates.push({
 			key: elixir.uuid,
 			recipe: null,
 			elixir,
 			level,
-			tradition,
+			traditions,
+			tradition: traditions[0] ?? '', // Kompatibilität (Single-Verwender)
 			units: unitsPerDose(elixir),
 			doseFormula: doseFormula(ownLevel, level),
 		});

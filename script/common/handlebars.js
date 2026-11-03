@@ -80,6 +80,14 @@ function preloadHandlebarsTemplates() {
     // Status-Tab v1 (02.11.): GM-only Status-Tab-Inhalt der modernen
     // Ausrüstungsblätter (Pflicht-Registrierung, siehe klassischer Block).
     'systems/symbaroum/template/sheet/modern/item/tab-status.hbs',
+    // Traditionen v1 (03.11.): Partials des „Traditionen“-Pakets (gleiche
+    // Pflicht-Registrierung wie oben; der Traditions-DIALOG
+    // tradition-dialog.hbs und die Settings-App traditionsKnownSettings.hbs
+    // laden per renderTemplate/PARTS on-demand und brauchen KEIN Preload).
+    'systems/symbaroum/template/sheet/tab/traditions.hbs',
+    'systems/symbaroum/template/sheet/tab/traditions-field.hbs',
+    'systems/symbaroum/template/sheet/tab/traditions-display.hbs',
+    'systems/symbaroum/template/sheet/modern/item/tab-traditions.hbs',
   ];
   return foundry.applications.handlebars.loadTemplates(templatePaths);
 }

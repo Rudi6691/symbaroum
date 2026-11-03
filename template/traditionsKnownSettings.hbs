@@ -1,0 +1,16 @@
+{{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Konfigurations-
+    Anwendung „Bekannte Traditionen“ (settings.registerMenu, TraditionsKnown-
+    Config in tradition.js). Checkbox je Tradition der Kanonik (TRADITIONS_LIST);
+    Submit schreibt das Welt-Setting „traditionsKnown“ (Array von Ids). Steuert
+    NUR die Listen-Sichtbarkeit in Dropdowns/Chips/Filtern (z. B. Segnungen erst
+    „freischalten“, wenn die Welt sie kennt) — NICHT die Zugangsprüfung, nicht
+    das Tagging. Geladen über PARTS (HandlebarsApplicationMixin), KEIN
+    templatePaths-Eintrag nötig. --}}
+<p class="hint">{{localize "TRADITION.SETTING_KNOWN_HINT"}}</p>
+{{#each traditions as | t |}}
+<div class="form-group">
+    <label for="known_{{t.id}}">{{t.label}}</label>
+    <input type="checkbox" name="known_{{t.id}}" id="known_{{t.id}}" data-dtype="Boolean" {{checked t.checked}}/>
+</div>
+{{/each}}
+<button type="submit"><i class="fas fa-check"></i> {{localize "BUTTON.CONFIRM"}}</button>

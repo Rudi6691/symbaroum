@@ -537,7 +537,11 @@ SYMBAROUM.bastardGripDiceSteps = { 12: 10, 10: 8, 8: 6, 6: 4, 4: 4 };
 // marker in item.js so the attack dialog can filter them out precisely)
 SYMBAROUM.bastardOneHandedQualities = ["deepImpact", "precise", "massive"];
 
-SYMBAROUM.armorQualities = ["flexible", "reinforced", "concealed", "cumbersome", "desecrated", "flaming", "hallowed", "mystical"];
+// Traditionen v1 (03.11.): „Vergeltend“/„Retributive“ (APG: RÜSTUNGS-Qualität,
+// Rudolfs Klärung Konzeptrunde 1) — der Boolean existiert Upstream in
+// template.json (armor.qualities.retributive), i18n-Qualität QUALITY.RETRIBUTIVE
+// ebenfalls; hiermit wird die Qualität in den Rüstungs-Qualitäts-Tab gerendert.
+SYMBAROUM.armorQualities = ["flexible", "reinforced", "concealed", "cumbersome", "desecrated", "flaming", "hallowed", "mystical", "retributive"];
 
 SYMBAROUM.armorCompatibilities = [];
 
@@ -936,6 +940,22 @@ SYMBAROUM.TRAD_THEURGY = "theurgy";
 SYMBAROUM.TRAD_TROLLS = "trollsinging";
 SYMBAROUM.TRAD_WITCHCRAFT = "witchcraft";
 SYMBAROUM.TRAD_WIZARDRY = "wizardry";
+
+/* Traditionen v1 (03.11., Rudolfs Startsignal „Leg los“): Kanonik-Liste
+   aller 8 Traditionen — Single Source für Checkbox-Dialog, VW-Dropdown,
+   Rezeptur-Select, Kräfte-Tab-Filter und Zugangsprüfung (tradition.js).
+   Labels = neue TRADITION.*-Keys (de/en); die Reihenfolge entspricht der
+   TRAD_*-Konstanten-Reihenfolge. */
+SYMBAROUM.TRADITIONS_LIST = [
+  { id: "blessings", label: "TRADITION.BLESSINGS" },
+  { id: "sorcery", label: "TRADITION.SORCERY" },
+  { id: "staffmagic", label: "TRADITION.STAFFMAGIC" },
+  { id: "symbolism", label: "TRADITION.SYMBOLISM" },
+  { id: "theurgy", label: "TRADITION.THEURGY" },
+  { id: "trollsinging", label: "TRADITION.TROLLSINGING" },
+  { id: "witchcraft", label: "TRADITION.WITCHCRAFT" },
+  { id: "wizardry", label: "TRADITION.WIZARDRY" },
+];
 
 //temporary corruption gain for mystic powers
 SYMBAROUM.TEMPCORRUPTION_NORMAL = "corrnormal"; // 1d4 (default)
@@ -1482,26 +1502,49 @@ SYMBAROUM.FACILITY_BONUS = {
    Keys) ODER Segen „Verbotenes Wissen <Tradition>“ (brewing.js). Die
    4 Traditionen sind die Alchemie-relevanten aus Rudolfs Vault-
    Zuordnung (Hexenwissen/Zauberei/Symbolismus/Theurgie). */
+/* Traditionen v1 (03.11., Rudolfs Vorgabe Konzeptrunde 1): Alchimie wird
+   nicht mehr auf die vier klassischen Brau-Traditionen beschränkt, sondern
+   auf ALLE 8 Traditionen erweitert (auch ohne bestehende Elixiere-Rezepte).
+   Labels künftig aus dem gemeinsamen TRADITION.*-Kanonik (tradition.js nutzt
+   dieselben Keys); die alten REZEPTUR.TRADITION_*-Keys bleiben als
+   Altbestand ungenutzt stehen. Das Blatt rendert nur bekannte Traditionen
+   (traditionsKnown-Setting, siehe tradition.js). */
 SYMBAROUM.REZEPTUR_TRADITION_SELECTION = {
   "": {
     id: "",
-    label: "REZEPTUR.TRADITION_FREE",
+    label: "TRADITION.NONE",
   },
   witchcraft: {
     id: "witchcraft",
-    label: "REZEPTUR.TRADITION_WITCHCRAFT",
+    label: "TRADITION.WITCHCRAFT",
   },
   sorcery: {
     id: "sorcery",
-    label: "REZEPTUR.TRADITION_SORCERY",
+    label: "TRADITION.SORCERY",
   },
   symbolism: {
     id: "symbolism",
-    label: "REZEPTUR.TRADITION_SYMBOLISM",
+    label: "TRADITION.SYMBOLISM",
   },
   theurgy: {
     id: "theurgy",
-    label: "REZEPTUR.TRADITION_THEURGY",
+    label: "TRADITION.THEURGY",
+  },
+  blessings: {
+    id: "blessings",
+    label: "TRADITION.BLESSINGS",
+  },
+  staffmagic: {
+    id: "staffmagic",
+    label: "TRADITION.STAFFMAGIC",
+  },
+  trollsinging: {
+    id: "trollsinging",
+    label: "TRADITION.TROLLSINGING",
+  },
+  wizardry: {
+    id: "wizardry",
+    label: "TRADITION.WIZARDRY",
   },
 };
 

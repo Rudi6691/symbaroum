@@ -10346,3 +10346,197 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
   width: 100%;
   min-width: 0;
 }
+
+/* ================================================================ */
+/*  Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026)        */
+/* ================================================================ */
+
+/* Traditions-Dialog: Pill-Chips (Bauweise elixir-condition-chip,
+   3 Klassen gegen die dialog-label-Basis). */
+.symbaroum.tradition-dialog .elixir-condition-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  min-width: 0;
+}
+.symbaroum.tradition-dialog .elixir-condition-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  border: 0.0625rem solid rgba(0, 0, 0, 0.25);
+  border-radius: 0.7rem;
+  background: rgba(0, 0, 0, 0.05);
+  user-select: none;
+  white-space: nowrap;
+}
+.symbaroum.tradition-dialog .elixir-condition-chip:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+.symbaroum.tradition-dialog .elixir-condition-chip.active,
+.symbaroum.tradition-dialog .elixir-condition-chip:has(input:checked) {
+  font-weight: 600;
+  border-color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.12);
+}
+.symbaroum.tradition-dialog .elixir-condition-chip.active::before,
+.symbaroum.tradition-dialog .elixir-condition-chip:has(input:checked)::before {
+  content: "\2713\00a0";
+  font-size: 0.75rem;
+}
+.symbaroum.tradition-dialog .elixir-condition-chip:has(input:not(:checked)) {
+  font-weight: 400;
+  border-color: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.05);
+}
+.symbaroum.tradition-dialog .elixir-condition-chip:has(input:not(:checked))::before {
+  content: none;
+}
+.symbaroum.tradition-dialog .elixir-condition-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+/* Moderner Traditions-Dialog (Palette am Fenster-Root). */
+.symb-dialog.modern-dialog .tradition-dialog .hint {
+  color: var(--m-muted, #8fa192);
+  opacity: 1;
+}
+.symb-dialog.modern-dialog .tradition-dialog .elixir-condition-chip {
+  border-color: var(--m-line, #37443a);
+  background: var(--m-panel2, #212c23);
+  color: var(--m-ink, #dfe6df);
+}
+.symb-dialog.modern-dialog .tradition-dialog .elixir-condition-chip:hover {
+  background: var(--m-panel, #182019);
+}
+.symb-dialog.modern-dialog .tradition-dialog .elixir-condition-chip.active,
+.symb-dialog.modern-dialog .tradition-dialog .elixir-condition-chip:has(input:checked) {
+  border-color: var(--m-accent, #c9a227);
+  background: var(--m-panel, #182019);
+  color: var(--m-accent, #c9a227);
+}
+.symb-dialog.modern-dialog .tradition-dialog .elixir-condition-chip:has(input:not(:checked)) {
+  border-color: var(--m-line, #37443a);
+  background: var(--m-panel2, #212c23);
+  color: var(--m-ink, #dfe6df);
+}
+
+/* „Traditionswissen?“-Zeile im „Traditionen“-Tab (klassisch: .stats-
+   Panel; modern: übernimmt .m-grid das Layout) und in den Status-Tabs
+   der Ausrüstungsblätter (partials traditions-field.hbs). */
+.symbaroum.sheet.item .traditions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+  flex-wrap: wrap;
+}
+.symbaroum.sheet.item .traditions-row label {
+  min-width: 9em;
+  margin: 0;
+}
+.symbaroum.sheet.item .traditions-row select {
+  flex: 1 1 12em;
+  min-width: 12em;
+  max-width: 22em;
+}
+/* Trennung der beiden Elemente im Toggle (Select + Zahnrad) greift aus
+   dem Zustands-Dialog-Block (status-Tab v1.2). */
+
+/* Read-only Chips (Beschreibungs-Tab, traditions-display.hbs). */
+.traditions-display {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.5rem 0;
+}
+.traditions-display-label {
+  font-weight: 600;
+  font-size: 0.8rem;
+  margin-right: 0.25rem;
+}
+.tradition-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  border: 0.0625rem solid var(--color-border, rgba(0, 0, 0, 0.3));
+  border-radius: 0.7rem;
+  background: rgba(0, 0, 0, 0.07);
+  user-select: none;
+  white-space: nowrap;
+}
+.symbaroum.sheet.actor.modern .tradition-chip,
+.symbaroum.sheet.item.modern-item-root .tradition-chip {
+  border-color: var(--m-line, #37443a);
+  background: var(--m-panel2, #212c23);
+  color: var(--m-ink, #dfe6df);
+}
+
+/* Kräfte-Tab (modern): Traditions-Chips je Kachel + passiver
+   Geheimnis-Hinweis (Schloss-Chip). */
+.m-trad-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+.m-trad-chips .tradition-chip {
+  border-color: var(--m-line, #37443a);
+  background: var(--m-panel2, #212c23);
+  color: var(--m-muted, #8fa192);
+}
+.m-trad-chips .tradition-chip.trad-no-access {
+  color: var(--m-accent, #c9a227);
+  cursor: help;
+}
+
+/* Kräfte-Tab (modern): Traditions-Filter über den Gruppen. */
+.m-powers-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem 0;
+}
+.m-powers-filter label {
+  font-size: 0.8rem;
+  color: var(--m-muted, #8fa192);
+  margin: 0;
+}
+.m-powers-filter select {
+  min-width: 12em;
+}
+
+/* Qualitäts-Tabs: Geheimnis-Chip (APG-Map, Tooltip trägt das volle
+   „Geheimnis: <Tradition>“-Label; klassisch + modern). */
+.trad-secret-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.7rem;
+  border: 0.0625rem solid var(--color-border, rgba(0, 0, 0, 0.3));
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.07);
+  cursor: help;
+  vertical-align: middle;
+}
+.symbaroum.sheet.actor.modern .trad-secret-chip,
+.symbaroum.sheet.item.modern-item-root .trad-secret-chip {
+  border-color: var(--m-line, #37443a);
+  background: var(--m-panel2, #212c23);
+  color: var(--m-muted, #8fa192);
+}

@@ -14,6 +14,10 @@ import { SymbaroumItemSheet } from './item.js';
 import { getElixirTradition } from '../common/brewing.js';
 import { isAlchemical } from '../common/elixirs.js';
 import { getItemPriceBase } from '../common/currency.js';
+// Traditionen v1 (03.11.2026): Labels über die zentralen TRADITION.*-Keys
+// (statt der alten REZEPTUR.TRADITION_*-Keys) + Filter der Auswahl auf die
+// BEKANNTEN Traditionen der Welt (leere „Hörensagen“-Option bleibt).
+import { traditionLabel, knownTraditions } from '../common/tradition.js';
 
 const L = (key) => game.i18n.localize(key);
 
@@ -45,7 +49,12 @@ export class RezepturSheet extends SymbaroumItemSheet {
 		const selection = (list) =>
 			Object.values(list).map((c) => ({ id: c.id, label: game.i18n.localize(c.label) }));
 		context.alchemy_level_selection = selection(game.symbaroum.config.ALCHEMY_LEVEL_SELECTION);
-		context.rezeptur_tradition_selection = selection(game.symbaroum.config.REZEPTUR_TRADITION_SELECTION);
+		// Traditionen v1: nur BEKANNTE Traditionen im Dropdown (Setting
+		// traditionsKnown; die leere „Hörensagen“-Option bleibt immer).
+		const knownIds = new Set(knownTraditions());
+		context.rezeptur_tradition_selection = selection(game.symbaroum.config.REZEPTUR_TRADITION_SELECTION).filter(
+			(c) => c.id === '' || knownIds.has(c.id)
+		);
 		context.rezeptur_ownership_selection = selection(game.symbaroum.config.REZEPTUR_OWNERSHIP_SELECTION);
 		context.rezeptur_culture_selection = selection(game.symbaroum.config.REZEPTUR_CULTURE_SELECTION);
 		context.rezeptur_origin_selection = selection(game.symbaroum.config.REZEPTUR_ORIGIN_SELECTION);
@@ -54,8 +63,7 @@ export class RezepturSheet extends SymbaroumItemSheet {
 		const level = String(this.item.system?.alchemyLevel ?? '');
 		context.alchemyLevelLabel = level !== '' ? L(`ALCHEMY_LEVEL.${level.toUpperCase()}`) : L('ALCHEMY_LEVEL.NONE');
 		const tradition = String(this.item.system?.alchemyTradition ?? '');
-		context.traditionLabel =
-			tradition !== '' ? L(`REZEPTUR.TRADITION_${tradition.toUpperCase()}`) : L('REZEPTUR.TRADITION_FREE');
+		context.traditionLabel = tradition !== '' ? traditionLabel(tradition) : L('TRADITION.NONE');
 		const ownership = String(this.item.system?.ownership ?? 'owned');
 		context.ownershipLabel = L(`REZEPTUR.${ownership.toUpperCase()}`);
 		context.inventedChecked = !!this.item.system?.invented;

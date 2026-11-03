@@ -205,11 +205,16 @@
         "isArtifact" : false,
         "power": {
         }
+      },
+      "traditions": {
+        "traditions": "",
+        "traditionsActive": ""
       }
     },
     "trait": {
       "templates": [
-        "bonus"
+        "bonus",
+        "traditions"
       ],
       "description": "",
       "reference": "",
@@ -232,7 +237,8 @@
     },
     "ability": {
       "templates": [
-        "bonus"
+        "bonus",
+        "traditions"
       ],
       "description": "",
       "reference": "",
@@ -254,7 +260,8 @@
     },
     "mysticalPower": {
       "templates": [
-        "bonus"
+        "bonus",
+        "traditions"
       ],
       "material": "",
       "description": "",
@@ -277,13 +284,17 @@
     },
     "ritual": {
       "templates": [
-        "bonus"
+        "bonus",
+        "traditions"
       ],
       "tradition": "",
       "description": "",
       "reference": ""
     },
     "rezeptur": {
+      "templates": [
+        "traditions"
+      ],
       "description": "",
       "reference": "",
       "target": "",
@@ -298,7 +309,8 @@
     },
     "burden": {
       "templates": [
-        "bonus"
+        "bonus",
+        "traditions"
       ],
       "description": "",
       "reference": "",
@@ -306,7 +318,8 @@
     },
     "boon": {
       "templates": [
-        "bonus"
+        "bonus",
+        "traditions"
       ],
       "description": "",
       "reference": "",
@@ -315,7 +328,8 @@
     "weapon": {
       "templates": [
         "bonus",
-        "artifact"
+        "artifact",
+        "traditions"
       ],
       "description": "",
       "reference": "1handed",
@@ -363,7 +377,8 @@
     "armor": {
       "templates": [
         "bonus",
-        "artifact"
+        "artifact",
+        "traditions"
       ],
       "description": "",
       "reference": "",
@@ -384,7 +399,8 @@
     "equipment": {
       "templates": [
         "bonus",
-        "artifact"
+        "artifact",
+        "traditions"
       ],
       "description": "",
       "reference": "",
@@ -394,7 +410,8 @@
     },
     "artifact": {
       "templates": [
-        "bonus"
+        "bonus",
+        "traditions"
       ],
       "description": "",
       "power1": {
@@ -419,6 +436,9 @@
       "state": "other"
     },
     "container": {
+      "templates": [
+        "traditions"
+      ],
       "description": "",
       "reference": "",
       "cost": "",

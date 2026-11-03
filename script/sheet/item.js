@@ -16,6 +16,12 @@ import { isAlchemical } from '../common/elixirs.js';
 // Brauen v1 (Rudolfs Freigabe 02.11.): Brau-Dialog am Alchemie-Fähigkeits-
 // Item (brewing.js; Ökonomie/RAW-Modi, Labor-Bonus, Zutaten-Buchung)
 import { openBrewDialog } from '../common/brewing.js';
+// Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): zentrale
+// Traditions-Kanonik (tradition.js — Single Source für Labels, Feld-
+// Auflösung, Zugangsprüfung, Qualitäts-Geheimnisse und die Liste der
+// bekannten Traditionen). Hier: Tab-Kontext, Traditions-Dialog-Action
+// und die Geheimnis-Chips der Qualitäts-Tabs.
+import { resolveItemTraditions, knownTraditionSelection, isForbiddenKnowledge, qualitySecretLabels, parseTraditions } from '../common/tradition.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -160,6 +166,54 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 							icon: '<i class="fas fa-times"></i>',
 							label: game.i18n.localize('BUTTON.CANCEL'),
 							callback: async () => {},
+						},
+					},
+				});
+			},
+			/* Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026):
+			   Zahnrad im „Traditionen“-Tab öffnet den Traditions-Dialog
+			   (Muster Zustandsdialog v1.2): Pill-Chips der BEKANNTEN
+			   Traditionen als Mehrfachauswahl, komma-join direkt per
+			   item.update (kein hidden-Input, keine Form-Submit-Landmine);
+			   Alt-Ids außerhalb der bekannten Auswahl (z. B. später
+			   „unbekannt“ gestellte Traditionen) bleiben im String
+			   erhalten. Theme-Klassen folgen dem Blatt-Design. */
+			openTraditionDialog: async function (event) {
+				event.preventDefault();
+				const item = this.item;
+				if (!item) return;
+				const currentIds = parseTraditions(item.system.traditions);
+				const chips = knownTraditionSelection().map((t) => ({
+					id: t.id,
+					label: t.label,
+					checked: currentIds.includes(t.id),
+				}));
+				const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/sheet/tab/tradition-dialog.hbs', {
+					traditions: chips,
+				});
+				const modernEnabled = !!game.settings.get('symbaroum', 'modernSheetEnabled');
+				const renderModern = !!(modernEnabled && getModernSheetUserStyle() === 'modern');
+				symbDialog({
+					title: game.i18n.localize('TRADITION.DIALOG_TITLE'),
+					content: html,
+					classes: renderModern ? modernDialogClasses('modern-tradition-dialog') : [],
+					width: 460,
+					buttons: {
+						confirm: {
+							icon: '<i class="fas fa-check"></i>',
+							label: game.i18n.localize('BUTTON.CONFIRM'),
+							callback: async (html) => {
+								const checkedIds = Array.from(html[0].querySelectorAll('input[data-tradition-id]:checked')).map((el) => el.dataset.traditionId);
+								const chipIds = new Set(chips.map((c) => c.id));
+								const preserved = currentIds.filter((id) => !chipIds.has(id));
+								const value = [...preserved, ...checkedIds].join(',');
+								await item.update({ 'system.traditions': value });
+							},
+						},
+						cancel: {
+								icon: '<i class="fas fa-times"></i>',
+								label: game.i18n.localize('BUTTON.CANCEL'),
+								callback: async () => {},
 						},
 					},
 				});
@@ -344,6 +398,31 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   false schreiben und das Default-Merging abschalten. Umgekehrt
 		   zeigen Waffen/Rüstungen/Artefakte bei undefined "unchecked". */
 		context.stackableChecked = isStackableItem(this.item);
+		/* Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026):
+		   Kontext für den GM-only „Traditionen“-Tab (alle Item-Blätter),
+		   die read-only Beschreibungs-Tab-Anzeige und die Chips. Das
+		   Gate ist dreiwertig (Muster „Bewirkt Zustand“ v1.3): '' =
+		   Altbestand-Ableitung (Ritual mit gefülltem Freitext gilt als
+		   „Ja“), 'true'/'false' = bewusst gesetzt, persistiert erst beim
+		   Submit. „Verbotenes Wissen“-Segen (isForbiddenKnowledge) nutzt
+		   dasselbe Feld als Single-Select (selected = erste Id).
+		   displayLabels = anzeigebare Labels im Beschreibungs-Tab
+		   (VW zeigt immer, Standard-Items nur bei Gate „Ja“). */
+		const tk = resolveItemTraditions(this.item);
+		const tkIsVW = isForbiddenKnowledge(this.item);
+		context.tradition_knowledge = {
+			active: tk.active,
+			isForbiddenKnowledge: tkIsVW,
+			selected: tk.ids.length > 0 ? tk.ids[0] : '',
+			knownSelection: knownTraditionSelection(),
+			labels: tk.labels,
+			displayLabels: tkIsVW || tk.active === 'true' ? tk.labels : [],
+		};
+		/* Traditionen v1: vorlokalisierte „Geheimnis: <Tradition>“-Labels
+		   der APG-Qualitäts-Map (QUALITY_TRADITION_MAP, Vault „Geheimnisse
+		   der Traditionen“) für die Chips in den Qualitäts-Tabs — nur
+		   Waffen-/Rüstungs-Blätter werten die Map aus. */
+		context.quality_secret_labels = qualitySecretLabels();
 		/* Item-Sheet-Modernisierung v1: renderModern schaltet jedes der 11
 		   Item-Blätter in den modernisierten Zweig seines Wurzel-Templates -
 		   EXAKT wie am Aktorblatt (A6): Welt-Setting aktiviert, individuelle
@@ -848,6 +927,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 	async sendToChat() {
 		const itemData = {};
 		itemData.system = foundry.utils.duplicate(this.item.system);
+		/* Traditionen v1: Die Ritual-Zeile der Chat-Karte zeigt die
+		   aufgelösten Traditions-Labels statt des Alt-Freitexts
+		   (system.tradition bleibt als Datenfeld für die Migration
+		   erhalten, ist aber ab v1 keine Anzeige-Quelle mehr). */
+		if (this.item.type === 'ritual') {
+			itemData.traditionsText = resolveItemTraditions(this.item).labels.join(', ');
+		}
 		game.symbaroum.log('sendToChat data:', itemData);
 		itemData.img = this.item.img;
 		itemData.name = this.item.name;

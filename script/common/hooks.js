@@ -43,6 +43,13 @@ import { registerAmmoSettings } from './ammo.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
+// Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Welt-Setting
+// „Bekannte Traditionen“ (GM-only, steuert NUR die Listen-Sichtbarkeit in
+// Dropdowns/Chips/Filtern — NICHT die Zugangsprüfung) + zugehöriger
+// Konfigurations-Dialog (settings.registerMenu, TraditionsKnownConfig in
+// tradition.js). Default: alle 8 Traditionen außer Segnungen (Rudolfs
+// Klärung i — Segnungen sind in seiner Spielwelt noch nicht bekannt).
+import { TraditionsKnownConfig } from './tradition.js';
 
 import { PlayerSheet } from '../sheet/player.js';
 import { MonsterSheet } from '../sheet/monster.js';
@@ -544,6 +551,29 @@ Hooks.once('init', () => {
 	// Registrierungsreihenfolge; Ökonomie = Rezeptur-Gate + Zutaten-
 	// Buchung, Default bleibt der RAW-Modus).
 	registerBrewSettings();
+
+	// Traditionen v1: Bekannte Traditionen der Welt (Array von Traditions-
+	// Ids, config:false — gepflegt über den eigenen Konfigurations-Dialog
+	// darunter). Steuert NUR, welche Traditionen in Dropdowns/Chips/Filtern
+	// auftauchen (z. B. Segnungen erst „freischalten“, wenn die Welt sie
+	// kennt); Zugangsprüfung und Tagging bleiben davon unberührt.
+	game.settings.register('symbaroum', 'traditionsKnown', {
+		name: 'TRADITION.SETTING_KNOWN',
+		hint: 'TRADITION.SETTING_KNOWN_HINT',
+		scope: 'world',
+		type: Array,
+		default: ['sorcery', 'staffmagic', 'symbolism', 'theurgy', 'trollsinging', 'witchcraft', 'wizardry'],
+		config: false,
+		restricted: true,
+	});
+	game.settings.registerMenu('symbaroum', 'traditionsKnownMenu', {
+		name: 'TRADITION.SETTING_KNOWN',
+		label: 'TRADITION.SETTING_KNOWN_LABEL',
+		hint: 'TRADITION.SETTING_KNOWN_HINT',
+		icon: 'fas fa-eye',
+		type: TraditionsKnownConfig,
+		restricted: true,
+	});
 
 	game.symbaroum.macros = new SymbaroumMacros();
 

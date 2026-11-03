@@ -1,0 +1,10 @@
+{{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): GM-only
+    „Traditionen“-Tab auf den Item-Blättern (klassische Ansicht, Muster
+    Bonus-Tab). Panel + gemeinsames Feld-Partial traditions-field.hbs
+    („Traditionswissen?“-Gate mit Zahnrad-Dialog; „Verbotenes Wissen“-Segen:
+    Single-Select). Spieler sehen den Tab nicht (isGM-Gating am Tab-Eintrag
+    im Blatt und am Inhalt); Kontext kommt aus item.js (tradition_knowledge). --}}
+<div class="stats foreground border">
+    <h1>{{localize "TRADITION.TAB_LABEL"}}</h1>
+    {{> systems/symbaroum/template/sheet/tab/traditions-field.hbs}}
+</div>

@@ -32,10 +32,14 @@
         <div class="sheet-tabs tabs" data-group="primary">
             <b class="item" data-tab="description">{{localize "TAB.DESCRIPTION"}}</b>
             {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2) --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>{{/if}}
+            {{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): „Traditionen“-Tab GM-only auf ALLEN Item-Blättern. --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="traditions">{{localize "TRADITION.TAB_LABEL"}}</b>{{/if}}
         </div>
 
         <div class="sheet-body">
             <div class="tab" data-group="primary" data-tab="description">
+                {{!-- Traditionen v1: zugeordnete Traditionen read-only im
+                    Beschreibungs-Tab (rendert nur bei vorhandenen Labels). --}}
+                {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
@@ -45,6 +49,12 @@
             {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="bonus">
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
+            </div>
+            {{/if}}
+            {{!-- Traditionen v1: GM-only „Traditionen“-Tab (Feld „Traditionswissen?“ + Zahnrad-Dialog; „Verbotenes Wissen“-Segen: Single-Select im selben Feld). --}}
+            {{#if symbaroumOptions.isGM}}
+            <div class="tab" data-group="primary" data-tab="traditions">
+                {{> systems/symbaroum/template/sheet/tab/traditions.hbs}}
             </div>
             {{/if}}
         </div>

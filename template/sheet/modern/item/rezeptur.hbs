@@ -27,9 +27,31 @@
                         <span class="v">{{system.price}} Ort.</span>
                         <span class="l">{{localize "REZEPTUR.PRICE"}}</span>
                     </div>
-                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.OWNERSHIP"}}">
-                        <span class="v">{{ownershipLabel}}</span>
-                        <span class="l">{{localize "REZEPTUR.OWNERSHIP"}}</span>
+                </div>
+                {{!-- Traditionen v1/Rezeptur-Relaunch (Rudolfs Klärung 03.11.):
+                    Besitz, Herkunft, Basis-Rezeptur und „selbst entwickelt“
+                    sind SPIELER-editierbar (kein GM-Gate, Widgets unverändert
+                    aus dem früheren GM-Tab); die Auto-Felder bleiben Chips. --}}
+                <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.ownership" data-tooltip="{{localize "REZEPTUR.OWNERSHIP_TOOLTIP"}}">{{localize "REZEPTUR.OWNERSHIP"}}</label>
+                        <select id="{{id}}-system.ownership" name="system.ownership" data-tooltip="{{localize "REZEPTUR.OWNERSHIP_TOOLTIP"}}">
+                            {{selectOptions rezeptur_ownership_selection selected=system.ownership valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.origin" data-tooltip="{{localize "REZEPTUR.ORIGIN_TOOLTIP"}}">{{localize "REZEPTUR.ORIGIN"}}</label>
+                        <select id="{{id}}-system.origin" name="system.origin" data-tooltip="{{localize "REZEPTUR.ORIGIN_TOOLTIP"}}">
+                            {{selectOptions rezeptur_origin_selection selected=system.origin valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseTarget" data-tooltip="{{localize "REZEPTUR.BASE_TARGET_TOOLTIP"}}">{{localize "REZEPTUR.BASE_TARGET"}}</label>
+                        <input id="{{id}}-system.baseTarget" name="system.baseTarget" type="text" value="{{system.baseTarget}}" data-tooltip="{{localize "REZEPTUR.BASE_TARGET_TOOLTIP"}}"/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.invented" data-tooltip="{{localize "REZEPTUR.INVENTED_TOOLTIP"}}">{{localize "REZEPTUR.INVENTED"}}</label>
+                        <input id="{{id}}-system.invented" name="system.invented" type="checkbox" value="true" {{#if inventedChecked}}checked{{/if}} data-tooltip="{{localize "REZEPTUR.INVENTED_TOOLTIP"}}"/>
                     </div>
                 </div>
                 <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
@@ -72,12 +94,9 @@
                         <label for="{{id}}-system.price">{{localize "REZEPTUR.PRICE"}}</label>
                         <input id="{{id}}-system.price" name="system.price" type="number" value="{{system.price}}" data-tooltip="{{localize "REZEPTUR.PRICE_TOOLTIP"}}"/>
                     </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.ownership">{{localize "REZEPTUR.OWNERSHIP"}}</label>
-                        <select id="{{id}}-system.ownership" name="system.ownership" data-tooltip="{{localize "REZEPTUR.OWNERSHIP_TOOLTIP"}}">
-                            {{selectOptions rezeptur_ownership_selection selected=system.ownership valueAttr="id" labelAttr="label"}}
-                        </select>
-                    </div>
+                    {{!-- Rezeptur-Relaunch (03.11.): Besitz/Herkunft/Basis-
+                        Rezeptur/selbst entwickelt wohnen im Beschreibungs-Tab
+                        (Spieler-editierbar); GM-Tab = Auto-Felder + Kultur. --}}
                     <div class="m-inline-field">
                         <label for="{{id}}-system.culture">{{localize "REZEPTUR.CULTURE"}}</label>
                         <select id="{{id}}-system.culture" name="system.culture" data-tooltip="{{localize "REZEPTUR.CULTURE_TOOLTIP"}}">
@@ -89,14 +108,6 @@
                         <select id="{{id}}-system.origin" name="system.origin" data-tooltip="{{localize "REZEPTUR.ORIGIN_TOOLTIP"}}">
                             {{selectOptions rezeptur_origin_selection selected=system.origin valueAttr="id" labelAttr="label"}}
                         </select>
-                    </div>
-                    <div class="m-inline-field">
-                        <label for="{{id}}-system.baseTarget">{{localize "REZEPTUR.BASE_TARGET"}}</label>
-                        <input id="{{id}}-system.baseTarget" name="system.baseTarget" type="text" value="{{system.baseTarget}}" data-tooltip="{{localize "REZEPTUR.BASE_TARGET_TOOLTIP"}}"/>
-                    </div>
-                    <div class="m-inline-field m-check">
-                        <label for="{{id}}-system.invented">{{localize "REZEPTUR.INVENTED"}}</label>
-                        <input id="{{id}}-system.invented" name="system.invented" type="checkbox" value="true" {{#if inventedChecked}}checked{{/if}} data-tooltip="{{localize "REZEPTUR.INVENTED_TOOLTIP"}}"/>
                     </div>
                 </div>
             </div>

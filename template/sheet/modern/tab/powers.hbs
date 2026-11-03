@@ -4,6 +4,21 @@
     den Würfelwurf, Stern = Favorit für den Kampf-Tab. Leere Gruppen werden
     nicht angezeigt. Detaildarstellung bleibt im Item-Blatt (item-edit). --}}
 <div class="m-powers">
+    {{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Filter
+        über den Gruppen - zeigt nur Kacheln der gewählten Tradition
+        („Alle“ = alles; Kacheln ohne Tradition nur bei „Alle“). Reine
+        Anzeige-Sache, der Filter greift über data-traditions (player.js). --}}
+    {{#if modern.powerTraditionFilter.length}}
+    <div class="m-powers-filter">
+        <label for="m-powers-tradition-filter">{{localize "TRADITION.FILTER_LABEL"}}</label>
+        <select id="m-powers-tradition-filter" data-tooltip="{{localize "TRADITION.FILTER_HINT"}}">
+            <option value="all">{{localize "TRADITION.FILTER_ALL"}}</option>
+            {{#each modern.powerTraditionFilter as |t|}}
+            <option value="{{t.id}}">{{t.label}}</option>
+            {{/each}}
+        </select>
+    </div>
+    {{/if}}
     {{#each modern.powerGroups as |group|}}
     {{#if group.hasItems}}
     <div class="m-box">
@@ -14,7 +29,7 @@
         <div class="m-box-b">
             <div class="m-tiles">
                 {{#each group.items as |p|}}
-                <div class="symbaroum-contextmenu item m-tile draggable" data-item-id="{{p.id}}">
+                <div class="symbaroum-contextmenu item m-tile draggable" data-item-id="{{p.id}}" data-traditions="{{p.traditions}}">
                     <div class="m-tile-head">
                         <div class="m-tile-imgwrap">
                             <button type="button" class="activate-ability {{#if p.hasScript}}isScripted{{else}}notScripted{{/if}} m-tile-img" style="background-image: url('{{p.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ABILITY"}}"></button>
@@ -26,6 +41,20 @@
                     </div>
                     {{#if p.level}}
                     <div class="m-pips">{{#times p.level}}<span>●</span>{{/times}}{{#times p.pipsOff}}<span class="off">●</span>{{/times}}</div>
+                    {{/if}}
+                    {{!-- Traditionen v1: Traditions-Chips je Kachel + passiver
+                        Geheimnis-Hinweis (Schloss-Chip, Tooltip), wenn der
+                        Akteur Zugang zu KEINER der zugeordneten Traditionen
+                        hat (Rudolfs Klärung c: passiv, kein Block). --}}
+                    {{#if p.traditionLabels.length}}
+                    <div class="m-trad-chips">
+                        {{#each p.traditionLabels as |label|}}
+                        <span class="tradition-chip">{{label}}</span>
+                        {{/each}}
+                        {{#if p.noAccess}}
+                        <span class="tradition-chip trad-no-access" data-tooltip="{{localize "TRADITION.NO_ACCESS"}}"><i class="fas fa-lock"></i></span>
+                        {{/if}}
+                    </div>
                     {{/if}}
                 </div>
                 {{/each}}

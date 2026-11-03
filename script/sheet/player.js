@@ -35,6 +35,11 @@ import { useElixir, isAlchemical } from '../common/elixirs.js';
 // Brauen v1 (Rudolfs Freigabe 02.11.): Kontextmenü „Elixier brauen…“ an der
 // Alchemie-Fähigkeits-Kachel (Dialog: brewing.js)
 import { openBrewDialog } from '../common/brewing.js';
+// Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Kräfte-Tab
+// (modern) - Traditions-Chips je Kachel, passiver Geheimnis-Hinweis
+// (Zugang fehlt), „Verbotenes Wissen ({Tradition})“-Titel-Suffix und
+// Traditions-Filter (tradition.js = Single Source).
+import { resolveItemTraditions, traditionLabel, knownTraditions, hasAnyTraditionAccess, isForbiddenKnowledge } from '../common/tradition.js';
 /**
  * Context menu for mystical powers / traits / gear on the actor sheet.
  * Filters the menu entries per item document (visible receives the Item, not the HTML
@@ -553,14 +558,28 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			burdens: localize('MODERN.GROUP_BURDENS'),
 		};
 		const powerGroups = Object.keys(groupLabels).map((id) => ({ id, label: groupLabels[id], hasItems: false, items: [], count: 0 }));
+		/* Traditionen v1: Filter-Dropdown über den Gruppen (nur BEKANNTE
+		   Traditionen der Welt; das Filter-Select zeigt zusätzlich die
+		   feste „Alle“-Option, die im Template gesetzt wird). */
+		const powerTraditionFilter = knownTraditions().map((id) => ({ id, label: traditionLabel(id) }));
 		const groupById = Object.fromEntries(powerGroups.map((g) => [g.id, g]));
 		const powerEntryById = {};
 		for (const item of context.items) {
 			const s = item.system;
 			if (!s?.isPower) continue;
+			/* Traditionen v1: zugeordnete Traditionen je Kachel (Chips +
+			   Filter, data-traditions) und passiver Geheimnis-Hinweis.
+			   „Verbotenes Wissen“-Segen: Titel-Suffix „ ({Tradition})“
+			   (Muster Bestienkunde, REIN anzeigeseitig - der gespeicherte
+			   Name bleibt unverändert; mehrfach erwerbbar = Segen mehrfach
+			   anlegen). */
+			const tkTrad = resolveItemTraditions(item);
+			const tkIsVW = isForbiddenKnowledge(item);
+			const tradIds = tkIsVW || tkTrad.active === 'true' ? tkTrad.ids : [];
+			const vwSuffix = tkIsVW && tradIds.length > 0 ? ` (${traditionLabel(tradIds[0])})` : '';
 			const entry = {
 				id: item.id,
-				name: item.name + (context.beastloreTitleSuffix?.[item.id] ?? ''),
+				name: item.name + (context.beastloreTitleSuffix?.[item.id] ?? '') + vwSuffix,
 				img: item.img,
 				hasScript: !!s.hasScript,
 				isIntegrated: !!s.isIntegrated,
@@ -568,6 +587,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				level: 0,
 				pipsOff: 0,
 				sub: '',
+				traditions: tradIds.join(','),
+				traditionLabels: tradIds.map((id) => traditionLabel(id)),
+				noAccess: tradIds.length > 0 && !hasAnyTraditionAccess(this.actor, tradIds),
 			};
 			if (s.hasLevels) {
 				const lvl = item.getLevel();
@@ -897,6 +919,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			attributes,
 			gauge,
 			powerGroups,
+			powerTraditionFilter,
 			gear,
 			favorites,
 			hasFavorites: favorites.length > 0,
@@ -1061,6 +1084,23 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				initial: this.actor.isOwner ? 'combat' : 'bio',
 			});
 			this.modernTabs.bind(element);
+		}
+
+		/* Traditionen v1: Traditions-Filter im modernen Kräfte-Tab -
+		   Kacheln tragen ihre Traditions-Ids als data-traditions
+		   (Komma-Join, leer = Hörensagen); der Filter zeigt nur Kacheln
+		   der gewählten Tradition („Alle“ = alles). Reiner Anzeige-
+		   Filter, kein Datenzugriff. */
+		const powersFilter = element.querySelector('#m-powers-tradition-filter');
+		if (powersFilter) {
+			powersFilter.addEventListener('change', () => {
+				const value = powersFilter.value;
+				for (const tile of element.querySelectorAll('.m-powers .m-tile')) {
+					const trads = String(tile.dataset.traditions ?? '');
+					const show = value === 'all' || (trads !== '' && trads.split(',').includes(value));
+					tile.style.display = show ? '' : 'none';
+				}
+			});
 		}
 
 		// Kosmetik v1 (Rudolfs Wunsch, 30.10.): Der Eigenschaften-CHIP in der

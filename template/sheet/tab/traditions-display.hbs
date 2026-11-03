@@ -1,0 +1,14 @@
+{{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): read-only
+    Anzeige der zugeordneten Traditionen im Beschreibungs-Tab (klassisch +
+    modern, gemeinsames Partial). Nur gerendert, wenn ANZEIGEBARE
+    Traditionen vorliegen (displayLabels aus item.js: „Verbotenes
+    Wissen“-Segen zeigt seine Id, Standard-Items nur bei Gate „Ja“);
+    das GM-Editing sitzt im eigenen „Traditionen“-Tab. --}}
+{{#if tradition_knowledge.displayLabels.length}}
+<div class="traditions-display">
+    <span class="traditions-display-label">{{localize "TRADITION.DISPLAY_LABEL"}}</span>
+    {{#each tradition_knowledge.displayLabels as | label |}}
+    <span class="tradition-chip">{{label}}</span>
+    {{/each}}
+</div>
+{{/if}}

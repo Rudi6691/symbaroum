@@ -36,6 +36,8 @@
 
         <div class="sheet-body">
             <div class="tab" data-group="primary" data-tab="description">
+                {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
+                {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                     <div class="cost">
