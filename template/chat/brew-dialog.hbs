@@ -25,6 +25,13 @@
       {{selectOptions facilities selected=labId valueAttr="id" labelAttr="label"}}
     </select>
   </div>
+  {{!-- Sammel-Fix v1.1 (Rudolfs Testrunde 1, Punkt 10): freies Modifikator-
+      Feld zwischen Labor und Dosen — landet in baseRoll zusätzlich zum
+      Labor-Bonus (z. B. Situationsboni/-mali); leer/ungültig = 0. --}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="brew-modifier">{{localize "DIALOG.MODIFIER"}}</label>
+    <input id="brew-modifier" type="number" value="0"/>
+  </div>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label>{{localize "BREW.DOSES"}}</label>
     <input id="brew-dose-hint" type="text" disabled value="{{doseHint}}" data-tooltip="{{localize "BREW.DOSES_TOOLTIP"}}"/>

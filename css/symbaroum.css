@@ -10540,3 +10540,100 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
   background: var(--m-panel2, #212c23);
   color: var(--m-muted, #8fa192);
 }
+
+/* ========================================================================
+   Sammel-Fix v1.1 (Rudolfs „Leg los“ 03.11.2026, Testrunde 1) — Layout-
+   Korrekturen am Traditionen-Feld (partials traditions-field.hbs).
+   ======================================================================== */
+
+/* Wurzelbehebung „Zahnrad rutscht in die 2. Zeile“ (Testrunde 1, Layout-
+   Befund): die .elixir-condition-toggle-Regeln waren NUR auf fieldset.
+   elixir-effect-frame gescoped (Zustandsdialog-Umfeld) — im Traditionen-
+   Feld fehlten damit sämtliche Flex-Regeln, Select und Zahnrad fielen
+   untereinander. Hier: ungescopete Regeln für ALLE .traditions-row-
+   Vorkommen (GM-Tabs klassisch + modern, Ausrüstungs-Status-Tabs). */
+.symbaroum.sheet.item .traditions-row .elixir-condition-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.symbaroum.sheet.item .traditions-row .elixir-condition-toggle select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Zahnrad im Traditionen-Feld: gleiche Kompaktoptik wie im Zustandsdialog
+   (.elixir-effect-frame-Variante, ~9950) — 5 Klassen gegen die klassische
+   .symbaroum.sheet.item button-Textur (css-Checkliste). */
+.symbaroum.sheet.item .traditions-row .elixir-condition-edit {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.05);
+}
+.symbaroum.sheet.item .traditions-row .elixir-condition-edit:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+/* Modern: Fläch-Optik übernimmt die Standard-Button-Regel des Scopes,
+   Icon-/Schriftfarbe wie das Zustandsdialog-Zahnrad direkt am Element
+   mit !important (iconspezifische Fremdfärbung, css-Checkliste). */
+.symbaroum.sheet.item .modern-root .traditions-row button.elixir-condition-edit {
+  color: var(--m-ink, #dfe6df) !important;
+}
+.symbaroum.sheet.item .modern-root .traditions-row button.elixir-condition-edit:hover {
+  color: var(--m-accent, #c9a227) !important;
+}
+.symbaroum.sheet.item .modern-root .traditions-row button.elixir-condition-edit i {
+  color: var(--m-ink, #dfe6df) !important;
+}
+.symbaroum.sheet.item .modern-root .traditions-row button.elixir-condition-edit:hover i {
+  color: var(--m-accent, #c9a227) !important;
+}
+
+/* m-grid-Variante (inGrid=true, moderner Ausrüstungs-Status-Tab): EIN
+   m-inline-field-Wrapper pro Feld; die Zeile wechselt auf das Spalten-
+   layout der m-grid-Zellen (Label über Feld, ~7913 Muster), damit sie
+   in die 11rem-Zellen passt — statt Label-neben-Feld mit flex-wrap. */
+.symbaroum.sheet.item .modern-root .m-trad-grid-field .traditions-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.1rem;
+  margin: 0;
+  flex-wrap: nowrap;
+}
+.symbaroum.sheet.item .modern-root .m-trad-grid-field .traditions-row label {
+  min-width: 0;
+}
+.symbaroum.sheet.item .modern-root .m-trad-grid-field .traditions-row select {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+/* Chips-Zeile unterhalb der Zeile in derselben Grid-Zelle. */
+.symbaroum.sheet.item .modern-root .m-trad-grid-field .traditions-display {
+  margin: 0.15rem 0 0 0;
+}
+
+/* VW-Single-Select im Beschreibungs-Tab des Segen-Blatts (boon.hbs
+   klassisch + modern, .traditions-desc-row): Zeilen-Layout wie im GM-Tab,
+   ohne Umbruch zwischen Label und Select. */
+.symbaroum.sheet.item .traditions-row.traditions-desc-row {
+  flex-wrap: nowrap;
+}
+.symbaroum.sheet.item .traditions-row.traditions-desc-row select {
+  flex: 0 1 16em;
+  max-width: 16em;
+}

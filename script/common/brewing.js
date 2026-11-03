@@ -385,11 +385,16 @@ export async function openBrewDialog(abilityItem) {
 					   dem besten (Fallback bestes, falls das Select fehlt). */
 					const labId = html[0].querySelector('#brew-lab')?.value;
 					const facility = facilities.find((f) => f.item.id === labId) ?? facilities[0];
+					/* Sammel-Fix v1.1 (Testrunde 1, Punkt 10): freier
+					   Modifikator aus #brew-modifier, addiert zum Labor-
+					   Bonus in der Probe; leer/ungültig = 0. */
+					const userMod = Number(html[0].querySelector('#brew-modifier')?.value);
+					const modifier = (Number.isFinite(userMod) ? userMod : 0);
 					let secret = false;
 					for (const radio of html[0].querySelectorAll("input[name='brew-vis']")) {
 						if (radio.checked) secret = radio.value === 'secret';
 					}
-					await performBrew(actor, facility, cand, { secret, economy });
+					await performBrew(actor, facility, cand, { secret, economy, modifier });
 				},
 			},
 			cancel: {
@@ -437,12 +442,14 @@ async function addElixirDoses(actor, elixir, count) {
 	await actor.createEmbeddedDocuments('Item', rows);
 }
 
-/** Probe-Zeile im Karten-Muster der Elixier-Karten (Scharfsinn + Labor-Bonus). */
-function formatBrewProbeLine(rollData, labBonus) {
-	return `${rollData.actingAttributeLabel} : (${rollData.actingAttributeValue})  ${L('BREW.LAB_BONUS')} +${labBonus}`;
+/** Probe-Zeile im Karten-Muster der Elixier-Karten (Scharfsinn + Labor-Bonus;
+    Sammel-Fix v1.1: freier Modifikator wird bei != 0 zusätzlich ausgewiesen). */
+function formatBrewProbeLine(rollData, labBonus, userMod = 0) {
+	const modText = userMod !== 0 ? ` ${userMod > 0 ? '+' : '−'}${Math.abs(userMod)}` : '';
+	return `${rollData.actingAttributeLabel} : (${rollData.actingAttributeValue})  ${L('BREW.LAB_BONUS')} +${labBonus}${modText}`;
 }
 
-async function performBrew(actor, facility, cand, { secret = false, economy = false } = {}) {
+async function performBrew(actor, facility, cand, { secret = false, economy = false, modifier = 0 } = {}) {
 	const rolls = [];
 	const lines = [];
 	// 1) Dosen-Wurf (RAW-Tabelle) VOR der Probe auf der Karte.
@@ -451,12 +458,13 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 		doses = Math.max(1, await rollFormula(cand.doseFormula, rolls));
 		lines.push(F('BREW.CHAT_DOSES', { formula: cand.doseFormula.replace('d', 'W'), doses }));
 	}
-	// 2) Scharfsinn-Probe mit Labor-Bonus (kein Ziel, keine Gunst).
-	const probe = await baseRoll(actor, 'cunning', null, null, 0, facility.bonus, false);
+	// 2) Scharfsinn-Probe mit Labor-Bonus + freiem Modifikator (Sammel-Fix
+	//    v1.1, Testrunde 1 Punkt 10; kein Ziel, keine Gunst).
+	const probe = await baseRoll(actor, 'cunning', null, null, 0, facility.bonus + modifier, false);
 	rolls.push(...probe.rolls);
 	const success = probe.trueActorSucceeded;
 	lines.push(
-		`<div class="tooltip"><p>${formatBrewProbeLine(probe, facility.bonus)} — ${success ? L('BREW.CHAT_SUCCESS') : L('BREW.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
+		`<div class="tooltip"><p>${formatBrewProbeLine(probe, facility.bonus, modifier)} — ${success ? L('BREW.CHAT_SUCCESS') : L('BREW.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 	);
 	// 3) Buchung + Produktion.
 	let produced = 0;

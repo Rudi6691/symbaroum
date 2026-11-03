@@ -5,12 +5,18 @@
     NUR die Listen-Sichtbarkeit in Dropdowns/Chips/Filtern (z. B. Segnungen erst
     „freischalten“, wenn die Welt sie kennt) — NICHT die Zugangsprüfung, nicht
     das Tagging. Geladen über PARTS (HandlebarsApplicationMixin), KEIN
-    templatePaths-Eintrag nötig. --}}
-<p class="hint">{{localize "TRADITION.SETTING_KNOWN_HINT"}}</p>
-{{#each traditions as | t |}}
-<div class="form-group">
-    <label for="known_{{t.id}}">{{t.label}}</label>
-    <input type="checkbox" name="known_{{t.id}}" id="known_{{t.id}}" data-dtype="Boolean" {{checked t.checked}}/>
+    templatePaths-Eintrag nötig.
+    Sammel-Fix v1.1 (Rudolfs „Leg los“ 03.11.2026): EIN umschließendes Root-
+    <div> — V14-HandlebarsApplicationMixin verlangt von JEDEM PARTS-Template
+    EXAKT EIN Root-Element (Testrunde 1, Befund 1: „Template part ‚main‘ must
+    render a single HTML element“); Muster symbaroumSettings.hbs. --}}
+<div class="traditions-known-settings">
+    <p class="hint">{{localize "TRADITION.SETTING_KNOWN_HINT"}}</p>
+    {{#each traditions as | t |}}
+    <div class="form-group">
+        <label for="known_{{t.id}}">{{t.label}}</label>
+        <input type="checkbox" name="known_{{t.id}}" id="known_{{t.id}}" data-dtype="Boolean" {{checked t.checked}}/>
+    </div>
+    {{/each}}
+    <button type="submit"><i class="fas fa-check"></i> {{localize "BUTTON.CONFIRM"}}</button>
 </div>
-{{/each}}
-<button type="submit"><i class="fas fa-check"></i> {{localize "BUTTON.CONFIRM"}}</button>

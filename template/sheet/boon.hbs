@@ -37,6 +37,26 @@
 
         <div class="sheet-body">
             <div class="tab" data-group="primary" data-tab="description">
+                {{!-- Sammel-Fix v1.1 (Rudolfs „Leg los“ 03.11.2026, Testrunde 1):
+                    VW-Single-Select zusätzlich im Beschreibungs-Tab des Segen-
+                    Blatts — SPIELER-editierbar (Spieler sehen den GM-Tab nicht;
+                    die GM-Tab-Kopie darf gedoppelt bleiben, Rudolfs Erlaubnis).
+                    Bewusst OHNE name-Attribut: das GM-Tab-Partial trägt bereits
+                    name="system.traditions"; ein zweiter form-assoziierter
+                    Select desselben Namens würde beim Submit gegen den anderen
+                    Select arbeiten. Änderung wird direkt per item.update
+                    geschrieben (Listener in item.js, Muster Preisbasis). --}}
+                {{#if tradition_knowledge.isForbiddenKnowledge}}
+                <div class="traditions-row traditions-desc-row">
+                    <label for="{{id}}-traditions-desc" data-tooltip="{{localize "TRADITION.VW_TOOLTIP"}}">{{localize "TRADITION.SELECT_LABEL"}}</label>
+                    <select id="{{id}}-traditions-desc" data-traditions-desc data-tooltip="{{localize "TRADITION.VW_TOOLTIP"}}" {{ifThen editable '' 'disabled'}}>
+                        <option value="" {{#unless tradition_knowledge.selected}}selected{{/unless}}>{{localize "TRADITION.SELECT_NONE"}}</option>
+                        {{#each tradition_knowledge.knownSelection as | t |}}
+                        <option value="{{t.id}}" {{#ife ../tradition_knowledge.selected t.id}}selected{{/ife}}>{{t.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
                 {{!-- Traditionen v1: zugeordnete Traditionen read-only im
                     Beschreibungs-Tab (rendert nur bei vorhandenen Labels). --}}
                 {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}

@@ -491,6 +491,22 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				this.item.update({ 'system.price': total });
 			});
 		}
+		// Sammel-Fix v1.1 (Testrunde 1): VW-Single-Select im Beschreibungs-
+		// Tab des Segen-Blatts (boon.hbs klassisch + modern, data-traditions-
+		// desc) — SPIELER-editierbar. Bewusst NICHT form-assoziiert (kein
+		// name-Attribut): das GM-Tab-Partial trägt bereits name="system.
+		// traditions"; ein zweiter form-assoziierter Select desselben Namens
+		// würde beim Submit gegen den anderen Select arbeiten (FormData:
+		// letzter Eintrag gewinnt). Änderung wird wie die Preisbasis direkt
+		// per item.update geschrieben (gleiche Landminen-Vermeidung wie der
+		// Zustands-/Traditionen-Dialog).
+		const descTradSelects = element.querySelectorAll('[data-traditions-desc]');
+		for (const sel of descTradSelects) {
+			sel.addEventListener('change', () => {
+				if (!this.isEditable || !this.item.isOwner) return;
+				this.item.update({ 'system.traditions': sel.value });
+			});
+		}
 		// Test round 2, finding 1: Enter/Tab in an input commits via
 		// submitOnChange and the re-rendered .window-content starts scrolled
 		// back to the top - with the restored window scrolling (7.2.8) the

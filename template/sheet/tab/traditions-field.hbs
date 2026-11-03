@@ -7,7 +7,13 @@
     anlegen), Standard = dreiwertiges Ja/Nein-Gate (system.traditionsActive,
     Muster „Bewirkt Zustand“ v1.3 — '' ist Altbestand-Ableitung und
     persistiert erst beim Submit) mit Zahnrad-Dialog (Mehrfachauswahl) und
-    read-only Chips bei „Ja“. Kontext: tradition_knowledge (item.js). --}}
+    read-only Chips bei „Ja“. Kontext: tradition_knowledge (item.js).
+    Sammel-Fix v1.1 (Rudolfs „Leg los“ 03.11.2026, Testrunde 1): include-
+    Parameter inGrid=true (moderner Ausrüstungs-Status-Tab) schaltet EINEN
+    umschließenden m-inline-field-Wrapper zu — Label-über-Feld-Spalten-
+    layout, damit die Zeile in die 11rem-Zellen des m-grid passt; die
+    klassischen Includes bleiben unverändert (Zeilen-Layout). --}}
+{{#if inGrid}}<div class="m-inline-field m-trad-grid-field">{{/if}}
 {{#if tradition_knowledge.isForbiddenKnowledge}}
 {{!-- „Verbotenes Wissen“-Zweig: Single-Select statt Gate + Dialog. --}}
 <div class="traditions-row">
@@ -46,3 +52,4 @@
 {{/if}}
 {{/ife}}
 {{/if}}
+{{#if inGrid}}</div>{{/if}}

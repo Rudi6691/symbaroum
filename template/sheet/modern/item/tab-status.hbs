@@ -22,6 +22,13 @@
             <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
             {{/if}}
         </div>
+        {{!-- Traditionen v1 (03.11.2026): „Traditionswissen?“ im GM-Status-
+            Tab (kein eigener Tab auf dem modernen Ausrüstungsblatt). Sammel-
+            Fix v1.1 (Testrunde 1): DIREKT hinter „Stapelbar“ INNERHALB des
+            m-grid statt am Tab-Ende außerhalb — inGrid=true schaltet das
+            Feld-Partial auf das m-inline-field-Spaltenlayout (Label über
+            Feld), damit die Zeile in die 11rem-Zellen passt. --}}
+        {{> systems/symbaroum/template/sheet/tab/traditions-field.hbs inGrid=true}}
         {{#if showResourceCategory}}
         <div class="m-inline-field">
             <label for="{{id}}-system.resourceCategory" data-tooltip="{{localize "RESOURCE_CATEGORY.TOOLTIP"}}">{{localize "RESOURCE_CATEGORY.LABEL"}}</label>
@@ -86,9 +93,4 @@
     {{#if showAlchemy}}
     {{> systems/symbaroum/template/sheet/tab/elixir-effect.hbs}}
     {{/if}}
-    {{!-- Traditionen v1 (03.11.2026): „Traditionswissen?“ als Zeile im
-        GM-Status-Tab (kein eigener Tab auf dem modernen Ausrüstungsblatt).
-        Gate + Zahnrad-Dialog bzw. VW-Single-Select im gemeinsamen
-        Feld-Partial. --}}
-    {{> systems/symbaroum/template/sheet/tab/traditions-field.hbs}}
 </div>
