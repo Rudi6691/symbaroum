@@ -36,20 +36,26 @@
             </div>
         </div>
         {{#if symbaroumOptions.isGM}}
+        {{!-- Brauen v1.1 (P3, Rudolfs Testrunde 1): Ziel-Elixier als Read-Only-
+            Box statt disabled Input - disabled-Inputs erben die Global-Regel
+            opacity: 0.55 und wurden im Dark Theme unlesbar; die Box nutzt
+            die Panel-/Linien-Farben des modernen Themes. Feld-Layout im
+            kanonischen Muster des modernen Stats-Tabs (m-panel + m-grid +
+            m-inline-field). Rail und Beschreibungs-Tab unverändert. --}}
         <div class="tab" data-group="primary" data-tab="rezeptur">
             <div class="m-panel">
                 <h1>{{localize "TAB.REZEPTUR"}}</h1>
-                <div class="m-row">
+                <div class="m-grid">
                     <div class="m-inline-field">
                         <label>{{localize "REZEPTUR.TARGET"}}</label>
-                        <input type="text" disabled value="{{#if targetName}}{{targetName}}{{else}}{{localize "REZEPTUR.TARGET_NONE"}}{{/if}}"/>
+                        <div class="rezeptur-target-box" data-tooltip="{{localize "REZEPTUR.TARGET_TOOLTIP"}}">
+                            {{#if targetName}}{{targetName}}{{else}}{{localize "REZEPTUR.TARGET_NONE"}}{{/if}}
+                        </div>
                     </div>
                     <div class="m-inline-field">
                         <label>&nbsp;</label>
                         <span class="rezeptur-drop-hint" data-tooltip="{{localize "REZEPTUR.TARGET_TOOLTIP"}}">{{localize "REZEPTUR.TARGET_HINT"}}</span>
                     </div>
-                </div>
-                <div class="m-row">
                     <div class="m-inline-field">
                         <label for="{{id}}-system.alchemyLevel">{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
                         <select id="{{id}}-system.alchemyLevel" name="system.alchemyLevel">
@@ -62,8 +68,6 @@
                             {{selectOptions rezeptur_tradition_selection selected=system.alchemyTradition valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
-                </div>
-                <div class="m-row">
                     <div class="m-inline-field">
                         <label for="{{id}}-system.price">{{localize "REZEPTUR.PRICE"}}</label>
                         <input id="{{id}}-system.price" name="system.price" type="number" value="{{system.price}}" data-tooltip="{{localize "REZEPTUR.PRICE_TOOLTIP"}}"/>
@@ -74,8 +78,6 @@
                             {{selectOptions rezeptur_ownership_selection selected=system.ownership valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
-                </div>
-                <div class="m-row">
                     <div class="m-inline-field">
                         <label for="{{id}}-system.culture">{{localize "REZEPTUR.CULTURE"}}</label>
                         <select id="{{id}}-system.culture" name="system.culture" data-tooltip="{{localize "REZEPTUR.CULTURE_TOOLTIP"}}">
@@ -88,13 +90,11 @@
                             {{selectOptions rezeptur_origin_selection selected=system.origin valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
-                </div>
-                <div class="m-row">
                     <div class="m-inline-field">
                         <label for="{{id}}-system.baseTarget">{{localize "REZEPTUR.BASE_TARGET"}}</label>
                         <input id="{{id}}-system.baseTarget" name="system.baseTarget" type="text" value="{{system.baseTarget}}" data-tooltip="{{localize "REZEPTUR.BASE_TARGET_TOOLTIP"}}"/>
                     </div>
-                    <div class="m-inline-field">
+                    <div class="m-inline-field m-check">
                         <label for="{{id}}-system.invented">{{localize "REZEPTUR.INVENTED"}}</label>
                         <input id="{{id}}-system.invented" name="system.invented" type="checkbox" value="true" {{#if inventedChecked}}checked{{/if}} data-tooltip="{{localize "REZEPTUR.INVENTED_TOOLTIP"}}"/>
                     </div>

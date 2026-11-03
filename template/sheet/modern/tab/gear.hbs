@@ -31,6 +31,12 @@
                     <span class="m-cap-bar{{#if c.fillFull}} full{{/if}}" data-tooltip="{{c.capacityDisplay}}"><span class="m-cap-fill" style="width:{{c.fillPct}}%"></span></span>
                     {{/if}}
                     <span class="m-cont-money" data-tooltip="{{c.moneyTooltip}}">{{c.currencyDisplay}}</span>
+                    {{!-- Brauen v1.1 (B3): Buch-Wert der enthaltenen Rezepturen
+                        an der Behälter-Zeile - nur sichtbar, wenn > 0 (Rezeptbuch
+                        bleibt ohne Rezepturen unauffällig). --}}
+                    {{#if c.recipesValueDisplay}}
+                    <span class="m-cont-recipes" data-tooltip="{{c.recipesTooltip}}"><i class="fas fa-scroll"></i> {{c.recipesValueDisplay}}</span>
+                    {{/if}}
                     {{#if c.carried}}
                     <button type="button" class="container-flag m-st m-st-active" data-flag="carried" data-tooltip="{{localize "CONTAINER.CARRIED"}}"><i class="fas fa-person-hiking"></i></button>
                     {{else}}
@@ -166,6 +172,29 @@
                 <span class="m-num">{{g.sub}}</span>
                 <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><svg class="m-star" viewBox="0 0 576 512" aria-hidden="true"><path d="M288 24L342.8 192.6L520.1 192.6L376.6 296.8L431.4 465.4L288 361.2L144.6 465.4L199.4 296.8L55.9 192.6L233.2 192.6Z"/></svg></button>
                 <button type="button" class="item-state m-st m-st-{{g.state}}" data-tooltip="{{g.stateTooltip}}"><i class="{{g.stateIcon}}"></i></button>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    {{!-- Brauen v1.1 (B1, Rudolfs Paket-2-Freigabe): eigene Gruppe REZEPTUREN
+        im Ausrüstungs-Tab - nur LOSE Rezepturen; verpackte erscheinen
+        ausschließlich als Kinderzeile ihres Behälters (keine Doppel-
+        Anzeige). Untertitel = Stufe · Tradition (B6), rechts der Buch-Wert;
+        kein Status-Chip und keine LE-Anzeige (Rezepturen tragen keine Last).
+        Neu-Anlage über den Plus-Button (Typ rezeptur, iconbasiert). --}}
+    <div class="m-box">
+        <div class="m-box-h">
+            <span>{{localize "TITLE.REZEPTUREN"}}</span>
+            <button type="button" class="item-create m-add" data-type="rezeptur" data-tooltip="{{localize "REZEPTUR.ADDBUTTON"}}"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="m-box-b">
+            {{#each modern.gear.rezepturen as |g|}}
+            <div class="symbaroum-contextmenu item m-inv-row draggable" data-item-id="{{g.id}}">
+                <div class="m-item-img" data-tooltip="{{localize 'TOOLTIP.GIVE_ITEM'}}" style="background-image: url('{{g.img}}');"></div>
+                <button type="button" class="item-edit m-inv-name">{{g.name}}<small>{{g.sub}}</small></button>
+                <span class="m-num" data-tooltip="{{localize 'REZEPTUR.PRICE_TOOLTIP'}}">{{g.priceDisplay}}</span>
+                <button type="button" class="favorite-toggle{{#if g.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><svg class="m-star" viewBox="0 0 576 512" aria-hidden="true"><path d="M288 24L342.8 192.6L520.1 192.6L376.6 296.8L431.4 465.4L288 361.2L144.6 465.4L199.4 296.8L55.9 192.6L233.2 192.6Z"/></svg></button>
             </div>
             {{/each}}
         </div>

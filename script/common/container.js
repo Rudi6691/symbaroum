@@ -242,7 +242,13 @@ export function validateContainerDrop(actor, container, item) {
 		return { ok: false, message: game.i18n.localize("CONTAINER.WARN_TARGET") };
 	}
 	const is = item?.system ?? {};
-	if (!is.isContainer && !is.isGear) {
+	/* Brauen v1.1 (B4/B1, aus Rudolfs Testrunde 1): Rezepturen dürfen in
+	   Behälter eingelegt werden (Rezeptbuch) - sie sind weder isGear noch
+	   isContainer, also braucht der Typ eine eigene Ausnahme vor dem
+	   WARN_NOT_GEAR-Gate. Rezepturen zählen 0 Last (weightCategoryOf
+	   liefert für fehlende system.weight 'none'), das Buch wird dadurch
+	   nicht schwerer. */
+	if (item?.type !== 'rezeptur' && !is.isContainer && !is.isGear) {
 		return { ok: false, message: game.i18n.localize("CONTAINER.WARN_NOT_GEAR") };
 	}
 	if (item.id === container.id) {

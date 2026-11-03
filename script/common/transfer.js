@@ -49,7 +49,11 @@ import { getModernSheetEffectiveDesign } from './modernSheetConfig.js';
 const { randomID } = foundry.utils;
 
 /** Physische, handelbare Item-Typen (Behälter inklusive). */
-export const GIVE_TYPES = ['weapon', 'armor', 'equipment', 'artifact', 'container'];
+/* Übergabe v1: GIVE_TYPES steuert den Geben-Menüeintrag am Charakterblatt
+   (_getPowerMenuItems). Brauen v1.1 (B5): 'rezeptur' ergänzt - Rezepturen
+   sind gebbare Einzelblätter (nicht stapelbar), der Menü-Eintrag erscheint
+   am Power-/Trait-Tile, der Kopf-Button am modernen Item-Sheet. */
+export const GIVE_TYPES = ['weapon', 'armor', 'equipment', 'artifact', 'container', 'rezeptur'];
 
 const L = (key) => game.i18n.localize(key);
 const F = (key, data) => game.i18n.format(key, data);

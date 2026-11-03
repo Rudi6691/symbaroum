@@ -29,7 +29,7 @@ SYMBAROUM.attributeImages = {
 
 SYMBAROUM.imageRef = "systems/symbaroum/asset/image/{filename}";
 
-SYMBAROUM.itemSortOrder = ["ability", "trait", "mysticalPower", "ritual", "boon", "burden", "armor", "weapon", "equipment", "container", "artifact"];
+SYMBAROUM.itemSortOrder = ["ability", "trait", "mysticalPower", "ritual", "boon", "burden", "armor", "weapon", "equipment", "container", "artifact", "rezeptur"];
 
 SYMBAROUM.itemImages = {
   ability: "ability.png",
@@ -43,11 +43,18 @@ SYMBAROUM.itemImages = {
   equipment: "equipment.png",
   artifact: "artifact.png",
   container: "container.svg",
+  /* Brauen v1.1 (Punkt 15): Standard-Icon der Rezeptur (bewusst die
+     Ritual-Scroll-Grafik - kein eigener Asset im System; GM änderbar). */
+  rezeptur: "ritual.png",
 };
 
 // Deprecated item types
 SYMBAROUM.itemDeprecated = ["artifact"];
-SYMBAROUM.itemValid = [ "ability", "armor", "boon", "burden", "container", "equipment", "mysticalPower", "ritual", "trait", "weapon" ];
+/* Brauen v1.1 (Rudolfs Testrunde 1, Punkt 15): rezeptur NEU in der Gültigkeits-
+   liste - SymbaroumItem.createDialog (item.js) überschreibt die Typ-Auswahl
+   des Neuanlage-Dialogs mit diesem Filter; ohne den Eintrag erschien der Typ
+   rezeptur NIE im Auswahlfeld (blockierte auch den Drag&drop-Test, Punkt 4). */
+SYMBAROUM.itemValid = [ "ability", "armor", "boon", "burden", "container", "equipment", "mysticalPower", "rezeptur", "ritual", "trait", "weapon" ];
 // Ability definitions
 SYMBAROUM.abilitiesList = {
   none: "ABILITY_LABEL.DEFAULT",

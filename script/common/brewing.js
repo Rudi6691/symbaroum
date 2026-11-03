@@ -1,6 +1,9 @@
 /**
  * Brauen v1 (Rudolfs Freigabe 02.11.2026: „Starte“ — Block 2 der Alchemie-
  * Automatisierung: Brau-Dialog + Rezepturverwaltung).
+ * v1.1 (Freigabe 03.11.2026): Sammel-Fix Testrunde 1 — Labor-Dropdown
+ * statt Bestwert-Anzeige (P9), Teratos-Schwellenkarte (P12), RAW-
+ * Erinnerungszeile entfernt (P14).
  *
  * Wurf-Modell (BOTH Modi, Rudolfs Entscheidung): Scharfsinn-Probe mit
  * Labor-Bonus — d20 <= Scharfsinn + Bonus, keine Gunst-/Modifikator-Felder
@@ -26,8 +29,8 @@
  *    Keine Zutaten-Buchung; Fehlschlag verliert nichts. Dosen je RAW-Tabelle:
  *    eigene Stufe = Stufe => 1, Adept braut Novize => 1W4, Meister braut
  *    Adept => 1W4, Meister braut Novize => 1W8 (Wurf auf der Karte vor
- *    der Probe). Erinnerungszeile: maximal 1 Gebräu je Elixier und
- *    Abenteuer (kein Tracking in v1).
+ *    der Probe). Die 1x/Abenteuer-Grenze ist reine SL-Sache — v1.1 hat
+ *    die Erinnerungszeile entfernt (Rudolfs Testrunde 1, Punkt 14).
  *
  * Teratos-Trank: 1W4 temporäre Korruption AM ENDE der Brauprobe, fällt
  * AUCH bei Fehlschlägen an (Namen-Match 'teratos', direkte Buchung auf
@@ -48,6 +51,7 @@ import { getResourceTotal, consumeResource, getItemCount } from './resources.js'
 import { isAlchemical, getAlchemyLevel } from './elixirs.js';
 import { getItemPriceBase } from './currency.js';
 import { isStackableItem, findStackTarget } from './stacking.js';
+import { checkCorruptionThreshold } from './item.js';
 
 /* i18n-Helfer nach elixirs.js-Muster */
 const L = (key) => game.i18n.localize(key);
@@ -130,24 +134,36 @@ export function getOwnAlchemyLevel(abilityItem) {
 }
 
 /*
- * Bestes Labor des Akteurs (facilityCategory auf Ausrüstungs-Items,
- * Status-Tab v1; Behälter-Kinder laufen über die flache actor.items-
- * Liste automatisch mit). Kein Labor => null => Brauen gesperrt.
+ * ALLE Labor-Einträge des Akteurs, absteigend nach Bonus sortiert (Bestes
+ * zuerst - Vorauswahl im Dialog; Brauen v1.1, Rudolfs Testrunde 1 Punkt 9:
+ * der Aktor kann mehrere Labore besitzen, auf Reisen aber nur ein
+ * schlechteres mitführen - deshalb Dropdown statt Automatik). facility-
+ * Category auf Ausrüstungs-Items (Status-Tab v1; Behälter-Kinder laufen
+ * über die flache actor.items-Liste automatisch mit). Kein Labor => leere
+ * Liste => Brauen gesperrt.
  */
-export function resolveBestFacility(actor) {
+export function resolveFacilities(actor) {
 	const bonusMap = game.symbaroum.config.FACILITY_BONUS ?? {};
-	let best = null;
+	const list = [];
 	for (const item of actor?.items ?? []) {
 		if (item?.type !== 'equipment') continue;
 		const category = item.system?.facilityCategory ?? '';
 		if (category === '') continue;
 		const bonus = bonusMap[category];
 		if (bonus === undefined) continue;
-		if (!best || bonus > best.bonus) {
-			best = { item, category, bonus, name: item.name };
-		}
+		list.push({ item, category, bonus, name: item.name });
 	}
-	return best;
+	list.sort((a, b) => b.bonus - a.bonus || a.name.localeCompare(b.name));
+	return list;
+}
+
+/*
+ * Bestes Labor des Akteurs (Bonus-Absteigend das erste; bei Gleichstand
+ * alphabetisch stabil). Kein Labor => null => Brauen gesperrt.
+ */
+export function resolveBestFacility(actor) {
+	const list = resolveFacilities(actor);
+	return list.length > 0 ? list[0] : null;
 }
 
 /*
@@ -284,8 +300,8 @@ export async function openBrewDialog(abilityItem) {
 		ui.notifications.warn(L('BREW.ERR_NO_LEVEL'));
 		return;
 	}
-	const facility = resolveBestFacility(actor);
-	if (!facility) {
+	const facilities = resolveFacilities(actor);
+	if (facilities.length === 0) {
 		ui.notifications.warn(L('BREW.ERR_NO_LAB'));
 		return;
 	}
@@ -312,8 +328,13 @@ export async function openBrewDialog(abilityItem) {
 			label: `${c.elixir.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`,
 		})),
 		preselect: candidates[0].key,
-		labName: facility.name,
-		labBonusText: `+${facility.bonus}`,
+		/* Brauen v1.1 (Punkt 9): Labor-Dropdown statt Auto-Best-Labor -
+		   alle Labore des Akteurs (Name + Bonus), Vorauswahl das beste. */
+		facilities: facilities.map((f) => ({
+			id: f.item.id,
+			label: `${f.name} (+${f.bonus})`,
+		})),
+		labId: facilities[0].item.id,
 		doseHint: doseLabel(candidates[0].doseFormula),
 		unitsText: String(candidates[0].units),
 		stockText: String(stock),
@@ -348,6 +369,10 @@ export async function openBrewDialog(abilityItem) {
 					const key = html[0].querySelector('#brew-elixir')?.value;
 					const cand = candidates.find((c) => c.key === key);
 					if (!cand) return;
+					/* Brauen v1.1 (Punkt 9): gewähltes Labor statt pauschal
+					   dem besten (Fallback bestes, falls das Select fehlt). */
+					const labId = html[0].querySelector('#brew-lab')?.value;
+					const facility = facilities.find((f) => f.item.id === labId) ?? facilities[0];
 					let secret = false;
 					for (const radio of html[0].querySelectorAll("input[name='brew-vis']")) {
 						if (radio.checked) secret = radio.value === 'secret';
@@ -462,13 +487,22 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 	if (String(cand.elixir.name ?? '').toLowerCase().includes('teratos')) {
 		const corruption = await rollFormula('1d4', rolls);
 		const current = Number(actor.system?.health?.corruption?.temporary ?? 0);
+		/* Brauen v1.1 (Rudolfs Testrunde 1, Punkt 12): Schwellen-Karte
+		   feuert jetzt beim Teratos-Zuwachs - kanonischer Systempfad
+		   (Elixiere v1.5): checkCorruptionThreshold liest den VOR-Stand
+		   (system.health.corruption.value ist ABGELEITET als temporary
+		   + longterm + permanent, actor.js prepareDerivedData) und
+		   rechnet + Zuwachs gegen Schwelle/Max - deshalb der Aufruf VOR
+		   der Buchung, exakt wie der A28-Tick/GM-Karten-Handler
+		   (hooks.js-Muster). */
+		await checkCorruptionThreshold(actor, corruption);
 		await actor.update({ 'system.health.corruption.temporary': current + corruption });
 		lines.push(F('BREW.CHAT_TERATOS', { corruption }));
 	}
-	// 5) RAW-Erinnerungszeile (kein Tracking in v1).
-	if (!economy) {
-		lines.push(L('BREW.CHAT_ONCE_PER_ADVENTURE'));
-	}
+	// 5) Brauen v1.1 (Rudolfs Testrunde 1, Punkt 14): die RAW-Erinnerungs-
+	// zeile „1 Gebräu je Elixier und Abenteuer" ist ENTFERNT - die 1x-
+	// Grenze ist bewusst reine SL-Überwachung (kein Tracking, keine
+	// Erinnerung auf der Karte).
 	await postBrewCard(actor, F('BREW.CHAT_TITLE', { name: actor.name, elixir: cand.elixir.name }), lines, rolls, secret);
 }
 

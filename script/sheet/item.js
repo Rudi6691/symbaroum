@@ -652,7 +652,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   (verifiziert 31.10.) - die Titelzeile ist bei Waffe/Rüstung/
 		   Ausrüstung/Artefakt sonst button-frei. Behälter nutzen das
 		   klassische Container-Template ohne diesen Header. */
-		modern.showGive = ['weapon', 'armor', 'equipment', 'artifact'].includes(type) && !!item.isOwned;
+		/* Brauen v1.1 (B5): Rezeptur-Items sind gebbar - der Kopf-Button
+		   erscheint, weil der RezepturSheet die giveItem-Aktion erbt
+		   (gleiche Vererbung wie Waffe/Rüstung/Ausrüstung/Artefakt). */
+		modern.showGive = ['weapon', 'armor', 'equipment', 'artifact', 'rezeptur'].includes(type) && !!item.isOwned;
 		/* Layout v2 (Rudolfs Entscheidungen 27.10., Testrunde 1): Der Kopf ist
 		   in Abschnitts-Bloecke mit m-sec-label gegliedert (Stammleisten-
 		   Stil) - BESITZ (Preis/Gewicht/Anzahl, nur Gegenstaende) und WERTE

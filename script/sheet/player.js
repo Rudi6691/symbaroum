@@ -320,6 +320,37 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			if (sel) beastloreTitleSuffix[item.id] = ' [' + game.i18n.localize(sel.label) + ']';
 		}
 		context.beastloreTitleSuffix = beastloreTitleSuffix;
+		/* Brauen v1.1 (B1/B2): Rezeptur-Übersicht für den Ausrüstungs-Tab
+		   (modern: eigene Gruppe; klassisch: eigene Sektion). levelLabel/
+		   traditionLabel sind vorlokalisiert (Vorlage: rezeptur.js);
+		   sub ist der kombinierte Untertitel „Stufe · Tradition“ für die
+		   moderne Zeile UND die Kinderzeile im Behälter (B6). packed
+		   entscheidet über Doppel-Anzeige: modern zeigt verpackte
+		   Rezepturen nur als Behälter-Kind; das klassische Blatt hat
+		   KEINE Behälter-Anzeige und iteriert deshalb bewusst ohne
+		   packed-Filter (bewusste Entscheidung, im Auslieferungsdoc). */
+		const localize = (key) => game.i18n.localize(key);
+		context.rezepturen = items
+			.filter((item) => item.type === 'rezeptur')
+			.map((item) => {
+				const level = String(item.system?.alchemyLevel ?? '');
+				const tradition = String(item.system?.alchemyTradition ?? '');
+				const levelLabel = level !== '' ? localize(`ALCHEMY_LEVEL.${level.toUpperCase()}`) : localize('ALCHEMY_LEVEL.NONE');
+				const traditionLabel =
+					tradition !== '' ? localize(`REZEPTUR.TRADITION_${tradition.toUpperCase()}`) : localize('REZEPTUR.TRADITION_FREE');
+				const priceBase = getItemPriceBase(item);
+				return {
+					id: item.id,
+					name: item.name,
+					img: item.img,
+					levelLabel,
+					traditionLabel,
+					sub: `${levelLabel} · ${traditionLabel}`,
+					priceDisplay: priceBase === null ? '' : formatCurrency(priceBase),
+					favorite: !!item.flags?.symbaroum?.favorite,
+					packed: !!(item.system?.container && this.actor.items.get(item.system.container)?.type === 'container'),
+				};
+			});
 		context.cssClass = this.isEditable ? 'editable' : 'locked';
 		context.editable = this.isEditable;
 		// A38 Währungssystem: Basiswert (Orteg) für das <symbaroum-currency>-Element.
@@ -588,7 +619,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				...extra,
 			};
 		};
-		const gear = { armors: [], weapons: [], equipments: [], artifacts: [], containers: [] };
+		const gear = { armors: [], weapons: [], equipments: [], artifacts: [], containers: [], rezepturen: [] };
 		/* Behältersystem v1: Items in einem (gültigen) Behälter erscheinen nur
 		   als Kinderzeile des Behälters, nie zusätzlich in den Einzelgruppen.
 		   Verwaiste Referenzen (Behälter gelöscht) gelten als nicht verpackt. */
@@ -638,6 +669,24 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				gear.equipments.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
 			}
 		}
+		/* Brauen v1.1 (B1, Rudolfs Paket-2-Freigabe): eigene Gruppe
+		   REZEPTUREN im Ausrüstungs-Tab - nur lose Rezepturen; verpackte
+		   erscheinen ausschließlich als Kinderzeile ihres Behälters
+		   (packed-Filter, Uniform-Regel wie Waffe/Rüstung/Ausrüstung).
+		   Bewusst KEIN gearRow: Rezepturen haben keine Gewichts-Kategorie,
+		   weightInfo würde sonst „—" erzwingen; Untertitel = Stufe ·
+		   Tradition (B6-Muster), rechts der Buch-Wert. */
+		for (const r of context.rezepturen ?? []) {
+			if (r.packed) continue;
+			gear.rezepturen.push({
+				id: r.id,
+				name: r.name,
+				img: r.img,
+				favorite: r.favorite,
+				sub: r.sub,
+				priceDisplay: r.priceDisplay,
+			});
+		}
 
 		/* --- Behälter (Behältersystem v1): eigene Gruppe, einklappbare
 		   Zeilen mit Kapazitäts-/Geldanzeige und den beiden Status-Chips
@@ -671,6 +720,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 					if (!collapsedFlags[child.id]) buildChildRows(child, depth + 1, rows);
 				} else {
 					const w = weightInfo(child);
+					/* Brauen v1.1 (B6): Rezeptur-Kinderzeilen zeigen „Stufe ·
+					   Tradition“ statt „× N“ - Rezepturen sind nie stapelbar
+					   (stackable=false), die Anzahl wäre immer „× 1“. */
+					const rz = child.type === 'rezeptur' ? (context.rezepturen ?? []).find((x) => x.id === child.id) : null;
 					rows.push({
 						id: child.id,
 						name: child.name,
@@ -679,7 +732,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						isContainer: false,
 						weightDisplay: w.display,
 						weightTooltip: w.tooltip,
-						sub: `× ${Math.max(1, Math.round(Number(child.system.number ?? 1) || 1))}`,
+						sub: rz ? rz.sub : `× ${Math.max(1, Math.round(Number(child.system.number ?? 1) || 1))}`,
 					});
 				}
 			}
@@ -698,6 +751,17 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				`${localize('CONTAINER.MONEY_GE')}: ${formatGE(totals.moneyGE)} ${localize('WEIGHT.GE_ABBR')}`,
 			];
 			if (totals.weightless) loadTooltipLines.push(localize('CONTAINER.WEIGHTLESS_HINT'));
+			/* Brauen v1.1 (B3): Buch-Wert der DIREKTEN Rezeptur-Kinder an
+			   der Behälter-Zeile (Rezeptbuch-Wert, Summe der system.price-
+			   Werte; Rezepturen in verschachtelten Behältern zählen hier
+			   bewusst nicht mit). Anzeige nur > 0, Tooltip nennt das Label. */
+			let recipesValue = 0;
+			for (const child of getContainerChildren(this.actor, item.id)) {
+				if (child.type !== 'rezeptur') continue;
+				const p = getItemPriceBase(child);
+				if (typeof p === 'number') recipesValue += p;
+			}
+			const recipesValueDisplay = recipesValue > 0 ? formatCurrency(recipesValue) : '';
 			gear.containers.push({
 				id: item.id,
 				name: item.name,
@@ -714,6 +778,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				fillFull: capacity > 0 && totals.contentsGE > capacity,
 				currencyDisplay: totals.currencyTotal > 0 ? formatCurrency(totals.currencyTotal) : '',
 				moneyTooltip: totals.currencyTotal > 0 ? `${localize('CONTAINER.MONEY_TOOLTIP')}: ${formatCurrency(totals.currencyTotal)}` : '',
+				recipesValue,
+				recipesValueDisplay,
+				recipesTooltip: recipesValue > 0 ? `${localize('CONTAINER.RECIPES_VALUE')}: ${recipesValueDisplay}` : '',
 				loadTooltip: loadTooltipLines.join('<br>'),
 				children,
 				hasChildren: children.length > 0,

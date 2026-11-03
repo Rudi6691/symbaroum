@@ -1,7 +1,8 @@
 {{!-- Brauen v1 (Rudolfs Freigabe 02.11.): Brau-Dialog am Alchemie-Fähigkeits-
     Item. Elixier-Auswahl (Kandidaten je Modus: Ökonomie = eigene Rezepturen,
-    RAW = Welt-Items), Labor-Zeile (Bonus), Dosen-Hinweis (RAW-Tabelle) und
-    im Ökonomie-Modus die Zutaten-Zeilen (je Dosis + Bestand); Radios
+    RAW = Welt-Items), Labor-Dropdown (P9: alle Labore des Charakters,
+    absteigend nach Bonus, bestes vorausgewählt), Dosen-Hinweis (RAW-Tabelle)
+    und im Ökonomie-Modus die Zutaten-Zeilen (je Dosis + Bestand); Radios
     „Öffentlich“/„Geheim“ wie der Geben-Dialog (Geheim => Flüster-Karte).
     Muster: elixir-throw.hbs (renderTemplate mit vollem Pfad, kein Partial,
     theme-adaptive Zweige über renderModern). --}}
@@ -13,8 +14,10 @@
     </select>
   </div>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
-    <label>{{localize "BREW.LAB"}}</label>
-    <input type="text" disabled value="{{labName}} ({{labBonusText}})" data-tooltip="{{localize "BREW.LAB_TOOLTIP"}}"/>
+    <label for="brew-lab">{{localize "BREW.LAB"}}</label>
+    <select id="brew-lab" data-tooltip="{{localize "BREW.LAB_TOOLTIP"}}">
+      {{selectOptions facilities selected=labId valueAttr="id" labelAttr="label"}}
+    </select>
   </div>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label>{{localize "BREW.DOSES"}}</label>

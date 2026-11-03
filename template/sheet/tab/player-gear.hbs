@@ -160,6 +160,38 @@
                 </ol>
             </div>
         </div>
+        {{!-- Brauen v1.1 (B2, Rudolfs Paket-2-Freigabe): eigene Sektion
+            REZEPTUREN auf dem klassischen Ausrüstungsblatt. Bewusst OHNE
+            packed-Filter: Das klassische Blatt zeigt KEINE Behälter, eine
+            Filterung würde Rezepturen im Rezeptbuch unsichtbar machen
+            (bewusste Entscheidung, im Auslieferungsdoc dokumentiert).
+            Zeilen: Bild, Name, Stufe, Tradition, Buch-Wert (Orteg-Basis). --}}
+        <div class="rezepturen foreground">
+            <h1>{{localize "TITLE.REZEPTUREN"}} <a class="symbaroum-add item-create" data-tooltip="{{localize "REZEPTUR.ADDBUTTON"}}" data-type="rezeptur"><i class="fas fa-plus"></i></a></h1>
+            <div class="scrollable item-list">
+                <ol>
+                    <li class="rezeptur item-header">
+                        <div class="name">{{localize "TYPES.Item.rezeptur"}}</div>
+                        <div class="level">{{localize "ALCHEMY_LEVEL.LABEL"}}</div>
+                        <div class="tradition">{{localize "REZEPTUR.TRADITION"}}</div>
+                        <div class="value">{{localize "REZEPTUR.PRICE"}}</div>
+                    </li>
+                    {{#each rezepturen as |r|}}
+                    <li class="symbaroum-contextmenu rezeptur item-row item draggable" data-item-id="{{r.id}}">
+                        <div class="name" data-tooltip="{{r.name}}">
+                            <div class="image-container">
+                                <div class="image" style="background-image: url('{{r.img}}')"></div>
+                            </div>
+                            <button type="button" class="item-edit ellipsis rezepturname">{{r.name}}</button>
+                        </div>
+                        <div class="level">{{r.levelLabel}}</div>
+                        <div class="tradition" data-tooltip="{{localize 'REZEPTUR.TRADITION_TOOLTIP'}}">{{r.traditionLabel}}</div>
+                        <div class="value" data-tooltip="{{localize 'REZEPTUR.PRICE_TOOLTIP'}}">{{r.priceDisplay}}</div>
+                    </li>
+                    {{/each}}
+                </ol>
+            </div>
+        </div>
         <div class="money foreground">
             <h1>{{localize "TITLE.MONEY"}}</h1>
             {{!-- A38 Währungssystem: Crucible-Modell - Ganzzahl in Orteg auf dem
