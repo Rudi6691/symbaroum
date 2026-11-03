@@ -35,7 +35,14 @@
                         {{else}}
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
-                    </div>{{!-- Status-Tab v1.2 (Nachtest v1.1): fehlender Schließer des Stapelbar-Felds - beim v1-Reorder der Rüstungsfelder hinter sie verschoben, lagen Basis-Schutz/Bonus-Schutz/Qualität als Kinder im Stapelbar-div statt als m-grid-Geschwister (Rudolfs Befund "fest mit Stapelbar verbunden"); zurück an die Original-Position (40.1.8). --}}
+                    </div>
+                    {{!-- Sammel-Fix v1.2 (Rudolfs Testrunde 2, Befund 3):
+                        „Traditionswissen?“ wandert vom eigenen Traditions-Tab
+                        (v1) DIREKT hinter „Stapelbar“ INS Stats-m-grid —
+                        Muster Ausrüstungs-Status-Tab v1.1; der Traditions-Tab
+                        samt Rail-Button entfällt. inGrid=true schaltet das
+                        Feld-Partial auf das m-inline-field-Spaltenlayout. --}}
+                    {{> systems/symbaroum/template/sheet/tab/traditions-field.hbs inGrid=true}}
                     <div class="m-inline-field">
                         <label for="{{id}}-system.baseProtection">{{localize "ARMOR.BASE_PROT"}}</label>
                         <select id="{{id}}-system.baseProtection" name="system.baseProtection">
@@ -89,12 +96,6 @@
             {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
         {{/if}}
-        {{!-- Traditionen v1: GM-only „Traditionen“-Tab, modern. --}}
-        {{#if symbaroumOptions.isGM}}
-        <div class="tab" data-group="primary" data-tab="traditions">
-            {{> systems/symbaroum/template/sheet/modern/item/tab-traditions.hbs}}
-        </div>
-        {{/if}}
     </div>
 </div>
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
@@ -105,7 +106,5 @@
         <button type="button" class="modern-rail-btn" data-tab="power" data-tooltip="{{localize 'TAB.POWER'}}"><i class="fas fa-wand-magic-sparkles"></i></button>
         {{/if}}
         {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>{{/if}}
-        {{!-- Traditionen v1: Rail-Button „Traditionen“ GM-only (alle Blätter). --}}
-        {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="traditions" data-tooltip="{{localize 'TRADITION.TAB_LABEL'}}"><i class="fas fa-gear"></i></button>{{/if}}
     </nav>
 </div>

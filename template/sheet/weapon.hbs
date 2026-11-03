@@ -37,7 +37,6 @@
             <b class="item" data-tab="power">{{localize "TAB.POWER"}}</b>
             {{/if}}
             {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2) --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>{{/if}}
-            {{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): „Traditionen“-Tab GM-only auf ALLEN Item-Blättern. --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="traditions">{{localize "TRADITION.TAB_LABEL"}}</b>{{/if}}
         </div>
         <div class="sheet-body">
             <div class="tab" data-group="primary" data-tab="description">
@@ -76,6 +75,13 @@
                         <input id="{{id}}-system.stackable" name="system.stackable" type="checkbox" value="true" data-tooltip="{{localize "STACK.TOOLTIP"}}"/>
                         {{/if}}
                     </div>
+                    {{!-- Sammel-Fix v1.2 (Rudolfs Testrunde 2, Befund 3):
+                        „Traditionswissen?“ wandert vom eigenen Traditions-Tab
+                        (v1) DIREKT hinter „Stapelbar“ in den Stats-Tab —
+                        Muster Ausrüstungs-Status-Tab v1.1; der Traditions-Tab
+                        samt Nav-Eintrag entfällt. Klassisches Zeilen-Layout
+                        (kein inGrid-Parameter). --}}
+                    {{> systems/symbaroum/template/sheet/tab/traditions-field.hbs}}
                     {{!-- Munitionsverbrauch v1 (31.10.): waffenseitige
                         Munitions-Konfiguration - GM-only wie Artefakt/
                         Stapelbar (Welt-/SL-Taxonomie). Leere Kategorie =
@@ -192,12 +198,6 @@
             {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="bonus">
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
-            </div>
-            {{/if}}
-            {{!-- Traditionen v1: GM-only „Traditionen“-Tab (Feld „Traditionswissen?“ + Zahnrad-Dialog; „Verbotenes Wissen“-Segen: Single-Select im selben Feld). --}}
-            {{#if symbaroumOptions.isGM}}
-            <div class="tab" data-group="primary" data-tab="traditions">
-                {{> systems/symbaroum/template/sheet/tab/traditions.hbs}}
             </div>
             {{/if}}
             {{#if system.isArtifact}}
