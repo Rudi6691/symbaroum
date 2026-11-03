@@ -43,9 +43,11 @@ SYMBAROUM.itemImages = {
   equipment: "equipment.png",
   artifact: "artifact.png",
   container: "container.svg",
-  /* Brauen v1.1 (Punkt 15): Standard-Icon der Rezeptur (bewusst die
-     Ritual-Scroll-Grafik - kein eigener Asset im System; GM änderbar). */
-  rezeptur: "ritual.png",
+  /* Brauen v1.3 (Rudolfs Icon-Commits, 03.11.): Standard-Icon der Rezeptur
+     = eigene Scroll-Quill-Grafik (asset/image/scroll-quill.svg, Rudolfs
+     Repo-Commit) - loest den v1.1-Platzhalter ritual.png ab ("kein eigener
+     Asset im System" ist damit entfallen); GM aenderbar. */
+  rezeptur: "scroll-quill.svg",
 };
 
 // Deprecated item types
