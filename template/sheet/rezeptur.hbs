@@ -35,11 +35,14 @@
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                     {{!-- Alchemie Modul 3 (GM): Schein-Rezeptur-Banner — das
                         Item behauptet ein falsches Ziel; hier steht, was es
-                        tatsächlich beschreibt (Flag 'schein' in item.js). --}}
+                        tatsächlich beschreibt (Flag 'schein' in item.js).
+                        v1.2 (P10): Entlarven-Knopf — Fälschungs-Marker am
+                        Namen, Flag entlarvt (item.js exposeScheinRecipe). --}}
                     {{#if symbaroumOptions.isGM}}
                     {{#if scheinBanner}}
                     <div class="resourcecategory">
                         <label>{{scheinBanner.text}}</label>
+                        {{#unless scheinBanner.exposed}}<button type="button" data-action="exposeSchein" data-tooltip="{{localize "SCHEIN.EXPOSE_BUTTON_TOOLTIP"}}">{{localize "SCHEIN.EXPOSE_BUTTON"}}</button>{{/unless}}
                     </div>
                     {{/if}}
                     {{/if}}

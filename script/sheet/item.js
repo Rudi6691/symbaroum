@@ -16,7 +16,7 @@ import { isAlchemical } from '../common/elixirs.js';
 // Alchemie Modul 3 (Rudolfs Startsignal 04.11.2026): Alchemie-Menü
 // (Brauen/Analysieren/Nachbrauen), Nachbrau-Dialog mit Rezeptur-Preset
 // und die §6a-Täuschungs-Helfer (brewing.js).
-import { openNachbrauDialog, findAlchemyAbility, restoreDeception } from '../common/brewing.js';
+import { openNachbrauDialog, findAlchemyAbility, restoreDeception, exposeScheinRecipe } from '../common/brewing.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): zentrale
 // Traditions-Kanonik (tradition.js — Single Source für Labels, Feld-
 // Auflösung, Zugangsprüfung, Qualitäts-Geheimnisse und die Liste der
@@ -131,6 +131,16 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				event.preventDefault();
 				if (!game.user.isGM) return;
 				await restoreDeception(this.item);
+			},
+			/* Alchemie Modul 3 v1.2 (§6a, Rudolfs Freigabe 04.11., P10):
+			   Schein-Rezeptur ENTLARVEN (GM-Knopf am Rezeptur-Banner) —
+			   sichtbarer Fälschungs-Marker am Namen, schein-Flag entlarvt
+			   (brewing.js exposeScheinRecipe; das Gebräu ergibt weiterhin
+			   nur Rückstand, eine Zeitbombe bleibt scharf). */
+			exposeSchein: async function (event) {
+				event.preventDefault();
+				if (!game.user.isGM) return;
+				await exposeScheinRecipe(this.item);
 			},
 			/* Alchemie Modul 3: Nachbrau-Bonus (Actor-Flag 'nachbrauBonus',
 			   +1 auf das nächste Gebräu) per GM-Reset entfernen — Banner
@@ -367,6 +377,9 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			if (this.item.type === 'rezeptur' && scheinFlag) {
 				context.scheinBanner = {
 					recipeName: scheinFlag.recipeName,
+					/* v1.2 (P10): exposed steuert den Entlarven-Knopf am
+					 * Banner (Template {{#unless scheinBanner.exposed}}). */
+					exposed: !!scheinFlag.entlarvt,
 					text: game.i18n.format('SCHEIN.RECIPE_BANNER', { recipeName: scheinFlag.recipeName }),
 				};
 			}

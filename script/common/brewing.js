@@ -980,6 +980,24 @@ export async function restoreDeception(item) {
 	}
 }
 
+/** Schein-Rezeptur ENTLARVEN (§6a, v1.2 — Rudolfs Freigabe 04.11.,
+ *  P10): sichtbarer Fälschungs-Marker (SCHEIN.EXPOSED_MARKER) am
+ *  Rezeptur-Namen für ALLE Betrachter, schein-Flag erhält entlarvt:
+ *  true. Das Flag bleibt IMMER gesetzt — performBrew erzeugt daraus
+ *  weiterhin nur Rückstand, eine etwaige Zeitbombe bleibt scharf;
+ *  entlarvte Rezepturen sind keine Analyse-Kandidaten mehr und der
+ *  Entlarven-Knopf am GM-Banner verschwindet. Zweite Ausführung
+ *  (entlarvt) ist eine sichere No-op. Aufrufer: performAnalyse-
+ *  Spezialpfad (Analyse-Erfolg) und item.js-Knopf (GM). */
+export async function exposeScheinRecipe(item) {
+	const schein = item?.getFlag?.('symbaroum', 'schein');
+	if (!schein || schein.entlarvt) return;
+	const name = String(item.name ?? '');
+	const marker = L('SCHEIN.EXPOSED_MARKER');
+	if (!name.includes(marker)) await item.update({ name: `${name} ${marker}`.trim() });
+	await item.setFlag('symbaroum', 'schein', { ...schein, entlarvt: true });
+}
+
 /** Alchemischer Rückstand (Schein-Brau-Produkt §6a): inertes Ausrüstungs-
  *  Item, stapelt sich im Inventar über Namen + Anzahl (Merge-Muster). */
 async function addResidueDoses(actor, count) {
@@ -1006,7 +1024,10 @@ async function addResidueDoses(actor, count) {
 
 /** Analyse-Kandidaten (§14): Inventar-Dosen zuerst, dann Welt-Items,
  *  Deduplizierung über den Namen, Unbekannt-Badge bei Täuschungs-Flag;
- *  Stufen-Cap = wirksame Stufe + 2. */
+ *  Stufen-Cap = wirksame Stufe + 2. v1.2 (Rudolfs Freigabe 04.11.,
+ *  P10): ZUSÄTZLICH nicht entlarvte Schein-Rezepturen (§6a) als
+ *  Analyse-Ziele — eine erfolgreiche Analyse entlarvt die Fälschung
+ *  (performAnalyse-Spezialpfad). */
 export function buildAnalyseCandidates(actor, capLevel) {
 	const cap = LEVEL_ORDER[capLevel] ?? 0;
 	const candidates = [];
@@ -1032,6 +1053,30 @@ export function buildAnalyseCandidates(actor, capLevel) {
 	for (const item of game.items ?? []) {
 		if (item?.type === 'equipment' && isAlchemical(item.system)) push(item, false);
 	}
+	/* v1.2 (P10): Nicht entlarvte SCHEIN-REZEPTUREN des Inventars
+	 * (Nachbrau-Patzer §6a) sind Analyse-Ziele. KEIN Unbekannt-Badge
+	 * und KEIN seen-Dedup: Die Rezeptur soll im Analyse-Dialog wie
+	 * ein normales Ziel wirken (die Täuschung ist heimlich, nur das
+	 * GM-Banner am Rezeptur-Blatt kennt die Wahrheit). Entlarvte
+	 * Rezepturen (Flag entlarvt) sind keine Kandidaten mehr. units
+	 * bleibt 0 — nur der Elixier-Erfolgspfad liest es, der Rezeptur-
+	 * Spezialpfad kehrt vorher um. */
+	for (const item of actor?.items ?? []) {
+		if (item?.type !== 'rezeptur') continue;
+		const schein = item.getFlag('symbaroum', 'schein');
+		if (!schein || schein.entlarvt) continue;
+		const level = String(item.system?.alchemyLevel ?? '');
+		if (level === '' || (LEVEL_ORDER[level] ?? 0) > cap + 2) continue;
+		candidates.push({
+			key: item.uuid,
+			item,
+			name: item.name,
+			level,
+			inInventory: true,
+			units: 0,
+			unknown: false,
+		});
+	}
 	return candidates;
 }
 
@@ -1053,10 +1098,12 @@ export function buildGuideOptions(actor, ownLevel) {
 }
 
 /** Nachbrau-Kandidaten (§13): Dosen im Inventar mit Stufe ≤ eigener
- *  Alchemie-Stufe UND vorhandener Grund-Rezeptur (owned, gleiches
- *  Elixier, ANDERE Stufe); bereits existierende Rezepturen desselben
- *  Ziels UND Stufe sind keine Kandidaten (Dedup schon im Dialog).
- *  blocked = Traditions-Zugang fehlt (VW-Knopf im Dialog). */
+ *  Alchemie-Stufe; bereits existierende Rezepturen desselben Ziels
+ *  UND Stufe sind keine Kandidaten (Dedup schon im Dialog). v1.2
+ *  (Rudolfs Freigabe 04.11., P7): Die Grund-Rezeptur ist KEINE
+ *  Nachbrau-Voraussetzung mehr — grunds darf leer sein (die Grund-
+ *  Rezeptur-Auswahl im Dialog wird dann ausgeblendet). blocked =
+ *  Traditions-Zugang fehlt (VW-Knopf im Dialog). */
 export function buildNachbrauCandidates(actor, ownLevel) {
 	const cap = LEVEL_ORDER[ownLevel] ?? 0;
 	const candidates = [];
@@ -1065,8 +1112,10 @@ export function buildNachbrauCandidates(actor, ownLevel) {
 		const level = getAlchemyLevel(item);
 		if (level === '' || (LEVEL_ORDER[level] ?? 0) > cap) continue;
 		if (getItemCount(item) < 1) continue;
+		/* v1.2 (P7): KEIN grunds-Filter mehr — Nachbrau ist auch ohne
+		 * Grund-Rezeptur erlaubt (performNachbrau verbraucht sie
+		 * ohnehin nicht; die v1.1-Pflicht war rein regulatorisch). */
 		const grunds = ownedBaseRecipes(actor, item, level);
-		if (grunds.length === 0) continue;
 		// Rezeptur-Ziel: dauerhaftes Welt-Item gleichen Namens, sonst die
 		// Inventarskopie selbst (RezepturSheet._onDrop-Muster).
 		const world = (game.items ?? []).find((i) => i?.type === 'equipment' && i.name === item.name) ?? item;
@@ -1128,7 +1177,23 @@ export async function openAlchemyMenu(abilityItem) {
 				footer.style.flexDirection = 'column';
 				footer.style.gap = '0.25rem';
 			}
-			for (const b of btns) b.style.width = '100%';
+			/* v1.2 (P4, Rudolfs Testrunde v1.1): Die Breiten-Anweisung
+			 * muss als WICHTIGES Inline-Style gesetzt werden — die
+			 * System-CSS (symbaroum.css-Block 7.1.8, Selektor
+			 * „dialog.symb-dialog footer button") setzt width:auto
+			 * !important und schlägt damit jedes gewöhnliche Inline-
+			 * Style: Die Buttons schrumpften auf Inhaltsbreite (das
+			 * längste Label war am breitesten, die anderen ~20px
+			 * schmaler — Rudolfs Screenshot-Messung). Ein Inline-Style
+			 * MIT important gewinnt gegen die Stylesheet-Regel;
+			 * box-sizing + align-self sichern die exakt gleiche
+			 * Breite unabhängig von Padding/Border und Footer-
+			 * Ausrichtung (align-items). */
+			for (const b of btns) {
+				b.style.boxSizing = 'border-box';
+				b.style.setProperty('width', '100%', 'important');
+				b.style.setProperty('align-self', 'stretch', 'important');
+			}
 		},
 		buttons: {
 			brew: {
@@ -1293,12 +1358,44 @@ async function performAnalyse(actor, abilityItem, cand, { guideActor = null, fac
 		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier)} — ${success ? L('ANALYSE.CHAT_SUCCESS') : L('ANALYSE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 	);
 	lines.push(rigChatLine(probe));
+	/* v1.2 (Rudolfs Freigabe 04.11., P10): SCHEIN-REZEPTUR-Spezial-
+	 * pfad — Rezeptur-Ziele durchlaufen KEINE der Elixier-Pfade
+	 * (keine Spuren-/Zutaten-/Traditions-Zeilen, keine Fehlbe-
+	 * stimmung beim Patzer): Erfolg ENTLARVT die Fälschung
+	 * (exposeScheinRecipe — Fälschungs-Marker am Namen, schein-Flag
+	 * bleibt: Gebräu ergibt weiterhin nur Rückstand, eine etwaige
+	 * Zeitbombe bleibt scharf); Misserfolg bleibt der normale
+	 * Analyse-Fehlschlag. */
+	if (elixir.type === 'rezeptur') {
+		const scheinFlag = elixir.getFlag('symbaroum', 'schein');
+		if (success && scheinFlag && !scheinFlag.entlarvt) {
+			lines.push(F('SCHEIN.ANALYSE_EXPOSED', { real: scheinFlag.recipeName }));
+			await exposeScheinRecipe(elixir);
+		} else {
+			lines.push(L('ANALYSE.CHAT_FAIL'));
+		}
+		await postBrewCard(actor, F('ANALYSE.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
+		return;
+	}
 	if (success) {
 		// Spuren (§14): Kategorie + Stufe; bei Traditions-Zugang VOLLE
 		// Analyse (Zutat je Dosis + Tradition).
 		lines.push(F('ANALYSE.CHAT_TRACES', { category: L(elixirCategoryKey(elixir)) }));
 		lines.push(F('ANALYSE.CHAT_LEVEL', { level: L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`) }));
-		if (unknownFlag) lines.push(F('ANALYSE.CHAT_REVEAL', { name: unknownFlag.realName }));
+		/* v1.2 (Rudolfs Freigabe 04.11., Randnotiz Testrunde v1.1): Die
+		 * Enthüllung wird bei Analyse-ERFOLG automatisch wirksam —
+		 * Name und Beschreibung des Items kehren ohne GM-Handgriff
+		 * zurück (der „Täuschung aufheben"-Knopf entfällt). Guard
+		 * fehlFlag: Bei ZUSÄTZLICH heimlicher Fehlbestimmung bleibt
+		 * die Unbekannt-Markierung bestehen — nur der KritErf-Zweig
+		 * entlarvt diese Kombination vollständig. */
+		if (unknownFlag) {
+			lines.push(F('ANALYSE.CHAT_REVEAL', { name: unknownFlag.realName }));
+			if (!fehlFlag) {
+				await elixir.update({ name: unknownFlag.realName, 'system.description': unknownFlag.realDescription });
+				await elixir.unsetFlag('symbaroum', 'unknownElixir');
+			}
+		}
 		if (hasAccess || resultLevel === 'CHAT.CRITICAL_SUCCESS') {
 			lines.push(F('ANALYSE.CHAT_INGREDIENT', { amount: cand.units }));
 			lines.push(
@@ -1314,13 +1411,19 @@ async function performAnalyse(actor, abilityItem, cand, { guideActor = null, fac
 	}
 	// Bestätigter kritischer Erfolg (KritErf): Zutat erkannt + Täuschung
 	// entlarvt + Nachbrau-Dialog öffnet automatisch (fehlende Kandidaten
-	// meldet der Dialog von selbst — Unbekannt-Markierungen bleiben GM-
-	// Sache und werden NICHT automatisch aufgelöst).
+	// meldet der Dialog von selbst). v1.2: Unbekannt-Markierungen lösen
+	// sich bei Analyse-ERFOLG automatisch auf (success-Block); im
+	// Kombifall Unbekannt + heimliche Fehlbestimmung hebt dieser Zweig
+	// nach der Fehlbestimmung auch die Unbekannt-Markierung auf.
 	if (resultLevel === 'CHAT.CRITICAL_SUCCESS') {
 		if (fehlFlag) {
 			lines.push(F('ANALYSE.CHAT_DECEPTION', { name: fehlFlag.realName }));
 			await elixir.update({ name: fehlFlag.realName, 'system.description': fehlFlag.realDescription });
 			await elixir.unsetFlag('symbaroum', 'fehlbestimmt');
+			if (unknownFlag) {
+				await elixir.update({ name: unknownFlag.realName, 'system.description': unknownFlag.realDescription });
+				await elixir.unsetFlag('symbaroum', 'unknownElixir');
+			}
 		}
 		lines.push(L('ANALYSE.CHAT_NACHBRAU_HINT'));
 		await postBrewCard(actor, F('ANALYSE.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
@@ -1371,10 +1474,11 @@ async function performAnalyse(actor, abilityItem, cand, { guideActor = null, fac
 /*  Nachbrauen (§13) — Dialog + Probe + Rezeptur-Anlage               */
 /* ---------------------------------------------------------------- */
 
-/** Nachbrau-Dialog (§13): Dosis-Auswahl (Stufe ≤ eigene, Grund-Rezeptur
- *  vorhanden), Grund-Rezeptur (Live-Rebuild je Ziel), Labor (Pflicht
- *  wie beim Brauen), Modifikator, Info-Zeile; VW-Knopf NUR bei blockiertem
- *  Traditions-Zugang des gewählten Ziels. */
+/** Nachbrau-Dialog (§13): Dosis-Auswahl (Stufe ≤ eigene), Grund-Rezeptur
+ *  (Live-Rebuild je Ziel; v1.2/P7: Bei Kandidaten OHNE Grund-Rezeptur
+ *  wird die Auswahl-Zeile ausgeblendet — Nachbrau ist ohne erlaubt),
+ *  Labor (Pflicht wie beim Brauen), Modifikator, Info-Zeile; VW-Knopf
+ *  NUR bei blockiertem Traditions-Zugang des gewählten Ziels. */
 export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, presetTargetUuid = null } = {}) {
 	const actor = abilityItem?.actor ?? abilityItem?.parent;
 	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
@@ -1442,14 +1546,23 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 			const update = () => {
 				const cand = candidates.find((c) => c.key === select.value);
 				if (!cand) return;
-				// Grund-Rezeptur-Auswahl live neu aufbauen (Live-Rebuild);
-				// eine noch gültige Auswahl bleibt erhalten.
+				/* Grund-Rezeptur-Auswahl live neu aufbauen (Live-Rebuild);
+				 * eine noch gültige Auswahl bleibt erhalten. v1.2 (P7):
+				 * Ohne Grund-Rezeptur wird die Zeile ausgeblendet statt
+				 * eine leere Auswahl zu zeigen. */
 				if (baseSelect) {
-					const prev = baseSelect.value;
-					baseSelect.innerHTML = cand.grunds
-						.map((g) => `<option value="${g.recipe.id}">${g.recipe.name}</option>`)
-						.join('');
-					baseSelect.value = cand.grunds.some((g) => g.recipe.id === prev) ? prev : cand.grunds[0].recipe.id;
+					const baseRow = baseSelect.closest('div');
+					if (cand.grunds.length > 0) {
+						if (baseRow) baseRow.style.display = '';
+						const prev = baseSelect.value;
+						baseSelect.innerHTML = cand.grunds
+							.map((g) => `<option value="${g.recipe.id}">${g.recipe.name}</option>`)
+							.join('');
+						baseSelect.value = cand.grunds.some((g) => g.recipe.id === prev) ? prev : cand.grunds[0].recipe.id;
+					} else {
+						if (baseRow) baseRow.style.display = 'none';
+						baseSelect.innerHTML = '';
+					}
 				}
 				if (infoEl) infoEl.value = infoFor(cand);
 				if (vwRow) vwRow.style.display = cand.blocked ? '' : 'none';
@@ -1471,7 +1584,9 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 					const cand = candidates.find((c) => c.key === key);
 					if (!cand) return;
 					const baseId = html[0].querySelector('#nachbrau-base')?.value;
-					const base = cand.grunds.find((g) => g.recipe.id === baseId) ?? cand.grunds[0];
+					/* v1.2 (P7): Ohne Grund-Rezeptur ist base null —
+					 * performNachbrau verbraucht sie nicht. */
+					const base = cand.grunds.length > 0 ? (cand.grunds.find((g) => g.recipe.id === baseId) ?? cand.grunds[0]) : null;
 					const labId = html[0].querySelector('#nachbrau-lab')?.value;
 					const facility = facilities.find((f) => f.item.id === labId) ?? facilities[0];
 					const userMod = Number(html[0].querySelector('#nachbrau-modifier')?.value);
