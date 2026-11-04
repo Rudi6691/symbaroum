@@ -819,6 +819,18 @@ const TRACE_OVERRIDE = {
 	corruption: 'ANALYSE.CAT_CORRUPTION',
 	alters: 'ANALYSE.CAT_ALTERS',
 	unknown: 'ANALYSE.CAT_UNKNOWN',
+	/* Sammel-Fix v1.4 (Rudolfs Testrunde v1.3, Punkt-7-Kommentar
+	 * „Weitere Spuren ergänzen: Blendet, Verwirrt, Verätzt, Vernebelt,
+	 * Betäubt, Verletzt, Enthüllt, Entgiftet"): acht zusätzliche
+	 * Override-Kategorien — reine Anzeige, gleiche Mechanik. */
+	blinded: 'ANALYSE.CAT_BLINDED',
+	confused: 'ANALYSE.CAT_CONFUSED',
+	corroded: 'ANALYSE.CAT_CORRODED',
+	dazed: 'ANALYSE.CAT_DAZED',
+	stunned: 'ANALYSE.CAT_STUNNED',
+	wounded: 'ANALYSE.CAT_WOUNDED',
+	revealed: 'ANALYSE.CAT_REVEALED',
+	detoxified: 'ANALYSE.CAT_DETOXIFIED',
 };
 
 export function elixirCategoryKey(elixir) {
@@ -1177,14 +1189,22 @@ export function buildNachbrauCandidates(actor, ownLevel) {
 /*  Alchemie-Menü (Modul 3) + Analyse-Dialog                          */
 /* ---------------------------------------------------------------- */
 
-/** Alchemie-Menü: Vier-Button-Einstieg — Brauen/Analysieren/Nachbrauen/
- *  Abbrechen. Zugang seit v1.1 (Rudolfs Testrunde P2 + Freigabe 05.11.)
- *  über das FÄHIGKEITS-ICON der Alchemie-Kachel im Spielerbogen (Kräfte-
- *  Tab + Kampf-Tab-Favoriten, player.js capture-Klick); die früheren
- *  Einstiege — Kolben-Button am Item-Blatt und Kontextmenü-Eintrag
- *  „Elixier brauen…" — sind entfallen. Menü-Layout v1.1 (P2c): Die
- *  Buttons stehen UNTEREINANDER in gleicher Breite (Footer-Umstyling im
- *  onRender, keine CSS-Datei nötig). */
+/** Alchemie-Menü: Fünf-Button-Einstieg — Untersuchen/Brauen/Analysieren/
+ *  Nachbrauen/Abbrechen. Zugang seit v1.1 (Rudolfs Testrunde P2 +
+ *  Freigabe 05.11.) über das FÄHIGKEITS-ICON der Alchemie-Kachel im
+ *  Spielerbogen (Kräfte-Tab + Kampf-Tab-Favoriten, player.js capture-
+ *  Klick); die früheren Einstiege — Kolben-Button am Item-Blatt und
+ *  Kontextmenü-Eintrag „Elixier brauen…“ — sind entfallen. Menü-Layout
+ *  v1.1 (P2c): Die Buttons stehen UNTEREINANDER in gleicher Breite
+ *  (Footer-Umstyling im onRender, keine CSS-Datei nötig).
+ *  Sammel-Fix v1.4 (Rudolfs Testrunde v1.3, Punkt 3): NEUE Taste
+ *  „Untersuchen“ an ERSTER Stelle — öffnet den Untersuchungs-Dialog
+ *  (Standard-Würfeldialog-Muster: freier Modifikator + Gunst-Block)
+ *  für die alchemische Untersuchung von Orten oder Dingen (z. B. ob
+ *  eine Leiche vergiftet wurde); die Erkenntnisse führt die SL.
+ *  Ankündigung für später (Rudolfs Punkt 4): Eine weitere Taste
+ *  „Zutaten sammeln“ (Kräuter-/Zutaten-Sammelwurf) kommt erst in
+ *  einer späteren Version — Position dann NACH „Elixier nachbrauen“. */
 export async function openAlchemyMenu(abilityItem) {
 	const actor = abilityItem?.actor ?? abilityItem?.parent;
 	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
@@ -1229,6 +1249,14 @@ export async function openAlchemyMenu(abilityItem) {
 			}
 		},
 		buttons: {
+			/* Sammel-Fix v1.4 (Rudolfs Testrunde v1.3, Punkt 3): „Untersuchen“
+			 * an erster Stelle — öffnet den Untersuchungs-Dialog (Modifikator
+			 * + Gunst-Block, Standard-Würfeldialog-Muster). */
+			investigate: {
+				icon: '<i class="fas fa-magnifying-glass"></i>',
+				label: L('ALCHEMY_MENU.INVESTIGATE'),
+				callback: () => openInvestigateDialog(abilityItem),
+			},
 			brew: {
 				icon: '<i class="fas fa-flask"></i>',
 				label: L('ALCHEMY_MENU.BREW'),
@@ -1672,7 +1700,13 @@ async function performNachbrau(actor, abilityItem, cand, base, { facility = null
 	 * Malus in der Hinweiszeile, die Probe-Zeile zeigt ihn im
 	 * Modifikator-Segment). Gunst/Missgunst v1.3 (Punkt 6c). */
 	const noBaseMod = base ? 0 : -10;
+	/* Sammel-Fix v1.4 (Rudolfs Testrunde v1.3, Punkt 2): MIT Grund-
+	 * Rezeptur nennt die Karte jetzt auch die Grundlage und ihren
+	 * Proben-Modifikator (+0 — der −10-Malus fällt weg), damit der
+	 * Modifikator für die Grund-Rezeptur in BEIDEN Fällen sichtbar
+	 * auf der Karte erscheint (ohne: −10-Hinweiszeile, wie bisher). */
 	if (!base) lines.push(L('NACHBRAU.CHAT_NO_BASE'));
+	else lines.push(F('NACHBRAU.CHAT_BASE', { name: base.recipe.name }));
 	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier + noBaseMod, favour);
 	rolls.push(...probe.rolls);
 	const resultLevel = getRollResultLevelKey(probe);
@@ -1765,6 +1799,86 @@ async function performNachbrau(actor, abilityItem, cand, base, { facility = null
 		lines.push(L('NACHBRAU.CHAT_FAIL'));
 	}
 	await postBrewCard(actor, F('NACHBRAU.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
+}
+
+/* ---------------------------------------------------------------- */
+/*  Untersuchen (v1.4, Rudolfs Testrunde v1.3 Punkt 3): Dialog + Probe */
+/* ---------------------------------------------------------------- */
+
+/** Untersuchungs-Dialog (v1.4): Standard-Würfeldialog-Muster — freier
+ *  Modifikator + Gunst-Block (Normal/Gunst/Missgunst, wie die drei
+ *  Alchemie-Dialoge), optionaler Gegenstand/Ort-Text für den Karten-
+ *  titel. Für die alchemische Untersuchung von Orten oder Dingen,
+ *  die etwas mit Alchemie zu tun haben könnten (z. B. ob eine Leiche
+ *  vergiftet worden war) — Labor, Ziel-Item und Stufe spielen hier
+ *  KEINE Rolle; die Erkenntnisse führt die SL (Flüster-Karte mit
+ *  dem Ergebnis an die SL, die Karte selbst ist öffentlich). */
+export async function openInvestigateDialog(abilityItem) {
+	const actor = abilityItem?.actor ?? abilityItem?.parent;
+	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
+	const modern = isModernDialogActive();
+	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/investigate-dialog.hbs', {
+		renderModern: modern,
+	});
+	symbDialog({
+		title: `${L('INVESTIGATE.DIALOG_TITLE')} — ${actor.name}`,
+		content: dialogHtml,
+		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+		width: 440,
+		buttons: {
+			investigate: {
+				icon: '<i class="fas fa-magnifying-glass"></i>',
+				label: L('INVESTIGATE.BUTTON'),
+				callback: async (html) => {
+					const subject = String(html[0].querySelector('#investigate-subject')?.value ?? '').trim();
+					const userMod = Number(html[0].querySelector('#investigate-modifier')?.value);
+					const modifier = Number.isFinite(userMod) ? userMod : 0;
+					/* Gunst-Radioblock (0/+1/−1), Muster: die drei
+					 * Alchemie-Dialoge (v1.3, Punkt 6c). */
+					let favour = 0;
+					for (const radio of html[0].querySelectorAll("input[name='investigate-favour']")) {
+						if (radio.checked) favour = Number(radio.value) || 0;
+					}
+					await performInvestigate(actor, abilityItem, { subject, modifier, favour });
+				},
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+				callback: () => {},
+			},
+		},
+		default: 'investigate',
+	});
+}
+
+/** Untersuchungs-Probe (v1.4): Scharfsinn-Wurf mit freiem Modifikator
+ *  und Gunst (Test-Rig /rig greift wie bei allen Alchemie-Würfen);
+ *  öffentliche Karte mit Probe-Zeile und Ergebnis; zusätzlich
+ *  Flüster-Karte an die SL mit Ergebnis — was der Charakter erkennt,
+ *  entscheidet die SL (SL-geführte Informationen). */
+async function performInvestigate(actor, abilityItem, { subject = '', modifier = 0, favour = 0 } = {}) {
+	const rolls = [];
+	const lines = [];
+	const probe = await alchemyProbe(actor, modifier, favour);
+	rolls.push(...probe.rolls);
+	const success = probe.trueActorSucceeded;
+	lines.push(
+		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, 0, modifier)} — ${success ? L('INVESTIGATE.CHAT_SUCCESS') : L('INVESTIGATE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
+	);
+	lines.push(rigChatLine(probe));
+	const title =
+		subject !== ''
+			? F('INVESTIGATE.CHAT_TITLE', { name: actor.name, subject })
+			: F('INVESTIGATE.CHAT_TITLE_BARE', { name: actor.name });
+	await postBrewCard(actor, title, lines, rolls);
+	await whisperGM(L('INVESTIGATE.WHISPER_TITLE'), [
+		F('INVESTIGATE.WHISPER_BODY', {
+			name: actor.name,
+			subject: subject !== '' ? subject : '—',
+			result: success ? L('INVESTIGATE.RESULT_SUCCESS') : L('INVESTIGATE.RESULT_FAILURE'),
+		}),
+	]);
 }
 
 /* ---------------------------------------------------------------- */

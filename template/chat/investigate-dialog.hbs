@@ -1,0 +1,55 @@
+{{!-- Alchemie Modul 3 v1.4 (Rudolfs Testrunde v1.3, Punkt 3): Untersuchungs-
+    Dialog — Standard-Würfeldialog-Muster (freier Modifikator + Gunst-Block)
+    für die alchemische Untersuchung von Orten oder Dingen (z. B. ob eine
+    Leiche vergiftet worden war); optionaler Gegenstand/Ort-Text für den
+    Kartentitel, keine Labor-/Ziel-Bindung. Die Erkenntnisse führt die SL.
+    Muster: analyse-dialog.hbs/nachbrau-dialog.hbs (voller Pfad, kein Partial,
+    renderModern-Zweige; KEIN templatePaths-Eintrag). --}}
+<div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
+  <div class="finalTxt">{{localize "INVESTIGATE.HINT"}}</div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="investigate-subject">{{localize "INVESTIGATE.SUBJECT_LABEL"}}</label>
+    <input id="investigate-subject" type="text" value=""/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="investigate-modifier">{{localize "DIALOG.MODIFIER"}}</label>
+    <input id="investigate-modifier" type="number" value="0"/>
+  </div>
+  {{!-- Gunst-Block (Normal/Gunst/Missgunst) wie der kanonische Würfeldialog
+      HINTER dem Modifikator — brewing.js reicht favour an baseRoll durch
+      (Muster: die drei Alchemie-Dialoge, v1.3 Punkt 6c). --}}
+  {{#if renderModern}}
+  <fieldset class="m-ability-frame">
+    <legend class="m-ability-label">{{localize "DIALOG.FAVOUR_LEGEND"}}</legend>
+    <div class="m-give-vis">
+      <label class="lblfavour">
+        <input type="radio" name="investigate-favour" value="0" checked/>
+        {{localize "DIALOG.FAVOUR_NORMAL"}}
+      </label>
+      <label class="lblfavour">
+        <input type="radio" name="investigate-favour" value="1"/>
+        {{localize "DIALOG.FAVOUR_FAVOUR"}}
+      </label>
+      <label class="lblfavour">
+        <input type="radio" name="investigate-favour" value="-1"/>
+        {{localize "DIALOG.FAVOUR_DISFAVOUR"}}
+      </label>
+    </div>
+  </fieldset>
+  {{else}}
+  <div class="favour">
+    <label class="lblfavour">
+      <input type="radio" name="investigate-favour" value="0" checked/>
+      {{localize "DIALOG.FAVOUR_NORMAL"}}
+    </label>
+    <label class="lblfavour">
+      <input type="radio" name="investigate-favour" value="1"/>
+      {{localize "DIALOG.FAVOUR_FAVOUR"}}
+    </label>
+    <label class="lblfavour">
+      <input type="radio" name="investigate-favour" value="-1"/>
+      {{localize "DIALOG.FAVOUR_DISFAVOUR"}}
+    </label>
+  </div>
+  {{/if}}
+</div>

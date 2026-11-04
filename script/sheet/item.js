@@ -444,6 +444,19 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			{ id: 'corruption', label: game.i18n.localize('ANALYSE.CAT_CORRUPTION') },
 			{ id: 'alters', label: game.i18n.localize('ANALYSE.CAT_ALTERS') },
 			{ id: 'unknown', label: game.i18n.localize('ANALYSE.CAT_UNKNOWN') },
+			/* Sammel-Fix v1.4 (Rudolfs Testrunde v1.3, Punkt-7-Kommentar
+			   „Weitere Spuren ergänzen: Blendet, Verwirrt, Verätzt,
+			   Vernebelt, Betäubt, Verletzt, Enthüllt, Entgiftet"):
+			   acht weitere Spuren-Kategorien im GM-Dropdown — reine
+			   Anzeige, gleiche Override-Mechanik (brewing.js). */
+			{ id: 'blinded', label: game.i18n.localize('ANALYSE.CAT_BLINDED') },
+			{ id: 'confused', label: game.i18n.localize('ANALYSE.CAT_CONFUSED') },
+			{ id: 'corroded', label: game.i18n.localize('ANALYSE.CAT_CORRODED') },
+			{ id: 'dazed', label: game.i18n.localize('ANALYSE.CAT_DAZED') },
+			{ id: 'stunned', label: game.i18n.localize('ANALYSE.CAT_STUNNED') },
+			{ id: 'wounded', label: game.i18n.localize('ANALYSE.CAT_WOUNDED') },
+			{ id: 'revealed', label: game.i18n.localize('ANALYSE.CAT_REVEALED') },
+			{ id: 'detoxified', label: game.i18n.localize('ANALYSE.CAT_DETOXIFIED') },
 		];
 		context.showAmmoEffect = context.showElixirFields && isAmmoCategory(this.item.system?.resourceCategory ?? '');
 		context.ammoEffect = this.item.system.ammoEffect ?? '';
