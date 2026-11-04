@@ -1,0 +1,11 @@
+.gitattributes export-ignore
+.gitignore export-ignore
+.github export-ignore
+README.md export-ignore
+Release_Notes.txt export-ignore
+item-enhance.txt export-ignore
+package.json export-ignore
+package-lock.json export-ignore
+scss/ export-ignore
+src/ export-ignore
+tools/ export-ignore
