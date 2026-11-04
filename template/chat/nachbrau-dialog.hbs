@@ -8,6 +8,9 @@
     durch Traditions-Gate blockiertem Kandidat erscheint die
     Verbotenes-Wissen-Zeile mit dem Anfrage-Button (Flüster-Karte an
     die SL, data-action vwApply/vwDecline).
+    v1.6 (Rudolfs Testrunde v1.5, Punkte 3+4, Freigabe Variante A):
+    Info-Zeile readonly + volle Breite statt deaktiviert/schmal —
+    Modifikator und −10-Hinweis werden nie mehr abgeschnitten.
     Muster: brew-dialog.hbs/analyse-dialog.hbs (voller Pfad, kein Partial,
     renderModern-Zweige; KEIN templatePaths-Eintrag). --}}
 <div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
@@ -70,7 +73,7 @@
   {{/if}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="nachbrau-info">{{localize "ANALYSE.INFO_LABEL"}}</label>
-    <input id="nachbrau-info" type="text" disabled value=""/>
+    <input id="nachbrau-info" type="text" readonly style="width:100%; max-width:100%; box-sizing:border-box; color:inherit;" value=""/>
   </div>
   <div id="nachbrau-vw-row" class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}" style="display:none">
     <button type="button" id="nachbrau-vw" data-tooltip="{{localize "NACHBRAU.VW_TOOLTIP"}}">

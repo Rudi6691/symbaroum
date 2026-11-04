@@ -3,6 +3,9 @@
     wirksame Stufe und erweitert die Kandidaten live), Labor-Dropdown mit
     LAB_NONE-Option (Analysieren ist ohne Labor erlaubt), freier Modifikator
     und Info-Zeile (Stufe/Modifikator, live gesetzt via onRender).
+    v1.6 (Rudolfs Testrunde v1.5, Punkte 3+4, Freigabe Variante A):
+    Info-Zeile readonly + volle Breite statt deaktiviert/schmal —
+    Stufe/Modifikator werden nie mehr abgeschnitten.
     Muster: brew-dialog.hbs (renderTemplate mit vollem Pfad, kein Partial,
     theme-adaptive Zweige über renderModern; KEIN templatePaths-Eintrag). --}}
 <div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
@@ -67,6 +70,6 @@
   {{/if}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="analyse-info">{{localize "ANALYSE.INFO_LABEL"}}</label>
-    <input id="analyse-info" type="text" disabled value="{{info}}"/>
+    <input id="analyse-info" type="text" readonly style="width:100%; max-width:100%; box-sizing:border-box; color:inherit;" value="{{info}}"/>
   </div>
 </div>
