@@ -32,9 +32,11 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 import { openConsumeResourceDialog, getItemCount } from '../common/resources.js';
 // Elixier-Automatisierung v1: Kontextmenü-Eintrag „Elixier verwenden“
 import { useElixir, isAlchemical } from '../common/elixirs.js';
-// Brauen v1 (Rudolfs Freigabe 02.11.): Kontextmenü „Elixier brauen…“ an der
-// Alchemie-Fähigkeits-Kachel (Dialog: brewing.js)
-import { openBrewDialog } from '../common/brewing.js';
+// Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2 + Freigabe 05.11.): Der
+// Kontextmenü-Eintrag „Elixier brauen…“ ist ENTFALLLEN — der Zugang zum
+// Alchemie-Menü läuft jetzt über das FÄHIGKEITS-ICON der Alchemie-
+// Kachel (siehe den capture-Klick in _onRender; Menü: brewing.js).
+import { openAlchemyMenu } from '../common/brewing.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Kräfte-Tab
 // (modern) - Traditions-Chips je Kachel, passiver Geheimnis-Hinweis
 // (Zugang fehlt), „Verbotenes Wissen ({Tradition})“-Titel-Suffix und
@@ -1035,6 +1037,35 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		await super._onRender(context, options);
 		const element = this.element;
 
+		/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
+		   05.11.): Klick auf das FÄHIGKEITS-ICON der Alchemie-Kachel
+		   (Kräfte-Tab UND Kampf-Tab-Favoriten — das Kachelbild ist in
+		   beiden der button.activate-ability) öffnet DIREKT das
+		   Alchemie-Menü (Brauen/Analysieren/Nachbrauen) statt der
+		   Standard-Kraft-Aktivierung; der Kontextmenü-Eintrag
+		   „Elixier brauen…“ ist entfallen. CAPTURE-Phase: Der
+		   Basis-Listener (actor.js, Bubble -> usePower) hört das
+		   Alchemie-Kachel-Event so nicht mehr; der Tooltip wird am
+		   Icon auf den Menü-Hinweis umgestellt. Nicht-Besitzer
+		   (Doppelbindung GM) fallen aufs Standard-Verhalten zurück. */
+		const abilityIconBtns = element.querySelectorAll('button.activate-ability');
+		for (const btn of abilityIconBtns) {
+			const row = btn.closest('[data-item-id]');
+			const item = row ? this.actor.items.get(row.dataset.itemId) : null;
+			if (!item || item.type !== 'ability' || item.system?.reference !== 'alchemy') continue;
+			btn.dataset.tooltip = game.i18n.localize('ALCHEMY_MENU.BUTTON_TOOLTIP');
+			btn.addEventListener(
+				'click',
+				(ev) => {
+					if (!item.isOwner) return;
+					ev.preventDefault();
+					ev.stopPropagation();
+					openAlchemyMenu(item);
+				},
+				true
+			);
+		}
+
 		const rollAttrib = element.querySelectorAll('.roll-attribute');
 		for (const s of rollAttrib) {
 			s.addEventListener('click', (ev) => {
@@ -1405,27 +1436,15 @@ export class PlayerSheet extends SymbaroumActorSheet {
 					useElixir(this._ctxItem(elem));
 				},
 			},
-			{
-				// Brauen v1 (Rudolfs Freigabe 02.11.): Kontextmenü
-				// „Elixier brauen…“ an der Alchemie-Fähigkeits-Kachel -
-				// dritter Anker neben dem Brau-Button des Fähigkeits-
-				// Blatts (klassisch + modern). visible: Item ist eine
-				// GEHALTENE Alchemie-Fähigkeit (reference 'alchemy');
-				// visibleEl: Kräfte-Kacheln beider Ansichten (modern
-				// .m-tile, klassisch .trait-Zeilen des Kräfte-Blocks).
-				// Der Dialog (brewing.js) klärt Stufe, Labor, Rezepturen
-				// und Traditions-Zugang selbst - fehlt etwas, erscheint
-				// nur der Hinweis.
-				label: 'BREW.MENU',
-				icon: `<i class="fa-solid fa-flask"></i>`,
-				visible: (elem) => {
-					return elem?.type === 'ability' && elem?.system?.reference === 'alchemy' && !!elem.isOwner;
-				},
-				visibleEl: (target) => !!target.closest('.m-tile, .trait'),
-				onClick: (event, elem) => {
-					openBrewDialog(this._ctxItem(elem));
-				},
-			},
+			/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
+			   05.11.): Der Kontextmenü-Eintrag „Elixier brauen…“
+			   (Brauen v1, öffnete DIREKT den Brau-Dialog) ist
+			   ENTFALLEN — der Menü-Zugang läuft jetzt über das
+			   FÄHIGKEITS-ICON der Alchemie-Kachel (capture-Klick in
+			   _onRender: Kräfte-Tab UND Kampf-Tab-Favoriten); der
+			   Menü-Dialog verzweigt selbst in Brauen/Analysieren/
+			   Nachbrauen. Rechtsklick auf Alchemie-Kacheln öffnet
+			   dank CMPowerMenu-Leer-Guard jetzt gar kein Menü. */
 			{
 				/* Brauen v1.2 (Rudolfs Testrunde 2, Freigabe): Löschen-
 				   Eintrag für ALLE Items im eigenen Besitz - das schlanke
@@ -2142,3 +2161,4 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		}
 	}
 }
+

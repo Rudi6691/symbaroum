@@ -25,11 +25,11 @@
             </div>
             <div class="avatar">
                     <button type="button" class="activate-ability" data-action="activateAbility"><img src="icons/vtt-512.png" /></button>
-                    {{!-- Alchemie Modul 3: Menü-Knopf am gehaltenen Alchemie-Fähigkeits-Item
-                        (Dialog: brewing.js - Brauen/Analysieren/Nachbrauen). --}}
-                    {{#if showAlchemyMenu}}
-                    <button type="button" class="brew-elixir" data-action="alchemyMenu" data-tooltip="{{localize "ALCHEMY_MENU.BUTTON_TOOLTIP"}}"><i class="fas fa-flask"></i></button>
-                    {{/if}}
+                    {{!-- Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
+                        05.11.): Der Menü-Knopf am Fähigkeits-Item ist ENTFALLEN -
+                        der Zugang zum Alchemie-Menü läuft über das Fähigkeits-
+                        ICON der Alchemie-Kachel im Spielerbogen (player.js,
+                        Kräfte-Tab + Kampf-Tab-Favoriten). --}}
             </div>
         </div>
 

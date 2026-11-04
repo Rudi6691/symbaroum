@@ -16,7 +16,7 @@ import { isAlchemical } from '../common/elixirs.js';
 // Alchemie Modul 3 (Rudolfs Startsignal 04.11.2026): Alchemie-Menü
 // (Brauen/Analysieren/Nachbrauen), Nachbrau-Dialog mit Rezeptur-Preset
 // und die §6a-Täuschungs-Helfer (brewing.js).
-import { openAlchemyMenu, openNachbrauDialog, findAlchemyAbility, restoreDeception } from '../common/brewing.js';
+import { openNachbrauDialog, findAlchemyAbility, restoreDeception } from '../common/brewing.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): zentrale
 // Traditions-Kanonik (tradition.js — Single Source für Labels, Feld-
 // Auflösung, Zugangsprüfung, Qualitäts-Geheimnisse und die Liste der
@@ -82,18 +82,12 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				}
 				this.item.actor.usePower(this.item);
 			},
-			/* Alchemie Modul 3 (04.11.2026): Alchemie-MENÜ am Alchemie-
-			   Fähigkeits-Item (klassischer + moderner Kopf) statt des
-			   direkten Brau-Dialogs — Brauen/Analysieren/Nachbrauen
-			   (brewing.js; der frühere brewElixir-Button ist ersetzt,
-			   data-action 'alchemyMenu' in beiden Templates). */
-			alchemyMenu: async function (event) {
-				event.preventDefault();
-				if (!this.item.isOwned) {
-					return;
-				}
-				await openAlchemyMenu(this.item);
-			},
+			/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
+			   05.11.): Die Menü-Action 'alchemyMenu' (Kolben-Button am
+			   Item-Blattkopf, klassisch + modern) ist ENTFALLEN — der
+			   Zugang zum Alchemie-Menü läuft jetzt über das FÄHIGKEITS-
+			   ICON der Alchemie-Kachel im SPIELERBOGEN (player.js,
+			   Kräfte-Tab + Kampf-Tab-Favoriten). */
 			/* Alchemie Modul 3 (§13): Nachbrau-Knopf am GEHALTENEN
 			   Rezeptur-Item — findet die Alchemie-Fähigkeit am Aktor und
 			   öffnet den Nachbrau-Dialog mit dieser Rezeptur als
@@ -337,12 +331,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
-		/* Alchemie Modul 3: Kolben am GEHALTENEN Alchemie-Fähigkeits-Item
-		   (klassischer + moderner Kopf) öffnet das Alchemie-Menü; der
-		   Menü-Dialog (brewing.js) löst Stufe, Labor, Kandidaten und
-		   Traditions-Gate auf (Brauen/Analysieren/Nachbrauen). */
-		context.showAlchemyMenu =
-			this.item.type === 'ability' && this.item.system?.reference === 'alchemy' && !!this.item.isOwned;
+		/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
+		   05.11.): showAlchemyMenu ist ENTFALLEN — der Menü-Button am
+		   Item-Blattkopf (klassisch + modern) ist raus, der Zugang
+		   läuft über das Fähigkeits-Icon der Alchemie-Kachel im
+		   Spielerbogen (player.js). */
 		/* Alchemie Modul 3 (§13): Nachbrau-Knopf am gehaltenen Rezeptur-
 		   Item (klassischer Avatar + moderne Kopfzeile, data-action
 		   'nachbrauElixir'). */
@@ -835,11 +828,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		modern.showLevel = type === 'boon' || type === 'burden';
 		modern.showComputed = type === 'weapon' || type === 'armor';
 		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
-		/* Alchemie Modul 3: Menü-Button im modernen Kopf nur am gehaltenen
-		   Alchemie-Fähigkeits-Item (kollisionsfrei zum Aktivieren-Button,
-		   gleiche Zeile, eigener data-action); zusätzlich Nachbrau-Button
-		   am gehaltenen Rezeptur-Item (gleicher Icon-Stil wie Brauen). */
-		modern.showAlchemyMenu = type === 'ability' && item.system?.reference === 'alchemy' && !!item.isOwned;
+		/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
+		   05.11.): modern.showAlchemyMenu ist ENTFALLEN (Menü-Button
+		   im Kopf raus; Zugang: Fähigkeits-Icon der Alchemie-Kachel im
+		   Spielerbogen); der Nachbrau-Button am gehaltenen Rezeptur-
+		   Item bleibt (gleicher Icon-Stil wie bisher). */
 		modern.showNachbrau = type === 'rezeptur' && !!item.isOwned;
 		/* Übergabe v1: Geben-Button in der Titelzeile nur bei physischen,
 		   gehaltenen Items. Kollisionsfrei zum Aktivieren-Button, weil

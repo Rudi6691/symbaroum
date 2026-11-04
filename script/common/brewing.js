@@ -62,6 +62,89 @@ const F = (key, data) => game.i18n.format(key, data);
 const LEVEL_ORDER = { novice: 1, adept: 2, master: 3 };
 
 /* ---------------------------------------------------------------- */
+/*  Test-Rig /rig (Alchemie Modul 3 v1.1, Rudolfs Testrunde P7/8/    */
+/*  11/12 + Freigabe 05.11.)                                        */
+/* ---------------------------------------------------------------- */
+
+/* SL-Chat-Befehl „/rig <1-20>": erzwingt das W20-Ergebnis des NÄCHSTEN
+ * Alchemie-Wurfs (Brauen/Analysieren/Nachbrauen) auf dem Client, der
+ * den Befehl eingibt — kein 400-faches Würfeln mehr bis zum KritErf
+ * oder Patzer. /rig 1 = (bestätigter) KritErf, /rig 20 = (bestätigter)
+ * Patzer, beliebige Werte für Grenzfälle. Der Befehl ist GM-only und
+ * wird als Chat-Nachricht UNTERDRÜCKT (return false). Das Rig ist rein
+ * client-seitig: Der W20-Tooltip der Karte zeigt den ECHTEN Wurf, die
+ * Auswertung (Erfolg/KritErf/Patzer-Zweige) folgt dem erzwungenen
+ * Ergebnis — die Karte kennzeichnet das mit einer „Test-Rig“-Zeile.
+ * Ohne aktives Rig würfelt alles normal weiter. */
+let riggedDie = 0;
+
+Hooks.on('chatMessage', (chatLog, message) => {
+	if (!game.user.isGM) return true;
+	const match = String(message ?? '').trim().match(/^\/rig\s+(\d{1,2})(?:\s|$)/i);
+	if (!match) return true;
+	const value = parseInt(match[1], 10);
+	if (!(value >= 1 && value <= 20)) {
+		ui.notifications.warn(L('RIG.ERR_BAD_VALUE'));
+		return false;
+	}
+	riggedDie = value;
+	ui.notifications.info(F('RIG.ARMED', { value }));
+	return false;
+});
+
+/* Wurf-Auswertung konsistent auf den erzwungenen Wert umbiegen. Die
+ * Alchemie-Proben sind einseitige Scharfsinn-Würfe ohne Gunst (favour
+ * 0, resistRoll false) — deshalb reicht das Überschreiben von
+ * diceResult/hasSucceed/critSuccess/critFail; alle Konsumenten in
+ * brewing.js (Erfolgs-Zweige, KritErf-/Patzer-Erkennung über
+ * getRollResultLevelKey, rohe-20-Patzer-Checks) lesen diese Felder. */
+function applyRigToProbe(probe, forced) {
+	const critsOn =
+		game.settings.get('symbaroum', 'optionalCrit') || game.settings.get('symbaroum', 'optionalRareCrit');
+	probe.diceResult = forced;
+	probe.hasSucceed = critsOn
+		? forced === 1 || (forced !== 20 && forced <= probe.diceTarget)
+		: forced <= probe.diceTarget;
+	if (critsOn) {
+		probe.critSuccess = forced === 1;
+		probe.critFail = forced === 20;
+	} else {
+		probe.critSuccess = false;
+		probe.critFail = false;
+	}
+	probe.trueActorSucceeded = probe.hasSucceed;
+	probe.resultLevelKey = getRollResultLevelKey(probe, false);
+	probe.rollResult = game.symbaroum.api.formatRollResult({
+		favour: probe.favour,
+		diceResult: forced,
+		dicesResult: probe.dicesResult,
+		secondRollResult: critsOn && (forced === 1 || forced === 20) ? forced : undefined,
+		resultLevelKey: probe.resultLevelKey,
+	});
+	probe.rigged = forced;
+	return probe;
+}
+
+/* Einseitige Scharfsinn-Probe der Alchemie (Brauen/Analysieren/
+ * Nachbrauen) — baseRoll wie bisher, mit Test-Rig-Abgriff: Ein
+ * aktiviertes /rig verzehrt sich an genau dem nächsten Wurf. */
+async function alchemyProbe(actor, modifier) {
+	const probe = await baseRoll(actor, 'cunning', null, null, 0, modifier, false);
+	if (riggedDie > 0) {
+		const forced = riggedDie;
+		riggedDie = 0;
+		applyRigToProbe(probe, forced);
+	}
+	return probe;
+}
+
+/* Karten-Hinweiszeile bei erzwungenem Wurf (nur wenn Rig gegriffen
+ * hat) — wandert direkt unter die Probe-Zeile aller drei Karten. */
+function rigChatLine(probe) {
+	return probe?.rigged ? F('RIG.CHAT_LINE', { value: probe.rigged }) : '';
+}
+
+/* ---------------------------------------------------------------- */
 /*  Fest hinterlegte Namen->Tradition-Zuordnung (Vault Alchemie.md)  */
 /* ---------------------------------------------------------------- */
 
@@ -500,12 +583,13 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 	//    SCHEIN-Heimlich −4 (unsichtbar — die Karte zeigt keinen Malus).
 	const scheinMod = scheinFlag ? -4 : 0;
 	const bonusMod = bonusNext ? 1 : 0;
-	const probe = await baseRoll(actor, 'cunning', null, null, 0, facility.bonus + modifier + scheinMod + bonusMod, false);
+	const probe = await alchemyProbe(actor, facility.bonus + modifier + scheinMod + bonusMod);
 	rolls.push(...probe.rolls);
 	const success = probe.trueActorSucceeded;
 	lines.push(
 		`<div class="tooltip"><p>${formatBrewProbeLine(probe, facility.bonus, modifier + bonusMod)} — ${success ? L('BREW.CHAT_SUCCESS') : L('BREW.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 	);
+	lines.push(rigChatLine(probe));
 	// 2b) Alchemie Modul 3: verbrauchter Nachbrau-Bonus abmelden (der Flag
 	//     wirkt EIN Mal — Häkchen im Brau-Dialog, Verbrauch hier).
 	if (bonusNext) await actor.unsetFlag('symbaroum', 'nachbrauBonus');
@@ -638,13 +722,20 @@ export function findAlchemyAbility(actor) {
 }
 
 /** Wirkungs-Kategorie eines Elixiers aus den elixirEffect-Feldern
- *  (Analyse-Spuren §14): heilt / vergiftet / senkt Korruption / verändert;
- *  Reihenfolge = Priorität, Fallback „unklar“ (nur gefüllte Felder zählen). */
+ *  (Analyse-Spuren §14): heilt / vergiftet / explodiert / senkt
+ *  Korruption / verändert; Reihenfolge = Priorität, Fallback „unklar“
+ *  (nur gefüllte Felder zählen).
+ *  Alchemie Modul 3 v1.1 (Rudolfs Testrunde P6, Bummstein): Schaden
+ *  OHNE Gift-Kontext ist NICHT „vergiftet", sondern „explodiert" —
+ *  nur das Waffen-Gift-Feld (weaponPoison) bleibt bei „vergiftet";
+ *  Sofort-Schaden und Schaden-pro-Runde (Bummstein 1W4/1W6/1W8,
+ *  Säurekugel-DoT) laufen auf die neue Kategorie. */
 export function elixirCategoryKey(elixir) {
 	const eff = getElixirEffect(elixir);
 	const filled = (v) => String(v ?? '').trim() !== '' && Number(v) !== 0;
 	if (filled(eff.heal) || filled(eff.healPerRound) || filled(eff.removeCondition)) return 'ANALYSE.CAT_HEALS';
-	if (filled(eff.damage) || filled(eff.damagePerRound) || filled(eff.weaponPoison)) return 'ANALYSE.CAT_POISONS';
+	if (filled(eff.weaponPoison)) return 'ANALYSE.CAT_POISONS';
+	if (filled(eff.damage) || filled(eff.damagePerRound)) return 'ANALYSE.CAT_EXPLODES';
 	if (filled(eff.corruptionRemove)) return 'ANALYSE.CAT_CORRUPTION';
 	const attrMode = String(eff.attributeMode ?? '').trim();
 	if ((attrMode !== '' && attrMode !== 'no' && attrMode !== 'false') || filled(eff.attrib)) return 'ANALYSE.CAT_ALTERS';
@@ -663,17 +754,58 @@ export function hasRelatedRecipe(actor, elixir) {
 	return false;
 }
 
+/** Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2d/4/10/13 + Freigabe
+ *  05.11.): Basisname eines Elixier-Namens — das Stufen-Suffix am
+ *  Namensende („, schwach/moderat/stark", auch Klammer-/Leerzeichen-
+ *  Form und die englischen Labels) wird für VERGLEICHE abgestreift.
+ *  Grund: Welten mit EINEM Item je Stufe („Purpursaft, schwach /
+ *  moderat / stark" — Rudolfs Setup) verweisen die Rezepturen je Stufe
+ *  auf VERSCHIEDENE Items mit verschiedenen Namen; der bisherige exakte
+ *  Namensgleichheit-Vergleich (ownedBaseRecipes) fand dann nie eine
+ *  Grund-Rezeptur und der Nachbrau-Dialog blieb komplett unerreicht.
+ *  Struktur-Suffix nur am Ende mit Trenner (Komma/Klammer/Leerzeichen),
+ *  sodass Namen, die zufällig mit dem Wortteil enden („Elixier der
+ *  Stärke, stark" → „Elixier der Stärke"), korrekt normalisieren,
+ *  integralen Wortteil („Bärenstark-Brause") aber unangetastet lassen. */
+function elixirBaseName(name) {
+	return String(name ?? '')
+		.replace(/[,\s(]+(schwach|moderat|stark|weak|moderate|strong)\)?\s*$/i, '')
+		.trim();
+}
+
+/** Stufe aus dem Namens-Suffix (Fallback für UNGETAGGTE Quell-Items,
+ *  Alchemie Modul 3 v1.1): Kompendiums- oder Welt-Items ohne Status-Tab-
+ *  Tagging (system.alchemyLevel leer) — das Suffix im Namen zählt wie
+ *  das Feld („…, schwach" → novice, „…, moderat" → adept, „…, stark" →
+ *  master; englische Labels entsprechend). '' = kein Stufen-Suffix. */
+function levelFromNameSuffix(name) {
+	const match = String(name ?? '').match(/[,\s(]+(schwach|moderat|stark|weak|moderate|strong)\)?\s*$/i);
+	const suffix = match?.[1]?.toLowerCase() ?? '';
+	if (['schwach', 'weak'].includes(suffix)) return 'novice';
+	if (['moderat', 'moderate'].includes(suffix)) return 'adept';
+	if (['stark', 'strong'].includes(suffix)) return 'master';
+	return '';
+}
+
 /** Grund-Rezepturen des Akters zum selben Elixier mit ANDERER Stufe
  *  (Nachbrau-Voraussetzung §13): Besitz muss 'owned' sein — gebundene
- *  (bound) Ausfertigungen taugen als Grundlage NICHT. */
+ *  (bound) Ausfertigungen taugen als Grundlage NICHT.
+ *  v1.1: Der Elixier-Bezug läuft über den NORMALISIERTEN Basisnamen
+ *  (elixirBaseName), damit Ein-Item-je-Stufe-Welten matchen: Die
+ *  Rezeptur „Purpursaft, moderat" (Ziel: Item „Purpursaft, moderat")
+ *  ist eine gültige Grundlage für den Nachbrau-Kandidaten
+ *  „Purpursaft, schwach" — gleiche Basis, andere Stufe. Der exakte
+ *  Namensvergleich (Ein-Basis-Item-Welten) bleibt als Spezialfall
+ *  abgedeckt, da Normalisierung dort identisch ist. */
 export function ownedBaseRecipes(actor, elixir, otherThanLevel) {
 	const list = [];
+	const elixirBase = elixirBaseName(elixir?.name);
 	for (const recipe of actor?.items ?? []) {
 		if (recipe?.type !== 'rezeptur') continue;
 		if (String(recipe.system?.ownership ?? 'owned') !== 'owned') continue;
 		const target = String(recipe.system?.target ?? '').trim();
 		const targetItem = target !== '' ? foundry.utils.fromUuidSync(target) : null;
-		if (!targetItem || targetItem.name !== elixir?.name) continue;
+		if (!targetItem || elixirBaseName(targetItem.name) !== elixirBase) continue;
 		const level = String(recipe.system?.alchemyLevel ?? '');
 		if (level === '' || level === otherThanLevel) continue;
 		list.push({ recipe, level });
@@ -709,19 +841,48 @@ function formatAnalyseProbeLine(rollData, labBonus = 0, userMod = 0) {
 	return line;
 }
 
-/** Zufälliges gleichstufiges WELT-Elixier (Fehlbestimmungs-/Schein-Quelle,
- *  §6a) — der Name des Ziel-Elixiers ist ausgeschlossen; null = keine
- *  Quelle (dann bleibt es bei der offenen Fehlzeile + SL-Flüsterkarte). */
-function randomWorldElixirOfLevel(level, excludeName = '') {
-	const pool = [];
+/** Zufällige gleichstufige Täuschungs-Quelle (Fehlbestimmungs-/Schein-
+ *  §6a), Alchemie Modul 3 v1.1 (Rudolfs Testrunde + Freigabe 05.11.):
+ *  Pool aus WELT-Items, ALLEN Item-Kompendien und dem Inventar des
+ *  handelnden Akteurs — dedupliziert über den Namen, ausgeschlossen
+ *  der Zielname; null = keine Quelle (dann bleibt es bei der offenen
+ *  Fehlzeile + SL-Flüsterkarte). Die Stufe kommt aus dem alchemyLevel-
+ *  Tagging ODER — v1.1-Fallback für ungetaggte Quell-Items (Kompendium/
+ *  Welt ohne Status-Tab-Tagging) — aus dem Namens-Suffix („…, schwach"
+ *  etc.). Traditionen werden bei der Quell-Auswahl bewusst NICHT
+ *  gefiltert (Rudolfs Freigabe: „Die Tradition kann bei der Auswahl
+ *  ignoriert werden") — die Schein-Identität übernimmt ohnehin nur
+ *  Name + Beschreibung. ASYNC, weil Kompendium-Inhalte erst geladen
+ *  werden müssen (Foundry cached getDocuments nach dem ersten Laden). */
+async function randomDeceptionSource(level, excludeName = '', sourceActor = null) {
+	const pool = new Map(); // Name → Item (Dedup: erstes Vorkommen gewinnt)
+	const matches = (item) => {
+		if (item?.type !== 'equipment') return false;
+		if (excludeName !== '' && item.name === excludeName) return false;
+		const itemLevel = getAlchemyLevel(item) || levelFromNameSuffix(item.name);
+		return itemLevel === level;
+	};
 	for (const item of game.items ?? []) {
-		if (item?.type !== 'equipment' || !isAlchemical(item.system)) continue;
-		if (getAlchemyLevel(item) !== level) continue;
-		if (excludeName !== '' && item.name === excludeName) continue;
-		pool.push(item);
+		if (matches(item)) pool.set(item.name, item);
 	}
-	if (pool.length === 0) return null;
-	return pool[Math.floor(Math.random() * pool.length)];
+	for (const item of sourceActor?.items ?? []) {
+		if (matches(item)) pool.set(item.name, item);
+	}
+	for (const pack of game.packs ?? []) {
+		if (pack?.metadata?.type !== 'Item') continue;
+		let documents = [];
+		try {
+			documents = await pack.getDocuments();
+		} catch {
+			continue; // Pack nicht lesbar (z.B. gerade gesperrt): Quelle überspringen
+		}
+		for (const item of documents) {
+			if (matches(item)) pool.set(item.name, item);
+		}
+	}
+	if (pool.size === 0) return null;
+	const values = [...pool.values()];
+	return values[Math.floor(Math.random() * values.length)];
 }
 
 /** Fehlbestimmung anwenden (§6a): Das Item erhält die SCHEIN-Identität
@@ -874,10 +1035,14 @@ export function buildNachbrauCandidates(actor, ownLevel) {
 /*  Alchemie-Menü (Modul 3) + Analyse-Dialog                          */
 /* ---------------------------------------------------------------- */
 
-/** Alchemie-Menü: Vier-Button-Einstieg am Alchemie-Fähigkeits-Item —
- *  Brauen / Analysieren / Nachbrauen / Abbrechen (der frühere direkte
- *  Brau-Button data-action 'brewElixir' ist damit ersetzt; die Action
- *  'alchemyMenu' wohnt in sheet/item.js). */
+/** Alchemie-Menü: Vier-Button-Einstieg — Brauen/Analysieren/Nachbrauen/
+ *  Abbrechen. Zugang seit v1.1 (Rudolfs Testrunde P2 + Freigabe 05.11.)
+ *  über das FÄHIGKEITS-ICON der Alchemie-Kachel im Spielerbogen (Kräfte-
+ *  Tab + Kampf-Tab-Favoriten, player.js capture-Klick); die früheren
+ *  Einstiege — Kolben-Button am Item-Blatt und Kontextmenü-Eintrag
+ *  „Elixier brauen…" — sind entfallen. Menü-Layout v1.1 (P2c): Die
+ *  Buttons stehen UNTEREINANDER in gleicher Breite (Footer-Umstyling im
+ *  onRender, keine CSS-Datei nötig). */
 export async function openAlchemyMenu(abilityItem) {
 	const actor = abilityItem?.actor ?? abilityItem?.parent;
 	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
@@ -888,6 +1053,23 @@ export async function openAlchemyMenu(abilityItem) {
 		content: html,
 		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
 		width: 360,
+		/* v1.1 (P2c): Footer-Buttons untereinander, gleiche Breite. Der
+		 * Menü-Dialog hat KEINE Buttons im Content (nur die Hinweis-
+		 * zeile) — im Fensterrahmen liegen genau die vier Dialog-
+		 * Buttons; DialogV2 rendert sie im <footer>, deshalb das
+		 * Spalten-Layout am Footer-Container (Breite folgt dem Dialog,
+		 * width 100% je Button). */
+		onRender: (element) => {
+			const btns = element?.querySelectorAll?.('footer button');
+			if (!btns || btns.length === 0) return;
+			const footer = btns[0].closest('footer') ?? btns[0].parentElement;
+			if (footer) {
+				footer.style.display = 'flex';
+				footer.style.flexDirection = 'column';
+				footer.style.gap = '0.25rem';
+			}
+			for (const b of btns) b.style.width = '100%';
+		},
 		buttons: {
 			brew: {
 				icon: '<i class="fas fa-flask"></i>',
@@ -1038,7 +1220,7 @@ async function performAnalyse(actor, abilityItem, cand, { guideActor = null, fac
 	const effOrder = Math.max(LEVEL_ORDER[ownLevel] ?? 0, LEVEL_ORDER[guideLevel] ?? 0);
 	const labBonus = facility?.bonus ?? 0;
 	const diffMod = analyseDiffModifier(effOrder, cand.level);
-	const probe = await baseRoll(actor, 'cunning', null, null, 0, labBonus + diffMod + modifier, false);
+	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier);
 	rolls.push(...probe.rolls);
 	const resultLevel = getRollResultLevelKey(probe);
 	const success = probe.trueActorSucceeded;
@@ -1050,6 +1232,7 @@ async function performAnalyse(actor, abilityItem, cand, { guideActor = null, fac
 	lines.push(
 		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier)} — ${success ? L('ANALYSE.CHAT_SUCCESS') : L('ANALYSE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 	);
+	lines.push(rigChatLine(probe));
 	if (success) {
 		// Spuren (§14): Kategorie + Stufe; bei Traditions-Zugang VOLLE
 		// Analyse (Zutat je Dosis + Tradition).
@@ -1090,7 +1273,7 @@ async function performAnalyse(actor, abilityItem, cand, { guideActor = null, fac
 	// die Wahrheit flüstert nur der SL. Ohne gleichstufige Quelle bleibt
 	// es bei der offenen Fehlzeile + SL-Flüsterkarte.
 	if (!success && probe.diceResult === 20) {
-		const falseElixir = randomWorldElixirOfLevel(cand.level, unknownFlag?.realName ?? elixir.name);
+		const falseElixir = await randomDeceptionSource(cand.level, unknownFlag?.realName ?? elixir.name, actor);
 		const stackWide = resultLevel === 'CHAT.CRITICAL_FAILURE';
 		if (!cand.inInventory || !falseElixir) {
 			lines.push(L('ANALYSE.CHAT_FAIL'));
@@ -1257,13 +1440,14 @@ async function performNachbrau(actor, abilityItem, cand, base, { facility = null
 	lines.push(F('NACHBRAU.CHAT_DOSE', { name: cand.name }));
 	const labBonus = facility?.bonus ?? 0;
 	const diffMod = nachbrauDiffModifier(ownLevel, cand.level);
-	const probe = await baseRoll(actor, 'cunning', null, null, 0, labBonus + diffMod + modifier, false);
+	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier);
 	rolls.push(...probe.rolls);
 	const resultLevel = getRollResultLevelKey(probe);
 	const success = probe.trueActorSucceeded;
 	lines.push(
 		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier)} — ${success ? L('ANALYSE.CHAT_SUCCESS') : L('ANALYSE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 	);
+	lines.push(rigChatLine(probe));
 	const recipeName = `${cand.name} — ${L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`)}`;
 	const tradition = elixirTraditions(cand.item)[0] ?? '';
 	if (success) {
@@ -1310,7 +1494,7 @@ async function performNachbrau(actor, abilityItem, cand, base, { facility = null
 		// Brauen — performBrew); der Spieler sieht die Erfolgs-Karte, nur
 		// der SL erfährt die Wahrheit. Bestätigter kritischer Patzer:
 		// ZUSÄTZLICH Zeitbombe (Detonation bei der nächsten Brauprobe).
-		const falseElixir = randomWorldElixirOfLevel(cand.level, cand.name);
+		const falseElixir = await randomDeceptionSource(cand.level, cand.name, actor);
 		if (!falseElixir) {
 			lines.push(L('NACHBRAU.CHAT_FAIL'));
 			await postBrewCard(actor, F('NACHBRAU.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);

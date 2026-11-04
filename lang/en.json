@@ -1753,7 +1753,6 @@
   "BREW.SETTING_ECONOMY_HINT": "Economy mode of the brew dialog: elixirs require owned recipes (ownership owned/bound) and consume alchemy ingredients — half the elixir's list price in shillings per dose; success books per dose, failure books the raw material of the attempt. Off (RAW): all tagged world elixirs brewable, no ingredient booking.",
   "BREW.BUTTON": "Brew",
   "BREW.BUTTON_TOOLTIP": "Brew elixir — open the brew dialog (Cunning test with lab bonus)",
-  "BREW.MENU": "Brew elixir…",
   "BREW.DIALOG_TITLE": "Brew elixir",
   "BREW.SELECT_ELIXIR": "Elixir",
   "BREW.LAB": "Laboratory",
@@ -1870,6 +1869,7 @@
   "ANALYSE.WHISPER_NO_DOSE": "The stack of \"{name}\" is depleted — no further dose damaged.",
   "ANALYSE.CAT_HEALS": "heals",
   "ANALYSE.CAT_POISONS": "poisons",
+  "ANALYSE.CAT_EXPLODES": "explodes",
   "ANALYSE.CAT_CORRUPTION": "reduces corruption",
   "ANALYSE.CAT_ALTERS": "alters",
   "ANALYSE.CAT_UNKNOWN": "unknown effect",
@@ -1915,5 +1915,8 @@
   "VW.APPLIED_TITLE": "Forbidden Knowledge granted",
   "VW.APPLIED_BODY": "{actor} receives the \"Forbidden Knowledge\" boon (tradition: {tradition}, 5 XP cost).",
   "VW.DECLINED_TITLE": "Request declined",
-  "VW.DECLINED_BODY": "The request by {actor} for \"Forbidden Knowledge\" was declined."
+  "VW.DECLINED_BODY": "The request by {actor} for \"Forbidden Knowledge\" was declined.",
+  "RIG.ARMED": "Test rig armed: the next alchemy roll (brew/analyse/re-brew) will be forced to {value}.",
+  "RIG.ERR_BAD_VALUE": "/rig expects a number from 1 to 20 (e.g. /rig 1 for a critical success, /rig 20 for a fumble).",
+  "RIG.CHAT_LINE": "Test rig: dice result {value} forced (GM test mode, /rig)."
 }

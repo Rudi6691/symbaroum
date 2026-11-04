@@ -36,13 +36,11 @@
             {{#if modern.showActivate}}
             <button type="button" class="m-activate-btn" data-action="activateAbility" data-tooltip="{{item.name}}"><img src="icons/vtt-512.png" alt=""/></button>
             {{/if}}
-            {{!-- Alchemie Modul 3: Menü-Button am gehaltenen Alchemie-
-                Fähigkeits-Item (gleiche Titelzeile, eigener data-action;
-                Geometrie wie der Geben-Button) und Nachbrau-Button am
-                gehaltenen Rezeptur-Item (gleicher Icon-Stil). --}}
-            {{#if modern.showAlchemyMenu}}
-            <button type="button" class="m-give-btn m-brew-btn" data-action="alchemyMenu" data-tooltip="{{localize 'ALCHEMY_MENU.BUTTON_TOOLTIP'}}"><i class="fa-solid fa-flask"></i></button>
-            {{/if}}
+            {{!-- Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
+                05.11.): Der Menü-Button am Alchemie-Fähigkeits-Item ist
+                ENTFALLEN — der Zugang läuft über das Fähigkeits-ICON der
+                Alchemie-Kachel im Spielerbogen (player.js). Der Nachbrau-
+                Button am gehaltenen Rezeptur-Item bleibt (gleicher Icon-Stil). --}}
             {{#if modern.showNachbrau}}
             <button type="button" class="m-give-btn m-brew-btn" data-action="nachbrauElixir" data-tooltip="{{localize 'NACHBRAU.BUTTON_TOOLTIP'}}"><i class="fa-solid fa-vial"></i></button>
             {{/if}}

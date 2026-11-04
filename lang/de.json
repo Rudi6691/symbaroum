@@ -1753,7 +1753,6 @@
   "BREW.SETTING_ECONOMY_HINT": "Ökonomie-Modus des Brau-Dialogs: Elixiere brauchen eigene Rezepturen (Besitz owned/bound) und verbrauchen Alchemiezutaten — je Dosis halber Listenpreis in Schillingen, Erfolg bucht je Dosis, Fehlschlag das Grundmaterial des Versuchs. Aus (RAW): alle getaggten Welt-Elixiere braubar, keine Zutaten-Buchung.",
   "BREW.BUTTON": "Brauen",
   "BREW.BUTTON_TOOLTIP": "Elixier brauen — Brau-Dialog öffnen (Scharfsinn-Probe mit Labor-Bonus)",
-  "BREW.MENU": "Elixier brauen…",
   "BREW.DIALOG_TITLE": "Elixier brauen",
   "BREW.SELECT_ELIXIR": "Elixier",
   "BREW.LAB": "Labor",
@@ -1835,7 +1834,7 @@
   "ALCHEMY_MENU.BUTTON_TOOLTIP": "Alchemie-Menü öffnen (Brauen · Analysieren · Nachbrauen)",
   "ALCHEMY_MENU.DIALOG_TITLE": "Alchemie",
   "ALCHEMY_MENU.HINT": "Alchemische Arbeit — was möchtest du tun?",
-  "ALCHEMY_MENU.BREW": "Gebräu brauen",
+  "ALCHEMY_MENU.BREW": "Elixier brauen",
   "ALCHEMY_MENU.ANALYSE": "Elixier analysieren",
   "ALCHEMY_MENU.NACHBRAU": "Elixier nachbrauen",
   "BREW.BONUS_NEXT": "Nachbrau-Bonus (+1) einsetzen",
@@ -1870,6 +1869,7 @@
   "ANALYSE.WHISPER_NO_DOSE": "Der Stapel von „{name}“ ist erschöpft — keine weitere Dosis beschädigt.",
   "ANALYSE.CAT_HEALS": "heilt",
   "ANALYSE.CAT_POISONS": "vergiftet",
+  "ANALYSE.CAT_EXPLODES": "explodiert",
   "ANALYSE.CAT_CORRUPTION": "senkt Korruption",
   "ANALYSE.CAT_ALTERS": "verändert",
   "ANALYSE.CAT_UNKNOWN": "unbekannte Wirkung",
@@ -1915,5 +1915,8 @@
   "VW.APPLIED_TITLE": "Verbotenes Wissen erteilt",
   "VW.APPLIED_BODY": "{actor} erhält den Segen „Verbotenes Wissen“ (Tradition: {tradition}, 5 EP Erfahrungskosten).",
   "VW.DECLINED_TITLE": "Anfrage abgelehnt",
-  "VW.DECLINED_BODY": "Die Anfrage von {actor} auf „Verbotenes Wissen“ wurde abgelehnt."
+  "VW.DECLINED_BODY": "Die Anfrage von {actor} auf „Verbotenes Wissen“ wurde abgelehnt.",
+  "RIG.ARMED": "Test-Rig aktiv: Der nächste Alchemie-Wurf (Brauen/Analysieren/Nachbrauen) erhält erzwungen {value}.",
+  "RIG.ERR_BAD_VALUE": "/rig erwartet eine Zahl von 1 bis 20 (z. B. /rig 1 für KritErf, /rig 20 für Patzer).",
+  "RIG.CHAT_LINE": "Test-Rig: Würfelergebnis {value} erzwungen (SL-Testmodus, /rig)."
 }
