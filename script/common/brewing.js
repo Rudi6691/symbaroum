@@ -71,26 +71,86 @@ const LEVEL_ORDER = { novice: 1, adept: 2, master: 3 };
  * den Befehl eingibt — kein 400-faches Würfeln mehr bis zum KritErf
  * oder Patzer. /rig 1 = (bestätigter) KritErf, /rig 20 = (bestätigter)
  * Patzer, beliebige Werte für Grenzfälle. Der Befehl ist GM-only und
- * wird als Chat-Nachricht UNTERDRÜCKT (return false). Das Rig ist rein
- * client-seitig: Der W20-Tooltip der Karte zeigt den ECHTEN Wurf, die
- * Auswertung (Erfolg/KritErf/Patzer-Zweige) folgt dem erzwungenen
- * Ergebnis — die Karte kennzeichnet das mit einer „Test-Rig“-Zeile.
- * Ohne aktives Rig würfelt alles normal weiter. */
+ * wird als Chat-Nachricht UNTERDRÜCKT (fn liefert false zurück). Das
+ * Rig ist rein client-seitig: Der W20-Tooltip der Karte zeigt den
+ * ECHTEN Wurf, die Auswertung (Erfolg/KritErf/Patzer-Zweige) folgt
+ * dem erzwungenen Ergebnis — die Karte kennzeichnet das mit einer
+ * „Test-Rig“-Zeile. Ohne aktives Rig würfelt alles normal weiter.
+ *
+ * HOTFIX v1.1a (Rudolfs Test „/rig is not a valid chat message
+ * command"): Foundry V14s Chat-Eingabefeld ist ein ProseMirror-Editor,
+ * der die Nachricht als HTML („<p>/rig 1</p>") übergibt, und V14
+ * lehnt Slash-Befehle AB, die nicht in ChatLog.CHAT_COMMANDS
+ * registriert sind — ein chatMessage-Hook sieht also nur den
+ * HTML-String und kann den Befehl nicht mehr abfangen, bevor Core
+ * die unbekannte Command zurückweist. Fix: Registrierung direkt in
+ * der Command-Registry (ChatLog.CHAT_COMMANDS.rig, v14+); der
+ * chatMessage-Hook bleibt nur als Fallback für ältere Cores (dort
+ * HTML-tolerant). Nur EIN Pfad ist aktiv. */
+const RIG_PATTERN = /^\/rig\s+(\d{1,2})(?:\s|$)/i;
+
 let riggedDie = 0;
 
-Hooks.on('chatMessage', (chatLog, message) => {
-	if (!game.user.isGM) return true;
-	const match = String(message ?? '').trim().match(/^\/rig\s+(\d{1,2})(?:\s|$)/i);
-	if (!match) return true;
-	const value = parseInt(match[1], 10);
+/* Rig-Wert anwenden: 1–20 = gültig (Rig aktivieren), alles andere
+ * (auch null bei unerwarteter Handler-Signatur) = Fehlermeldung. */
+function rigApplyValue(value) {
 	if (!(value >= 1 && value <= 20)) {
 		ui.notifications.warn(L('RIG.ERR_BAD_VALUE'));
-		return false;
+		return;
 	}
 	riggedDie = value;
 	ui.notifications.info(F('RIG.ARMED', { value }));
-	return false;
-});
+}
+
+/* Die fn-Signatur der Command-Registry ist core-intern und nicht
+ * öffentlich dokumentiert — deshalb defensiv: In allen Argumenten
+ * (Match-Array, Message-String, …) nach dem Rig-Muster suchen. */
+function rigValueFromArgs(args) {
+	for (const arg of args ?? []) {
+		if (arg == null) continue;
+		const candidates = typeof arg === 'string' ? [arg]
+			: Array.isArray(arg) ? arg.filter((part) => typeof part === 'string')
+			: [];
+		for (const text of candidates) {
+			const match = text.match(RIG_PATTERN) ?? text.match(/^\s*(\d{1,2})\s*$/);
+			if (match) return parseInt(match[1], 10);
+		}
+	}
+	return null;
+}
+
+(function registerRigChatCommand() {
+	/* Foundry V14+: Befehl in der Chat-Command-Registry registrieren.
+	 * fn liefert false → Core erstellt KEINE Chat-Nachricht aus dem
+	 * Befehl (er bleibt komplett unsichtbar, wie ein SL-Werkzeug). */
+	const ChatLogCls = globalThis.foundry?.applications?.sidebar?.tabs?.ChatLog;
+	if (Number(game?.version?.split('.')?.[0] ?? 0) >= 14 && ChatLogCls?.CHAT_COMMANDS) {
+		ChatLogCls.CHAT_COMMANDS.rig = {
+			rgx: RIG_PATTERN,
+			fn: (...args) => {
+				if (!game.user.isGM) {
+					ui.notifications.warn(L('RIG.GM_ONLY'));
+					return false;
+				}
+				rigApplyValue(rigValueFromArgs(args));
+				return false;
+			},
+		};
+		return;
+	}
+	/* Fallback (Core < v14): klassischer chatMessage-Hook, HTML-
+	 * tolerant (Tags strippen), falls ein Editor doch Markup übergibt. */
+	Hooks.on('chatMessage', (chatLog, message) => {
+		if (!game.user.isGM) return true;
+		const match = String(message ?? '')
+			.replace(/<[^>]*>/g, ' ')
+			.trim()
+			.match(RIG_PATTERN);
+		if (!match) return true;
+		rigApplyValue(parseInt(match[1], 10));
+		return false;
+	});
+})();
 
 /* Wurf-Auswertung konsistent auf den erzwungenen Wert umbiegen. Die
  * Alchemie-Proben sind einseitige Scharfsinn-Würfe ohne Gunst (favour

@@ -1918,5 +1918,6 @@
   "VW.DECLINED_BODY": "The request by {actor} for \"Forbidden Knowledge\" was declined.",
   "RIG.ARMED": "Test rig armed: the next alchemy roll (brew/analyse/re-brew) will be forced to {value}.",
   "RIG.ERR_BAD_VALUE": "/rig expects a number from 1 to 20 (e.g. /rig 1 for a critical success, /rig 20 for a fumble).",
-  "RIG.CHAT_LINE": "Test rig: dice result {value} forced (GM test mode, /rig)."
+  "RIG.CHAT_LINE": "Test rig: dice result {value} forced (GM test mode, /rig).",
+  "RIG.GM_ONLY": "/rig is only available to the GM."
 }

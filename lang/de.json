@@ -1918,5 +1918,6 @@
   "VW.DECLINED_BODY": "Die Anfrage von {actor} auf „Verbotenes Wissen“ wurde abgelehnt.",
   "RIG.ARMED": "Test-Rig aktiv: Der nächste Alchemie-Wurf (Brauen/Analysieren/Nachbrauen) erhält erzwungen {value}.",
   "RIG.ERR_BAD_VALUE": "/rig erwartet eine Zahl von 1 bis 20 (z. B. /rig 1 für KritErf, /rig 20 für Patzer).",
-  "RIG.CHAT_LINE": "Test-Rig: Würfelergebnis {value} erzwungen (SL-Testmodus, /rig)."
+  "RIG.CHAT_LINE": "Test-Rig: Würfelergebnis {value} erzwungen (SL-Testmodus, /rig).",
+  "RIG.GM_ONLY": "/rig ist nur für die Spielleitung verfügbar."
 }
