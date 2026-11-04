@@ -936,6 +936,20 @@ export function nachbrauDiffModifier(ownLevel, targetLevel) {
 	if (delta > 0) return -3;
 	return 0;
 }
+/** Sammel-Fix v1.5 (Rudolfs Testrunde v1.4, Punkt 3 + Auswahlrunde): MIT
+ *  Grund-Rezeptur ERSETZT dieser gestaffelte Modifikator den eigenen-
+ *  Stufe-Vergleich (nachbrauDiffModifier) — bezogen auf die Stufe der
+ *  GRUND-REZEPTUR ggü. der Stufe des Ziel-Elixiers, asymmetrisch JE
+ *  Stufendifferenz (Canvas „Proben-Regeln FINAL“): Grundrezept höher
+ *  ⇒ +1 pro Stufe, niedriger ⇒ −3 pro Stufe (Novizenrezept +
+ *  Meister-Ziel = −6). Ohne Grund-Rezeptur gilt unverändert
+ *  nachbrauDiffModifier (eigene Stufe) plus fester Malus −10. */
+export function nachbrauBaseDiffModifier(baseLevel, targetLevel) {
+	const delta = (LEVEL_ORDER[targetLevel] ?? 0) - (LEVEL_ORDER[baseLevel] ?? 0);
+	if (delta < 0) return -delta;
+	if (delta > 0) return -3 * delta;
+	return 0;
+}
 
 /** Probe-Zeile der Analyse-/Nachbrau-Karten (Scharfsinn + Labor-Bonus +
  *  freier Modifikator — Segmente bei 0 weggelassen, Brau-Karten-Muster). */
@@ -1594,11 +1608,15 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 		labId: facilities[0].item.id,
 		facilities: facilities.map((f) => ({ id: f.item.id, label: `${f.name} (+${f.bonus})` })),
 	});
-	const infoFor = (cand) => {
-		const mod = nachbrauDiffModifier(ownLevel, cand.level);
-		/* Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 3b): Ohne
-		 * Grund-Rezeptur greift der feste Proben-Malus −10 — der
-		 * Hinweis hängt sichtbar an der Info-Zeile. */
+	const infoFor = (cand, baseId) => {
+		/* Sammel-Fix v1.5 (Rudolfs Testrunde v1.4, Punkt 3): MIT Grund-
+		 * Rezeptur zeigt die Info-Zeile live den gestaffelten
+		 * Grundrezept-Modifikator (nachbrauBaseDiffModifier, Stufe der
+		 * Grund-Rezeptur ggü. Ziel), ohne bleibt es beim eigenen-Stufe-
+		 * Wert; der −10-Hinweis (v1.3, Punkt 3b) hängt sichtbar an der
+		 * Info-Zeile. */
+		const base = cand.grunds.length > 0 ? (cand.grunds.find((g) => g.recipe.id === baseId) ?? cand.grunds[0]) : null;
+		const mod = base ? nachbrauBaseDiffModifier(base.level, cand.level) : nachbrauDiffModifier(ownLevel, cand.level);
 		return F('NACHBRAU.INFO', {
 			level: L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`),
 			mod: `${mod > 0 ? '+' : mod < 0 ? '−' : ''}${Math.abs(mod)}${cand.grunds.length === 0 ? ` · ${L('NACHBRAU.NO_BASE_INFO')}` : ''}`,
@@ -1637,10 +1655,11 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 						baseSelect.value = '';
 					}
 				}
-				if (infoEl) infoEl.value = infoFor(cand);
+			if (infoEl) infoEl.value = infoFor(cand, baseSelect?.value);
 				if (vwRow) vwRow.style.display = cand.blocked ? '' : 'none';
 			};
-			select.addEventListener('change', update);
+		select.addEventListener('change', update);
+		baseSelect?.addEventListener('change', update);
 			vwBtn?.addEventListener('click', async () => {
 				const cand = candidates.find((c) => c.key === select.value);
 				if (!cand) return;
@@ -1693,7 +1712,11 @@ async function performNachbrau(actor, abilityItem, cand, base, { facility = null
 	if (!(await consumeElixirDose(cand.item))) return;
 	lines.push(F('NACHBRAU.CHAT_DOSE', { name: cand.name }));
 	const labBonus = facility?.bonus ?? 0;
-	const diffMod = nachbrauDiffModifier(ownLevel, cand.level);
+	/* Sammel-Fix v1.5 (Rudolfs Testrunde v1.4, Punkt 3 + Auswahlrunde):
+	 * MIT Grund-Rezeptur ERSETZT der gestaffelte Grundrezept-
+	 * Modifikator (Stufe der Grund-Rezeptur ggü. Ziel-Elixier, +1/−3
+	 * je Stufe) den eigenen-Stufe-Vergleich; ohne bleibt es dabei. */
+	const diffMod = base ? nachbrauBaseDiffModifier(base.level, cand.level) : nachbrauDiffModifier(ownLevel, cand.level);
 	/* Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 3b): Nachbrau
 	 * OHNE Grund-Rezeptur mit festem Proben-Malus −10 (zusätzlich zu
 	 * Stufen-Differenz und freiem Modifikator; die Karte nennt den
@@ -1701,12 +1724,13 @@ async function performNachbrau(actor, abilityItem, cand, base, { facility = null
 	 * Modifikator-Segment). Gunst/Missgunst v1.3 (Punkt 6c). */
 	const noBaseMod = base ? 0 : -10;
 	/* Sammel-Fix v1.4 (Rudolfs Testrunde v1.3, Punkt 2): MIT Grund-
-	 * Rezeptur nennt die Karte jetzt auch die Grundlage und ihren
-	 * Proben-Modifikator (+0 — der −10-Malus fällt weg), damit der
-	 * Modifikator für die Grund-Rezeptur in BEIDEN Fällen sichtbar
-	 * auf der Karte erscheint (ohne: −10-Hinweiszeile, wie bisher). */
+	 * Rezeptur nennt die Karte die Grundlage. Sammel-Fix v1.5
+	 * (Rudolfs Testrunde v1.4, Punkt 3 + Auswahlrunde): mit dem
+	 * ECHTEN gestaffelten Grundrezept-Modifikator (+1/−3 je Stufe,
+	 * ersetzt den eigenen-Stufe-Vergleich) statt +0 (ohne:
+	 * −10-Hinweiszeile, wie bisher). */
 	if (!base) lines.push(L('NACHBRAU.CHAT_NO_BASE'));
-	else lines.push(F('NACHBRAU.CHAT_BASE', { name: base.recipe.name }));
+	else lines.push(F('NACHBRAU.CHAT_BASE', { name: base.recipe.name, mod: `${diffMod > 0 ? '+' : diffMod < 0 ? '−' : ''}${Math.abs(diffMod)}` }));
 	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier + noBaseMod, favour);
 	rolls.push(...probe.rolls);
 	const resultLevel = getRollResultLevelKey(probe);
