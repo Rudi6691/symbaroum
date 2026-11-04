@@ -9,6 +9,16 @@
             <div class="m-panel">
                 {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
                 {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
+                {{!-- Alchemie Modul 3 (GM): Nachbrau-Bonus-Banner (Actor-Flag
+                    'nachbrauBonus') mit Reset-Knopf (data-action 'resetSchein'). --}}
+                {{#if symbaroumOptions.isGM}}
+                {{#if scheinBonusBanner}}
+                <div class="m-inline-field">
+                    <span>{{scheinBonusBanner}}</span>
+                    <button type="button" data-action="resetSchein" data-tooltip="{{localize 'SCHEIN.RESET_TOOLTIP'}}">{{localize "SCHEIN.RESET"}}</button>
+                </div>
+                {{/if}}
+                {{/if}}
                 <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                 <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
             </div>

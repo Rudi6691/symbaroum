@@ -7,6 +7,16 @@
         <div class="tab" data-group="primary" data-tab="description">
             <div class="m-panel">
                 <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                {{!-- Alchemie Modul 3 (GM): Schein-Rezeptur-Banner — das Item
+                    behauptet ein falsches Ziel; hier steht, was es tatsächlich
+                    beschreibt (Flag 'schein' in item.js). --}}
+                {{#if symbaroumOptions.isGM}}
+                {{#if scheinBanner}}
+                <div class="m-inline-field">
+                    <label>{{scheinBanner.text}}</label>
+                </div>
+                {{/if}}
+                {{/if}}
                 {{!-- Info-Chips (Attribut-Chip-Stil des modernen Kopfes):
                     Spieler-Kopien bleiben lesbar, die Werte werden im
                     GM-Rezeptur-Tab gepflegt. --}}

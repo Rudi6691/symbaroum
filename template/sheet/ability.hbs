@@ -25,10 +25,10 @@
             </div>
             <div class="avatar">
                     <button type="button" class="activate-ability" data-action="activateAbility"><img src="icons/vtt-512.png" /></button>
-                    {{!-- Brauen v1: Brau-Button am gehaltenen Alchemie-Fähigkeits-Item
-                        (Dialog: brewing.js - Ökonomie/RAW, Labor-Bonus, Zutaten). --}}
-                    {{#if showBrewButton}}
-                    <button type="button" class="brew-elixir" data-action="brewElixir" data-tooltip="{{localize "BREW.BUTTON_TOOLTIP"}}"><i class="fas fa-flask"></i></button>
+                    {{!-- Alchemie Modul 3: Menü-Knopf am gehaltenen Alchemie-Fähigkeits-Item
+                        (Dialog: brewing.js - Brauen/Analysieren/Nachbrauen). --}}
+                    {{#if showAlchemyMenu}}
+                    <button type="button" class="brew-elixir" data-action="alchemyMenu" data-tooltip="{{localize "ALCHEMY_MENU.BUTTON_TOOLTIP"}}"><i class="fas fa-flask"></i></button>
                     {{/if}}
             </div>
         </div>
@@ -47,6 +47,18 @@
                 {{!-- Traditionen v1: zugeordnete Traditionen read-only im
                     Beschreibungs-Tab (rendert nur bei vorhandenen Labels). --}}
                 {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
+                {{!-- Alchemie Modul 3 (GM): Nachbrau-Bonus-Banner am Alchemie-
+                    Fähigkeits-Item, wenn der Actor-Flag 'nachbrauBonus'
+                    aktiv ist; der Reset-Knopf löscht den Flag (data-action
+                    'resetSchein' in item.js). --}}
+                {{#if symbaroumOptions.isGM}}
+                {{#if scheinBonusBanner}}
+                <div class="resourcecategory">
+                    <span>{{scheinBonusBanner}}</span>
+                    <button type="button" data-action="resetSchein" data-tooltip="{{localize "SCHEIN.RESET_TOOLTIP"}}">{{localize "SCHEIN.RESET"}}</button>
+                </div>
+                {{/if}}
+                {{/if}}
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
                     <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>

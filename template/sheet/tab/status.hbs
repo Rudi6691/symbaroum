@@ -10,6 +10,20 @@
     etc., verifiziert 02.11.). --}}
 <div class="stats foreground border">
     <h1>{{localize "TITLE.STATS"}}</h1>
+    {{!-- Alchemie Modul 3 (GM): Täuschungs-Banner am Elixier-Item -
+        Fehlbestimmung oder als unbekannt markiert; der Reset-Knopf stellt
+        die echte Identität wieder her (restoreDeception in item.js,
+        Reihenfolge: fehlbestimmt zuerst, dann unknownElixir). Bei
+        bestätigtem KritPatzer (stackWide) ist zusätzlich eine zweite
+        Dosis still beschädigt. --}}
+    {{#if symbaroumOptions.isGM}}
+    {{#if deceptionBanner}}
+    <div class="resourcecategory">
+        <label>{{deceptionBanner.text}}{{#if deceptionBanner.stackWide}} — {{deceptionBanner.stackText}}{{/if}}</label>
+        <button type="button" data-action="resetDeception" data-tooltip="{{localize "UNKNOWN.RESET_TOOLTIP"}}">{{localize "UNKNOWN.RESET"}}</button>
+    </div>
+    {{/if}}
+    {{/if}}
     {{!-- Ressourcen v1, Testrunde 1 (Rudolfs Zusatzwunsch zu Punkt 3):
         Artefakt- und Stapelbar-Checkbox sind SL-Sache (Item-Taxonomie wie
         die Ressourcen-Kategorie) - für Spieler ausgeblendet, der WERT
@@ -116,6 +130,15 @@
     </div>
     {{/if}}
     {{> systems/symbaroum/template/sheet/tab/elixir-effect.hbs}}
+    {{!-- Alchemie Modul 3 (GM): Elixier „als unbekannt markieren“ - Decknamen
+        setzen (Flag 'unknownElixir' + Platzhalter-Umbenennung in item.js);
+        Analyse-Patzer kann daraus später eine Fehlbestimmung stricken. --}}
+    {{#if showMarkUnknown}}
+    <div class="resourcecategory">
+        <label>{{localize "UNKNOWN.MARK_TOOLTIP"}}</label>
+        <button type="button" data-action="markUnknown" data-tooltip="{{localize "UNKNOWN.MARK_TOOLTIP"}}">{{localize "UNKNOWN.MARK_BUTTON"}}</button>
+    </div>
+    {{/if}}
     {{/if}}
     {{/if}}
     {{/if}}

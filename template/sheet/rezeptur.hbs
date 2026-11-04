@@ -10,6 +10,11 @@
         <div class="sheet-header foreground border">
             <div class="avatar">
                 <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" data-tooltip="{{item.name}}"/>
+                {{!-- Alchemie Modul 3 (§13): Nachbrau-Knopf am gehaltenen
+                    Rezeptur-Item (Dialog: brewing.js). --}}
+                {{#if showNachbrau}}
+                <button type="button" class="brew-elixir" data-action="nachbrauElixir" data-tooltip="{{localize "NACHBRAU.BUTTON_TOOLTIP"}}"><i class="fas fa-vial"></i></button>
+                {{/if}}
             </div>
             <div class="wrapper-column">
                 <div class="name">
@@ -28,6 +33,16 @@
             <div class="tab" data-group="primary" data-tab="description">
                 <div class="description foreground border">
                     <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                    {{!-- Alchemie Modul 3 (GM): Schein-Rezeptur-Banner — das
+                        Item behauptet ein falsches Ziel; hier steht, was es
+                        tatsächlich beschreibt (Flag 'schein' in item.js). --}}
+                    {{#if symbaroumOptions.isGM}}
+                    {{#if scheinBanner}}
+                    <div class="resourcecategory">
+                        <label>{{scheinBanner.text}}</label>
+                    </div>
+                    {{/if}}
+                    {{/if}}
                     {{!-- Info-Zeilen für alle sichtbar (Spieler-Kopien): Ziel,
                         Stufe, Tradition, Wert, Besitz. Die GM-Editierung
                         läuft über den Rezeptur-Tab. --}}

@@ -32,6 +32,15 @@
     <label for="brew-modifier">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="brew-modifier" type="number" value="0"/>
   </div>
+  {{!-- Alchemie Modul 3: Nachbrau-Bonus-Häkchen (nur sichtbar, wenn der
+      Actor-Flag 'nachbrauBonus' aktiv ist - brewing.js verbraucht den Flag
+      beim nächsten Gebräu mit +1). Standard: angehakt. --}}
+  {{#if bonusNext}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="brew-bonus-next" data-tooltip="{{localize "BREW.BONUS_NEXT_TOOLTIP"}}">{{localize "BREW.BONUS_NEXT"}}</label>
+    <input id="brew-bonus-next" type="checkbox" checked/>
+  </div>
+  {{/if}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label>{{localize "BREW.DOSES"}}</label>
     <input id="brew-dose-hint" type="text" disabled value="{{doseHint}}" data-tooltip="{{localize "BREW.DOSES_TOOLTIP"}}"/>

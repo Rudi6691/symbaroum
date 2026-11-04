@@ -1,0 +1,35 @@
+{{!-- Alchemie Modul 3: Analyse-Dialog. Elixier-Auswahl (Inventar zuerst,
+    dann Welt-Items, Cap wirksame Stufe+2), Geleitet-Auswahl (erhöht die
+    wirksame Stufe und erweitert die Kandidaten live), Labor-Dropdown mit
+    LAB_NONE-Option (Analysieren ist ohne Labor erlaubt), freier Modifikator
+    und Info-Zeile (Stufe/Modifikator, live gesetzt via onRender).
+    Muster: brew-dialog.hbs (renderTemplate mit vollem Pfad, kein Partial,
+    theme-adaptive Zweige über renderModern; KEIN templatePaths-Eintrag). --}}
+<div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="analyse-elixir">{{localize "ANALYSE.SELECT"}}</label>
+    <select id="analyse-elixir">
+      {{selectOptions candidates selected=preselect valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="analyse-guide">{{localize "ANALYSE.GUIDE"}}</label>
+    <select id="analyse-guide" data-tooltip="{{localize "ANALYSE.GUIDE_TOOLTIP"}}">
+      {{selectOptions guides selected=guideId valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="analyse-lab">{{localize "BREW.LAB"}}</label>
+    <select id="analyse-lab" data-tooltip="{{localize "BREW.LAB_TOOLTIP"}}">
+      {{selectOptions facilities selected=labId valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="analyse-modifier">{{localize "DIALOG.MODIFIER"}}</label>
+    <input id="analyse-modifier" type="number" value="0"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="analyse-info">{{localize "ANALYSE.INFO_LABEL"}}</label>
+    <input id="analyse-info" type="text" disabled value="{{info}}"/>
+  </div>
+</div>

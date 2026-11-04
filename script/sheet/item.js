@@ -13,9 +13,10 @@ import { isAmmoCategory } from '../common/ammo.js';
 // Status-Tab v1: „Ist alchemistisch?“-Kanonik (abgeleitete Anzeige für
 // Alt-Items ohne Flag) aus elixirs.js
 import { isAlchemical } from '../common/elixirs.js';
-// Brauen v1 (Rudolfs Freigabe 02.11.): Brau-Dialog am Alchemie-Fähigkeits-
-// Item (brewing.js; Ökonomie/RAW-Modi, Labor-Bonus, Zutaten-Buchung)
-import { openBrewDialog } from '../common/brewing.js';
+// Alchemie Modul 3 (Rudolfs Startsignal 04.11.2026): Alchemie-Menü
+// (Brauen/Analysieren/Nachbrauen), Nachbrau-Dialog mit Rezeptur-Preset
+// und die §6a-Täuschungs-Helfer (brewing.js).
+import { openAlchemyMenu, openNachbrauDialog, findAlchemyAbility, restoreDeception } from '../common/brewing.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): zentrale
 // Traditions-Kanonik (tradition.js — Single Source für Labels, Feld-
 // Auflösung, Zugangsprüfung, Qualitäts-Geheimnisse und die Liste der
@@ -81,16 +82,70 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				}
 				this.item.actor.usePower(this.item);
 			},
-			/* Brauen v1: Brau-Button am Alchemie-Fähigkeits-Item (klassischer
-			   Kopf + moderner Kopf, beide Templates zeigen ihn nur bei
-			   reference==='alchemy' && isOwned) - öffnet den Brau-Dialog
-			   (brewing.js: Ökonomie/RAW-Modus, Labor-Bonus, Zutaten-Gate). */
-			brewElixir: async function (event) {
+			/* Alchemie Modul 3 (04.11.2026): Alchemie-MENÜ am Alchemie-
+			   Fähigkeits-Item (klassischer + moderner Kopf) statt des
+			   direkten Brau-Dialogs — Brauen/Analysieren/Nachbrauen
+			   (brewing.js; der frühere brewElixir-Button ist ersetzt,
+			   data-action 'alchemyMenu' in beiden Templates). */
+			alchemyMenu: async function (event) {
 				event.preventDefault();
 				if (!this.item.isOwned) {
 					return;
 				}
-				await openBrewDialog(this.item);
+				await openAlchemyMenu(this.item);
+			},
+			/* Alchemie Modul 3 (§13): Nachbrau-Knopf am GEHALTENEN
+			   Rezeptur-Item — findet die Alchemie-Fähigkeit am Aktor und
+			   öffnet den Nachbrau-Dialog mit dieser Rezeptur als
+			   vorausgewählter Grundlage. */
+			nachbrauElixir: async function (event) {
+				event.preventDefault();
+				const actor = this.item?.actor;
+				if (!actor) return;
+				const ability = findAlchemyAbility(actor);
+				if (!ability) {
+					ui.notifications.warn(game.i18n.localize('NACHBRAU.ERR_NO_ABILITY'));
+					return;
+				}
+				await openNachbrauDialog(ability, { presetRecipeId: this.item.id });
+			},
+			/* Alchemie Modul 3 (§6a): Elixier als UNBEKANNT markieren
+			   (GM) — Name/Beschreibung werden durch Platzhalter ersetzt,
+			   die Originale wandern ins Flag (resetDeception stellt sie
+			   wieder her); Spieler sehen nur den Platzhalter. */
+			markUnknown: async function (event) {
+				event.preventDefault();
+				const item = this.item;
+				if (!game.user.isGM || item?.type !== 'equipment' || !isAlchemical(item.system)) return;
+				if (item.getFlag('symbaroum', 'fehlbestimmt') || item.getFlag('symbaroum', 'unknownElixir')) {
+					ui.notifications.warn(game.i18n.localize('UNKNOWN.MARK_ERR'));
+					return;
+				}
+				await item.setFlag('symbaroum', 'unknownElixir', {
+					realName: item.name,
+					realDescription: String(item.system?.description ?? ''),
+				});
+				await item.update({
+					name: game.i18n.localize('UNKNOWN.PLACEHOLDER_NAME'),
+					'system.description': game.i18n.localize('UNKNOWN.PLACEHOLDER_DESC'),
+				});
+			},
+			/* Alchemie Modul 3 (§6a): Täuschungs-Markierung(en) aufheben
+			   (GM) — BEIDE Flags (fehlbestimmt + unknownElixir), Originale
+			   wiederherstellen (brewing.js restoreDeception). */
+			resetDeception: async function (event) {
+				event.preventDefault();
+				if (!game.user.isGM) return;
+				await restoreDeception(this.item);
+			},
+			/* Alchemie Modul 3: Nachbrau-Bonus (Actor-Flag 'nachbrauBonus',
+			   +1 auf das nächste Gebräu) per GM-Reset entfernen — Banner
+			   am Alchemie-Fähigkeits-Item (beide Designs). */
+			resetSchein: async function (event) {
+				event.preventDefault();
+				if (!game.user.isGM) return;
+				const actor = this.item?.actor;
+				if (actor) await actor.unsetFlag('symbaroum', 'nachbrauBonus');
 			},
 			powerDelete: function (event) {
 				this._onPowerDelete(event);
@@ -282,11 +337,54 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
-		/* Brauen v1: Brau-Button am GEHALTENEN Alchemie-Fähigkeits-Item
-		   (klassischer + moderner Kopf); der Dialog löst alles Weitere
-		   auf (Stufe, Labor, Kandidaten, Traditions-Gate). */
-		context.showBrewButton =
+		/* Alchemie Modul 3: Kolben am GEHALTENEN Alchemie-Fähigkeits-Item
+		   (klassischer + moderner Kopf) öffnet das Alchemie-Menü; der
+		   Menü-Dialog (brewing.js) löst Stufe, Labor, Kandidaten und
+		   Traditions-Gate auf (Brauen/Analysieren/Nachbrauen). */
+		context.showAlchemyMenu =
 			this.item.type === 'ability' && this.item.system?.reference === 'alchemy' && !!this.item.isOwned;
+		/* Alchemie Modul 3 (§13): Nachbrau-Knopf am gehaltenen Rezeptur-
+		   Item (klassischer Avatar + moderne Kopfzeile, data-action
+		   'nachbrauElixir'). */
+		context.showNachbrau = this.item.type === 'rezeptur' && !!this.item.isOwned;
+		/* Alchemie Modul 3 (§6a): GM-Anzeigen — Täuschungs-Banner am
+		   Elixier-Item (Fehlbestimmung/Unbekannt, beide Status-Designs),
+		   Markier-Knopf, Schein-Banner am Rezeptur-Item (beide Designs),
+		   Bonus-Banner am Alchemie-Fähigkeits-Item (GM-Reset). Texte
+		   vorlokalisiert (Lernweis: keine dynamischen Template-Keys). */
+		if (game.user.isGM) {
+			const fehlFlag = this.item.getFlag('symbaroum', 'fehlbestimmt');
+			const unknownFlag = this.item.getFlag('symbaroum', 'unknownElixir');
+			if (this.item.type === 'equipment' && (fehlFlag || unknownFlag)) {
+				context.deceptionBanner = fehlFlag
+					? {
+							stackWide: !!fehlFlag.stackWide,
+							text: game.i18n.format('UNKNOWN.BANNER_FEHL', { name: fehlFlag.realName }),
+							stackText: game.i18n.localize('UNKNOWN.BANNER_STACK'),
+						}
+					: {
+							stackWide: false,
+							text: game.i18n.format('UNKNOWN.BANNER_UNKNOWN', { name: unknownFlag.realName }),
+							stackText: game.i18n.localize('UNKNOWN.BANNER_STACK'),
+						};
+			}
+			context.showMarkUnknown =
+				this.item.type === 'equipment' && isAlchemical(this.item.system) && !fehlFlag && !unknownFlag;
+			const scheinFlag = this.item.getFlag('symbaroum', 'schein');
+			if (this.item.type === 'rezeptur' && scheinFlag) {
+				context.scheinBanner = {
+					recipeName: scheinFlag.recipeName,
+					text: game.i18n.format('SCHEIN.RECIPE_BANNER', { recipeName: scheinFlag.recipeName }),
+				};
+			}
+			if (
+				this.item.type === 'ability' &&
+				this.item.system?.reference === 'alchemy' &&
+				this.item.actor?.getFlag('symbaroum', 'nachbrauBonus')
+			) {
+				context.scheinBonusBanner = game.i18n.localize('SCHEIN.BONUS_BANNER');
+			}
+		}
 		/* Munitionsverbrauch v1: waffenseitige Munitions-Konfiguration
 		   (system.ammunition = { category, amount }, GM-only auf dem
 		   Waffenblatt - leere Kategorie = kein Verbrauch). */
@@ -737,10 +835,12 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		modern.showLevel = type === 'boon' || type === 'burden';
 		modern.showComputed = type === 'weapon' || type === 'armor';
 		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
-		/* Brauen v1: Brau-Button im modernen Kopf nur am gehaltenen
+		/* Alchemie Modul 3: Menü-Button im modernen Kopf nur am gehaltenen
 		   Alchemie-Fähigkeits-Item (kollisionsfrei zum Aktivieren-Button,
-		   gleiche Zeile, eigener data-action). */
-		modern.showBrew = type === 'ability' && item.system?.reference === 'alchemy' && !!item.isOwned;
+		   gleiche Zeile, eigener data-action); zusätzlich Nachbrau-Button
+		   am gehaltenen Rezeptur-Item (gleicher Icon-Stil wie Brauen). */
+		modern.showAlchemyMenu = type === 'ability' && item.system?.reference === 'alchemy' && !!item.isOwned;
+		modern.showNachbrau = type === 'rezeptur' && !!item.isOwned;
 		/* Übergabe v1: Geben-Button in der Titelzeile nur bei physischen,
 		   gehaltenen Items. Kollisionsfrei zum Aktivieren-Button, weil
 		   showActivate die disjunkten Typen Fähigkeit/Merkmal/Kraft betrifft

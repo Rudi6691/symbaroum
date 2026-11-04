@@ -44,15 +44,15 @@
  * hat KEINE, Teratos ist SL-Sache), XP-Abbuchung Verbotenes Wissen
  * (manuelle GM-Spieler-Abwicklung, nur Hinweiszeile), Gunst/Modifikator.
  */
-import { baseRoll, createRollData } from './roll.js';
+import { baseRoll, createRollData, getRollResultLevelKey } from './roll.js';
 import { symbDialog } from './symbDialog.js';
 import { modernDialogClasses, isModernDialogActive } from './modernSheetConfig.js';
 import { getResourceTotal, consumeResource, getItemCount } from './resources.js';
-import { isAlchemical, getAlchemyLevel } from './elixirs.js';
+import { isAlchemical, getAlchemyLevel, getElixirEffect, consumeElixirDose } from './elixirs.js';
 import { getItemPriceBase } from './currency.js';
 import { isStackableItem, findStackTarget } from './stacking.js';
 import { checkCorruptionThreshold } from './item.js';
-import { hasTraditionAccess, hasAnyTraditionAccess, parseTraditions } from './tradition.js';
+import { hasTraditionAccess, hasAnyTraditionAccess, parseTraditions, traditionLabel } from './tradition.js';
 
 /* i18n-Helfer nach elixirs.js-Muster */
 const L = (key) => game.i18n.localize(key);
@@ -328,9 +328,14 @@ export async function openBrewDialog(abilityItem) {
 		ui.notifications.warn(F('BREW.ERR_NO_MATERIALS', { stock }));
 		return;
 	}
+	/* Alchemie Modul 3: Nachbrau-Bonus (+1 auf das nächste Gebräu). Der
+	   Actor-Flag 'nachbrauBonus' entsteht beim bestätigten kritischen
+	   Nachbrau-Erfolg; das Häkchen im Brau-Dialog verbraucht ihn. */
+	const bonusNextAvailable = !!(await actor.getFlag('symbaroum', 'nachbrauBonus'));
 	const modern = isModernDialogActive();
 	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/brew-dialog.hbs', {
 		renderModern: modern,
+		bonusNext: bonusNextAvailable,
 		candidates: candidates.map((c) => ({
 			id: c.key,
 			label: `${c.elixir.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`,
@@ -390,11 +395,14 @@ export async function openBrewDialog(abilityItem) {
 					   Bonus in der Probe; leer/ungültig = 0. */
 					const userMod = Number(html[0].querySelector('#brew-modifier')?.value);
 					const modifier = (Number.isFinite(userMod) ? userMod : 0);
+					/* Alchemie Modul 3: Bonus-Häkchen (nur zeigbar bei Flag;
+					   Verbrauch bucht performBrew am Actor-Flag ab). */
+					const bonusNext = bonusNextAvailable && !!html[0].querySelector('#brew-bonus-next')?.checked;
 					let secret = false;
 					for (const radio of html[0].querySelectorAll("input[name='brew-vis']")) {
 						if (radio.checked) secret = radio.value === 'secret';
 					}
-					await performBrew(actor, facility, cand, { secret, economy, modifier });
+					await performBrew(actor, facility, cand, { secret, economy, modifier, bonusNext });
 				},
 			},
 			cancel: {
@@ -449,23 +457,58 @@ function formatBrewProbeLine(rollData, labBonus, userMod = 0) {
 	return `${rollData.actingAttributeLabel} : (${rollData.actingAttributeValue})  ${L('BREW.LAB_BONUS')} +${labBonus}${modText}`;
 }
 
-async function performBrew(actor, facility, cand, { secret = false, economy = false, modifier = 0 } = {}) {
+async function performBrew(actor, facility, cand, { secret = false, economy = false, modifier = 0, bonusNext = false } = {}) {
 	const rolls = [];
 	const lines = [];
+	/* Alchemie Modul 3: Schein-Rezeptur / Zeitbombe wirken NUR im
+	   Ökonomie-Modus (Rezeptur-Bezug; RAW-Kandidaten haben recipe:null).
+	   Beide Flags entstehen heimlich beim Nachbrau-Patzer (§13) und sind
+	   GM-Sache — der Spieler sieht bis zur Entlarvung normale Karten. */
+	const scheinFlag = economy && cand.recipe ? cand.recipe.getFlag('symbaroum', 'schein') : null;
+	const zeitbombe = economy && cand.recipe ? cand.recipe.getFlag('symbaroum', 'zeitbombe') : null;
 	// 1) Dosen-Wurf (RAW-Tabelle) VOR der Probe auf der Karte.
 	let doses = 1;
 	if (cand.doseFormula !== '1') {
 		doses = Math.max(1, await rollFormula(cand.doseFormula, rolls));
 		lines.push(F('BREW.CHAT_DOSES', { formula: cand.doseFormula.replace('d', 'W'), doses }));
 	}
+	// 1b) Alchemie Modul 3 — ZEITBOMBE-Detonation (bestätigter Nachbrau-
+	//     Patzer): Der Versuch DETONIERT automatisch — Fehlschlag ohne
+	//     Probe, 1W4 Zähigkeits-Schaden am Brauenden, Flag wird verbraucht
+	//     (eine etwaige Schein-Rezeptur bleibt Schein).
+	if (zeitbombe) {
+		await cand.recipe.unsetFlag('symbaroum', 'zeitbombe');
+		const damage = Math.max(1, await rollFormula('1d4', rolls));
+		const toughness = Number(actor.system?.health?.toughness?.value ?? 0);
+		await actor.update({ 'system.health.toughness.value': Math.max(0, toughness - damage) });
+		lines.push(F('SCHEIN.CHAT_BOMB', { damage }));
+		lines.push(L('BREW.CHAT_FAILURE'));
+		if (economy) {
+			const stock = getResourceTotal(actor, 'alchemiezutat');
+			if (stock >= cand.units) {
+				await consumeResource(actor, 'alchemiezutat', cand.units);
+				lines.push(F('BREW.CHAT_MATERIALS_LOST', { amount: cand.units }));
+			}
+			lines.push(L('BREW.CHAT_ROUND_LOST'));
+		}
+		await postBrewCard(actor, F('BREW.CHAT_TITLE', { name: actor.name, elixir: cand.elixir.name }), lines, rolls, secret);
+		return;
+	}
 	// 2) Scharfsinn-Probe mit Labor-Bonus + freiem Modifikator (Sammel-Fix
-	//    v1.1, Testrunde 1 Punkt 10; kein Ziel, keine Gunst).
-	const probe = await baseRoll(actor, 'cunning', null, null, 0, facility.bonus + modifier, false);
+	//    v1.1, Testrunde 1 Punkt 10; kein Ziel, keine Gunst). Alchemie
+	//    Modul 3: Nachbrau-Bonus +1 (sichtbar in der Probezeile) und
+	//    SCHEIN-Heimlich −4 (unsichtbar — die Karte zeigt keinen Malus).
+	const scheinMod = scheinFlag ? -4 : 0;
+	const bonusMod = bonusNext ? 1 : 0;
+	const probe = await baseRoll(actor, 'cunning', null, null, 0, facility.bonus + modifier + scheinMod + bonusMod, false);
 	rolls.push(...probe.rolls);
 	const success = probe.trueActorSucceeded;
 	lines.push(
-		`<div class="tooltip"><p>${formatBrewProbeLine(probe, facility.bonus, modifier)} — ${success ? L('BREW.CHAT_SUCCESS') : L('BREW.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
+		`<div class="tooltip"><p>${formatBrewProbeLine(probe, facility.bonus, modifier + bonusMod)} — ${success ? L('BREW.CHAT_SUCCESS') : L('BREW.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 	);
+	// 2b) Alchemie Modul 3: verbrauchter Nachbrau-Bonus abmelden (der Flag
+	//     wirkt EIN Mal — Häkchen im Brau-Dialog, Verbrauch hier).
+	if (bonusNext) await actor.unsetFlag('symbaroum', 'nachbrauBonus');
 	// 3) Buchung + Produktion.
 	let produced = 0;
 	if (success) {
@@ -488,7 +531,17 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 			produced = doses;
 		}
 		if (produced >= 1) {
-			await addElixirDoses(actor, cand.elixir, produced);
+			/* Alchemie Modul 3 — SCHEIN-Rückstand: Der Brauer hält die
+			   Rezeptur für echt; das Erzeugnis ist wertloser Rückstand —
+			   1W6 Einheiten STATT der Elixiere, die Karte bleibt normal
+			   (beanspruchter Name, normale Mengenzeile). Nur der
+			   Inventar-Bestand verrät die Täuschung. */
+			if (scheinFlag) {
+				const residue = Math.max(1, await rollFormula('1d6', rolls));
+				await addResidueDoses(actor, residue);
+			} else {
+				await addElixirDoses(actor, cand.elixir, produced);
+			}
 			lines.push(F('BREW.CHAT_PRODUCED', { count: produced, name: cand.elixir.name }));
 		}
 	} else if (economy) {
@@ -546,4 +599,833 @@ async function postBrewCard(actor, title, lines, rolls = [], secret = false) {
 	}
 	if (rolls.length > 0) chatData.rolls = [createRollData(rolls)];
 	await ChatMessage.create(chatData);
+}
+
+/* ================================================================ */
+/*  ALCHEMIE MODUL 3 (Rudolfs Startsignal 04.11.2026 „Leg los“):      */
+/*  Analysieren (§14), Nachbrauen (§13), Unbekannte Elixiere (§6a)      */
+/*  und Verbotenes-Wissen-Erwerb. Design-Entscheidungen im            */
+/*  Auslieferungs-Dok Symbaroum-V14-Alchemie-v1.0 dokumentiert.        */
+/* ================================================================ */
+
+/* GM-Flüsterempfänger (die Wahrheit sieht nur der SL; ein anfragender
+   GM bleibt über game.user.id selbst dabei — Spieler sehen nichts). */
+function gmWhisperTargets() {
+	const gmIds = game.users.filter((u) => u.isGM).map((u) => u.id);
+	return game.user.isGM ? [...new Set([game.user.id, ...gmIds])] : gmIds;
+}
+
+/** GM-Flüsterkarte (Raw-HTML-Muster der Brau-Karte, reines SL-Flüstern). */
+async function whisperGM(title, lines = []) {
+	const safeLines = lines.filter(Boolean);
+	const html = `<div class="symbaroum chat ability"><div class="foreground"><h4>${title}</h4>${safeLines
+		.map((line) => `<div class="finalTxt">${line}</div>`)
+		.join('')}</div></div>`;
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+		whisper: gmWhisperTargets(),
+		content: html,
+	});
+}
+
+/** Alchemie-Fähigkeit eines Akters (reference 'alchemy' mit aktiver Stufe). */
+export function findAlchemyAbility(actor) {
+	for (const item of actor?.items ?? []) {
+		if (item?.type === 'ability' && item.system?.reference === 'alchemy' && getOwnAlchemyLevel(item) !== '') return item;
+	}
+	return null;
+}
+
+/** Wirkungs-Kategorie eines Elixiers aus den elixirEffect-Feldern
+ *  (Analyse-Spuren §14): heilt / vergiftet / senkt Korruption / verändert;
+ *  Reihenfolge = Priorität, Fallback „unklar“ (nur gefüllte Felder zählen). */
+export function elixirCategoryKey(elixir) {
+	const eff = getElixirEffect(elixir);
+	const filled = (v) => String(v ?? '').trim() !== '' && Number(v) !== 0;
+	if (filled(eff.heal) || filled(eff.healPerRound) || filled(eff.removeCondition)) return 'ANALYSE.CAT_HEALS';
+	if (filled(eff.damage) || filled(eff.damagePerRound) || filled(eff.weaponPoison)) return 'ANALYSE.CAT_POISONS';
+	if (filled(eff.corruptionRemove)) return 'ANALYSE.CAT_CORRUPTION';
+	const attrMode = String(eff.attributeMode ?? '').trim();
+	if ((attrMode !== '' && attrMode !== 'no' && attrMode !== 'false') || filled(eff.attrib)) return 'ANALYSE.CAT_ALTERS';
+	return 'ANALYSE.CAT_UNKNOWN';
+}
+
+/** Hat der Akter eine Rezeptur zu diesem Elixier (Ziel-Auflösung über den
+ *  Namen — Welt- wie Inventar-Ziele)? Analyse-Hinweiszeile. */
+export function hasRelatedRecipe(actor, elixir) {
+	for (const recipe of actor?.items ?? []) {
+		if (recipe?.type !== 'rezeptur') continue;
+		const target = String(recipe.system?.target ?? '').trim();
+		const targetItem = target !== '' ? foundry.utils.fromUuidSync(target) : null;
+		if (targetItem?.name === elixir?.name) return true;
+	}
+	return false;
+}
+
+/** Grund-Rezepturen des Akters zum selben Elixier mit ANDERER Stufe
+ *  (Nachbrau-Voraussetzung §13): Besitz muss 'owned' sein — gebundene
+ *  (bound) Ausfertigungen taugen als Grundlage NICHT. */
+export function ownedBaseRecipes(actor, elixir, otherThanLevel) {
+	const list = [];
+	for (const recipe of actor?.items ?? []) {
+		if (recipe?.type !== 'rezeptur') continue;
+		if (String(recipe.system?.ownership ?? 'owned') !== 'owned') continue;
+		const target = String(recipe.system?.target ?? '').trim();
+		const targetItem = target !== '' ? foundry.utils.fromUuidSync(target) : null;
+		if (!targetItem || targetItem.name !== elixir?.name) continue;
+		const level = String(recipe.system?.alchemyLevel ?? '');
+		if (level === '' || level === otherThanLevel) continue;
+		list.push({ recipe, level });
+	}
+	list.sort((a, b) => (LEVEL_ORDER[a.level] ?? 0) - (LEVEL_ORDER[b.level] ?? 0));
+	return list;
+}
+
+/** Analyse (§14): Probe-Modifikator je Stufen-Differenz — Δ0 = 0, Ziel
+ *  +1 Stufe = −2, Ziel +2 Stufen = −4; Kandidaten-Cap: wirksame Stufe +2. */
+export function analyseDiffModifier(effectiveOrder, targetLevel) {
+	const delta = (LEVEL_ORDER[targetLevel] ?? 0) - effectiveOrder;
+	if (delta <= 0) return 0;
+	return delta === 1 ? -2 : -4;
+}
+
+/** Nachbrau (§13): asymmetrischer Stufen-Modifikator — Ziel UNTER der
+ *  eigenen Stufe +1 (Erleichterung), Ziel ÜBER der eigenen Stufe −3
+ *  (Erschwernis), gleichstufig 0. */
+export function nachbrauDiffModifier(ownLevel, targetLevel) {
+	const delta = (LEVEL_ORDER[targetLevel] ?? 0) - (LEVEL_ORDER[ownLevel] ?? 0);
+	if (delta < 0) return 1;
+	if (delta > 0) return -3;
+	return 0;
+}
+
+/** Probe-Zeile der Analyse-/Nachbrau-Karten (Scharfsinn + Labor-Bonus +
+ *  freier Modifikator — Segmente bei 0 weggelassen, Brau-Karten-Muster). */
+function formatAnalyseProbeLine(rollData, labBonus = 0, userMod = 0) {
+	let line = `${rollData.actingAttributeLabel} : (${rollData.actingAttributeValue})`;
+	if (labBonus !== 0) line += `  ${L('BREW.LAB_BONUS')} ${labBonus > 0 ? '+' : '−'}${Math.abs(labBonus)}`;
+	if (userMod !== 0) line += `  ${L('DIALOG.MODIFIER')} ${userMod > 0 ? '+' : '−'}${Math.abs(userMod)}`;
+	return line;
+}
+
+/** Zufälliges gleichstufiges WELT-Elixier (Fehlbestimmungs-/Schein-Quelle,
+ *  §6a) — der Name des Ziel-Elixiers ist ausgeschlossen; null = keine
+ *  Quelle (dann bleibt es bei der offenen Fehlzeile + SL-Flüsterkarte). */
+function randomWorldElixirOfLevel(level, excludeName = '') {
+	const pool = [];
+	for (const item of game.items ?? []) {
+		if (item?.type !== 'equipment' || !isAlchemical(item.system)) continue;
+		if (getAlchemyLevel(item) !== level) continue;
+		if (excludeName !== '' && item.name === excludeName) continue;
+		pool.push(item);
+	}
+	if (pool.length === 0) return null;
+	return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/** Fehlbestimmung anwenden (§6a): Das Item erhält die SCHEIN-Identität
+ *  (Name + Beschreibung), die Originale wandern ins Flag 'fehlbestimmt'.
+ *  Bei bereits unbekannt-markierten Items zeigt realName auf die reale
+ *  (noch verhüllte) Identität aus dem unknownElixir-Flag (Übergang). */
+async function applyFehlbestimmung(item, falseElixir, { stackWide = false } = {}) {
+	const unknownFlag = item.getFlag('symbaroum', 'unknownElixir');
+	const flag = {
+		realName: unknownFlag?.realName ?? item.name,
+		realDescription: unknownFlag?.realDescription ?? String(item.system?.description ?? ''),
+		falseName: falseElixir.name,
+		falseDescription: String(falseElixir.system?.description ?? ''),
+		falseId: falseElixir.uuid,
+		stackWide,
+	};
+	await item.setFlag('symbaroum', 'fehlbestimmt', flag);
+	await item.update({ name: flag.falseName, 'system.description': flag.falseDescription });
+	return flag;
+}
+
+/** Täuschungs-Markierungen aufheben (BEIDE Flags: fehlbestimmt und
+ *  unknownElixir) — Originale wiederherstellen; Reihenfolge erst
+ *  fehlbestimmt, dann unbekannt, damit die älteste Identität gewinnt. */
+export async function restoreDeception(item) {
+	const fehl = item.getFlag('symbaroum', 'fehlbestimmt');
+	if (fehl) {
+		await item.update({ name: fehl.realName, 'system.description': fehl.realDescription });
+		await item.unsetFlag('symbaroum', 'fehlbestimmt');
+	}
+	const unknown = item.getFlag('symbaroum', 'unknownElixir');
+	if (unknown) {
+		await item.update({ name: unknown.realName, 'system.description': unknown.realDescription });
+		await item.unsetFlag('symbaroum', 'unknownElixir');
+	}
+}
+
+/** Alchemischer Rückstand (Schein-Brau-Produkt §6a): inertes Ausrüstungs-
+ *  Item, stapelt sich im Inventar über Namen + Anzahl (Merge-Muster). */
+async function addResidueDoses(actor, count) {
+	const name = L('SCHEIN.RESIDUE');
+	const amount = Math.max(1, Math.round(count));
+	const existing = actor.items.find((i) => i?.type === 'equipment' && i.name === name);
+	if (existing) {
+		await existing.update({ 'system.number': getItemCount(existing) + amount });
+		return;
+	}
+	await actor.createEmbeddedDocuments('Item', [
+		{
+			type: 'equipment',
+			name,
+			img: 'icons/svg/item-bag.svg',
+			system: { number: amount, alchemical: 'false' },
+		},
+	]);
+}
+
+/* ---------------------------------------------------------------- */
+/*  Kandidaten: Analysieren + Nachbrauen                              */
+/* ---------------------------------------------------------------- */
+
+/** Analyse-Kandidaten (§14): Inventar-Dosen zuerst, dann Welt-Items,
+ *  Deduplizierung über den Namen, Unbekannt-Badge bei Täuschungs-Flag;
+ *  Stufen-Cap = wirksame Stufe + 2. */
+export function buildAnalyseCandidates(actor, capLevel) {
+	const cap = LEVEL_ORDER[capLevel] ?? 0;
+	const candidates = [];
+	const seen = new Set();
+	const push = (item, inInventory) => {
+		const level = getAlchemyLevel(item);
+		if (level === '' || (LEVEL_ORDER[level] ?? 0) > cap + 2) return;
+		if (seen.has(item.name)) return;
+		seen.add(item.name);
+		candidates.push({
+			key: item.uuid,
+			item,
+			name: item.name,
+			level,
+			inInventory,
+			units: unitsPerDose(item),
+			unknown: !!item.getFlag('symbaroum', 'unknownElixir') || !!item.getFlag('symbaroum', 'fehlbestimmt'),
+		});
+	};
+	for (const item of actor?.items ?? []) {
+		if (item?.type === 'equipment' && isAlchemical(item.system)) push(item, true);
+	}
+	for (const item of game.items ?? []) {
+		if (item?.type === 'equipment' && isAlchemical(item.system)) push(item, false);
+	}
+	return candidates;
+}
+
+/** Geholfte Analyse: mögliche geleitende Akteure — nur HÖHERE eigene
+ *  Alchemie-Stufe; die wirksame Stufe des Analysierers steigt auf
+ *  max(eigene, geleitete) (Kandidaten-Cap + Modifikator). */
+export function buildGuideOptions(actor, ownLevel) {
+	const own = LEVEL_ORDER[ownLevel] ?? 0;
+	const guides = [];
+	for (const other of game.actors ?? []) {
+		if (!other || other.id === actor?.id) continue;
+		const ability = findAlchemyAbility(other);
+		if (!ability) continue;
+		const level = getOwnAlchemyLevel(ability);
+		if ((LEVEL_ORDER[level] ?? 0) <= own) continue;
+		guides.push({ id: other.id, level, label: `${other.name} (${L(`ALCHEMY_LEVEL.${level.toUpperCase()}`)})` });
+	}
+	return guides;
+}
+
+/** Nachbrau-Kandidaten (§13): Dosen im Inventar mit Stufe ≤ eigener
+ *  Alchemie-Stufe UND vorhandener Grund-Rezeptur (owned, gleiches
+ *  Elixier, ANDERE Stufe); bereits existierende Rezepturen desselben
+ *  Ziels UND Stufe sind keine Kandidaten (Dedup schon im Dialog).
+ *  blocked = Traditions-Zugang fehlt (VW-Knopf im Dialog). */
+export function buildNachbrauCandidates(actor, ownLevel) {
+	const cap = LEVEL_ORDER[ownLevel] ?? 0;
+	const candidates = [];
+	for (const item of actor?.items ?? []) {
+		if (item?.type !== 'equipment' || !isAlchemical(item.system)) continue;
+		const level = getAlchemyLevel(item);
+		if (level === '' || (LEVEL_ORDER[level] ?? 0) > cap) continue;
+		if (getItemCount(item) < 1) continue;
+		const grunds = ownedBaseRecipes(actor, item, level);
+		if (grunds.length === 0) continue;
+		// Rezeptur-Ziel: dauerhaftes Welt-Item gleichen Namens, sonst die
+		// Inventarskopie selbst (RezepturSheet._onDrop-Muster).
+		const world = (game.items ?? []).find((i) => i?.type === 'equipment' && i.name === item.name) ?? item;
+		const hasSameRecipe = (actor.items ?? []).some(
+			(r) =>
+				r?.type === 'rezeptur' &&
+				String(r.system?.target ?? '').trim() === world.uuid &&
+				String(r.system?.alchemyLevel ?? '') === level
+		);
+		if (hasSameRecipe) continue;
+		const traditions = elixirTraditions(item);
+		candidates.push({
+			key: item.id,
+			item,
+			name: item.name,
+			level,
+			worldUuid: world.uuid,
+			grunds,
+			blocked: traditions.length > 0 && !hasAnyTraditionAccess(actor, traditions),
+		});
+	}
+	return candidates;
+}
+
+/* ---------------------------------------------------------------- */
+/*  Alchemie-Menü (Modul 3) + Analyse-Dialog                          */
+/* ---------------------------------------------------------------- */
+
+/** Alchemie-Menü: Vier-Button-Einstieg am Alchemie-Fähigkeits-Item —
+ *  Brauen / Analysieren / Nachbrauen / Abbrechen (der frühere direkte
+ *  Brau-Button data-action 'brewElixir' ist damit ersetzt; die Action
+ *  'alchemyMenu' wohnt in sheet/item.js). */
+export async function openAlchemyMenu(abilityItem) {
+	const actor = abilityItem?.actor ?? abilityItem?.parent;
+	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
+	const modern = isModernDialogActive();
+	const html = `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}"><div class="finalTxt">${L('ALCHEMY_MENU.HINT')}</div></div>`;
+	symbDialog({
+		title: `${L('ALCHEMY_MENU.DIALOG_TITLE')} — ${actor.name}`,
+		content: html,
+		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+		width: 360,
+		buttons: {
+			brew: {
+				icon: '<i class="fas fa-flask"></i>',
+				label: L('ALCHEMY_MENU.BREW'),
+				callback: () => openBrewDialog(abilityItem),
+			},
+			analyse: {
+				icon: '<i class="fas fa-search"></i>',
+				label: L('ALCHEMY_MENU.ANALYSE'),
+				callback: () => openAnalyseDialog(abilityItem),
+			},
+			nachbrau: {
+				icon: '<i class="fas fa-vial"></i>',
+				label: L('ALCHEMY_MENU.NACHBRAU'),
+				callback: () => openNachbrauDialog(abilityItem),
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+				callback: () => {},
+			},
+		},
+		default: 'brew',
+	});
+}
+
+/** Analyse-Dialog (§14): Elixier-Auswahl (Inventar zuerst), optionale
+ *  geleitete Analyse (höherstufiger Akteure, hebt die wirksame Stufe),
+ *  Labor-Dropdown (Analyse ist auch OHNE Labor erlaubt — „nur sammeln
+ *  und analysieren“), freier Modifikator, Live-Info-Zeile. */
+export async function openAnalyseDialog(abilityItem, { presetTargetUuid = null } = {}) {
+	const actor = abilityItem?.actor ?? abilityItem?.parent;
+	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
+	const ownLevel = getOwnAlchemyLevel(abilityItem);
+	if (ownLevel === '') {
+		ui.notifications.warn(L('BREW.ERR_NO_LEVEL'));
+		return;
+	}
+	const guides = buildGuideOptions(actor, ownLevel);
+	const candidates = buildAnalyseCandidates(actor, ownLevel);
+	if (candidates.length === 0) {
+		ui.notifications.warn(L('ANALYSE.ERR_NO_TARGETS'));
+		return;
+	}
+	const facilities = resolveFacilities(actor);
+	const modern = isModernDialogActive();
+	const labelFor = (c) =>
+		`${c.unknown ? `${L('ANALYSE.UNKNOWN_BADGE')} · ` : ''}${c.item.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`;
+	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/analyse-dialog.hbs', {
+		renderModern: modern,
+		candidates: candidates.map((c) => ({ id: c.key, label: labelFor(c) })),
+		preselect: presetTargetUuid ?? candidates[0].key,
+		guides: [{ id: '', label: L('ANALYSE.GUIDE_NONE') }, ...guides.map((g) => ({ id: g.id, label: g.label }))],
+		guideId: '',
+		facilities: [
+			{ id: '', label: L('ANALYSE.LAB_NONE') },
+			...facilities.map((f) => ({ id: f.item.id, label: `${f.name} (+${f.bonus})` })),
+		],
+		labId: facilities[0]?.item.id ?? '',
+	});
+	// Geholfene Analyse: Guide-Wechsel hebt die wirksame Stufe an und
+	// erweitert die Kandidatenliste LIVE (Cap = max(eigene, geleitete)+2).
+	const state = { candidates, capLevel: ownLevel };
+	const infoFor = (cand) => {
+		const guideId = state.guideId ?? '';
+		const guide = guides.find((g) => g.id === guideId);
+		const effOrder = Math.max(LEVEL_ORDER[ownLevel] ?? 0, guide ? LEVEL_ORDER[guide.level] ?? 0 : 0);
+		const mod = analyseDiffModifier(effOrder, cand.level);
+		return F('ANALYSE.INFO', {
+			level: L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`),
+			mod: `${mod > 0 ? '+' : mod < 0 ? '−' : ''}${Math.abs(mod)}`,
+		});
+	};
+	symbDialog({
+		title: `${L('ANALYSE.DIALOG_TITLE')} — ${actor.name}`,
+		content: dialogHtml,
+		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+		width: 440,
+		onRender: (element) => {
+			const select = element?.querySelector?.('#analyse-elixir');
+			const guideSelect = element?.querySelector?.('#analyse-guide');
+			const infoEl = element?.querySelector?.('#analyse-info');
+			if (!select) return;
+			const update = () => {
+				const cand = state.candidates.find((c) => c.key === select.value);
+				if (!cand || !infoEl) return;
+				infoEl.value = infoFor(cand);
+			};
+			const rebuild = () => {
+				state.guideId = guideSelect?.value ?? '';
+				const guide = guides.find((g) => g.id === state.guideId);
+				const effLevel =
+					guide && (LEVEL_ORDER[guide.level] ?? 0) > (LEVEL_ORDER[ownLevel] ?? 0) ? guide.level : ownLevel;
+				if (effLevel !== state.capLevel) {
+					state.capLevel = effLevel;
+					state.candidates = buildAnalyseCandidates(actor, effLevel);
+					const prev = select.value;
+					select.innerHTML = state.candidates.map((c) => `<option value="${c.key}">${labelFor(c)}</option>`).join('');
+					select.value = state.candidates.some((c) => c.key === prev)
+						? prev
+						: (state.candidates[0]?.key ?? '');
+				}
+				update();
+			};
+			select.addEventListener('change', update);
+			guideSelect?.addEventListener('change', rebuild);
+			update();
+		},
+		buttons: {
+			analyse: {
+				icon: '<i class="fas fa-search"></i>',
+				label: L('ANALYSE.BUTTON'),
+				callback: async (html) => {
+					const key = html[0].querySelector('#analyse-elixir')?.value;
+					const cand = state.candidates.find((c) => c.key === key);
+					if (!cand) return;
+					const guideId = html[0].querySelector('#analyse-guide')?.value ?? '';
+					const guideActor = guideId !== '' ? game.actors.get(guideId) : null;
+					const labId = html[0].querySelector('#analyse-lab')?.value;
+					const facility = facilities.find((f) => f.item.id === labId) ?? null;
+					const userMod = Number(html[0].querySelector('#analyse-modifier')?.value);
+					const modifier = Number.isFinite(userMod) ? userMod : 0;
+					await performAnalyse(actor, abilityItem, cand, { guideActor, facility, modifier });
+				},
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+				callback: () => {},
+			},
+		},
+		default: 'analyse',
+	});
+}
+
+/* ---------------------------------------------------------------- */
+/*  Analysieren (§14) — Probe, Spuren, Fehlbestimmung                 */
+/* ---------------------------------------------------------------- */
+
+async function performAnalyse(actor, abilityItem, cand, { guideActor = null, facility = null, modifier = 0 } = {}) {
+	const rolls = [];
+	const lines = [];
+	const ownLevel = getOwnAlchemyLevel(abilityItem);
+	const guideAbility = guideActor ? findAlchemyAbility(guideActor) : null;
+	const guideLevel = guideAbility ? getOwnAlchemyLevel(guideAbility) : '';
+	// Wirksame Stufe (Geholfen): max(eigene, geleitete) — steuert den
+	// Modifikator (der Cap galt schon bei der Kandidatenwahl).
+	const effOrder = Math.max(LEVEL_ORDER[ownLevel] ?? 0, LEVEL_ORDER[guideLevel] ?? 0);
+	const labBonus = facility?.bonus ?? 0;
+	const diffMod = analyseDiffModifier(effOrder, cand.level);
+	const probe = await baseRoll(actor, 'cunning', null, null, 0, labBonus + diffMod + modifier, false);
+	rolls.push(...probe.rolls);
+	const resultLevel = getRollResultLevelKey(probe);
+	const success = probe.trueActorSucceeded;
+	const elixir = cand.item;
+	const unknownFlag = elixir.getFlag('symbaroum', 'unknownElixir');
+	const fehlFlag = elixir.getFlag('symbaroum', 'fehlbestimmt');
+	const traditions = elixirTraditions(elixir);
+	const hasAccess = hasAnyTraditionAccess(actor, traditions);
+	lines.push(
+		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier)} — ${success ? L('ANALYSE.CHAT_SUCCESS') : L('ANALYSE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
+	);
+	if (success) {
+		// Spuren (§14): Kategorie + Stufe; bei Traditions-Zugang VOLLE
+		// Analyse (Zutat je Dosis + Tradition).
+		lines.push(F('ANALYSE.CHAT_TRACES', { category: L(elixirCategoryKey(elixir)) }));
+		lines.push(F('ANALYSE.CHAT_LEVEL', { level: L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`) }));
+		if (unknownFlag) lines.push(F('ANALYSE.CHAT_REVEAL', { name: unknownFlag.realName }));
+		if (hasAccess || resultLevel === 'CHAT.CRITICAL_SUCCESS') {
+			lines.push(F('ANALYSE.CHAT_INGREDIENT', { amount: cand.units }));
+			lines.push(
+				F('ANALYSE.CHAT_TRADITION', {
+					tradition:
+						traditions.length > 0 ? traditions.map((t) => traditionLabel(t)).join(', ') : L('TRADITION.NONE'),
+				})
+			);
+		}
+		if (hasRelatedRecipe(actor, elixir)) lines.push(L('ANALYSE.CHAT_HAS_RECIPE'));
+	} else {
+		lines.push(L('ANALYSE.CHAT_FAIL'));
+	}
+	// Bestätigter kritischer Erfolg (KritErf): Zutat erkannt + Täuschung
+	// entlarvt + Nachbrau-Dialog öffnet automatisch (fehlende Kandidaten
+	// meldet der Dialog von selbst — Unbekannt-Markierungen bleiben GM-
+	// Sache und werden NICHT automatisch aufgelöst).
+	if (resultLevel === 'CHAT.CRITICAL_SUCCESS') {
+		if (fehlFlag) {
+			lines.push(F('ANALYSE.CHAT_DECEPTION', { name: fehlFlag.realName }));
+			await elixir.update({ name: fehlFlag.realName, 'system.description': fehlFlag.realDescription });
+			await elixir.unsetFlag('symbaroum', 'fehlbestimmt');
+		}
+		lines.push(L('ANALYSE.CHAT_NACHBRAU_HINT'));
+		await postBrewCard(actor, F('ANALYSE.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
+		await openNachbrauDialog(abilityItem, { presetTargetUuid: elixir.uuid });
+		return;
+	}
+	// Patzer (rohe 20) — heimliche FEHLBESTIMMUNG (§6a): Nur Inventar-
+	// Dosen sind verfälschbar (Welt-Items gehören der Welt); der
+	// Analysierer glaubt Erfolg, die Karte zeigt die FALSCHE Identität,
+	// die Wahrheit flüstert nur der SL. Ohne gleichstufige Quelle bleibt
+	// es bei der offenen Fehlzeile + SL-Flüsterkarte.
+	if (!success && probe.diceResult === 20) {
+		const falseElixir = randomWorldElixirOfLevel(cand.level, unknownFlag?.realName ?? elixir.name);
+		const stackWide = resultLevel === 'CHAT.CRITICAL_FAILURE';
+		if (!cand.inInventory || !falseElixir) {
+			lines.push(L('ANALYSE.CHAT_FAIL'));
+			await postBrewCard(actor, F('ANALYSE.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
+			await whisperGM(L('ANALYSE.WHISPER_TITLE'), [F('ANALYSE.WHISPER_NO_DECEPTION', { name: cand.name })]);
+			return;
+		}
+		const flag = await applyFehlbestimmung(elixir, falseElixir, { stackWide });
+		// Bestätigter kritischer Patzer: ZUSÄTZLICH eine Dosis beschädigt
+		// (still vom Stapel abgebucht — der Bestand rüstet ab, die Karte
+		// behauptet Erfolg; nur die Flüsterkarte nennt den Verlust).
+		let doseLost = false;
+		if (stackWide) doseLost = await consumeElixirDose(elixir);
+		const gmLines = [
+			F('ANALYSE.WHISPER_DECEPTION', { name: actor.name, target: cand.name, false: flag.falseName, real: flag.realName }),
+		];
+		if (stackWide) {
+			gmLines.push(doseLost ? F('ANALYSE.WHISPER_DOSE_LOST', { name: cand.name }) : L('ANALYSE.WHISPER_NO_DOSE'));
+		}
+		await whisperGM(L('ANALYSE.WHISPER_TITLE'), gmLines);
+		// FALSCHE Erfolgs-Karte: vom Muster der echten Erfolgskarte nicht
+		// unterscheidbar (Spuren + Stufe des SCHEIN-Elixiers).
+		const falseLines = [
+			`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier)} — ${L('ANALYSE.CHAT_SUCCESS')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`,
+			F('ANALYSE.CHAT_TRACES', { category: L(elixirCategoryKey(falseElixir)) }),
+			F('ANALYSE.CHAT_LEVEL', { level: L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`) }),
+		];
+		await postBrewCard(actor, F('ANALYSE.CHAT_TITLE', { name: actor.name, target: flag.falseName }), falseLines, rolls);
+		return;
+	}
+	await postBrewCard(actor, F('ANALYSE.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
+}
+
+/* ---------------------------------------------------------------- */
+/*  Nachbrauen (§13) — Dialog + Probe + Rezeptur-Anlage               */
+/* ---------------------------------------------------------------- */
+
+/** Nachbrau-Dialog (§13): Dosis-Auswahl (Stufe ≤ eigene, Grund-Rezeptur
+ *  vorhanden), Grund-Rezeptur (Live-Rebuild je Ziel), Labor (Pflicht
+ *  wie beim Brauen), Modifikator, Info-Zeile; VW-Knopf NUR bei blockiertem
+ *  Traditions-Zugang des gewählten Ziels. */
+export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, presetTargetUuid = null } = {}) {
+	const actor = abilityItem?.actor ?? abilityItem?.parent;
+	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
+	const ownLevel = getOwnAlchemyLevel(abilityItem);
+	if (ownLevel === '') {
+		ui.notifications.warn(L('BREW.ERR_NO_LEVEL'));
+		return;
+	}
+	// Nachbrauen braucht ein Labor wie das Brauen (ohne Labor gilt
+	// weiterhin „nur Alchemiezutaten sammeln und Effekte analysieren“).
+	const facilities = resolveFacilities(actor);
+	if (facilities.length === 0) {
+		ui.notifications.warn(L('BREW.ERR_NO_LAB'));
+		return;
+	}
+	const candidates = buildNachbrauCandidates(actor, ownLevel);
+	if (candidates.length === 0) {
+		ui.notifications.warn(L('NACHBRAU.ERR_NO_TARGETS'));
+		return;
+	}
+	// Vorauswahl: vom Rezeptur-Blatt (presetRecipeId) oder aus der
+	// Analyse-KritErf-Übergabe (presetTargetUuid).
+	let preselect = candidates[0].key;
+	let preselectBase = '';
+	if (presetRecipeId) {
+		const presetCand = candidates.find((c) => c.grunds.some((g) => g.recipe.id === presetRecipeId));
+		if (presetCand) {
+			preselect = presetCand.key;
+			preselectBase = presetCand.grunds.find((g) => g.recipe.id === presetRecipeId)?.recipe.id ?? '';
+		}
+	} else if (presetTargetUuid) {
+		const presetCand = candidates.find((c) => c.item.uuid === presetTargetUuid || c.item.id === presetTargetUuid);
+		if (presetCand) preselect = presetCand.key;
+	}
+	const modern = isModernDialogActive();
+	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/nachbrau-dialog.hbs', {
+		renderModern: modern,
+		candidates: candidates.map((c) => ({
+			id: c.key,
+			label: `${c.item.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`,
+		})),
+		preselect,
+		labId: facilities[0].item.id,
+		facilities: facilities.map((f) => ({ id: f.item.id, label: `${f.name} (+${f.bonus})` })),
+	});
+	const infoFor = (cand) => {
+		const mod = nachbrauDiffModifier(ownLevel, cand.level);
+		return F('NACHBRAU.INFO', {
+			level: L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`),
+			mod: `${mod > 0 ? '+' : mod < 0 ? '−' : ''}${Math.abs(mod)}`,
+		});
+	};
+	symbDialog({
+		title: `${L('NACHBRAU.DIALOG_TITLE')} — ${actor.name}`,
+		content: dialogHtml,
+		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+		width: 440,
+		onRender: (element) => {
+			const select = element?.querySelector?.('#nachbrau-target');
+			const baseSelect = element?.querySelector?.('#nachbrau-base');
+			const infoEl = element?.querySelector?.('#nachbrau-info');
+			const vwRow = element?.querySelector?.('#nachbrau-vw-row');
+			const vwBtn = element?.querySelector?.('#nachbrau-vw');
+			if (!select) return;
+			const update = () => {
+				const cand = candidates.find((c) => c.key === select.value);
+				if (!cand) return;
+				// Grund-Rezeptur-Auswahl live neu aufbauen (Live-Rebuild);
+				// eine noch gültige Auswahl bleibt erhalten.
+				if (baseSelect) {
+					const prev = baseSelect.value;
+					baseSelect.innerHTML = cand.grunds
+						.map((g) => `<option value="${g.recipe.id}">${g.recipe.name}</option>`)
+						.join('');
+					baseSelect.value = cand.grunds.some((g) => g.recipe.id === prev) ? prev : cand.grunds[0].recipe.id;
+				}
+				if (infoEl) infoEl.value = infoFor(cand);
+				if (vwRow) vwRow.style.display = cand.blocked ? '' : 'none';
+			};
+			select.addEventListener('change', update);
+			vwBtn?.addEventListener('click', async () => {
+				const cand = candidates.find((c) => c.key === select.value);
+				if (!cand) return;
+				await postVWRequest(actor, cand);
+			});
+			update();
+		},
+		buttons: {
+			nachbrau: {
+				icon: '<i class="fas fa-vial"></i>',
+				label: L('NACHBRAU.BUTTON'),
+				callback: async (html) => {
+					const key = html[0].querySelector('#nachbrau-target')?.value;
+					const cand = candidates.find((c) => c.key === key);
+					if (!cand) return;
+					const baseId = html[0].querySelector('#nachbrau-base')?.value;
+					const base = cand.grunds.find((g) => g.recipe.id === baseId) ?? cand.grunds[0];
+					const labId = html[0].querySelector('#nachbrau-lab')?.value;
+					const facility = facilities.find((f) => f.item.id === labId) ?? facilities[0];
+					const userMod = Number(html[0].querySelector('#nachbrau-modifier')?.value);
+					const modifier = Number.isFinite(userMod) ? userMod : 0;
+					await performNachbrau(actor, abilityItem, cand, base, { facility, modifier });
+				},
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+				callback: () => {},
+			},
+		},
+		default: 'nachbrau',
+	});
+}
+
+async function performNachbrau(actor, abilityItem, cand, base, { facility = null, modifier = 0 } = {}) {
+	const rolls = [];
+	const lines = [];
+	const ownLevel = getOwnAlchemyLevel(abilityItem);
+	// Dosis verbrauchen VOR der Probe (Rudolfs Entscheidung: das Risiko
+	// steht fest, bevor gewürfelt wird; consumeElixirDose warnt selbst,
+	// wenn der Stapel bereits leer ist).
+	if (!(await consumeElixirDose(cand.item))) return;
+	lines.push(F('NACHBRAU.CHAT_DOSE', { name: cand.name }));
+	const labBonus = facility?.bonus ?? 0;
+	const diffMod = nachbrauDiffModifier(ownLevel, cand.level);
+	const probe = await baseRoll(actor, 'cunning', null, null, 0, labBonus + diffMod + modifier, false);
+	rolls.push(...probe.rolls);
+	const resultLevel = getRollResultLevelKey(probe);
+	const success = probe.trueActorSucceeded;
+	lines.push(
+		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier)} — ${success ? L('ANALYSE.CHAT_SUCCESS') : L('ANALYSE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
+	);
+	const recipeName = `${cand.name} — ${L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`)}`;
+	const tradition = elixirTraditions(cand.item)[0] ?? '';
+	if (success) {
+		// Rezeptur anlegen: origin 'reverseEngineered' (REZEPTUR.ORIGIN_
+		// REVERSE), Wert 5 x Listenpreis (RezepturSheet._onDrop-Kanonik),
+		// Besitz 'owned', invented — Dedup über Ziel-UUID + Stufe.
+		const existing = (actor.items ?? []).find(
+			(r) =>
+				r?.type === 'rezeptur' &&
+				String(r.system?.target ?? '').trim() === cand.worldUuid &&
+				String(r.system?.alchemyLevel ?? '') === cand.level
+		);
+		if (existing) {
+			lines.push(F('NACHBRAU.CHAT_DUPLICATE', { recipe: existing.name }));
+		} else {
+			await actor.createEmbeddedDocuments('Item', [
+				{
+					type: 'rezeptur',
+					name: recipeName,
+					img: cand.item.img,
+					system: {
+						target: cand.worldUuid,
+						alchemyLevel: cand.level,
+						alchemyTradition: tradition,
+						price: (getItemPriceBase(cand.item) ?? 0) * 5,
+						ownership: 'owned',
+						origin: 'reverseEngineered',
+						invented: true,
+					},
+				},
+			]);
+			lines.push(F('NACHBRAU.CHAT_SUCCESS', { recipe: recipeName }));
+		}
+		// Bestätigter kritischer Erfolg: Nachbrau-Bonus — Actor-Flag,
+		// Häkchen im Brau-Dialog, Verbrauch dort (performBrew).
+		if (resultLevel === 'CHAT.CRITICAL_SUCCESS') {
+			await actor.setFlag('symbaroum', 'nachbrauBonus', true);
+			lines.push(L('SCHEIN.CHAT_BONUS'));
+		}
+	} else if (probe.diceResult === 20) {
+		// Patzer — SCHEIN-ERKENNTNIS (§6a): Die Rezeptur entsteht scheinbar
+		// erfolgreich, trägt heimlich das schein-Flag auf ein ANDERES
+		// gleichstufges Welt-Elixier (Rückstand statt Produkt beim nächsten
+		// Brauen — performBrew); der Spieler sieht die Erfolgs-Karte, nur
+		// der SL erfährt die Wahrheit. Bestätigter kritischer Patzer:
+		// ZUSÄTZLICH Zeitbombe (Detonation bei der nächsten Brauprobe).
+		const falseElixir = randomWorldElixirOfLevel(cand.level, cand.name);
+		if (!falseElixir) {
+			lines.push(L('NACHBRAU.CHAT_FAIL'));
+			await postBrewCard(actor, F('NACHBRAU.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
+			await whisperGM(L('SCHEIN.WHISPER_TITLE'), [F('ANALYSE.WHISPER_NO_DECEPTION', { name: cand.name })]);
+			return;
+		}
+		const created = await actor.createEmbeddedDocuments('Item', [
+			{
+				type: 'rezeptur',
+				name: recipeName,
+				img: cand.item.img,
+				system: {
+					target: cand.worldUuid,
+					alchemyLevel: cand.level,
+					alchemyTradition: tradition,
+					price: (getItemPriceBase(cand.item) ?? 0) * 5,
+					ownership: 'owned',
+					origin: 'reverseEngineered',
+					invented: true,
+				},
+			},
+		]);
+		const recipe = created?.[0];
+		if (recipe) {
+			await recipe.setFlag('symbaroum', 'schein', { falseUuid: falseElixir.uuid, recipeName: falseElixir.name });
+			const bomb = resultLevel === 'CHAT.CRITICAL_FAILURE';
+			if (bomb) await recipe.setFlag('symbaroum', 'zeitbombe', { name: falseElixir.name });
+			await whisperGM(L('SCHEIN.WHISPER_TITLE'), [
+				F('SCHEIN.WHISPER_RECIPE', { name: actor.name, recipe: recipeName, real: falseElixir.name }),
+				bomb ? F('SCHEIN.WHISPER_BOMB', { recipe: recipeName }) : null,
+			].filter(Boolean));
+		}
+		lines.push(F('NACHBRAU.CHAT_SUCCESS', { recipe: recipeName }));
+	} else {
+		lines.push(L('NACHBRAU.CHAT_FAIL'));
+	}
+	await postBrewCard(actor, F('NACHBRAU.CHAT_TITLE', { name: actor.name, target: cand.name }), lines, rolls);
+}
+
+/* ---------------------------------------------------------------- */
+/*  Verbotenes Wissen (VW): Anfrage + Chat-Karten-Handler            */
+/* ---------------------------------------------------------------- */
+
+/** VW-Anfrage (§13-Block, Whisper NUR an den SL): Der Spieler bittet am
+ *  blockierten Nachbrau-Ziel um den Segen „Verbotenes Wissen“; die Karte
+ *  trägt den Marker <!--VW-ACTIONS--> mit Erteilen/Ablehnen-Knöpfen. */
+async function postVWRequest(actor, cand) {
+	const tradition = elixirTraditions(cand.item)[0] ?? '';
+	const body = F('VW.REQUEST_BODY', {
+		player: game.user.name,
+		actor: actor.name,
+		elixir: cand.name,
+		tradition: tradition !== '' ? traditionLabel(tradition) : L('TRADITION.NONE'),
+	});
+	const html =
+		`<div class="symbaroum chat ability"><div class="foreground"><h4>${L('VW.REQUEST_TITLE')}</h4>` +
+		`<div class="finalTxt">${body}</div>` +
+		`<div class="finalTxt"><!--VW-ACTIONS-->` +
+		`<button type="button" data-action="vwApply" data-actor-id="${actor.id}" data-tradition="${tradition}"><i class="fas fa-check"></i> ${L('VW.APPLY')}</button> ` +
+		`<button type="button" data-action="vwDecline" data-actor-id="${actor.id}"><i class="fas fa-times"></i> ${L('VW.DECLINE')}</button>` +
+		`</div></div></div>`;
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+		whisper: gmWhisperTargets(),
+		content: html,
+	});
+}
+
+/** VW-Karten-Aktion (delegiert am document.body, einmalig über das
+ *  dataset-Guard registriert): Erteilen erstellt den Segen „Verbotenes
+ *  Wissen“ (type boon, reference 'forbiddenknowledge', Tradition + Gate
+ *  'true', Kostenbuchung system.bonus.experience.cost 5 — Bonus-Tab-
+ *  Kanonik) und ersetzt die Karte; Ablehnen ersetzt sie ebenfalls. */
+async function _onVWChatAction(event) {
+	const btn = event.target?.closest?.('[data-action="vwApply"], [data-action="vwDecline"]');
+	if (!btn) return;
+	const messageId = btn.closest('.chat-message')?.dataset?.messageId;
+	const message = messageId ? game.messages.get(messageId) : null;
+	const actor = game.actors.get(btn.dataset.actorId ?? '') ?? null;
+	const wrap = (title, body) =>
+		`<div class="symbaroum chat ability"><div class="foreground"><h4>${title}</h4><div class="finalTxt">${body}</div></div></div>`;
+	if (btn.dataset.action === 'vwApply') {
+		if (actor) {
+			const tradition = btn.dataset.tradition ?? '';
+			await actor.createEmbeddedDocuments('Item', [
+				{
+					type: 'boon',
+					name: L('BOON_LABEL.FORBIDDEN_KNOWLEDGE'),
+					system: {
+						reference: 'forbiddenknowledge',
+						traditions: tradition,
+						traditionsActive: 'true',
+						bonus: { experience: { cost: 5 } },
+					},
+				},
+			]);
+			const body = F('VW.APPLIED_BODY', {
+				actor: actor.name,
+				tradition: tradition !== '' ? traditionLabel(tradition) : L('TRADITION.NONE'),
+			});
+			if (message) await message.update({ content: wrap(L('VW.APPLIED_TITLE'), body) });
+		}
+	} else if (btn.dataset.action === 'vwDecline') {
+		const body = F('VW.DECLINED_BODY', { actor: actor?.name ?? '' });
+		if (message) await message.update({ content: wrap(L('VW.DECLINED_TITLE'), body) });
+	}
+}
+
+/* Einmalige Registrierung des delegierten VW-Listeners (module-level,
+   hooks.js bleibt unangetastet); der dataset-Guard verhindert Doppel-
+   Registrierungen über Hot-Reloads oder mehrere Module-Instanzen. */
+if (typeof document !== 'undefined' && !document.body.dataset.symbVwListener) {
+	document.body.dataset.symbVwListener = 'true';
+	document.body.addEventListener('click', (event) => {
+		_onVWChatAction(event).catch((err) => console.error('Symbaroum VW-Aktion:', err));
+	});
 }

@@ -8,6 +8,19 @@
     die Alchemieeigenschaften (gemeinsames elixir-effect-Partial). --}}
 <div class="m-panel">
     <h1>{{localize "TITLE.STATS"}}</h1>
+    {{!-- Alchemie Modul 3 (GM): Täuschungs-Banner am Elixier-Item -
+        Fehlbestimmung oder als unbekannt markiert; Reset-Knopf stellt die
+        echte Identität wieder her (restoreDeception in item.js; bei
+        bestätigtem KritPatzer ist zusätzlich eine zweite Dosis still
+        beschädigt). --}}
+    {{#if symbaroumOptions.isGM}}
+    {{#if deceptionBanner}}
+    <div class="m-inline-field">
+        <label>{{deceptionBanner.text}}{{#if deceptionBanner.stackWide}} — {{deceptionBanner.stackText}}{{/if}}</label>
+        <button type="button" data-action="resetDeception" data-tooltip="{{localize "UNKNOWN.RESET_TOOLTIP"}}">{{localize "UNKNOWN.RESET"}}</button>
+    </div>
+    {{/if}}
+    {{/if}}
     <div class="m-grid">
         {{#if symbaroumOptions.isGM}}
         <div class="m-inline-field m-check">
@@ -84,6 +97,16 @@
             <select id="{{id}}-system.ammoEffect" name="system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">
                 {{selectOptions ammo_effect_selection selected=ammoEffect valueAttr="id" labelAttr="label"}}
             </select>
+        </div>
+        {{/if}}
+        {{!-- Alchemie Modul 3 (GM): Elixier „als unbekannt markieren“ -
+            Decknamen setzen (Flag 'unknownElixir' + Platzhalter-
+            Umbenennung in item.js); Analyse-Patzer kann daraus später
+            eine Fehlbestimmung stricken. --}}
+        {{#if showMarkUnknown}}
+        <div class="m-inline-field">
+            <label>{{localize "UNKNOWN.MARK_TOOLTIP"}}</label>
+            <button type="button" data-action="markUnknown" data-tooltip="{{localize "UNKNOWN.MARK_TOOLTIP"}}">{{localize "UNKNOWN.MARK_BUTTON"}}</button>
         </div>
         {{/if}}
         {{/if}}

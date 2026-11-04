@@ -1,0 +1,40 @@
+{{!-- Alchemie Modul 3: Nachbrau-Dialog. Ziel-Elixier (Stufe ≤ eigene,
+    Dosis vorhanden, Grund-Rezeptur vorhanden; existierende Rezeptur auf
+    Ziel+Stufe bereits im Dialog ausgefiltert), Grund-Rezeptur-Auswahl
+    (leer initial, live pro Ziel neu aufgebaut), Labor-Pflicht wie Brauen,
+    freier Modifikator, Info-Zeile (live). Bei durch Traditions-Gate
+    blockiertem Kandidat erscheint die Verbotenes-Wissen-Zeile mit dem
+    Anfrage-Button (Flüster-Karte an die SL, data-action vwApply/vwDecline).
+    Muster: brew-dialog.hbs/analyse-dialog.hbs (voller Pfad, kein Partial,
+    renderModern-Zweige; KEIN templatePaths-Eintrag). --}}
+<div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="nachbrau-target">{{localize "NACHBRAU.SELECT_TARGET"}}</label>
+    <select id="nachbrau-target">
+      {{selectOptions candidates selected=preselect valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="nachbrau-base">{{localize "NACHBRAU.SELECT_BASE"}}</label>
+    <select id="nachbrau-base"></select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="nachbrau-lab">{{localize "BREW.LAB"}}</label>
+    <select id="nachbrau-lab" data-tooltip="{{localize "BREW.LAB_TOOLTIP"}}">
+      {{selectOptions facilities selected=labId valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="nachbrau-modifier">{{localize "DIALOG.MODIFIER"}}</label>
+    <input id="nachbrau-modifier" type="number" value="0"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="nachbrau-info">{{localize "ANALYSE.INFO_LABEL"}}</label>
+    <input id="nachbrau-info" type="text" disabled value=""/>
+  </div>
+  <div id="nachbrau-vw-row" class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}" style="display:none">
+    <button type="button" id="nachbrau-vw" data-tooltip="{{localize "NACHBRAU.VW_TOOLTIP"}}">
+      {{localize "NACHBRAU.VW_BUTTON"}}
+    </button>
+  </div>
+</div>
