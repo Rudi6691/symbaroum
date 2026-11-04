@@ -12,8 +12,24 @@
     Info-Zeile readonly + volle Breite statt deaktiviert/schmal —
     Modifikator und −10-Hinweis werden nie mehr abgeschnitten.
     Muster: brew-dialog.hbs/analyse-dialog.hbs (voller Pfad, kein Partial,
-    renderModern-Zweige; KEIN templatePaths-Eintrag). --}}
-<div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
+    renderModern-Zweige; KEIN templatePaths-Eintrag).
+    v1.7 (Rudolfs Testrunde v1.6, Freigabe 04.11.): Ein-/Ausgabefelder
+    25 % breiter bei UNVERÄNDERTER Dialogbreite — klassische Labels
+    schrumpfen auf Textbreite (Felder füllen den freigewordenen Platz),
+    moderner Feld-Deckel 9rem → 11.25rem (+25 % exakt), gescoped über
+    die Root-Klasse symb-alch. Info-Zeile gestapelt (Label „Probe“ oben,
+    Feld darunter voll breit) als readonly-Textarea (bricht um statt
+    abzuschneiden; .value-API identisch, brewing.js unberührt). --}}
+<div class="symbaroum symb-alch{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
+  {{!-- v1.7: Felder 25 % breiter — gescoped über .symb-alch (nur die
+      Alchemie-Dialoge tragen die Klasse, andere Systemdialoge unberührt;
+      kein !important im System-CSS auf den überschriebenen Regeln). --}}
+  <style>
+    .symbaroum.dialog.symb-alch .attribute > label { width:auto; min-width:0; flex:0 0 auto; }
+    .symbaroum.modern-roll-dialog.symb-alch .m-roll-row input[type=number],
+    .symbaroum.modern-roll-dialog.symb-alch .m-roll-row input[type=text],
+    .symbaroum.modern-roll-dialog.symb-alch .m-roll-row select { flex:0 0 11.25rem; width:11.25rem; box-sizing:border-box; }
+  </style>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="nachbrau-target">{{localize "NACHBRAU.SELECT_TARGET"}}</label>
     <select id="nachbrau-target">
@@ -71,9 +87,9 @@
     </label>
   </div>
   {{/if}}
-  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
-    <label for="nachbrau-info">{{localize "ANALYSE.INFO_LABEL"}}</label>
-    <input id="nachbrau-info" type="text" readonly style="width:100%; max-width:100%; box-sizing:border-box; color:inherit;" value=""/>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}" style="flex-wrap:wrap">
+    <label for="nachbrau-info" style="flex:0 0 100%; width:100%; min-width:0;">{{localize "ANALYSE.INFO_LABEL"}}</label>
+    <textarea id="nachbrau-info" rows="2" readonly style="width:100%; max-width:100%; box-sizing:border-box; color:inherit; resize:none; text-align:left;"></textarea>
   </div>
   <div id="nachbrau-vw-row" class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}" style="display:none">
     <button type="button" id="nachbrau-vw" data-tooltip="{{localize "NACHBRAU.VW_TOOLTIP"}}">
