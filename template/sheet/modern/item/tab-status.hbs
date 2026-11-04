@@ -91,6 +91,16 @@
                 {{selectOptions elixir_usage_selection selected=elixirUsage valueAttr="id" labelAttr="label"}}
             </select>
         </div>
+        {{!-- Alchemie Modul 3 v1.3 (Rudolfs Testrunde v1.2, Randnotiz a):
+            GM-Dropdown „Analyse-Spuren“ — überschreibt die automatisch
+            abgeleitete Spur-Kategorie der Analyse (brewing.js
+            elixirCategoryKey); leer = automatisch (Wirkungsfelder). --}}
+        <div class="m-inline-field">
+            <label for="{{id}}-system.analysisTrace" data-tooltip="{{localize "ANALYSE.TRACE_TOOLTIP"}}">{{localize "ANALYSE.TRACE_LABEL"}}</label>
+            <select id="{{id}}-system.analysisTrace" name="system.analysisTrace" data-tooltip="{{localize "ANALYSE.TRACE_TOOLTIP"}}">
+                {{selectOptions analysis_trace_selection selected=analysisTrace valueAttr="id" labelAttr="label"}}
+            </select>
+        </div>
         {{#if showAmmoEffect}}
         <div class="m-inline-field">
             <label for="{{id}}-system.ammoEffect" data-tooltip="{{localize "AMMO_EFFECT.TOOLTIP"}}">{{localize "AMMO_EFFECT.LABEL"}}</label>

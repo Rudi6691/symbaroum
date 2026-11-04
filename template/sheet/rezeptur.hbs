@@ -10,10 +10,13 @@
         <div class="sheet-header foreground border">
             <div class="avatar">
                 <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" data-tooltip="{{item.name}}"/>
-                {{!-- Alchemie Modul 3 (§13): Nachbrau-Knopf am gehaltenen
-                    Rezeptur-Item (Dialog: brewing.js). --}}
-                {{#if showNachbrau}}
-                <button type="button" class="brew-elixir" data-action="nachbrauElixir" data-tooltip="{{localize "NACHBRAU.BUTTON_TOOLTIP"}}"><i class="fas fa-vial"></i></button>
+                {{!-- Alchemie Modul 3 v1.3 (Rudolfs Testrunde v1.2,
+                    Randnotiz b): BRAUEN-Knopf am gehaltenen Rezeptur-
+                    Item — öffnet den Brau-Dialog mit dieser Rezeptur
+                    als vorausgewähltem Kandidat (data-action
+                    'brewFromRecipe', Dialog: brewing.js). --}}
+                {{#if showBrewRecipe}}
+                <button type="button" class="brew-elixir" data-action="brewFromRecipe" data-tooltip="{{localize "BREW.FROM_RECIPE_TOOLTIP"}}"><i class="fas fa-flask"></i></button>
                 {{/if}}
             </div>
             <div class="wrapper-column">

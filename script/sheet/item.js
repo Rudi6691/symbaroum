@@ -16,7 +16,7 @@ import { isAlchemical } from '../common/elixirs.js';
 // Alchemie Modul 3 (Rudolfs Startsignal 04.11.2026): Alchemie-Menü
 // (Brauen/Analysieren/Nachbrauen), Nachbrau-Dialog mit Rezeptur-Preset
 // und die §6a-Täuschungs-Helfer (brewing.js).
-import { openNachbrauDialog, findAlchemyAbility, restoreDeception, exposeScheinRecipe } from '../common/brewing.js';
+import { openBrewDialog, findAlchemyAbility, restoreDeception, exposeScheinRecipe } from '../common/brewing.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): zentrale
 // Traditions-Kanonik (tradition.js — Single Source für Labels, Feld-
 // Auflösung, Zugangsprüfung, Qualitäts-Geheimnisse und die Liste der
@@ -88,11 +88,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			   Zugang zum Alchemie-Menü läuft jetzt über das FÄHIGKEITS-
 			   ICON der Alchemie-Kachel im SPIELERBOGEN (player.js,
 			   Kräfte-Tab + Kampf-Tab-Favoriten). */
-			/* Alchemie Modul 3 (§13): Nachbrau-Knopf am GEHALTENEN
-			   Rezeptur-Item — findet die Alchemie-Fähigkeit am Aktor und
-			   öffnet den Nachbrau-Dialog mit dieser Rezeptur als
-			   vorausgewählter Grundlage. */
-			nachbrauElixir: async function (event) {
+			/* Alchemie Modul 3 v1.3 (§13 + Rudolfs Testrunde v1.2,
+			   Randnotiz b): BRAUEN-Knopf am GEHALTENEN Rezeptur-Item —
+			   findet die Alchemie-Fähigkeit am Aktor und öffnet den
+			   Brau-Dialog mit dieser Rezeptur als vorausgewähltem
+			   Kandidaten (openBrewDialog-Preset; RAW-Modus ohne
+			   Rezeptur-Bezug fällt auf den ersten Kandidaten zurück). */
+			brewFromRecipe: async function (event) {
 				event.preventDefault();
 				const actor = this.item?.actor;
 				if (!actor) return;
@@ -101,7 +103,7 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 					ui.notifications.warn(game.i18n.localize('NACHBRAU.ERR_NO_ABILITY'));
 					return;
 				}
-				await openNachbrauDialog(ability, { presetRecipeId: this.item.id });
+				await openBrewDialog(ability, { presetRecipeId: this.item.id });
 			},
 			/* Alchemie Modul 3 (§6a): Elixier als UNBEKANNT markieren
 			   (GM) — Name/Beschreibung werden durch Platzhalter ersetzt,
@@ -346,10 +348,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   Item-Blattkopf (klassisch + modern) ist raus, der Zugang
 		   läuft über das Fähigkeits-Icon der Alchemie-Kachel im
 		   Spielerbogen (player.js). */
-		/* Alchemie Modul 3 (§13): Nachbrau-Knopf am gehaltenen Rezeptur-
-		   Item (klassischer Avatar + moderne Kopfzeile, data-action
-		   'nachbrauElixir'). */
-		context.showNachbrau = this.item.type === 'rezeptur' && !!this.item.isOwned;
+		/* Alchemie Modul 3 v1.3 (Rudolfs Testrunde v1.2, Randnotiz b): Der
+		   Nachbrau-Knopf am gehaltenen Rezeptur-Item ist durch einen
+		   BRAUEN-Knopf ersetzt (klassischer Avatar + moderne Kopfzeile,
+		   data-action 'brewFromRecipe') — er öffnet den Brau-Dialog mit
+		   dieser Rezeptur als vorausgewähltem Kandidat; der Nachbrau-
+		   Dialog bleibt über die KritErf-Übergabe der Analyse erreichbar. */
+		context.showBrewRecipe = this.item.type === 'rezeptur' && !!this.item.isOwned;
 		/* Alchemie Modul 3 (§6a): GM-Anzeigen — Täuschungs-Banner am
 		   Elixier-Item (Fehlbestimmung/Unbekannt, beide Status-Designs),
 		   Markier-Knopf, Schein-Banner am Rezeptur-Item (beide Designs),
@@ -378,9 +383,14 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				context.scheinBanner = {
 					recipeName: scheinFlag.recipeName,
 					/* v1.2 (P10): exposed steuert den Entlarven-Knopf am
-					 * Banner (Template {{#unless scheinBanner.exposed}}). */
+					 * Banner (Template {{#unless scheinBanner.exposed}}).
+					 * Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 6):
+					 * Entlarvte Rezepturen zeigen ihre eigene Banner-
+					 * Variante, damit der Zustand sichtbar bleibt. */
 					exposed: !!scheinFlag.entlarvt,
-					text: game.i18n.format('SCHEIN.RECIPE_BANNER', { recipeName: scheinFlag.recipeName }),
+					text: scheinFlag.entlarvt
+						? game.i18n.format('SCHEIN.BANNER_EXPOSED', { recipeName: scheinFlag.recipeName })
+						: game.i18n.format('SCHEIN.RECIPE_BANNER', { recipeName: scheinFlag.recipeName }),
 				};
 			}
 			if (
@@ -420,6 +430,21 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
+		/* Alchemie Modul 3 v1.3 (Rudolfs Testrunde v1.2, Randnotiz a):
+		   GM-Dropdown „Analyse-Spuren“ (system.analysisTrace, beide
+		   Status-Designs) — überschreibt die automatisch abgeleitete
+		   Spur-Kategorie der Analyse (brewing.js elixirCategoryKey);
+		   '' = automatisch (Wirkungsfelder). */
+		context.analysisTrace = String(this.item.system.analysisTrace ?? '');
+		context.analysis_trace_selection = [
+			{ id: '', label: game.i18n.localize('ANALYSE.TRACE_AUTO') },
+			{ id: 'heals', label: game.i18n.localize('ANALYSE.CAT_HEALS') },
+			{ id: 'poisons', label: game.i18n.localize('ANALYSE.CAT_POISONS') },
+			{ id: 'explodes', label: game.i18n.localize('ANALYSE.CAT_EXPLODES') },
+			{ id: 'corruption', label: game.i18n.localize('ANALYSE.CAT_CORRUPTION') },
+			{ id: 'alters', label: game.i18n.localize('ANALYSE.CAT_ALTERS') },
+			{ id: 'unknown', label: game.i18n.localize('ANALYSE.CAT_UNKNOWN') },
+		];
 		context.showAmmoEffect = context.showElixirFields && isAmmoCategory(this.item.system?.resourceCategory ?? '');
 		context.ammoEffect = this.item.system.ammoEffect ?? '';
 		context.ammo_effect_selection = Object.values(game.symbaroum.config.AMMO_EFFECT_SELECTION).map((c) => ({
@@ -846,7 +871,7 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   im Kopf raus; Zugang: Fähigkeits-Icon der Alchemie-Kachel im
 		   Spielerbogen); der Nachbrau-Button am gehaltenen Rezeptur-
 		   Item bleibt (gleicher Icon-Stil wie bisher). */
-		modern.showNachbrau = type === 'rezeptur' && !!item.isOwned;
+		modern.showBrewRecipe = type === 'rezeptur' && !!item.isOwned;
 		/* Übergabe v1: Geben-Button in der Titelzeile nur bei physischen,
 		   gehaltenen Items. Kollisionsfrei zum Aktivieren-Button, weil
 		   showActivate die disjunkten Typen Fähigkeit/Merkmal/Kraft betrifft

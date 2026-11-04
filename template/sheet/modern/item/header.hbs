@@ -39,10 +39,12 @@
             {{!-- Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
                 05.11.): Der Menü-Button am Alchemie-Fähigkeits-Item ist
                 ENTFALLEN — der Zugang läuft über das Fähigkeits-ICON der
-                Alchemie-Kachel im Spielerbogen (player.js). Der Nachbrau-
-                Button am gehaltenen Rezeptur-Item bleibt (gleicher Icon-Stil). --}}
-            {{#if modern.showNachbrau}}
-            <button type="button" class="m-give-btn m-brew-btn" data-action="nachbrauElixir" data-tooltip="{{localize 'NACHBRAU.BUTTON_TOOLTIP'}}"><i class="fa-solid fa-vial"></i></button>
+                Alchemie-Kachel im Spielerbogen (player.js). Sammel-Fix
+                v1.3 (Rudolfs Testrunde v1.2, Randnotiz b): Der Nachbrau-
+                Button am gehaltenen Rezeptur-Item ist ein BRAUEN-Button
+                (Brau-Dialog mit dieser Rezeptur als Vorauswahl). --}}
+            {{#if modern.showBrewRecipe}}
+            <button type="button" class="m-give-btn m-brew-btn" data-action="brewFromRecipe" data-tooltip="{{localize 'BREW.FROM_RECIPE_TOOLTIP'}}"><i class="fa-solid fa-flask"></i></button>
             {{/if}}
             {{!-- Übergabe v1: Geben-Button nur bei physischen, gehaltenen Items
                 (Waffe/Rüstung/Ausrüstung/Artefakt) - der Aktivieren-Button

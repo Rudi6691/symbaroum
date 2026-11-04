@@ -1,12 +1,13 @@
 {{!-- Alchemie Modul 3: Nachbrau-Dialog. Ziel-Elixier (Stufe ≤ eigene,
     Dosis vorhanden; existierende Rezeptur auf Ziel+Stufe bereits im
-    Dialog ausgefiltert; v1.2/P7: Grund-Rezeptur ist KEINE Voraus-
-    setzung mehr — die Auswahl-Zeile wird bei Kandidaten ohne Grund-
-    Rezeptur vom onRender ausgeblendet), Grund-Rezeptur-Auswahl
-    (leer initial, live pro Ziel neu aufgebaut), Labor-Pflicht wie Brauen,
-    freier Modifikator, Info-Zeile (live). Bei durch Traditions-Gate
-    blockiertem Kandidat erscheint die Verbotenes-Wissen-Zeile mit dem
-    Anfrage-Button (Flüster-Karte an die SL, data-action vwApply/vwDecline).
+    Dialog ausgefiltert; v1.3/Punkt 3a: Grund-Rezeptur-Zeile ist IMMER
+    sichtbar — Kandidaten ohne Grund-Rezeptur zeigen die Option „kein
+    Grundrezept“ und den festen Proben-Malus −10), Grund-Rezeptur-
+    Auswahl (live pro Ziel neu aufgebaut), Labor-Pflicht wie Brauen,
+    freier Modifikator, Gunst-Block (v1.3), Info-Zeile (live). Bei
+    durch Traditions-Gate blockiertem Kandidat erscheint die
+    Verbotenes-Wissen-Zeile mit dem Anfrage-Button (Flüster-Karte an
+    die SL, data-action vwApply/vwDecline).
     Muster: brew-dialog.hbs/analyse-dialog.hbs (voller Pfad, kein Partial,
     renderModern-Zweige; KEIN templatePaths-Eintrag). --}}
 <div class="symbaroum{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
@@ -30,6 +31,43 @@
     <label for="nachbrau-modifier">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="nachbrau-modifier" type="number" value="0"/>
   </div>
+  {{!-- Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 6c): Gunst-Block
+      (Normal/Gunst/Missgunst) wie der kanonische Würfeldialog HINTER dem
+      Modifikator — brewing.js reicht favour an baseRoll durch. --}}
+  {{#if renderModern}}
+  <fieldset class="m-ability-frame">
+    <legend class="m-ability-label">{{localize "DIALOG.FAVOUR_LEGEND"}}</legend>
+    <div class="m-give-vis">
+      <label class="lblfavour">
+        <input type="radio" name="nachbrau-favour" value="0" checked/>
+        {{localize "DIALOG.FAVOUR_NORMAL"}}
+      </label>
+      <label class="lblfavour">
+        <input type="radio" name="nachbrau-favour" value="1"/>
+        {{localize "DIALOG.FAVOUR_FAVOUR"}}
+      </label>
+      <label class="lblfavour">
+        <input type="radio" name="nachbrau-favour" value="-1"/>
+        {{localize "DIALOG.FAVOUR_DISFAVOUR"}}
+      </label>
+    </div>
+  </fieldset>
+  {{else}}
+  <div class="favour">
+    <label class="lblfavour">
+      <input type="radio" name="nachbrau-favour" value="0" checked/>
+      {{localize "DIALOG.FAVOUR_NORMAL"}}
+    </label>
+    <label class="lblfavour">
+      <input type="radio" name="nachbrau-favour" value="1"/>
+      {{localize "DIALOG.FAVOUR_FAVOUR"}}
+    </label>
+    <label class="lblfavour">
+      <input type="radio" name="nachbrau-favour" value="-1"/>
+      {{localize "DIALOG.FAVOUR_DISFAVOUR"}}
+    </label>
+  </div>
+  {{/if}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="nachbrau-info">{{localize "ANALYSE.INFO_LABEL"}}</label>
     <input id="nachbrau-info" type="text" disabled value=""/>

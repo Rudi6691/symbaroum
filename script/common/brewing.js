@@ -187,9 +187,12 @@ function applyRigToProbe(probe, forced) {
 
 /* Einseitige Scharfsinn-Probe der Alchemie (Brauen/Analysieren/
  * Nachbrauen) — baseRoll wie bisher, mit Test-Rig-Abgriff: Ein
- * aktiviertes /rig verzehrt sich an genau dem nächsten Wurf. */
-async function alchemyProbe(actor, modifier) {
-	const probe = await baseRoll(actor, 'cunning', null, null, 0, modifier, false);
+ * aktiviertes /rig verzehrt sich an genau dem nächsten Wurf.
+ * Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 6c): favour wird
+ * durchgereicht — +1 Gunst = 2d20kl (bester), −1 Missgunst =
+ * 2d20kh (schlechtester), 0 = 1d20 (wie der kanonische Würfeldialog). */
+async function alchemyProbe(actor, modifier, favour = 0) {
+	const probe = await baseRoll(actor, 'cunning', null, null, favour, modifier, false);
 	if (riggedDie > 0) {
 		const forced = riggedDie;
 		riggedDie = 0;
@@ -442,7 +445,12 @@ function buildRawCandidates(actor, ownLevel) {
 /*  Brau-Dialog                                                       */
 /* ---------------------------------------------------------------- */
 
-export async function openBrewDialog(abilityItem) {
+/* Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Randnotiz b): optionaler
+ * Preset — der Brauen-Button am Rezeptur-Blatt übergibt presetRecipeId,
+ * der zugehörige Kandidat (Ökonomie: recipe.id; RAW ohne Rezeptur-
+ * Bezug fällt auf den ersten zurück) wird vorausgewählt, inkl.
+ * Dosen-/Zutaten-Zeilen (renderTemplate liest preset-Daten). */
+export async function openBrewDialog(abilityItem, { presetRecipeId = null } = {}) {
 	const actor = abilityItem?.actor ?? abilityItem?.parent;
 	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy') return;
 	if (!actor) return;
@@ -475,6 +483,9 @@ export async function openBrewDialog(abilityItem) {
 	   Actor-Flag 'nachbrauBonus' entsteht beim bestätigten kritischen
 	   Nachbrau-Erfolg; das Häkchen im Brau-Dialog verbraucht ihn. */
 	const bonusNextAvailable = !!(await actor.getFlag('symbaroum', 'nachbrauBonus'));
+	/* v1.3: Preset-Kandidat (Rezeptur-Blatt-Knopf) oder der erste. */
+	const presetCand = presetRecipeId ? candidates.find((c) => c.recipe?.id === presetRecipeId) : null;
+	const preselectCand = presetCand ?? candidates[0];
 	const modern = isModernDialogActive();
 	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/brew-dialog.hbs', {
 		renderModern: modern,
@@ -483,7 +494,7 @@ export async function openBrewDialog(abilityItem) {
 			id: c.key,
 			label: `${c.elixir.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`,
 		})),
-		preselect: candidates[0].key,
+		preselect: preselectCand.key,
 		/* Brauen v1.1 (Punkt 9): Labor-Dropdown statt Auto-Best-Labor -
 		   alle Labore des Akteurs (Name + Bonus), Vorauswahl das beste. */
 		facilities: facilities.map((f) => ({
@@ -491,8 +502,8 @@ export async function openBrewDialog(abilityItem) {
 			label: `${f.name} (+${f.bonus})`,
 		})),
 		labId: facilities[0].item.id,
-		doseHint: doseLabel(candidates[0].doseFormula),
-		unitsText: String(candidates[0].units),
+		doseHint: doseLabel(preselectCand.doseFormula),
+		unitsText: String(preselectCand.units),
 		stockText: String(stock),
 		economy,
 	});
@@ -545,7 +556,12 @@ export async function openBrewDialog(abilityItem) {
 					for (const radio of html[0].querySelectorAll("input[name='brew-vis']")) {
 						if (radio.checked) secret = radio.value === 'secret';
 					}
-					await performBrew(actor, facility, cand, { secret, economy, modifier, bonusNext });
+					/* v1.3 (Punkt 6c): Gunst-Radioblock (0/1/-1). */
+					let favour = 0;
+					for (const radio of html[0].querySelectorAll("input[name='brew-favour']")) {
+						if (radio.checked) favour = Number(radio.value) || 0;
+					}
+					await performBrew(actor, facility, cand, { secret, economy, modifier, bonusNext, favour });
 				},
 			},
 			cancel: {
@@ -600,7 +616,7 @@ function formatBrewProbeLine(rollData, labBonus, userMod = 0) {
 	return `${rollData.actingAttributeLabel} : (${rollData.actingAttributeValue})  ${L('BREW.LAB_BONUS')} +${labBonus}${modText}`;
 }
 
-async function performBrew(actor, facility, cand, { secret = false, economy = false, modifier = 0, bonusNext = false } = {}) {
+async function performBrew(actor, facility, cand, { secret = false, economy = false, modifier = 0, bonusNext = false, favour = 0 } = {}) {
 	const rolls = [];
 	const lines = [];
 	/* Alchemie Modul 3: Schein-Rezeptur / Zeitbombe wirken NUR im
@@ -643,7 +659,8 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 	//    SCHEIN-Heimlich −4 (unsichtbar — die Karte zeigt keinen Malus).
 	const scheinMod = scheinFlag ? -4 : 0;
 	const bonusMod = bonusNext ? 1 : 0;
-	const probe = await alchemyProbe(actor, facility.bonus + modifier + scheinMod + bonusMod);
+	/* v1.3 (Punkt 6c): Gunst/Missgunst aus dem Dialog-Radioblock. */
+	const probe = await alchemyProbe(actor, facility.bonus + modifier + scheinMod + bonusMod, favour);
 	rolls.push(...probe.rolls);
 	const success = probe.trueActorSucceeded;
 	lines.push(
@@ -790,7 +807,23 @@ export function findAlchemyAbility(actor) {
  *  nur das Waffen-Gift-Feld (weaponPoison) bleibt bei „vergiftet";
  *  Sofort-Schaden und Schaden-pro-Runde (Bummstein 1W4/1W6/1W8,
  *  Säurekugel-DoT) laufen auf die neue Kategorie. */
+/* Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Randnotiz a): Das GM-Dropdown
+ * „Analyse-Spuren“ (system.analysisTrace, Status-Tab) kann die Auto-
+ * Ableitung ÜBERSCHREIBEN — '' = automatisch (Wirkungsfelder). Die
+ * Map übersetzt die Dropdown-Werte in die Anzeige-Keys; unbekannte
+ * Werte fallen auf die Auto-Ableitung zurück. */
+const TRACE_OVERRIDE = {
+	heals: 'ANALYSE.CAT_HEALS',
+	poisons: 'ANALYSE.CAT_POISONS',
+	explodes: 'ANALYSE.CAT_EXPLODES',
+	corruption: 'ANALYSE.CAT_CORRUPTION',
+	alters: 'ANALYSE.CAT_ALTERS',
+	unknown: 'ANALYSE.CAT_UNKNOWN',
+};
+
 export function elixirCategoryKey(elixir) {
+	const override = TRACE_OVERRIDE[String(elixir?.system?.analysisTrace ?? '').trim()] ?? '';
+	if (override !== '') return override;
 	const eff = getElixirEffect(elixir);
 	const filled = (v) => String(v ?? '').trim() !== '' && Number(v) !== 0;
 	if (filled(eff.heal) || filled(eff.healPerRound) || filled(eff.removeCondition)) return 'ANALYSE.CAT_HEALS';
@@ -1241,8 +1274,11 @@ export async function openAnalyseDialog(abilityItem, { presetTargetUuid = null }
 	}
 	const facilities = resolveFacilities(actor);
 	const modern = isModernDialogActive();
+	/* Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 5-Wunsch): Schein-
+	 * Rezeptur-Kandidaten tragen den Zusatz „(Rezeptur)“ im Label,
+	 * damit Liste und Elixier-Ziele unterscheidbar bleiben. */
 	const labelFor = (c) =>
-		`${c.unknown ? `${L('ANALYSE.UNKNOWN_BADGE')} · ` : ''}${c.item.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`;
+		`${c.unknown ? `${L('ANALYSE.UNKNOWN_BADGE')} · ` : ''}${c.item.type === 'rezeptur' ? `${L('ANALYSE.RECIPE_BADGE')} · ` : ''}${c.item.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`;
 	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/analyse-dialog.hbs', {
 		renderModern: modern,
 		candidates: candidates.map((c) => ({ id: c.key, label: labelFor(c) })),
@@ -1317,7 +1353,12 @@ export async function openAnalyseDialog(abilityItem, { presetTargetUuid = null }
 					const facility = facilities.find((f) => f.item.id === labId) ?? null;
 					const userMod = Number(html[0].querySelector('#analyse-modifier')?.value);
 					const modifier = Number.isFinite(userMod) ? userMod : 0;
-					await performAnalyse(actor, abilityItem, cand, { guideActor, facility, modifier });
+					/* v1.3 (Punkt 6c): Gunst-Radioblock (0/1/-1). */
+					let favour = 0;
+					for (const radio of html[0].querySelectorAll("input[name='analyse-favour']")) {
+						if (radio.checked) favour = Number(radio.value) || 0;
+					}
+					await performAnalyse(actor, abilityItem, cand, { guideActor, facility, modifier, favour });
 				},
 			},
 			cancel: {
@@ -1334,7 +1375,7 @@ export async function openAnalyseDialog(abilityItem, { presetTargetUuid = null }
 /*  Analysieren (§14) — Probe, Spuren, Fehlbestimmung                 */
 /* ---------------------------------------------------------------- */
 
-async function performAnalyse(actor, abilityItem, cand, { guideActor = null, facility = null, modifier = 0 } = {}) {
+async function performAnalyse(actor, abilityItem, cand, { guideActor = null, facility = null, modifier = 0, favour = 0 } = {}) {
 	const rolls = [];
 	const lines = [];
 	const ownLevel = getOwnAlchemyLevel(abilityItem);
@@ -1345,7 +1386,8 @@ async function performAnalyse(actor, abilityItem, cand, { guideActor = null, fac
 	const effOrder = Math.max(LEVEL_ORDER[ownLevel] ?? 0, LEVEL_ORDER[guideLevel] ?? 0);
 	const labBonus = facility?.bonus ?? 0;
 	const diffMod = analyseDiffModifier(effOrder, cand.level);
-	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier);
+	/* v1.3 (Punkt 6c): Gunst/Missgunst aus dem Dialog-Radioblock. */
+	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier, favour);
 	rolls.push(...probe.rolls);
 	const resultLevel = getRollResultLevelKey(probe);
 	const success = probe.trueActorSucceeded;
@@ -1526,9 +1568,12 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 	});
 	const infoFor = (cand) => {
 		const mod = nachbrauDiffModifier(ownLevel, cand.level);
+		/* Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 3b): Ohne
+		 * Grund-Rezeptur greift der feste Proben-Malus −10 — der
+		 * Hinweis hängt sichtbar an der Info-Zeile. */
 		return F('NACHBRAU.INFO', {
 			level: L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`),
-			mod: `${mod > 0 ? '+' : mod < 0 ? '−' : ''}${Math.abs(mod)}`,
+			mod: `${mod > 0 ? '+' : mod < 0 ? '−' : ''}${Math.abs(mod)}${cand.grunds.length === 0 ? ` · ${L('NACHBRAU.NO_BASE_INFO')}` : ''}`,
 		});
 	};
 	symbDialog({
@@ -1547,21 +1592,21 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 				const cand = candidates.find((c) => c.key === select.value);
 				if (!cand) return;
 				/* Grund-Rezeptur-Auswahl live neu aufbauen (Live-Rebuild);
-				 * eine noch gültige Auswahl bleibt erhalten. v1.2 (P7):
-				 * Ohne Grund-Rezeptur wird die Zeile ausgeblendet statt
-				 * eine leere Auswahl zu zeigen. */
+				 * eine noch gültige Auswahl bleibt erhalten. Sammel-Fix
+				 * v1.3 (Rudolfs Testrunde v1.2, Punkt 3a): Die Zeile ist
+				 * IMMER sichtbar — Kandidaten ohne Grund-Rezeptur zeigen
+				 * stattdessen die Option „kein Grundrezept“ (fester
+				 * Proben-Malus −10 in performNachbrau, Punkt 3b). */
 				if (baseSelect) {
-					const baseRow = baseSelect.closest('div');
+					const prev = baseSelect.value;
 					if (cand.grunds.length > 0) {
-						if (baseRow) baseRow.style.display = '';
-						const prev = baseSelect.value;
 						baseSelect.innerHTML = cand.grunds
 							.map((g) => `<option value="${g.recipe.id}">${g.recipe.name}</option>`)
 							.join('');
 						baseSelect.value = cand.grunds.some((g) => g.recipe.id === prev) ? prev : cand.grunds[0].recipe.id;
 					} else {
-						if (baseRow) baseRow.style.display = 'none';
-						baseSelect.innerHTML = '';
+						baseSelect.innerHTML = `<option value="">${L('NACHBRAU.NO_BASE')}</option>`;
+						baseSelect.value = '';
 					}
 				}
 				if (infoEl) infoEl.value = infoFor(cand);
@@ -1585,13 +1630,19 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 					if (!cand) return;
 					const baseId = html[0].querySelector('#nachbrau-base')?.value;
 					/* v1.2 (P7): Ohne Grund-Rezeptur ist base null —
-					 * performNachbrau verbraucht sie nicht. */
+					 * performNachbrau verbraucht sie nicht. v1.3
+					 * (Punkt 3b): null löst den festen Malus −10 aus. */
 					const base = cand.grunds.length > 0 ? (cand.grunds.find((g) => g.recipe.id === baseId) ?? cand.grunds[0]) : null;
 					const labId = html[0].querySelector('#nachbrau-lab')?.value;
 					const facility = facilities.find((f) => f.item.id === labId) ?? facilities[0];
 					const userMod = Number(html[0].querySelector('#nachbrau-modifier')?.value);
 					const modifier = Number.isFinite(userMod) ? userMod : 0;
-					await performNachbrau(actor, abilityItem, cand, base, { facility, modifier });
+					/* v1.3 (Punkt 6c): Gunst-Radioblock (0/1/-1). */
+					let favour = 0;
+					for (const radio of html[0].querySelectorAll("input[name='nachbrau-favour']")) {
+						if (radio.checked) favour = Number(radio.value) || 0;
+					}
+					await performNachbrau(actor, abilityItem, cand, base, { facility, modifier, favour });
 				},
 			},
 			cancel: {
@@ -1604,7 +1655,7 @@ export async function openNachbrauDialog(abilityItem, { presetRecipeId = null, p
 	});
 }
 
-async function performNachbrau(actor, abilityItem, cand, base, { facility = null, modifier = 0 } = {}) {
+async function performNachbrau(actor, abilityItem, cand, base, { facility = null, modifier = 0, favour = 0 } = {}) {
 	const rolls = [];
 	const lines = [];
 	const ownLevel = getOwnAlchemyLevel(abilityItem);
@@ -1615,12 +1666,19 @@ async function performNachbrau(actor, abilityItem, cand, base, { facility = null
 	lines.push(F('NACHBRAU.CHAT_DOSE', { name: cand.name }));
 	const labBonus = facility?.bonus ?? 0;
 	const diffMod = nachbrauDiffModifier(ownLevel, cand.level);
-	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier);
+	/* Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 3b): Nachbrau
+	 * OHNE Grund-Rezeptur mit festem Proben-Malus −10 (zusätzlich zu
+	 * Stufen-Differenz und freiem Modifikator; die Karte nennt den
+	 * Malus in der Hinweiszeile, die Probe-Zeile zeigt ihn im
+	 * Modifikator-Segment). Gunst/Missgunst v1.3 (Punkt 6c). */
+	const noBaseMod = base ? 0 : -10;
+	if (!base) lines.push(L('NACHBRAU.CHAT_NO_BASE'));
+	const probe = await alchemyProbe(actor, labBonus + diffMod + modifier + noBaseMod, favour);
 	rolls.push(...probe.rolls);
 	const resultLevel = getRollResultLevelKey(probe);
 	const success = probe.trueActorSucceeded;
 	lines.push(
-		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier)} — ${success ? L('ANALYSE.CHAT_SUCCESS') : L('ANALYSE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
+		`<div class="tooltip"><p>${formatAnalyseProbeLine(probe, labBonus, diffMod + modifier + noBaseMod)} — ${success ? L('ANALYSE.CHAT_SUCCESS') : L('ANALYSE.CHAT_FAILURE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
 	);
 	lines.push(rigChatLine(probe));
 	const recipeName = `${cand.name} — ${L(`ALCHEMY_LEVEL.${cand.level.toUpperCase()}`)}`;
