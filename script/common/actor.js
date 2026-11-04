@@ -7,6 +7,9 @@ import { getEncumbranceData } from "./encumbrance.js";
 // verweigern, Notification aus dem ammo-Modul - die volle Pruefung mit
 // Angriffsanzahl passiert im Wurf-Submit, script/common/dialog.js)
 import { checkWeaponAmmoReady } from "./ammo.js";
+// Segen & Lasten S1 (04.11.): Kanonik-Check fuer markScripted
+// (isScripted-Badge der Kacheln) - die Wurf-Setups selbst leben in boon.js
+import { isBoonRollScripted } from "./boon.js";
 
 export class SymbaroumActor extends Actor {
 	prepareBaseData() {
@@ -49,7 +52,13 @@ export class SymbaroumActor extends Actor {
 		// for (let item of Object.values(items)) {
 		for (const [key, item] of items.entries()) {
 			item.prepareData();
-			if ((item.system.isAbility || item.system.isMysticalPower || item.system.isTrait) && !item.system?.script) markScripted(item);
+			// Segen & Lasten S1: auch Boons/Burdens auf Skriptung pruefen
+			// (Typ-W-Kanonik in boon.js), Muster bleibt identisch
+			if (
+				(item.system.isAbility || item.system.isMysticalPower || item.system.isTrait || item.system.isBoon || item.system.isBurden) &&
+				!item.system?.script
+			)
+				markScripted(item);
 			if (item.system.isPower) this._computePower(this.system, item);
 			if (item.system.isGear) this._computeGear(this.system, item);
 		}
@@ -186,7 +195,12 @@ export class SymbaroumActor extends Actor {
 		}
 
 		//add scripted abilities / Mystic powers / traits
-		const allAbilities = this.items.filter((element) => element.system.isAbility || element.system.isMysticalPower || element.system.isTrait);
+		// Segen & Lasten S1: Boons/Burdens in dieselbe combatMods-Sammlung
+		// aufnehmen - ihre Tiles nutzen bereits activate-ability (isPower),
+		// usePower findet das Setup jetzt in combatMods.abilities
+		const allAbilities = this.items.filter(
+			(element) => element.system.isAbility || element.system.isMysticalPower || element.system.isTrait || element.system.isBoon || element.system.isBurden
+		);
 
 		for (let i = 0; i < allAbilities.length; i++) {
 			switch (allAbilities[i].type) {
@@ -198,6 +212,12 @@ export class SymbaroumActor extends Actor {
 					break;
 				case "trait":
 					combatMods.abilities[allAbilities[i].id] = allAbilities[i].getTraitsConfig();
+					break;
+				case "boon":
+					combatMods.abilities[allAbilities[i].id] = allAbilities[i].getBoonsConfig();
+					break;
+				case "burden":
+					combatMods.abilities[allAbilities[i].id] = allAbilities[i].getBurdensConfig();
 					break;
 			}
 		}
@@ -1227,6 +1247,13 @@ export function getTargets(targetAttributeName, maxTargets = 1) {
 export function markScripted(item) {
 	item.system.hasScript = false;
 	if (game.symbaroum.config.scriptedAbilities.includes(item.system.reference)) {
+		item.system.hasScript = true;
+		item.system.script = true;
+	} else if ((item.system.isBoon || item.system.isBurden) && isBoonRollScripted(item.system.reference)) {
+		// Segen & Lasten S1: eigene Kanonik (BOON_ROLLS in boon.js), NICHT
+		// die scriptedAbilities-Liste (die hat anderswo Kampf-Semantik) -
+		// hasScript treibt das isScripted-Badge und das .automatic-Icon der
+		// Kacheln in beiden Blattvarianten
 		item.system.hasScript = true;
 		item.system.script = true;
 	}

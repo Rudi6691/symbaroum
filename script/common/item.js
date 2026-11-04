@@ -21,6 +21,12 @@ import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailabi
 // Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): + consumeElixirDose
 // fuer die vereinheitlichte Waffengift-Zeile im Modifier-Dialog
 import { getDazedPenalty, consumeElixirDose } from "./elixirs.js";
+// Segen & Lasten S1 (Rudolfs Freigabe 04.11.): Wurf-Setup der 15 Typ-W-
+// Segen/Lasten (Kanonik BOON_ROLLS, Delegation getBoonsConfig/
+// getBurdensConfig, Ertrags-Result-Funktionen) - der kreisförmige Import
+// (boon.js importiert modifierDialog/standardPowerResult zurück) folgt
+// dem etablierten Muster dialog.js <-> item.js
+import { getBoonRollConfig } from "./boon.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -433,6 +439,17 @@ export class SymbaroumItem extends Item {
       base.isScripted = true;
       return this["traitSetup" + ref](base);
     } else return base;
+  }
+
+  // Segen & Lasten S1 (04.11.): duenner Delegations-Wrapper auf die
+  // Kanonik in boon.js - ohne Kanonik-Treffer bleibt isScripted false
+  // und der Button bleibt stumm (Verhalten wie bisher)
+  getBoonsConfig() {
+    return getBoonRollConfig(this);
+  }
+
+  getBurdensConfig() {
+    return getBoonRollConfig(this);
   }
 
   get impeding() {
@@ -4141,6 +4158,9 @@ export async function buildRolls(functionStuff) {
    see entanglingVinesChainResult and its siblings below); Entangling Vines
    at Adept probes its follow-ups unopposed (GRW). */
 function getPowerResultFunction(functionStuff) {
+  // Segen & Lasten S1: Ertrags-Result-Funktionen (Buschwissen, Unternehmen)
+  // hängen am functionStuff - der Hook greift vor der Referenz-Dispatch
+  if (functionStuff.boonResultFunction) return functionStuff.boonResultFunction;
   switch (functionStuff.ability?.reference) {
     case "staffprojectile":
       return staffProjectileChainResult;
@@ -6910,7 +6930,10 @@ async function poisonCalc(functionStuff, poisonRoll) {
   return poisonRes;
 }
 
-async function standardPowerResult(rollData, functionStuff) {
+// Segen & Lasten S1: Export fuer die Delegation der Ertrags-Result-
+// Funktionen in boon.js (buschcraftResult/enterpriseResult reichen
+// finalText + resultRolls weiter und delegieren an diese Funktion)
+export async function standardPowerResult(rollData, functionStuff) {
   game.symbaroum.log("standardPowerResult", ...arguments);
   let hasRoll = false;
   let trueActorSucceeded = true; //true by default for powers without rolls
