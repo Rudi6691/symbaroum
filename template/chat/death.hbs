@@ -1,6 +1,11 @@
 <div class="symbaroum chat roll">
     <div class="foreground">
         <h3>{{localize "CHAT.DEATH_ROLL" name=actor.name }}</h3>
+        {{!-- S3 (Zäh/Kränklich/neutral): Zwangsgunst-Etikett unter dem
+             Titel, nur wenn ein Segen/Last am Werk war. --}}
+        {{#if deathModLabel}}
+        <h4>{{deathModLabel}}</h4>
+        {{/if}}
         <div class="dice-roll dice-total">
             <div><h4>{{rollResult}}</h4></div>
         </div>

@@ -30,7 +30,7 @@ import { getBoonRollConfig } from "./boon.js";
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
 // Kräfte-/Fähigkeits-Würfeldialog (Typ B + B/G „Zweite Chance“ mit
 // Radio-Exklusivität) — Kanonik und Helfer in boon.js
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection } from "./boon.js";
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty } from "./boon.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3576,6 +3576,21 @@ export async function modifierDialog(functionStuff) {
     functionStuff.modifier = (Number(functionStuff.modifier) || 0) - elixirDazedPenalty;
     functionStuff.autoParams += game.i18n.format("ELIXIR.DAZED_AUTOPARAM", { penalty: elixirDazedPenalty }) + ", ";
   }
+  // S3 (Last Epileptisch, Phase 2 — Rudolfs Freigabe 07.11.2026):
+  // Erschöpfungs-Malus −1 auf alle Erfolgsproben nach einem Anfall
+  // (Condition „epilepsy", bis zum Szenenende, SL-Reset) — identische
+  // Injektion wie der Benommen-Malus: VORBELEGUNG des Modifikator-
+  // Felds, sichtbar und überschreibbar, plus autoParams-Zeile. Nur
+  // bei Würfen (hasRoll); Freiform-Makro-Würfe bleiben draussen
+  // (gleiche dokumentierte Begrenzung). Die Todesprobe läuft über
+  // prepareRollDeathTest (dialog.js) OHNE Epilepsie-Malus — Rudolfs
+  // Grenzentscheidung (Benommen-Präzedenz): SL kann −1 manuell ins
+  // Modifikator-Feld des Todesprobe-Dialogs eintragen.
+  const epilepsyPenalty = hasRoll ? getEpilepsyPenalty(functionStuff.actor) : 0;
+  if (epilepsyPenalty > 0) {
+    functionStuff.modifier = (Number(functionStuff.modifier) || 0) - epilepsyPenalty;
+    functionStuff.autoParams += game.i18n.format("EPILEPSY.AUTOPARAM", { penalty: epilepsyPenalty }) + ", ";
+  }
   // Elixiere v1.7 (Rudolfs Waffengift-Dialog-Vereinheitlichung): die alte
   // Grad-Zeile "Gift aufgetragen?" im Modifier-Dialog entfaellt - DIE
   // Waffengift-Zeile ist "Gift auftragen" (gleiche Zeile wie im EC-Dialog,
@@ -6133,6 +6148,7 @@ async function attackResult(rollData, functionStuff) {
     resistRoll: functionStuff.resistRoll,
     resistRollText: functionStuff.resistRollText,
     hasCorruption: false,
+    rigged: rollData[0]?.rigged ?? 0,
     rollString: await formatRollString(rollData[0], functionStuff.targetData.hasTarget, rollData[0].modifier, { freeModifier: functionStuff.freeModifier ?? 0, boonLineChain: functionStuff.boonLineChain ?? [] }),
     hasDamage: hasDamage,
     hasDmgMod: hasDmgMod,
@@ -7317,6 +7333,10 @@ export async function standardPowerResult(rollData, functionStuff) {
     rollString: rollString,
     rollResult: rollResult,
     rollToolTip: rollToolTip,
+    /* S3: „Test-Rig“-Zeile (ability.hbs) auch auf Fähigkeitskarten —
+       rigged kommt aus doBaseRoll (applyRigToBaseRoll, roll.js) und
+       ist bei normalen Würfen 0/undefined (Zeile entfällt). */
+    rigged: hasRoll ? rollData[0]?.rigged ?? 0 : 0,
     resultText: resultText,
     finalText: finalText,
     hasDamage: doDamage,

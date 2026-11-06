@@ -612,6 +612,35 @@ SYMBAROUM.systemConditionEffects = [
     icon: "icons/svg/stoned.svg",
   },
   {
+    // S3 „Todesprobe & Reaktion" (Rudolfs Freigabe 07.11.2026): Last
+    // Epileptisch, Phase 1 — nach einer natürlichen 20 auf einer
+    // Attributs-/Angriffsprobe ist der Charakter für 1W6 Runden
+    // gelähmt. GM-Anwendungskarte setzt die Condition mit
+    // turnEnd:true + effectDuration (1W6) + conditionData {} — die
+    // A34-Zugende-Engine (hooks.js updateCombat) tickt die Runden im
+    // Kampf und entfernt das Symbol automatisch (skipFirstTurnEnd-
+    // Logik schützt Anwendungen im eigenen Zug); außerhalb des
+    // Kampfes entfernt die SL manuell. Icon: biceps.svg (Muskelkrampf)
+    // — bewusst nur garantierte System-Assets, austauschbar.
+    id: "paralysis",
+    label: "CONDITION.PARALYSIS",
+    name: "CONDITION.PARALYSIS",
+    icon: "systems/symbaroum/asset/image/biceps.svg",
+  },
+  {
+    // S3 Phase 2: Erschöpfung nach dem Anfall — −1 auf alle
+    // Erfolgsproben bis zum Szenenende (getEpilepsyPenalty/boon.js
+    // liest die Condition für die Dialog-Vorbelegung). Bewusst OHNE
+    // turnEnd/conditionData: permanent bis zum manuellen SL-Reset,
+    // das System verfolgt keine Szenen (dokumentierte Begrenzung,
+    // Hinweiszeile auf der Anfalls-Karte). Icon: weakeninghymn.svg
+    // (unbenutzt in der Palette, Schwächung) — austauschbar.
+    id: "epilepsy",
+    label: "CONDITION.EPILEPSY",
+    name: "CONDITION.EPILEPSY",
+    icon: "systems/symbaroum/asset/image/powers/weakeninghymn.svg",
+  },
+  {
     id: "dancingweapon",
     label: "POWER_LABEL.DANCING_WEAPON",
     name: "POWER_LABEL.DANCING_WEAPON",

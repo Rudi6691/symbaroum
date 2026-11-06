@@ -109,7 +109,13 @@ function getGreenthumbAlchemyLine(actor) {
  * HTML-tolerant). Nur EIN Pfad ist aktiv. */
 const RIG_PATTERN = /^\/rig\s+(\d{1,2})(?:\s|$)/i;
 
-let riggedDie = 0;
+/* S3 (Rudolfs Freigabe 07.11.): Der Rig-Zustand liegt NICHT mehr in
+ * dieser lokalen Variable, sondern in game.symbaroum.riggedDie —
+ * doBaseRoll (roll.js) verzehrt ihn am nächsten Basiswurf des
+ * Clients (Attribute, Angriffe, Resistenzwürfe, Alchemie-Proben).
+ * Bridge statt roll.js→brewing.js-Import: brewing.js importiert
+ * roll.js bereits, ein Gegenimport würde den ES-Modul-Zyklus
+ * erweitern; game.symbaroum ist die etablierte Modul-Tasche. */
 
 /* Rig-Wert anwenden: 1–20 = gültig (Rig aktivieren), alles andere
  * (auch null bei unerwarteter Handler-Signatur) = Fehlermeldung. */
@@ -118,7 +124,7 @@ function rigApplyValue(value) {
 		ui.notifications.warn(L('RIG.ERR_BAD_VALUE'));
 		return;
 	}
-	riggedDie = value;
+	game.symbaroum.riggedDie = value;
 	ui.notifications.info(F('RIG.ARMED', { value }));
 }
 
@@ -172,52 +178,24 @@ function rigValueFromArgs(args) {
 	});
 })();
 
-/* Wurf-Auswertung konsistent auf den erzwungenen Wert umbiegen. Die
- * Alchemie-Proben sind einseitige Scharfsinn-Würfe ohne Gunst (favour
- * 0, resistRoll false) — deshalb reicht das Überschreiben von
- * diceResult/hasSucceed/critSuccess/critFail; alle Konsumenten in
- * brewing.js (Erfolgs-Zweige, KritErf-/Patzer-Erkennung über
- * getRollResultLevelKey, rohe-20-Patzer-Checks) lesen diese Felder. */
-function applyRigToProbe(probe, forced) {
-	const critsOn =
-		game.settings.get('symbaroum', 'optionalCrit') || game.settings.get('symbaroum', 'optionalRareCrit');
-	probe.diceResult = forced;
-	probe.hasSucceed = critsOn
-		? forced === 1 || (forced !== 20 && forced <= probe.diceTarget)
-		: forced <= probe.diceTarget;
-	if (critsOn) {
-		probe.critSuccess = forced === 1;
-		probe.critFail = forced === 20;
-	} else {
-		probe.critSuccess = false;
-		probe.critFail = false;
-	}
-	probe.trueActorSucceeded = probe.hasSucceed;
-	probe.resultLevelKey = getRollResultLevelKey(probe, false);
-	probe.rollResult = game.symbaroum.api.formatRollResult({
-		favour: probe.favour,
-		diceResult: forced,
-		dicesResult: probe.dicesResult,
-		secondRollResult: critsOn && (forced === 1 || forced === 20) ? forced : undefined,
-		resultLevelKey: probe.resultLevelKey,
-	});
-	probe.rigged = forced;
-	return probe;
-}
+/* S3 (Rudolfs Erweiterungswunsch „/rig auch für Epilepsie-Tests"):
+ * Die Rig-Anwendung ist nach roll.js gezogen (applyRigToBaseRoll,
+ * Perspektiv-Logik für resistRoll inklusive) und gilt dort für JEDE
+ * doBaseRoll-Nutzung — die Alchemie-Proben laufen über baseRoll und
+ * werden automatisch mitgezogen; ihre eigene Konsumptionsstelle und
+ * applyRigToProbe sind hier ENTFERNT (kein Duplikatpfad). Die Karten
+ * zeigen die „Test-Rig“-Zeile unverändert über probe.rigged
+ * (rigChatLine unten). */
 
 /* Einseitige Scharfsinn-Probe der Alchemie (Brauen/Analysieren/
- * Nachbrauen) — baseRoll wie bisher, mit Test-Rig-Abgriff: Ein
- * aktiviertes /rig verzehrt sich an genau dem nächsten Wurf.
+ * Nachbrauen) — baseRoll wie bisher; der Test-Rig-Abgriff läuft seit
+ * S3 generisch in doBaseRoll (roll.js) mit, ein aktiviertes /rig
+ * verzehrt sich an genau dem nächsten Wurf.
  * Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 6c): favour wird
  * durchgereicht — +1 Gunst = 2d20kl (bester), −1 Missgunst =
  * 2d20kh (schlechtester), 0 = 1d20 (wie der kanonische Würfeldialog). */
 async function alchemyProbe(actor, modifier, favour = 0) {
 	const probe = await baseRoll(actor, 'cunning', null, null, favour, modifier, false);
-	if (riggedDie > 0) {
-		const forced = riggedDie;
-		riggedDie = 0;
-		applyRigToProbe(probe, forced);
-	}
 	return probe;
 }
 

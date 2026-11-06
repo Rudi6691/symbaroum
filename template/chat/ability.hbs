@@ -22,6 +22,12 @@
                 <span class="tooltiptext">{{rollToolTip}}</span>
             </div>
         </div>
+        {{!-- S3 (/rig-Erweiterung): Hinweiszeile bei erzwungenem
+             Würfelergebnis auf Angriffs-/Fähigkeitskarten; rigged ist
+             bei normalen Würfen 0/undefined und die Zeile entfällt. --}}
+        {{#if rigged}}
+        <div class="finalTxt"><p>{{localize "RIG.CHAT_LINE" value=rigged}}</p></div>
+        {{/if}}
         {{/if}}
         <div class="finalTxt">
             <p>{{resultText}}</p>

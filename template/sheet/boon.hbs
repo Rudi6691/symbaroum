@@ -25,8 +25,9 @@
                     </div>
                 </div>
                 {{!-- S2.1-Fix (Testpunkt 29): Das Bonus/Malus-Feld ist aus
-                    dem Kopf ENTFERNT (der auf jedem Tab sichtbar wäre) und
-                    steht als reine Textanzeige im Bonus-Tab — siehe unten. --}}
+                    dem Kopf ENTFERNT (der auf jedem Tab sichtbar wäre).
+                    S2.1-37 (Rudolfs Korrektur, umgesetzt mit S3): Die
+                    Anzeige steht als Chip im TRADITIONEN-Tab — siehe unten. --}}
                 {{#ifat symbaroumOptions.isGM symbaroumOptions.allowShowReference }}
                 <div class="name">
                     <label for="{{id}}-system.reference">{{localize "ABILITY.REFERENCE"}}</label>
@@ -114,23 +115,27 @@
             {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Reiter UND Inhalt - Spieler sehen den Tab nicht, Werte bleiben erhalten. --}}
             {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="bonus">
-                {{!-- S2.1-Fix (Testpunkt 29, Rudolfs Rückmeldung 07.11.):
-                    Bonus/Malus NUR hier im Bonus-Tab, als reine TEXTANZEIGE
-                    (kein disabled-Input, den Foundry unleserlich dimmt).
-                    Effective Wert inkl. Fallback bonusValue → Stufe → +1
-                    kommt fertig formatiert aus item.js
-                    (context.bonusValueDisplay); der Stufen-Stepper im
-                    Kopf synchronisiert system.bonusValue. --}}
-                <div class="level bonus-value-row bonus-value-display">
-                    <label data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
-                    <span class="bonus-value-display-value" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{bonusValueDisplay}}</span>
-                </div>
+                {{!-- S2.1-37 (Rudolfs Anforderungskorrektur + „Mit S3 umsetzen",
+                    07.11.2026): Die Bonus/Malus-Anzeige ist aus dem Bonus-Tab
+                    ENTFERNT und in den Traditionen-Tab gewandert (Optik der
+                    berechneten Werte am klassischen Waffenkopf, weapon.hbs);
+                    hier bleibt nur die Bonus-Pflege (Verteidigung/Attribut). --}}
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
             </div>
             {{/if}}
             {{!-- Traditionen v1: GM-only „Traditionen“-Tab (Feld „Traditionswissen?“ + Zahnrad-Dialog; „Verbotenes Wissen“-Segen: Single-Select im selben Feld). --}}
             {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="traditions">
+                {{!-- S2.1-37: Bonus/Malus als Chip in der Optik des
+                    Waffenkopfs (computedvalues, reine Anzeige — effective
+                    Wert inkl. Fallback bonusValue → Stufe → +1 kommt fertig
+                    formatiert aus item.js, context.bonusValueDisplay). --}}
+                <div class="computedvalues">
+                    <div class="wrapper-column">
+                        <label data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
+                        <input type="text" value="{{bonusValueDisplay}}" data-dtype="Text" disabled/>
+                    </div>
+                </div>
                 {{> systems/symbaroum/template/sheet/tab/traditions.hbs}}
             </div>
             {{/if}}

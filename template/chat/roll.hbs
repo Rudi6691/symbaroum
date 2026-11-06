@@ -74,5 +74,12 @@
 			{{/if}}
 		{{/if}}
 
+		{{!-- S3 (/rig-Erweiterung, Rudolfs Freigabe 07.11.2026): Hinweis-
+		     zeile bei erzwungenem Würfelergebnis — der Tooltip über der
+		     Probe zeigt den ECHTEN Wurf. --}}
+		{{#if rigged}}
+		<h4>{{localize "RIG.CHAT_LINE" value=rigged}}</h4>
+		{{/if}}
+
 	</div>
 </div>

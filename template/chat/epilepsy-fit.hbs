@@ -1,0 +1,18 @@
+<div class="symbaroum chat roll">
+    <div class="foreground">
+        {{!-- S3 „Todesprobe & Reaktion" (Rudolfs Freigabe 07.11.2026):
+             Öffentliche Karte beim epileptischen Anfall — natürliche 20
+             auf einer Attributs-/Angriffsprobe des Charakters. Die 1W6-
+             Runden der Phase 1 „Gelähmt" würfeln öffentlich mit; die
+             GM-Anwendungskarte (paralysis + epilepsy) kommt separat und
+             geflüstert zur SL. --}}
+        <h3>{{localize "EPILEPSY.CARD_TITLE"}}</h3>
+        <img class="portrait" src="{{img}}"/>
+        <p>{{localize "EPILEPSY.CARD_LINE" name=name}}</p>
+        <div class="dice-roll dice-total" data-action="expandRoll">
+            <div><h4>{{localize "EPILEPSY.CARD_PARALYSIS" rounds=rounds}}</h4></div>
+            <div class="dice-tooltip">{{{diceBreakdown}}}</div>
+        </div>
+        <p>{{localize "EPILEPSY.CARD_EXHAUSTION"}}</p>
+    </div>
+</div>

@@ -332,12 +332,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			id: c.id,
 			label: game.i18n.localize(c.label),
 		}));
-		/* S2.1-Fix (Testpunkt 29, Rudolfs Rückmeldung 07.11.): Bonus/Malus
-		   (system.bonusValue) ist REINE ANZEIGE und steht NUR noch im
-		   Bonus-Tab (beide Designs) — der Kopf zeigt es auf keinem Tab
-		   mehr. Angezeigt wird der EFFECTIVE Wert nach derselben
-		   Fallback-Kette wie boon.js (bonusValue → Stufe → +1), mit
-		   explizitem Vorzeichen. */
+		/* S2.1-Fix (Testpunkt 29) + S2.1-37 (Rudolfs Anforderungs-
+		   korrektur, umgesetzt mit S3, 07.11.): Bonus/Malus
+		   (system.bonusValue) ist REINE ANZEIGE und steht als Chip im
+		   TRADITIONEN-Tab (beide Designs) — der Kopf und der Bonus-Tab
+		   zeigen es nicht mehr. Angezeigt wird der EFFECTIVE Wert nach
+		   derselben Fallback-Kette wie boon.js (bonusValue → Stufe →
+		   +1), mit explizitem Vorzeichen. */
 		if (this.item.type === 'boon' || this.item.type === 'burden') {
 			const bv = Number(this.item.system?.bonusValue);
 			const lvl = Math.max(1, Math.round(Number(this.item.system?.level) || 1));
@@ -961,9 +962,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		modern.showLevel = type === 'boon' || type === 'burden';
 		/* S2.1-Fix (Testpunkt 29): modern.showBonusValue ist ENTFALLEN —
 		   das Bonus/Malus-Feld steht nicht mehr im Kopf (der auf jedem
-		   Tab sichtbar wäre und dessen disabled-Input Foundry dimmt),
-		   sondern als reine Textanzeige im Bonus-Tab (Template-Zweig,
-		   context.bonusValueDisplay aus _prepareContext). */
+		   Tab sichtbar wäre und dessen disabled-Input Foundry dimmt);
+		   S2.1-37: die reine Anzeige sitzt als m-stat-chip im
+		   Traditionen-Tab (Template-Zweig, context.bonusValueDisplay
+		   aus _prepareContext). */
 		modern.showComputed = type === 'weapon' || type === 'armor';
 		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
 		/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe

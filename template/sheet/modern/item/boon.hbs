@@ -65,23 +65,25 @@
         {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Rail-Button UND Inhalt. --}}
         {{#if symbaroumOptions.isGM}}
         <div class="tab" data-group="primary" data-tab="bonus">
-            {{!-- S2.1-Fix (Testpunkt 29, Rudolfs Rückmeldung 07.11.):
-                Bonus/Malus NUR hier im Bonus-Tab als reine TEXTANZEIGE
-                (war vorher im geteilten Kopf, also auf jedem Tab, und
-                als disabled-Input unleserlich gedimmt). Effective Wert
-                aus item.js (context.bonusValueDisplay, Fallback
-                bonusValue → Stufe → +1); der Stufen-Stepper im Kopf
-                synchronisiert system.bonusValue. --}}
-            <div class="m-inline-field m-bonusvalue-display">
-                <label data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
-                <span class="m-bonusvalue-display-value" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{bonusValueDisplay}}</span>
-            </div>
+            {{!-- S2.1-37 (Rudolfs Anforderungskorrektur + „Mit S3 umsetzen“,
+                07.11.2026): Die Bonus/Malus-Anzeige ist aus dem Bonus-Tab
+                ENTFERNT und als m-stat-chip in den Traditionen-Tab
+                gewandert (Optik des NSC-Schaden-Chips, Muster header.hbs);
+                hier bleibt nur die Bonus-Pflege (Verteidigung/Attribut). --}}
             {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
         {{/if}}
         {{!-- Traditionen v1: GM-only „Traditionen“-Tab, modern. --}}
         {{#if symbaroumOptions.isGM}}
         <div class="tab" data-group="primary" data-tab="traditions">
+            {{!-- S2.1-37: Bonus/Malus als Chip in der Optik des
+                NSC-Schaden-Chips (span.v = Wert, span.l = Label) —
+                effective Wert aus item.js (context.bonusValueDisplay,
+                Fallback bonusValue → Stufe → +1). --}}
+            <div class="m-stat-chip" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">
+                <span class="v">{{bonusValueDisplay}}</span>
+                <span class="l">{{localize "BOON.BONUS_VALUE"}}</span>
+            </div>
             {{> systems/symbaroum/template/sheet/modern/item/tab-traditions.hbs}}
         </div>
         {{/if}}

@@ -441,7 +441,9 @@ function bestialPreDialog(functionStuff) {
  *           siehe activateBoonLineExclusive). Dunkles Geheimnis ist
  *           bereits S1 fest verdrahtet und steht hier nicht nochmal.
  * Augur bekommt KEINE Zeile (Rituale haben keinen Wurfdialog) — nur
- * den Hinweis-Chip am Ritual-Blatt; bornlucky/Glücksstern ist S3.
+ * den Hinweis-Chip am Ritual-Blatt; bornlucky/Glücksstern bleibt reine
+ * SL-Abwicklung (S3-Entscheidung Rudolfs: KEIN Flag, KEINE Automatik,
+ * Dokument-Hinweis im Auslieferungsdoc).
  */
 const BOON_LINES = {
   // --- Bonus-Zeilen (Typ B) ---
@@ -1009,4 +1011,67 @@ export function getBoonRollConfig(item) {
   if (spec.preDialog) base.preDialogFunction = spec.preDialog;
   if (spec.result) base.boonResultFunction = spec.result;
   return base;
+}
+
+/* ------------------------------------------------------------------ */
+/*  S3 „Todesprobe & Reaktion" (Rudolfs Freigabe 07.11.2026):         */
+/*  Zäh / Kränklich / Epileptisch — Kanonik und Helfer                 */
+/* ------------------------------------------------------------------ */
+
+/* Segen/Last eines Akteurs über die kanonische Referenz finden
+ * (Muster hasBoonFireProtection oben): tough = Segen, sickly und
+ * epileptic = Lasten — die Referenzen setzt das Migrations-Makro
+ * „SegenLasten-Migration v1" in system.reference. */
+function hasByReference(actor, type, reference) {
+  return Boolean(
+    (actor?.items ?? []).some(
+      (item) => item?.type === type && String(item.system?.reference ?? '').trim() === reference
+    )
+  );
+}
+
+/**
+ * S3 (Design-Runde 07.11., Rudolfs Festlegungen 1–3): Zwangsgunst der
+ * Todesprobe. RAW sagt Zäh „darf … mit Gunst würfeln“ — Rudolf: IMMER
+ * aktiv (ebenso Kränklich mit Missgunst). Beide gleichzeitig = netto
+ * neutral, EIN Würfel, Hinweiszeile im Dialog. locked=true, sobald ein
+ * Segen/Last beteiligt ist: Das Gunst-Radio des Todesprobe-Dialogs ist
+ * dann GESPERRT (kein disabled-Input — reine Anzeige als Label-Zeile,
+ * Lernweis „Dimmung“) und der Wurf läuft mit dem Zwangswert; die
+ * Todeskarte zeigt zusätzlich eine Etikett-Zeile. Ohne Zäh/Kränklich
+ * (locked=false) bleibt der Dialog exakt wie bisher.
+ */
+export function getDeathTestFavour(actor) {
+  const tough = hasByReference(actor, 'boon', 'tough');
+  const sickly = hasByReference(actor, 'burden', 'sickly');
+  if (tough && sickly) return { favour: 0, locked: true, labelKey: 'BOON.DEATH_NEUTRAL' };
+  if (tough) return { favour: 1, locked: true, labelKey: 'BOON.DEATH_TOUGH' };
+  if (sickly) return { favour: -1, locked: true, labelKey: 'BOON.DEATH_SICKLY' };
+  return { favour: 0, locked: false, labelKey: null };
+}
+
+/**
+ * S3 (Festlegung 4): Träger der Last Epileptisch (Referenz
+ * 'epileptic'). Der Anfall wird in roll.js (doBaseRoll) ausgelöst —
+ * natürliche 20 auf Attributs- UND Angriffsproben des Charakters
+ * inklusive Verteidigungs-/Resistenzwürfen (dieselbe Pipeline);
+ * die Todesprobe hat einen EIGENEN Wurfpfad und ist bewusst
+ * ausgenommen.
+ */
+export function hasEpilepsy(actor) {
+  return hasByReference(actor, 'burden', 'epileptic');
+}
+
+/**
+ * S3 Phase 2 (RAW-Zweitphasen-Modell): Nach dem Anfall (Gelähmt 1W6
+ * Runden) erschöpft der Charakter mit −1 auf alle Erfolgsproben bis
+ * zum Szenenende. Gekoppelt an die Condition „epilepsy“ (id aus
+ * config.js systemConditionEffects, gesetzt per GM-Anwendungskarte),
+ * Muster getDazedPenalty (elixirs.js). Der Malus ist fixes −1 (RAW),
+ * handgesetzte Symbole ohne Condition finden nichts. Das Szenenende
+ * verfolgt das System nicht — die SL entfernt die Condition manuell
+ * (dokumentierte Begrenzung, Hinweis auf der Anfalls-Karte).
+ */
+export function getEpilepsyPenalty(actor) {
+  return actor?.hasCondition?.('epilepsy') ? 1 : 0;
 }

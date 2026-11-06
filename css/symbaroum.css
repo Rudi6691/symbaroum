@@ -7905,29 +7905,29 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   color: var(--m-input-ink);
 }
 
-/* (Testpunkt 29) Bonus/Malus reine Anzeige im Bonus-Tab (klassisch):
-   hervorgehobener Wert, keine Interaktion. */
-.symbaroum.sheet.item .bonus-value-display {
-  margin: 0.3rem 0 0.5rem 0;
-}
-
-.symbaroum.sheet.item .bonus-value-display .bonus-value-display-value {
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-/* (Testpunkt 29) Bonus/Malus reine Anzeige im Bonus-Tab (modern). */
-.symbaroum.sheet.item .modern-root .m-bonusvalue-display {
+/* S2.1-37 (Rudolfs Anforderungskorrektur, umgesetzt mit S3, 07.11.2026):
+   Die Bonus/Malus-Anzeige ist aus dem Bonus-Tab in den TRADITIONEN-Tab
+   gewandert (ersetzt die bisherigen Testpunkt-29-Blöcke oben, sie sind
+   ENTFERNT — keine toten Regeln). Klassisch: Optik der berechneten Werte
+   am Waffenkopf (.computedvalues mit wrapper-column + disabled-Input,
+   weapon.hbs) — additive Regeln mit sheet-body-Scope, weil der
+   bestehende Block nur den Kopf adressiert. Modern: der m-stat-chip
+   (NSC-Schaden-Muster, gilt im ganzen modernen Root) bekommt nur einen
+   Außenstand im Tab. */
+.symbaroum.sheet.item .sheet-body .computedvalues {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin: 0 0 0.6rem 0;
+  flex-direction: row;
+  flex-basis: 100%;
+  align-items: center;
+  margin: 0 0 0.4rem 0;
 }
 
-.symbaroum.sheet.item .modern-root .m-bonusvalue-display .m-bonusvalue-display-value {
-  font-weight: bold;
-  font-size: 1rem;
-  color: var(--m-ink);
+.symbaroum.sheet.item .sheet-body .computedvalues input {
+  height: 30px;
+}
+
+.symbaroum.sheet.item .modern-root .tab .m-stat-chip {
+  margin: 0 0 0.6rem 0;
 }
 
 .symbaroum.sheet.item .modern-root.modern-locked input,

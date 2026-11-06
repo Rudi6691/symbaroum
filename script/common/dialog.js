@@ -5,7 +5,10 @@ import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.j
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
 // Eigenschafts-Würfeldialog (Typ B + B/G „Zweite Chance“ mit Radio-
 // Exklusivität) — Kanonik und Helfer in boon.js
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive } from './boon.js';
+// S3 (07.11.2026): getDeathTestFavour sperrt das Gunst-Radio des
+// Todesprobe-Dialogs bei Zäh/Kränklich (Zwangswert), getEpilepsyPenalty
+// vorbelegt den Modifikator in der Anfalls-Erschöpfungsphase (−1).
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty } from './boon.js';
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
@@ -25,11 +28,20 @@ export async function prepareRollDeathTest(actor, showDialogue) {
   }
   const did = `${actor.id}${foundry.utils.randomID(20)}`; // dialogue ID - ensured unique IDs in form
   let attri_defaults = getRollDefaults("deathtest",false, false);
-  const dialoghtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/dialog-deathtest.hbs', {  
+  /* S3 (Rudolfs Festlegungen 1–3, 07.11.2026): Bei Zäh (Gunst erzwungen),
+     Kränklich (Missgunst erzwungen) oder beiden (neutral, ein Würfel)
+     wird das Gunst-Radio GESPERRT und im Template als reine Label-Zeile
+     angezeigt (bewusst KEIN disabled-Input — die Dimm-Falle aus der
+     S2.1-Lernweise); der Submit läuft dann auf dem Zwangswert.
+     rollDeathTest erzwingt dieselbe Logik zusätzlich vor dem Wurf, damit
+     auch der Quick-Pfad (Shift-Klick) und Makros die Zwangsgunst erhalten. */
+  const deathMod = getDeathTestFavour(actor);
+  const dialoghtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/dialog-deathtest.hbs', {
     "did":did,
     "choices": { "0": "DIALOG.FAVOUR_NORMAL", "-1":"DIALOG.FAVOUR_DISFAVOUR", "1":"DIALOG.FAVOUR_FAVOUR"},
     "roll_defaults":attri_defaults,
     "groupName" : "favour",
+    "deathMod": deathMod,
   });
   let dialog = symbDialog({
     title: "Death Test",
@@ -39,10 +51,14 @@ export async function prepareRollDeathTest(actor, showDialogue) {
         icon: '<i class="fas fa-check"></i>',
         label: game.i18n.localize('BUTTON.ROLL'),
         callback: async (html) => {
-					let favours = html[0].querySelectorAll("input[name='favour']");
-					let fvalue = 0;
-					for (let f of favours) {
-						if (f.checked) fvalue = f.value;
+					/* S3: Zwangsgunst bei locked — das Radio ist im Template
+					   nicht vorhanden, der Wert kommt aus dem Segen/Last. */
+					let fvalue = deathMod.locked ? String(deathMod.favour) : 0;
+					if( !deathMod.locked ) {
+						let favours = html[0].querySelectorAll("input[name='favour']");
+						for (let f of favours) {
+							if (f.checked) fvalue = f.value;
+						}
 					}
 					attri_defaults.selectedFavour = '' + fvalue;
 					const favour = fvalue;
@@ -107,6 +123,18 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   const elixirDazedPenalty = getDazedPenalty(actor);
   if(elixirDazedPenalty > 0) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.format('ELIXIR.DAZED_AUTOPARAM', { penalty: elixirDazedPenalty }) + ', ';
+  }
+  // S3 (Last Epileptisch, Phase 2 — Rudolfs Freigabe 07.11.2026):
+  // Nach einem Anfall erschöpft der Charakter mit −1 auf alle
+  // Erfolgsproben bis zum Szenenende (Condition „epilepsy“, Muster
+  // Benommen-Malus oben): autoParams-Zeile + Modifikator-VORBELEGUNG
+  // in dieselbe Kopie-Logik (keine In-place-Mutation der gecachten
+  // Defaults, Summe aus Benommen + Epilepsie). Waffenwürfe laufen
+  // zusätzlich über modifierDialog (item.js); Freiform-Makro-Würfe
+  // bleiben draussen (gleiche dokumentierte Begrenzung wie dort).
+  const epilepsyPenalty = getEpilepsyPenalty(actor);
+  if(epilepsyPenalty > 0) {
+    ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.format('EPILEPSY.AUTOPARAM', { penalty: epilepsyPenalty }) + ', ';
   }
   let askImpeding = actor.system.combat.impeding !== 0 && weapon === null && armor === null;
   let weaponModifiers = null;
@@ -378,7 +406,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
     "groupName":"favour",
     "attri_mods" : attri_mods,
-    "roll_defaults": elixirDazedPenalty > 0 ? { ...attri_defaults, modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty } : attri_defaults,
+    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 ? { ...attri_defaults, modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty - epilepsyPenalty } : attri_defaults,
     "askAttackNb": askAttackNb,
     "attNbRadio": "attNbRadio",
     "targetAttribute_selection":targetAttribute_selection,

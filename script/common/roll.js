@@ -26,7 +26,7 @@ export function getRollResultLevelKey(rollResult, resistRoll = false) {
   return 'CHAT.FAILED';
 }
 
-import { formatModifierChain } from './boon.js';
+import { formatModifierChain, getDeathTestFavour, hasEpilepsy } from './boon.js';
 
 export async function rollAttribute(actor, actingAttributeName, targetActor, targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, chainData = null) {
   const api = game.symbaroum.api;
@@ -137,7 +137,8 @@ export async function rollAttribute(actor, actingAttributeName, targetActor, tar
     weapon: weaponResults,
     critSuccess: rollResults.critSuccess,
     critFail: rollResults.critFail,
-    resultLevelLabel: resultLevelLabel
+    resultLevelLabel: resultLevelLabel,
+    rigged: rollResults.rigged ?? 0
   };
   const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/roll.hbs', rollData);
 
@@ -183,6 +184,18 @@ export function createRollData(rolls)
 }
 
 export async function rollDeathTest(actor, withFavour, modifier) {
+  /* S3 (Rudolfs Festlegungen 1–3, 07.11.): Zäh erzwingt Gunst,
+     Kränklich Missgunst, beide zusammen netto neutral (ein Würfel).
+     Die Zwangswert-Prüfung läuft hier — vor dem Wurf — damit AUCH der
+     Quick-Pfad (Shift-Klick ohne Dialog, dialog.js) und jede Makro-
+     Nutzung die Zwangsgunst erhält; der Dialog zeigt das Radio nur
+     gesperrt an. Ohne Zäh/Kränklich bleibt alles beim übergebenen
+     withFavour (Dialog-Auswahl). Die Todeskarte bekommt eine Etikett-
+     Zeile (deathModLabel), wenn ein Segen/Last am Werk war. */
+  const deathMod = getDeathTestFavour(actor);
+  if (deathMod.locked) {
+    withFavour = String(deathMod.favour);
+  }
   let rolls = [];
   let death = await new Roll('1d20', {}).evaluate();
   let favour = 0;
@@ -221,7 +234,8 @@ export async function rollDeathTest(actor, withFavour, modifier) {
     isCriticalFailure: death.total === 20 || nbrOfFailedDeathRoll >= 3,
     hasSucceed: hasSucceed,
     nbrOfFailure: nbrOfFailedDeathRoll,
-    diceBreakdown: diceBreakdown
+    diceBreakdown: diceBreakdown,
+    deathModLabel: deathMod.locked ? game.i18n.localize(deathMod.labelKey) : null
   };
   const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/death.hbs', rollData);
   let chatData = {
@@ -395,7 +409,41 @@ async function doBaseRoll(actor, actingAttributeName, targetActor, targetAttribu
     resistRoll
   );
 
-  return({
+  /* S3 „Todesprobe & Reaktion" (Rudolfs Freigabe 07.11.2026): Der
+     gemeinsame Wurf-Kern bekommt ZWEI additive Nachschalte-Schritte,
+     bevor das Ergebnis an die Konsumenten geht:
+
+     (a) Test-Rig /rig (Rudolfs Erweiterungswunsch: das Alchemie-Rig
+         muss auch Epilepsie-Tests und Attributs-/Angriffswürfe
+         erzwingen können). Der Rig-Zustand liegt in
+         game.symbaroum.riggedDie (Bridge statt roll.js→brewing.js-
+         Import, um den ES-Modul-Zyklus nicht zu erweitern — brewing.js
+         importiert roll.js bereits) und verzehrt sich hier am NÄCHSTEN
+         Basiswurf des Clients. Damit läuft der Abgriff für ALLE
+         Konsumenten von baseRoll/doBaseRoll: Attributsdialog,
+         Waffen-/Zauberwürfe (modifierDialog), EC-Dialog, Resist- und
+         Verteidigungswürfe UND die Alchemie-Proben (alchemyProbe in
+         brewing.js ruft baseRoll — ihre eigene Konsumptionsstelle ist
+         dorthin entsorgt, Duplikat entfernt). Konsistenz-Muster
+         applyRigToProbe: Auswertung (Erfolg/KritErf/Patzer,
+         Perspektive bei resistRoll) folgt dem erzwungenen Wert, der
+         ECHTE Wurf bleibt in dicesResult/rolls/toolTip/diceBreakdown
+         erhalten (Transparenz), probe.rigged schaltet die
+         „Test-Rig"-Zeile der Karten (roll.hbs, ability.hbs über
+         attackResult/standardPowerResult, Alchemie-Karten). Die
+         Todesprobe (rollDeathTest) würfelt eigenständig OHNE
+         doBaseRoll und bleibt bewusst rig- und trigger-frei.
+
+     (b) Epilepsie-Trigger (Last Epileptisch, Referenz 'epileptic'):
+         Eine natürliche 20 auf Attributs- UND Angriffsproben des
+         Würfelnden — inklusive Verteidigungs-/Resistenzwürfe, die
+         über dieselbe Pipeline laufen (bei resistRoll ist der erste
+         Parameter der KÖRPERLICHE Würfelnde) — löst den Anfall aus
+         (triggerEpilepticFit). Auch ein per Rig erzwungenes 20
+         zündet (der Typ-Anwendungsfall von /rig für Epilepsie-
+         Tests). Der 20-Check läuft NACH der Rig-Anwendung auf dem
+         finalen diceResult. */
+  let result = {
     actingAttributeValue: actingAttributeValue,
     actingAttributeLabel: actingAttributeLabel,
     resistAttributeValue: resistAttributeValue,
@@ -415,7 +463,108 @@ async function doBaseRoll(actor, actingAttributeName, targetActor, targetAttribu
     critSuccess: critGood,
     critFail: critBad,
     resultLevelKey: resultLevelKey
+  };
+  const forced = Number(game.symbaroum?.riggedDie) || 0;
+  if (forced > 0) {
+    game.symbaroum.riggedDie = 0;
+    applyRigToBaseRoll(result, forced, resistRoll);
+  }
+  if (result.diceResult === 20 && hasEpilepsy(actor)) {
+    await triggerEpilepticFit(actor);
+  }
+  return result;
+}
+
+/* S3: Rig-Anwendung auf einen doBaseRoll-Ergebnis-Satz — Neufassung
+ * des Alchemie-Musters applyRigToProbe (brewing.js, dort entfernt)
+ * mit der resistRoll-Perspektiv-Logik des Originals: Bei einem
+ * Resistenzwurf würfelt der VERTEIDIGER physisch — dort ist die 20
+ * der gute (kritische) und die 1 der schlechte Wurf, kritische
+ * Ergebnisse kehren sich um. critsOn = optionale Kritische
+ * Ergebnisse (optionalCrit) oder seltene (optionalRareCrit, mit
+ * erzwungener Bestätigung des Zwitterwurfs — secondRollResult =
+ * forced); die Erfolgsschwelle diceTarget ist in doBaseRoll bereits
+ * auf [1,19] geklemmt, wenn eine der Kanten-Optionen aktiv ist,
+ * deshalb genügt der schlichte Vergleich. trueActorSucceeded kehrt
+ * bei resistRoll die Perspektive um (Muster doBaseRoll). dicesResult/
+ * rolls/toolTip/diceBreakdown bleiben ECHT (Transparenz im Tooltip),
+ * result.rigged schaltet die Karten-Hinweiszeile. */
+function applyRigToBaseRoll(result, forced, resistRoll) {
+  const critsOn =
+    game.settings.get('symbaroum', 'optionalCrit') || game.settings.get('symbaroum', 'optionalRareCrit');
+  result.diceResult = forced;
+  result.hasSucceed = forced <= result.diceTarget;
+  result.critSuccess = false;
+  result.critFail = false;
+  let secondRollResult;
+  if (critsOn && (forced === 1 || forced === 20)) {
+    const critBad = (forced === 20 && !resistRoll) || (forced === 1 && resistRoll);
+    result.critFail = critBad;
+    result.critSuccess = !critBad;
+    secondRollResult = forced;
+  }
+  result.trueActorSucceeded = result.hasSucceed ? !resistRoll : resistRoll;
+  result.resultLevelKey = getRollResultLevelKey(result, resistRoll);
+  result.rollResult = game.symbaroum.api.formatRollResult({
+    favour: result.favour,
+    diceResult: forced,
+    dicesResult: result.dicesResult,
+    secondRollResult: secondRollResult,
+    resultLevelKey: result.resultLevelKey,
   });
+  result.rigged = forced;
+  return result;
+}
+
+/* S3 (Last Epileptisch, Rudolfs Festlegung 4 — RAW-Zweitphasen-
+ * Modell, Vault-Notiz Epileptisch): Die natürliche 20 löst einen
+ * Anfall aus — Phase 1 „Gelähmt" für 1W6 Runden, Phase 2 danach −1
+ * auf alle Erfolgsproben bis zum Szenenende. Ablauf:
+ *  1. Öffentliche Anfalls-Karte (epilepsy-fit.hbs) mit dem 1W6-
+ *     Rundenwurf — jeder am Tisch sieht WAS passiert ist (die 20
+ *     steht ohnehin auf der Probe-Karte daneben).
+ *  2. GM-Anwendungskarte (createModifyTokenChatButton, Muster
+ *     Musikant „Beruhigt"/Fliehende): Klick wendet an —
+ *     (a) Condition „paralysis" mit turnEnd:true + effectDuration:
+ *         1W6-Ergebnis + conditionData {} → die A34-Zugende-Engine
+ *         (hooks.js updateCombat) tickt die Runden im Kampf und
+ *         entfernt automatisch; conditionData {} + turnEnd lässt die
+ *         v1.3-Logik den skipFirstTurnEnd-Marker setzen, wenn die
+ *         Anwendung IN DEN EIGENEN Zug fällt (Anfall im eigenen Zug
+ *         verliert keine Runde).
+ *     (b) Condition „epilepsy" (Erschöpfung −1) OHNE turnEnd/
+ *         conditionData → permanent, Muster getEpilepsyPenalty liest
+ *         sie für die Dialog-Vorbelegung. Das Szenenende verfolgt
+ *         das System nicht — manueller Reset durch die SL
+ *         (Hinweiszeile auf der Karte, dokumentierte Begrenzung).
+ * Außerhalb des Kampfes tickt die A34-Engine nicht: Auch „paralysis"
+ * bleibt dann stehen und die SL entfernt beide Symbole manuell —
+ * identische Handhabung wie bei den Zugende-Elixieren. */
+async function triggerEpilepticFit(actor) {
+  const fitRoll = await new Roll('1d6', {}).evaluate();
+  const rounds = fitRoll.total;
+  const diceBreakdown = formatDice(fitRoll.terms, '+');
+  const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/epilepsy-fit.hbs', {
+    name: actor.name,
+    img: actor.img,
+    rounds: rounds,
+    diceBreakdown: diceBreakdown,
+  });
+  ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({
+      actor: actor.id,
+    }),
+    rolls: [createRollData([fitRoll])],
+    rollMode: game.settings.get('core', 'messageMode'),
+    content: html,
+  });
+  const paralysisEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'paralysis'));
+  const exhaustionEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'epilepsy'));
+  await createModifyTokenChatButton([
+    { actorId: actor.id, addEffect: paralysisEffect, turnEnd: true, effectDuration: rounds, conditionData: {} },
+    { actorId: actor.id, addEffect: exhaustionEffect },
+  ]);
 }
 
 /*chatMessage that contain a button for the GM to apply status icons or damage to a token.
