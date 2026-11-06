@@ -11,6 +11,11 @@
  *     width: <number>  (default 400, matching the V1 Dialog)
  *     resizable: <boolean> (Kosmetik v1.1; default true, opt-out via
  *               `resizable: false`)
+ *     singleKey: <string> (Segen & Lasten v1.2, Rudolfs Testrunde 06.11.:
+ *               Single-Instance-Schlüssel — ist zu diesem Schlüssel bereits
+ *               ein Dialog offen, wird KEIN zweiter geöffnet, sondern der
+ *               bestehende in den Vordergrund gebracht; Rückgabe ist die
+ *               bestehende Instanz)
  *   }
  *
  * and creates, renders and returns a foundry.applications.api.DialogV2 instance.
@@ -49,8 +54,33 @@
  * The V1 `close` callback option is intentionally not supported (all previous uses
  * in this system were empty no-ops).
  */
+/* Segen & Lasten v1.2 (Rudolfs Testrunde 06.11., Rückmeldung 3): Registry
+ * der offenen Single-Instance-Dialoge (singleKey → DialogV2-Instanz). Ein
+ * Stale-Eintrag (Dialog inzwischen per ESC/Fensterkreuz geschlossen, ohne
+ * dass das close-Event den Eintrag räumen konnte) ist ungefährlich: beim
+ * nächsten Öffnen prüft der Guard existing.rendered und fällt dann auf
+ * ein frisches Öffnen zurück. */
+const symbSingleInstanceDialogs = new Map();
+
 export function symbDialog(options = {}) {
-  const { title, content, buttons = {}, default: defaultAction, width, resizable = true, onRender } = options;
+  const { title, content, buttons = {}, default: defaultAction, width, resizable = true, onRender, singleKey } = options;
+
+  // Segen & Lasten v1.2 (Rudolfs Testrunde, Rückmeldung 3): bereits
+  // geöffneter Dialog mit demselben Schlüssel wird NICHT ein zweites Mal
+  // geöffnet, sondern in den Vordergrund gebracht (Rudolfs Entscheidung
+  // im Freigabe-Dialog; bringToFront ist seit Foundry V12 auf
+  // ApplicationV2 verfügbar, render(true) ist der Fallback für künftige
+  // Core-Änderungen — re-rendert sichtbar identisch).
+  if (singleKey) {
+    const existing = symbSingleInstanceDialogs.get(singleKey);
+    if (existing && existing.rendered) {
+      if (typeof existing.bringToFront === "function") existing.bringToFront();
+      else existing.render(true);
+      return existing;
+    }
+    symbSingleInstanceDialogs.delete(singleKey);
+  }
+
   let dialog = null;
 
   const v2Buttons = Object.entries(buttons).map(([action, button]) => ({
@@ -113,6 +143,22 @@ export function symbDialog(options = {}) {
   config.position = { width: Math.round(baseWidth * _coreFontScale()) };
 
   dialog = new foundry.applications.api.DialogV2(config);
+  // Segen & Lasten v1.2 (Rudolfs Testrunde, Rückmeldung 3): Single-Instance-
+  // Dialoge registrieren und beim Schließen wieder räumen (der Guard auf
+  // existing.rendered oben fängt verpasste close-Events ab).
+  if (singleKey) {
+    symbSingleInstanceDialogs.set(singleKey, dialog);
+    try {
+      dialog.addEventListener("close", () => {
+        if (symbSingleInstanceDialogs.get(singleKey) === dialog) {
+          symbSingleInstanceDialogs.delete(singleKey);
+        }
+      });
+    } catch (err) {
+      // close-Listener nicht verfügbar: der rendered-Guard übernimmt die
+      // Räumung beim nächsten Öffnen
+    }
+  }
   // Loot v1.3 (Testrunde 2, Punkte 7/14 - LERNWEIS, am V14-Quellcode
   // c975e22 verifiziert): DialogV2 uebernimmt von einem uebergebenen
   // Content-Element NUR den HTML-String (dialog.mjs, _initializeApplication

@@ -37,14 +37,21 @@
  *    Bestialisch, Mystisches Mal [Heimlichkeit←Aufmerksamkeit]) nutzen
  *    getTarget + targetResistAttribute, targetMandatory false — ohne
  *    markiertes Ziel läuft eine einfache Probe (Rudolfs Festlegung
- *    06.11.: auch ohne Ziel würfeln; mit Ziel wird ausgewertet und die
- *    Karte zeigt „⬅ {Ziel-Eigenschaft}", v1.1 zusätzlich der Ziel-
- *    Hinweis via addBoonTargetHint aus dem modifierDialog-Kopf).
+ *    06.11.: auch ohne Ziel würfeln). v1.1 hatte das Gegenteil mit einer
+ *    Ziel-Hinweiszeile (addBoonTargetHint) überdeckt; v1.2 behebt die
+ *    eigentliche Ursache: notResisted false (siehe Setup-Builder) — mit
+ *    Ziel wird die Zieleigenschaft auf der Karte angezeigt wie bei
+ *    Kräften.
  *  - v1.1 (Rudolfs Testrunde 06.11.): Wahl-Dialoge nach Alchemie-Menü-
  *    Vorlage (boonChoiceDialog, Kopfzeile „{Segen/Last} - Was willst du
  *    tun?"); Buschwissen-Orientierungstaste, Musikant Beruhigen/
  *    Inspirieren mit Bestie-Gate, Bestialisch Verbergen/Einschüchtern,
  *    Unternehmens-Ertrag sofort aufs Geld (system.currency).
+ *  - v1.2 (Rudolfs Testrunde v1.1, 06.11.): (P6/b) Opposed-Anzeige wie
+ *    bei Kräften statt der v1.1-Hinweiszeile; (a) Hinweiszeile über den
+ *    Tasten entfällt; (c) Wahl-Dialoge Single-Instance (erneuter Klick
+ *    bringt den offenen Dialog in den Vordergrund, singleKey an
+ *    symbDialog).
  */
 import { modifierDialog, standardPowerResult } from './item.js';
 import { symbDialog } from './symbDialog.js';
@@ -60,21 +67,29 @@ const L = (key) => game.i18n.localize(key);
 /**
  * Segen & Lasten v1.1 (Rudolfs Testrunde, Dialog-Design): Alle Wahl-
  * Dialoge der Segen/Lasten folgen EXAKT dem Alchemie-Menü-Muster —
- * Kopfzeile „{Segen/Last} - Was willst du tun?", Hinweiszeile in
- * .finalTxt (Container-Klasse symbaroum modern-roll-dialog|dialog je
- * nach Nutzer-Design), Marker-Klassen symb-roll-dialog/symb-roll-user
- * (Design-Wechsel schließt offene Dialoge, closeOpenRollDialogs) und
- * die Footer-Buttons untereinander in gleicher Breite (onRender mit
- * width 100% !important — die System-CSS 7.1.8 schlägt jedes einfache
- * Inline-Style, Lernweis openAlchemyMenu).
+ * Kopfzeile „{Segen/Last} - Was willst du tun?", Container-Klasse
+ * symbaroum modern-roll-dialog|dialog je nach Nutzer-Design, Marker-
+ * Klassen symb-roll-dialog/symb-roll-user (Design-Wechsel schließt
+ * offene Dialoge, closeOpenRollDialogs) und die Footer-Buttons unter-
+ * einander in gleicher Breite (onRender mit width 100% !important —
+ * die System-CSS 7.1.8 schlägt jedes einfache Inline-Style, Lernweis
+ * openAlchemyMenu).
+ * v1.2 (Rudolfs Testrunde v1.1, Rückmeldung a): die Hinweiszeile über
+ * den Tasten entfällt — der Titel trägt die Frage allein.
+ * v1.2 (Rudolfs Testrunde v1.1, Rückmeldung c): Single-Instance — ist
+ * der Wahl-Dialog zu diesem Segen/dieser Last beim selben Aktor bereits
+ * offen, bringt der erneute Klick ihn in den Vordergrund statt einen
+ * zweiten zu öffnen (singleKey an symbDialog, Rudolfs Entscheidung im
+ * Freigabe-Dialog).
  */
-function boonChoiceDialog(functionStuff, hintKey, buttons, defaultAction) {
+function boonChoiceDialog(functionStuff, buttons, defaultAction) {
   const modern = isModernDialogActive();
   symbDialog({
     title: game.i18n.format(L('BOON_ROLL.CHOICE_TITLE'), { name: functionStuff.abilityName }),
-    content: `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}"><div class="finalTxt">${L(hintKey)}</div></div>`,
+    content: `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}"></div>`,
     classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
     width: 360,
+    singleKey: `boonChoice:${functionStuff.actor?.id ?? ''}:${functionStuff.ability?.reference ?? functionStuff.abilityName ?? ''}`,
     onRender: (element) => {
       const btns = element?.querySelectorAll?.('footer button');
       if (!btns || btns.length === 0) return;
@@ -118,7 +133,6 @@ function boonCancelButton() {
 function bushcraftPreDialog(functionStuff) {
   boonChoiceDialog(
     functionStuff,
-    'BOON_ROLL.BUSHCRAFT_MODE_TITLE',
     {
       orient: {
         icon: '<i class="fas fa-compass"></i>',
@@ -165,7 +179,6 @@ function bushcraftPreDialog(functionStuff) {
 function contactsPreDialog(functionStuff) {
   boonChoiceDialog(
     functionStuff,
-    'BOON_ROLL.CONTACTS_MODE_TITLE',
     {
       remember: {
         icon: '<i class="fas fa-user-friends"></i>',
@@ -205,7 +218,6 @@ function contactsPreDialog(functionStuff) {
 function enterprisePreDialog(functionStuff) {
   boonChoiceDialog(
     functionStuff,
-    'BOON_ROLL.ENTERPRISE_MODE_TITLE',
     {
       craft: {
         icon: '<i class="fas fa-hammer"></i>',
@@ -239,7 +251,6 @@ function enterprisePreDialog(functionStuff) {
 function professionPreDialog(functionStuff) {
   boonChoiceDialog(
     functionStuff,
-    'BOON_ROLL.PROFESSION_MODE_TITLE',
     {
       cunning: {
         icon: '<i class="fas fa-clipboard-list"></i>',
@@ -280,7 +291,6 @@ function professionPreDialog(functionStuff) {
 function musicianPreDialog(functionStuff) {
   boonChoiceDialog(
     functionStuff,
-    'BOON_ROLL.MUSICIAN_MODE_TITLE',
     {
       calm: {
         icon: '<i class="fas fa-dove"></i>',
@@ -330,7 +340,6 @@ function musicianPreDialog(functionStuff) {
 function bestialPreDialog(functionStuff) {
   boonChoiceDialog(
     functionStuff,
-    'BOON_ROLL.BESTIAL_MODE_TITLE',
     {
       hide: {
         icon: '<i class="fas fa-mask"></i>',
@@ -548,29 +557,15 @@ export function isBoonRollScripted(reference) {
   return Boolean(reference && Object.prototype.hasOwnProperty.call(BOON_ROLLS, reference));
 }
 
-/**
- * Segen & Lasten v1.1 (Rudolfs Testrunde, Opposed-Befund): Ziel-Hinweis-
- * zeile für die Opposed-Segene/-Lasten (Musikant, Betrügen, Bestialisch,
- * Mystisches Mal). Läuft EINMAL pro Wurf aus dem Kopf von modifierDialog
- * (item.js) und wirkt nur mit angewähltem Ziel-Token: die Zieleigenschaft
- * wird dann auf der Ergebniskarte ausgewertet und angezeigt — der Hinweis
- * („widersteht mit {Eigenschaft}") wandert über targetData.autoParams
- * sowohl in die autoParams-Zeile des Würfeldialogs als auch an den
- * targetText der Chat-Karte. Ohne Ziel-Token bleibt alles wie bisher
- * (einfache Probe, Rudolfs Festlegung: Würfeln ohne Ziel bleibt möglich).
- */
-export function addBoonTargetHint(functionStuff) {
-  if (!functionStuff || !functionStuff.targetData?.hasTarget || functionStuff.boonTargetHintDone) return;
-  const resistName = functionStuff.targetData.resistAttributeName ?? functionStuff.targetResistAttribute;
-  if (!resistName) return;
-  functionStuff.boonTargetHintDone = true;
-  try {
-    const label = game.symbaroum.api.getAttributeLabel(functionStuff.targetData.actor, resistName);
-    functionStuff.targetData.autoParams += game.i18n.format(L('BOON_ROLL.TARGET_HINT'), { attribute: label }) + ', ';
-  } catch (err) {
-    game.symbaroum.log('v1.1: boon target hint unavailable');
-  }
-}
+/* v1.2 (Rudolfs Testrunde v1.1, Rückmeldung b): Die v1.1-Ziel-Hinweis-
+ * zeile („widersteht mit {Eigenschaft}", addBoonTargetHint aus dem
+ * modifierDialog-Kopf von item.js) ist ENTFERNT — stattdessen zeigen die
+ * Opposed-Segene/-Lasten die Zieleigenschaft über den regulären
+ * Kräfte-Pfad auf der Karte an („{Attr} : ({Wert}) ⬅ {Ziel-Attr} :
+ * ({Wert})", formatRollString): Ursache des fehlenden Opposed war nie
+ * die Anzeige, sondern notResisted im modifierDialog-Callback (siehe
+ * Kommentar oben im Setup-Builder); der Ziel-Hinweis-Key aus v1.1 ist
+ * mit der Funktion entfallen. */
 
 /* ---------------------------------------------------------------- */
 /*  Setup-Builder (Delegation aus item.js getBoonsConfig/            */
@@ -623,6 +618,19 @@ export function getBoonRollConfig(item) {
     base.getTarget = true;
     base.targetResistAttribute = spec.targetResistAttribute;
     base.targetMandatory = false;
+    // v1.2 (Rudolfs Testrunde v1.1, P6 + Rückmeldung b): Der modifier-
+    // Dialog-Callback leitet notResisted aus casting/maintain ab — und
+    // Boon-Setups stehen auf casting: CASTING + maintain: MAINTAIN_NOT,
+    // wodurch notResisted TRUE wurde und buildRolls in den Solo-Zweig
+    // lief: Die Zieleigenschaft wurde nie ausgewertet, die Karte zeigte
+    // keine „⬅"-Zeile. notResisted: false erzwingt den Opposed-Zweig —
+    // mit Ziel-Token wird gegen targetResistAttribute geprobt und die
+    // Karte zeigt „{Anwender-Attr} : ({Wert}) ⬅ {Ziel-Attr} : ({Wert})"
+    // exakt wie bei Kräften (inkl. Resist-Wurf-Button des Ziel-Spielers);
+    // ohne Ziel-Token bleibt targetMandatory false → einfache Probe
+    // (Rudolfs Festlegung 06.11.). Musikant-Inspirieren setzt sein
+    // targetData selbst auf hasTarget:false und bleibt Solo.
+    base.notResisted = false;
   }
   if (spec.favour) {
     // fest verdrahtete Gunst (Dunkles Geheimnis: Wurf mit zweiter Chance,

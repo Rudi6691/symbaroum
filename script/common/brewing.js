@@ -1223,12 +1223,19 @@ export async function openAlchemyMenu(abilityItem) {
 	const actor = abilityItem?.actor ?? abilityItem?.parent;
 	if (!abilityItem || abilityItem.type !== 'ability' || abilityItem.system?.reference !== 'alchemy' || !actor) return;
 	const modern = isModernDialogActive();
-	const html = `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}"><div class="finalTxt">${L('ALCHEMY_MENU.HINT')}</div></div>`;
+	// Segen & Lasten v1.2 (Rudolfs Testrunde v1.1, Rückmeldung a): die
+	// Hinweiszeile über den Tasten entfällt (der Titel trägt die Frage
+	// allein); (Rückmeldung c) Single-Instance — erneuter Klick aufs
+	// Alchemie-Icon bringt den bereits offenen Menü-Dialog in den
+	// Vordergrund statt einen zweiten zu öffnen (Rudolfs Entscheidung
+	// im Freigabe-Dialog, singleKey an symbDialog).
+	const html = `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}"></div>`;
 	symbDialog({
 		title: `${L('ALCHEMY_MENU.DIALOG_TITLE')} — ${actor.name}`,
 		content: html,
 		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
 		width: 360,
+		singleKey: `alchemyMenu:${actor.id}`,
 		/* v1.1 (P2c): Footer-Buttons untereinander, gleiche Breite. Der
 		 * Menü-Dialog hat KEINE Buttons im Content (nur die Hinweis-
 		 * zeile) — im Fensterrahmen liegen genau die vier Dialog-
