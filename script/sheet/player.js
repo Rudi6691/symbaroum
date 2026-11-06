@@ -145,7 +145,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		actions: {
 			deathRoll: async function (event) {
 				event.preventDefault();
-				await prepareRollDeathTest(this.actor, event.shiftKey);
+				// P26: Shift-Klick-Quick-Pfad entfernt (Rudolfs Entscheidung
+				// nach der S3-Testrunde) - der Todeswurf öffnet immer den Dialog.
+				await prepareRollDeathTest(this.actor);
 			},
 			recover: async function (event) {
 				event.preventDefault();

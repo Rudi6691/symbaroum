@@ -1,4 +1,6 @@
 import { symbDialog } from './symbDialog.js';
+// P26 (Dialog-Audit): Modern-Chrome für den Tabellenwurf-Dialog
+import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 // A38 Währungssystem: migrierte Akteure zeigen den neuen Gesamtbestand
 import { formatCurrency } from './currency.js';
 
@@ -213,6 +215,10 @@ ${monster ? getTactics(actor) : ""}
                     tablename: table.name
                 }),
                 content: dialog_content,
+                // P26 (Dialog-Audit): der Tabellenwurf ist ein Würfeldialog -
+                // Modern-Chrome + Marker-Klassen wie bei den anderen Wurf-
+                // dialogen (closeOpenRollDialogs schließt ihn beim Designwechsel)
+                classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(isModernDialogActive() ? modernDialogClasses('modern-roll-dialog') : [])],
                 buttons:
                 {
                     Ok: {

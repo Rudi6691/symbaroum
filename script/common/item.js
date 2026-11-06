@@ -316,6 +316,8 @@ export class SymbaroumItem extends Item {
     symbDialog({
       title: game.i18n.localize("ABILITYREF.DIALOG_TITLE"),
       content: htmlTemplate,
+      // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern
+      classes: isModernDialogActive() ? modernDialogClasses('modern-abilityref-dialog') : [],
       buttons: {
         validate: {
           label: "Validate",
@@ -3445,6 +3447,11 @@ export async function confirmPowerDialog(functionStuff) {
   symbDialog({
     title: functionStuff.abilityName,
     content: `<p>${question}</p>`,
+    // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern. Das ist der
+    // Auslöser des Audits (S2-Testpunkt 26 „Schutzrunen"): dieser Bestätigungs-
+    // Dialog für ALLE CASTING_NOT-Kräfte (Schutzrunen, Revenantstrike, ...)
+    // war immer klassisch, auch mit modernen Blättern.
+    classes: isModernDialogActive() ? modernDialogClasses('modern-power-confirm-dialog') : [],
     buttons: {
       yes: {
         icon: '<i class="fas fa-check"></i>',
@@ -4382,6 +4389,8 @@ function chainTargetConfirmation(functionStuff, target, damageDice) {
     symbDialog({
       title: functionStuff.abilityName,
       content: `<p>${question}</p>`,
+      // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern
+      classes: isModernDialogActive() ? modernDialogClasses('modern-chain-confirm-dialog') : [],
       buttons: {
         yes: {
           icon: '<i class="fas fa-check"></i>',
@@ -4555,7 +4564,7 @@ function earthshotNextBrockenConfirmation(functionStuff, remaining) {
       title: functionStuff.abilityName,
       // A25 optics: the question renders as the centred dark banner label
       // of the roll dialog (see glyphNextTargetConfirmation)
-      classes: ["chain-confirm"],
+      classes: ["chain-confirm", ...(isModernDialogActive() ? modernDialogClasses('modern-chain-confirm-dialog') : [])],
       content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format("POWER_EARTHSHOT.CHAT_NEXT_BROCKEN", { count: remaining })}</p></div>`,
       buttons: {
         yes: {
@@ -4729,7 +4738,7 @@ function priosStunConfirmation(functionStuff, targetname) {
       // A25 optics: the question renders as the centred dark banner label of
       // the roll dialog (see glyphNextTargetConfirmation); the default is NO -
       // the stun stays the deliberate optional choice of the GRW text
-      classes: ["chain-confirm"],
+      classes: ["chain-confirm", ...(isModernDialogActive() ? modernDialogClasses('modern-chain-confirm-dialog') : [])],
       content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format(game.i18n.localize("POWER_PRIOSBURNINGGLASS.STUN_QUESTION"), { targetname })}</p></div>`,
       buttons: {
         yes: {
@@ -5004,7 +5013,7 @@ function glyphNextTargetConfirmation(functionStuff, questionKey = "POWER_DRAININ
       // A25 (optics): the question renders as the centred dark banner label
       // of the roll dialog (p.lblfavour inside .symbaroum.dialog), the
       // Ja/Nein buttons shrink to ~50% (see .chain-confirm in symbaroum.css)
-      classes: ["chain-confirm"],
+      classes: ["chain-confirm", ...(isModernDialogActive() ? modernDialogClasses('modern-chain-confirm-dialog') : [])],
       content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.localize(questionKey)}</p></div>`,
       buttons: {
         yes: {
@@ -7699,6 +7708,8 @@ async function preDialogBanishingSeal(functionStuff) {
     content: `<p>${game.i18n.localize("POWER_BANISHINGSEAL.DIALOG_TYPE")}</p>
       <select id="creatureCategory" style="width: 100%">${categoryOptions}</select>
       <input type="text" id="creatureSubtype" style="width: 100%" value="${presetSubtype}">`,
+    // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern
+    classes: isModernDialogActive() ? modernDialogClasses('modern-seal-category-dialog') : [],
     buttons: {
       cast: {
         icon: '<i class="fas fa-check"></i>',
@@ -7738,6 +7749,8 @@ async function preDialogLayonHands(functionStuff) {
   symbDialog({
     title: game.i18n.localize("POWER_LABEL.LAY_ON_HANDS"),
     content: layHandsDialogTemplate,
+    // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern
+    classes: isModernDialogActive() ? modernDialogClasses('modern-layonhands-dialog') : [],
     buttons: {
       touch: {
         label: game.i18n.localize("POWER_LAYONHANDS.TOUCH"),

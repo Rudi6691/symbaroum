@@ -8,7 +8,7 @@ import { SymbaroumCommsListener } from './symbcomms.js';
 import { SymbaroumMacros } from './macro.js';
 import { SymbaroumConfig } from './symbaroumConfig.js';
 // A6 Blatt-Überarbeitung: alternative (modernisierte) Blätter + Designeinstellungen
-import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, renderAllActorSheets } from './modernSheetConfig.js';
+import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, renderAllActorSheets, isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
@@ -1304,6 +1304,9 @@ function a29ShowReminderDialog(actor, abilityRef, targetCount) {
 	const dialog = symbDialog({
 		title: game.i18n.localize('A29.REMINDER_TITLE'),
 		content: `<div class="symbaroum dialog"><p>${game.i18n.format('A29.REMINDER_TEXT', { name: abilityName, count: targetCount })}</p></div>`,
+		// P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern (die
+		// Erinnerung ist kein Würfeldialog - bewusst OHNE symb-roll-Marker)
+		classes: isModernDialogActive() ? modernDialogClasses('modern-a29-reminder-dialog') : [],
 		buttons: {
 			yes: {
 				icon: '<i class="fas fa-check"></i>',

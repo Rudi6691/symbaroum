@@ -20,12 +20,10 @@ import { getItemCount } from './resources.js';
 
 let roll_defaults = {};
 
-export async function prepareRollDeathTest(actor, showDialogue) {
-  if( !showDialogue )
-  {
-    await rollDeathTest(actor, "0", 0);
-    return;
-  }
+/* P26 (Rudolfs Entscheidung nach der S3-Testrunde, A5): der Shift-Klick-
+   Quick-Pfad ist ENTFERNT - der Todeswurf öffnet IMMER den Dialog, ein
+   versehentlicher Sofortwurf ohne Dialog ist nicht mehr möglich. */
+export async function prepareRollDeathTest(actor) {
   const did = `${actor.id}${foundry.utils.randomID(20)}`; // dialogue ID - ensured unique IDs in form
   let attri_defaults = getRollDefaults("deathtest",false, false);
   /* S3 (Rudolfs Festlegungen 1–3, 07.11.2026): Bei Zäh (Gunst erzwungen),
@@ -34,7 +32,7 @@ export async function prepareRollDeathTest(actor, showDialogue) {
      angezeigt (bewusst KEIN disabled-Input — die Dimm-Falle aus der
      S2.1-Lernweise); der Submit läuft dann auf dem Zwangswert.
      rollDeathTest erzwingt dieselbe Logik zusätzlich vor dem Wurf, damit
-     auch der Quick-Pfad (Shift-Klick) und Makros die Zwangsgunst erhalten. */
+     auch Makros die Zwangsgunst erhalten. */
   const deathMod = getDeathTestFavour(actor);
   const dialoghtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/dialog-deathtest.hbs', {
     "did":did,
@@ -46,6 +44,12 @@ export async function prepareRollDeathTest(actor, showDialogue) {
   let dialog = symbDialog({
     title: "Death Test",
     content: dialoghtml,
+    // P26 (Dialog-Audit, geboren aus S2-Testpunkt 26): modernes Fenster-Chrome, wenn der
+    // Nutzer die modernen Blätter nutzt - der Todesprobe-Dialog war der letzte
+    // große Wurfdialog ohne Modern-Styling (vorbestehend). Marker-Klassen
+    // 'symb-roll-dialog' + Nutzer-ID wie bei allen Würfeldialogen, damit
+    // closeOpenRollDialogs beim Designwechsel auch dieses Fenster schließt.
+    classes: [`symb-roll-dialog`, `symb-roll-user-${game.user.id}`, ...(isModernDialogActive() ? modernDialogClasses('modern-roll-dialog') : [])],
     buttons: {
       roll: {
         icon: '<i class="fas fa-check"></i>',
