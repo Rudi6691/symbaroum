@@ -738,6 +738,20 @@
   background-color: rgb(0, 0, 0);
 }
 
+/* S2.1 (P27): dritter Badge klassisch - situationsabhaengiger
+   Bonus/Malus (BOON_LINES), Warn-Farben der beiden Modern-Themes als
+   Fallback, ansonsten klassisches Gold */
+.symbaroum.sheet.actor .boonline {
+  display: inline-block;
+  height: 46%;
+  width: 20px;
+  background-size: 20px;
+  border: 0;
+  border-radius: 50%;
+  background-color: var(--m-warn, #c98a2b);
+  box-shadow: 0 0 0 1px rgb(0, 0, 0);
+}
+
 .smallbackground {
   background: var(--title-color) repeat;
   width: 20px;
@@ -937,6 +951,42 @@
 .symbaroum.sheet.item .sheet-header .computedvalues input,
 .symbaroum.sheet.item .sheet-header .name input {
   height: 30px;
+}
+
+/* S2.1 (P25): Caret-Stepper der Segen-/Lasten-Stufe im KLASISCHEN Kopf —
+   Label oben, darunter Zeile [◀][Stufe][▶] (Muster moderne Anzahl-Stepper,
+   Optik kompakt). Min 1, Max nach Beschreibung (Config BOON_MAX_LEVEL). */
+.symbaroum.sheet.item .sheet-header .level .boon-level-ctrl {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  flex-basis: 100%;
+}
+
+.symbaroum.sheet.item .sheet-header .level .boon-level-ctrl input {
+  width: 3rem;
+  text-align: center;
+}
+
+.symbaroum.sheet.item .sheet-header .level .boon-level-btn {
+  width: 1.2rem;
+  height: 1.6rem;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background: var(--box-editable) repeat;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.symbaroum.sheet.item .sheet-header .level .boon-level-btn:hover {
+  text-shadow: 0 0 5px var(--color-active);
 }
 
 .symbaroum.sheet.item .editor,
@@ -6836,6 +6886,19 @@ dialog.symb-dialog.chain-confirm footer button {
   background: var(--m-good);
 }
 
+/* S2.1 (P27): dritter Badge - situationsabhaengiger Bonus/Malus (BOON_LINES),
+   Punkt unten LINKS am Kachel-Icon (Rudolfs Vorgabe 06.11.), Warn-Farbe */
+.symbaroum.sheet.actor .modern-root .m-tile-imgwrap .boonline {
+  position: absolute;
+  left: -0.2rem;
+  bottom: -0.2rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  border: 0.0625rem solid var(--m-bg);
+  background: var(--m-warn);
+}
+
 .symbaroum.sheet.actor .modern-root .m-tile-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -7799,6 +7862,27 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 
 .symbaroum.sheet.item .modern-root input:disabled {
   opacity: 0.55;
+}
+
+/* S2.1 (P15a, Rudolfs Testrunde-Rückmeldung 06.11.): das deaktivierte
+   „Eigene Gruppe"-Feld zeigt auch im Disabled-Zustand den gespeicherten
+   Text (welche SL-Gruppierung zuletzt gewählt war) — das Core-Dimming
+   (klassisch) bzw. opacity 0.55 (modern) machte es unleserlich. Volle
+   Deckkraft + reguläre Textfarbe; Nicht-Editierbarkeit bleibt über den
+   Hintergrund (box-non-editable/-input-bg) und den Cursor erkennbar.
+   Gilt BEIDEN Designs (klassisches Item-Sheet + modern-root). */
+.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled],
+.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled] {
+  color: var(--color-text);
+}
+
+.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled {
+  color: var(--m-input-ink);
 }
 
 .symbaroum.sheet.item .modern-root.modern-locked input,

@@ -143,6 +143,23 @@
     </div>
     {{/if}}
   {{/if}}
+  {{!-- Segen & Lasten S2.1 (P4 Feuer-Paket, Rudolfs Freigabe 06.11.2026):
+       Elementarrune NUR im Stabgeschoss-Dialog (RAW Stabmagie-Novize:
+       freie Aktion, +1W4 Stabschaden). Rune Feuer markiert den Schaden
+       als Feuer (Feuergeschmiedet-Schutz des Ziels greift, Kontextzeile
+       des Anwenders erscheint). --}}
+  {{#if isStaffProjectile}}
+  <div class="m-roll-row">
+    <label for="elementalrune">{{localize "POWER_STAFFPROJECTILE.ELEMENTAL_RUNE"}}</label>
+    <select id="elementalrune" data-tooltip="{{localize "POWER_STAFFPROJECTILE.ELEMENTAL_RUNE_TOOLTIP"}}">
+      <option value="none">{{localize "POWER_STAFFPROJECTILE.ELEMENTAL_RUNE_NONE"}}</option>
+      <option value="fire">{{localize "POWER_STAFFPROJECTILE.ELEMENTAL_RUNE_FIRE"}}</option>
+      <option value="lightning">{{localize "POWER_STAFFPROJECTILE.ELEMENTAL_RUNE_LIGHTNING"}}</option>
+      <option value="cold">{{localize "POWER_STAFFPROJECTILE.ELEMENTAL_RUNE_COLD"}}</option>
+      <option value="acid">{{localize "POWER_STAFFPROJECTILE.ELEMENTAL_RUNE_ACID"}}</option>
+    </select>
+  </div>
+  {{/if}}
   {{!-- Fähigkeitsboni: Paket-Radios/Checkboxen + Anführers Ziel --}}
   {{#if contextualDamage}}
     {{#each packages as |package|}}

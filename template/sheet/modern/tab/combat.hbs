@@ -91,6 +91,7 @@
                         <div class="m-tile-imgwrap">
                             <button type="button" class="activate-ability {{#if fav.hasScript}}isScripted{{else}}notScripted{{/if}} m-tile-img" style="background-image: url('{{fav.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ABILITY"}}"></button>
                             {{#if fav.hasScript}}<span class="automatic" data-tooltip="{{localize "TOOLTIP.DIALOG.HASSCRIPT"}}"></span>{{/if}}
+                            {{#if fav.hasBoonLine}}<span class="boonline" data-tooltip="{{localize "TOOLTIP.DIALOG.HASBOONLINE"}}"></span>{{/if}}
                         </div>
                         {{/ife}}
                         {{#ife fav.kind 'weapon'}}

@@ -35,6 +35,9 @@
                             <button type="button" class="activate-ability {{#if p.hasScript}}isScripted{{else}}notScripted{{/if}} m-tile-img" style="background-image: url('{{p.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ABILITY"}}"></button>
                             {{#if p.hasScript}}<span class="automatic" data-tooltip="{{localize "TOOLTIP.DIALOG.HASSCRIPT"}}"></span>{{/if}}
                             {{#if p.isIntegrated}}<span class="automatic1" data-tooltip="{{localize "TOOLTIP.DIALOG.ISINTERGRATED"}}"></span>{{/if}}
+                            {{!-- S2.1 (P27): dritter Badge unten links am Kachel-Icon — Segen/Last
+                                mit situationsabhängigem Bonus/Malus auf Proben (BOON_LINES). --}}
+                            {{#if p.hasBoonLine}}<span class="boonline" data-tooltip="{{localize "TOOLTIP.DIALOG.HASBOONLINE"}}"></span>{{/if}}
                         </div>
                         <button type="button" class="item-edit m-tile-name">{{p.name}}<small>{{p.sub}}</small></button>
                         <button type="button" class="favorite-toggle{{#if p.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><svg class="m-star" viewBox="0 0 576 512" aria-hidden="true"><path d="M288 24L342.8 192.6L520.1 192.6L376.6 296.8L431.4 465.4L288 361.2L144.6 465.4L199.4 296.8L55.9 192.6L233.2 192.6Z"/></svg></button>

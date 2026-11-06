@@ -26,7 +26,9 @@ export function getRollResultLevelKey(rollResult, resistRoll = false) {
   return 'CHAT.FAILED';
 }
 
-export async function rollAttribute(actor, actingAttributeName, targetActor, targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier) {
+import { formatModifierChain } from './boon.js';
+
+export async function rollAttribute(actor, actingAttributeName, targetActor, targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, chainData = null) {
   const api = game.symbaroum.api;
   let dam = "";	
 
@@ -102,12 +104,28 @@ export async function rollAttribute(actor, actingAttributeName, targetActor, tar
   
   let finalMod = modifier - getAttributeValue(targetActor, targetAttributeName) + 10;
 
+  /* S2.1 (P5+P9, Rudolfs Freigabe 06.11.2026): einheitliche Wurfzeile.
+     Ohne Ziel entfällt der Opposed-Anhang GANZ (behebt „⬅ Variabel (1)":
+     der rollAttribute-Fallback des Eigenschafts-Dialogs liefert kein
+     Ziel, targetAttributeName defaultet aber auf 'custom' — Variabel war
+     nur ein Anzeige-Artefakt, der Bonus war mechanisch korrekt).
+     Mit Ziel behält der Wurf „⬅ {Zielattr} ({finalMod})". Die Modifikator-
+     Kette „+ 1 (Modifikator) + 1 (Archivar)" setzt VOR dem Opposed-Anhang
+     an; ohne chainData gilt der modifier-Parameter als freier Modifikator
+     (Makro-/Direktaufrufe ohne Dialog). */
+  const effectiveChain = chainData ?? { freeModifier: modifier, boonLineChain: [] };
+  let rollName = `${game.symbaroum.api.getAttributeLabel(actor, actingAttributeName)} (${getAttributeValue(actor, actingAttributeName)})`;
+  rollName += formatModifierChain(effectiveChain.freeModifier, effectiveChain.boonLineChain);
+  if (targetActor) {
+    rollName += ` ⬅ ${game.symbaroum.api.getAttributeLabel(targetActor, targetAttributeName)} (${finalMod})`;
+  }
+
   let actingToken = api.getActorToken(actor);
   let actingCharName= actingToken?.name ?? actor.name;
   let actingCharImg= actingToken?.document?.actorLink ? actor.img : actingToken?.document?.texture.src ?? actor.img;
   let rollData = {
     subImg: actingCharImg,
-    name: `${game.symbaroum.api.getAttributeLabel(actor, actingAttributeName) } (${ getAttributeValue(actor, actingAttributeName) }) ⬅ ${game.symbaroum.api.getAttributeLabel(targetActor, targetAttributeName)} (${finalMod})`,
+    name: rollName,
     margin: (rollResults.diceTarget - rollResults.diceResult),
     hasSucceed: rollResults.hasSucceed,
     diceResult: rollResults.diceResult,

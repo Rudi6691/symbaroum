@@ -13,6 +13,7 @@ import { isAmmoCategory } from '../common/ammo.js';
 // Status-Tab v1: „Ist alchemistisch?“-Kanonik (abgeleitete Anzeige für
 // Alt-Items ohne Flag) aus elixirs.js
 import { isAlchemical } from '../common/elixirs.js';
+import { boonNextLevel } from '../common/boon.js';
 // Alchemie Modul 3 (Rudolfs Startsignal 04.11.2026): Alchemie-Menü
 // (Brauen/Analysieren/Nachbrauen), Nachbrau-Dialog mit Rezeptur-Preset
 // und die §6a-Täuschungs-Helfer (brewing.js).
@@ -168,6 +169,15 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			},
 			quantityMinus: function (event) {
 				this._onQuantityAdjust(event, -1);
+			},
+			/* Segen & Lasten S2.1 (P25): Caret-Stepper an der Segen-/
+			   Lasten-Stufe (klassisch + modern); XP-Buchung laeuft über
+			   die abgeleitete Erfahrungskette automatisch mit. */
+			boonLevelPlus: function (event) {
+				this._onBoonLevelAdjust(event, 1);
+			},
+			boonLevelMinus: function (event) {
+				this._onBoonLevelAdjust(event, -1);
 			},
 			// Übergabe v1: Item an Anwesenden/Charakter/NPC übergeben (transfer.js)
 			giveItem: function (event) {
@@ -937,6 +947,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		modern.showReference =
 			referenceTypes.includes(type) && !!game.user.isGM && !!game.settings.get('symbaroum', 'allowShowReference');
 		modern.showLevel = type === 'boon' || type === 'burden';
+		/* S2.1 (P25): Bonus/Malus-Feld (system.bonusValue, Fallback-
+		   Kette bonusValue → Stufe → +1 in boon.js) — GM-only, im WERTE-
+		   Abschnitt des modernen Kopfs; ohne das Feld bliebe bonusValue
+		   nur per Makro setzbar. */
+		modern.showBonusValue = modern.showLevel && !!game.user.isGM;
 		modern.showComputed = type === 'weapon' || type === 'armor';
 		modern.showActivate = ['ability', 'trait', 'mysticalPower'].includes(type);
 		/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
@@ -964,8 +979,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		/* ItemSheets v3 (Rudolfs Testrunde 3, Punkt 13): Die Segen/Last-Stufe
 		   steht jetzt zentriert unter dem Namen im Kopf (nicht mehr im
 		   WERTE-Abschnitt) - fuer die Abschnitts-Sichtbarkeit zaehlt sie
-		   deshalb nicht mehr mit. */
-		modern.showValues = modern.showReference || modern.showComputed;
+		   deshalb nicht mehr mit. S2.1 (P25): das GM-only Bonus/Malus-Feld
+	   laesst den WERTE-Abschnitt fuer Segen/Lasten auch OHNE Referenz-
+	   Sichtbarkeit erscheinen (GM sieht Bonus-Feld immer). */
+		modern.showValues = modern.showReference || modern.showComputed || modern.showBonusValue;
 		/* ItemSheets v3.1 (Rudolfs Testrunde 4, Punkt 7): Rail-Stufen-
 		   markierung. V3 hatte die verschachtelten Handlebars-ifs DIREKT im
 		   class-Attribut notiert - durch einen Ersetzungsfehler standen dort
@@ -1071,6 +1088,32 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		const next = Math.max(0, base + delta);
 		if (next === base) return;
 		await this.item.update({ 'system.number': next });
+	}
+
+	/**
+	 * Segen & Lasten S2.1 (P25, Rudolfs Freigabe 06.11.2026): Caret-
+	 * Stepper fuer die Segen-/Lasten-Stufe im Blattkopf (klassisch +
+	 * modern, gleiche data-action). Mindeststufe 1, Maximalstufe „nach
+	 * Beschreibung": Config-Map BOON_MAX_LEVEL je kanonischer Referenz,
+	 * Standard 3. Ungespeicherte/nicht-numerische Alt-Werte starten bei
+	 * 1. XP-Abzug/-Rueckzahlung bei Stufenwechsel geschieht automatisch
+	 * ueber die abgeleitete Erfahrungskette (_computeExperienceCost:
+	 * 5 XP je Stufe Segen, -5 je Stufe Last → experience.spent/
+	 * available werden live neu berechnet, kein Extra-Code noetig).
+	 */
+	async _onBoonLevelAdjust(event, delta) {
+		event.preventDefault();
+		if (!this.isEditable || !this.item.isOwner) return;
+		const type = this.item.type;
+		if (type !== 'boon' && type !== 'burden') return;
+		const stored = this.item.system.level;
+		const base = typeof stored === 'number' && stored >= 1 ? Math.round(stored) : 1;
+		const ref = String(this.item.system.reference ?? '').trim();
+		// Klemmung als pure Funktion (boon.js) - gleiche Logik fuer Blatt-
+		// Stepper UND Logik-Harness (tools/logic-harness.mjs)
+		const next = boonNextLevel(base, delta, ref);
+		if (next === base) return;
+		await this.item.update({ 'system.level': next });
 	}
 
 	/**

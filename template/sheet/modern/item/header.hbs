@@ -26,10 +26,22 @@
                 <input class="m-name" name="name" id="{{id}}-name" type="text" value="{{item.name}}"/>
                 {{#if modern.showLevel}}
                 {{!-- ItemSheets v3 (Rudolfs Testrunde 3, Punkt 13): Segen/Last-
-                    Stufe zentriert unter dem Namen statt im WERTE-Abschnitt. --}}
+                    Stufe zentriert unter dem Namen statt im WERTE-Abschnitt.
+                    S2.1 (P25): Caret-Stepper links/rechts der Stufe (Muster
+                    Anzahl-Stepper, Optik m-qty) — Min 1, Max nach Beschreibung
+                    (Config-Map BOON_MAX_LEVEL, Standard 3); XP-Buchung läuft
+                    automatisch über die abgeleitete Erfahrungskette mit. --}}
                 <div class="m-level-field">
                     <label for="{{id}}-system.level">{{localize "BOON.LEVEL"}}</label>
-                    <input id="{{id}}-system.level" name="system.level" type="number" value="{{system.level}}" data-dtype="Number"/>
+                    <div class="m-qty m-level-qty">
+                        {{#if editable}}
+                        <button type="button" class="m-qty-btn" data-action="boonLevelMinus" data-tooltip="{{localize 'BOON.LEVEL_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
+                        {{/if}}
+                        <input id="{{id}}-system.level" name="system.level" type="number" value="{{system.level}}" data-dtype="Number"/>
+                        {{#if editable}}
+                        <button type="button" class="m-qty-btn" data-action="boonLevelPlus" data-tooltip="{{localize 'BOON.LEVEL_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
+                        {{/if}}
+                    </div>
                 </div>
                 {{/if}}
             </div>
@@ -106,6 +118,14 @@
         <div class="m-item-section">
             <div class="m-sec-label">{{localize "MODERN_ITEM.SECTION_VALUES"}}</div>
             <div class="m-item-chips">
+                {{#if modern.showBonusValue}}
+                {{!-- S2.1 (P25): GM-only Bonus/Malus-Feld (system.bonusValue);
+                    Fallback-Kette in boon.js: bonusValue → Stufe → +1. --}}
+                <div class="m-inline-field m-bonusvalue-field">
+                    <label for="{{id}}-system.bonusValue" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
+                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="number" value="{{system.bonusValue}}" data-dtype="Number" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}"/>
+                </div>
+                {{/if}}
                 {{#if modern.showReference}}
                 <div class="m-inline-field m-reference-field">
                     <label for="{{id}}-system.reference" data-tooltip="{{localize 'MODERN_ITEM.REFERENCE_TOOLTIP'}}">{{localize "ABILITY.REFERENCE"}}</label>

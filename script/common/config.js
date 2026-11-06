@@ -1298,6 +1298,26 @@ SYMBAROUM.CONTACT_GROUP_SELECTION = {
   },
 };
 
+/* Segen & Lasten S2.1 (P25, Rudolfs Freigabe 06.11.2026): Maximalstufe
+   der Segen-/Lasten-Stufe fuer die Caret-Stepper im Blattkopf (Mindest-
+   stufe fest 1). „Max nach Beschreibung": Standard 3, Ausnahmen pro
+   kanonischer Referenz hier pflegbar (z. B. ein Segen, der laut
+   Beschreibung oefter kaufbar ist). Der Stepper klemmt darauf; XP-
+   Abzug/-Rueckzahlung laeuft automatisch ueber die abgeleitete
+   Erfahrungskette (5 XP je Stufe Segen, -5 je Stufe Last). */
+SYMBAROUM.BOON_MAX_LEVEL = {
+  // <referenz>: <maxStufe>,  // z. B. archivist: 3
+};
+SYMBAROUM.BOON_MAX_LEVEL_DEFAULT = 3;
+
+/* Segen & Lasten S2.1 (P4 Feuer-Paket, Rudolfs Freigabe 06.11.2026):
+   Kraefte mit Feuerschaden (RAW „feuerverbunden"). Nur diese - und das
+   Stabgeschoss mit gewaehlter Rune Feuer - markieren functionStuff.
+   damageType.fire, was den Feuergeschmiedet-Schutz (Math.max(0, Schaden-1))
+   in mathDamageProt ausloest UND die Kontext-Zeile des WERFENDEN
+   Feuergeschmiedeten im Wurf-Dialog freigibt (context.fire). */
+SYMBAROUM.FIRE_DAMAGE_REFERENCES = ["brimstonecascade", "flamewall", "priosburningglass"];
+
 /* Ressourcen v1 (Rudolfs Startsignal 31.10.): Item-Kategorisierung fuer den
    Ressourcenverbrauch - additives FELD system.resourceCategory (String,
    leer = keine) statt Boolean-Flags, Runde-2-Entscheidung: kategoriebasiertes

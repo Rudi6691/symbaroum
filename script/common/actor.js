@@ -9,7 +9,7 @@ import { getEncumbranceData } from "./encumbrance.js";
 import { checkWeaponAmmoReady } from "./ammo.js";
 // Segen & Lasten S1 (04.11.): Kanonik-Check fuer markScripted
 // (isScripted-Badge der Kacheln) - die Wurf-Setups selbst leben in boon.js
-import { isBoonRollScripted } from "./boon.js";
+import { isBoonRollScripted, isBoonLineBonus } from "./boon.js";
 
 export class SymbaroumActor extends Actor {
 	prepareBaseData() {
@@ -1257,5 +1257,12 @@ export function markScripted(item) {
 		item.system.hasScript = true;
 		item.system.script = true;
 	}
+	// S2.1 (P27): dritter Badge „situationsabhängiger Bonus/Malus" für
+	// Segen/Lasten mit BOON_LINES-Zeilen — unabhängig von hasScript (ein
+	// Segen kann Klick-Aktion UND Situations-Zeilen haben). Template-Seite:
+	// .boonline-Badge klassisch + modern (Punkt unten links am Kachel-Icon).
+	item.system.hasBoonLine = Boolean(
+		(item.system.isBoon || item.system.isBurden) && isBoonLineBonus(item.system.reference)
+	);
 	return;
 }

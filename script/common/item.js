@@ -30,7 +30,7 @@ import { getBoonRollConfig } from "./boon.js";
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
 // Kräfte-/Fähigkeits-Würfeldialog (Typ B + B/G „Zweite Chance“ mit
 // Radio-Exklusivität) — Kanonik und Helfer in boon.js
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive } from "./boon.js";
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection } from "./boon.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -2276,6 +2276,9 @@ export class SymbaroumItem extends Item {
     base.avoidDamageDice = "1d6";
     base.damageType = {
       mysticArm: true,
+      // P4 Feuer-Paket (S2.1): Feuerschaden - loest den Feuergeschmiedet-
+      // Schutz des Ziels in mathDamageProt aus
+      fire: true,
     };
     base.getTarget = true;
     base.targetMandatory = true;
@@ -2809,6 +2812,9 @@ export class SymbaroumItem extends Item {
     base.damageType = {
       holy: true,
       mysticArm: true,
+      // P4 Feuer-Paket (S2.1): Feuerschaden - loest den Feuergeschmiedet-
+      // Schutz des Ziels in mathDamageProt aus
+      fire: true,
     };
     return base;
   }
@@ -3620,9 +3626,16 @@ export async function modifierDialog(functionStuff) {
   // Spieler erst im Dialog, womit er würfelt; die Zeilen blieben sonst
   // stur auf der Vorbereichungs-Eigenschaft liegen). 'defense'-Würfe
   // bleiben draußen (boonLineAttrMatch).
+  // S2.1 (P4 Feuer-Paket): Feuergeschmiedet erscheint NUR im Feuer-
+  // Kontext — die drei Feuer-Kräfte (FIRE_DAMAGE_REFERENCES) und das
+  // Stabgeschoss (dort entscheidet erst die gewählte Elementarrune,
+  // ob der Wurf feuerverbunden ist; die Zeile bleibt deshalb bei
+  // Stabgeschoss immer angeboten und gilt nur bei Rune Feuer).
+  const fireContext =
+    game.symbaroum.config.FIRE_DAMAGE_REFERENCES.includes(functionStuff.reference) || functionStuff.reference === "staffprojectile";
   const boon_lines =
     !functionStuff.askCastingAttribute && functionStuff.castingAttributeName
-      ? getBoonLinesForActor(functionStuff.actor, functionStuff.castingAttributeName)
+      ? getBoonLinesForActor(functionStuff.actor, functionStuff.castingAttributeName, { fire: fireContext })
       : [];
   const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
@@ -3639,6 +3652,8 @@ export async function modifierDialog(functionStuff) {
     askCorruptedTargetDefaultNo: askCorruptedTargetDefaultNo,
     weaponDamage: weaponDamage,
     contextualDamage: functionStuff.hasDamage,
+    // S2.1 (P4 Feuer-Paket): Elementarrune nur im Stabgeschoss-Dialog
+    isStaffProjectile: functionStuff.reference === "staffprojectile",
     d8: d8,
     d4: d4,
     choices: { 0: game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1": game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), 1: game.i18n.localize("DIALOG.FAVOUR_FAVOUR") },
@@ -3746,6 +3761,9 @@ export async function modifierDialog(functionStuff) {
             const bonus = html[0].querySelector("#bonus").value;
             let modifierCustom = parseInt(bonus, 10);
             functionStuff.modifier = modifierCustom;
+            // S2.1 (P5+P9): freier Modifikator RAW (nur DIALOG-Feld) für
+            // die einheitliche Wurfzeile „+ 1 (Modifikator)".
+            functionStuff.freeModifier = modifierCustom;
             //Favour (2d20 keep best) or disfavour(2d20 keep worst)
             let favours = html[0].querySelectorAll("input[name='favour']");
             let fvalue = 0;
@@ -3753,22 +3771,24 @@ export async function modifierDialog(functionStuff) {
               if (f.checked) fvalue = parseInt(f.value, 10);
             }
             functionStuff.favour += fvalue;
-            // Segen & Lasten S2: Kontext-Zeilen auswerten — Bonus-Zeilen
+            // Segen & Lasten S2.1 (P6): Kontext-Zeilen auswerten — Bonus-Zeilen
             // addieren auf functionStuff.modifier (DIALOG-Feld setzt den
-            // Startwert, Zeilen laufen additiv dazu); eine angekreuzte
-            // B/G-Zeile ERSETZT die Gunst (ersetzt, nicht addiert —
-            // auch die fest verdrahtete Gunst aus dem Setup, z. B.
-            // Dunkles Geheimnis); das Radio selbst wurde beim Ankreuzen
-            // bereits gesetzt und gesperrt (activateBoonLineExclusive).
+            // Startwert, Zeilen laufen additiv dazu) UND wandern mit
+            // Name+Wert in die einheitliche Wurfzeile (formatModifierChain,
+            // Labels dafür aus autoParams). sc-Zeilen (Gunst/Missgunst)
+            // setzen KEINEN Override — sie wirken als Vorauswahl des
+            // Gunst-Radios (activateBoonLineExclusive), das Radio ist im
+            // Submit die Autorität (Rudolfs P6-Entscheid) und behält sein
+            // Label in autoParams.
             const boonChecked = collectCheckedBoonLines(html, boon_lines);
-            let boonFavourOverride = null;
+            functionStuff.boonLineChain = [];
             for (const line of boonChecked) {
-              functionStuff.autoParams += line.label + ", ";
-              if (line.sc) boonFavourOverride = line.sc === "favour" ? 1 : -1;
-              else functionStuff.modifier += line.bonus;
-            }
-            if (boonFavourOverride !== null) {
-              functionStuff.favour = boonFavourOverride;
+              if (line.sc) {
+                functionStuff.autoParams += line.label + ", ";
+                continue;
+              }
+              functionStuff.boonLineChain.push({ boonName: line.boonName, bonus: line.bonus });
+              functionStuff.modifier += line.bonus;
             }
           }
 
@@ -3807,7 +3827,7 @@ export async function modifierDialog(functionStuff) {
               functionStuff.modifier += 2;
               functionStuff.autoParams += game.i18n.localize("DIALOG.ADVANTAGE") + ", ";
             }
-            let hasDamModifier = html[0].querySelector("#dammodifier").length > 0;
+            let hasDamModifier = html[0].querySelector("#dammodifier") != null;
             let damModifier = "";
             let damModifierNPC = 0;
             if (hasDamModifier) {
@@ -3841,6 +3861,35 @@ export async function modifierDialog(functionStuff) {
                     damModifierNPC = parsedMod;
                   }
                 }
+              }
+            }
+            // S2.1 (P4 Feuer-Paket, Rudolfs Freigabe 06.11.2026): Elementar-
+            // rune des Stabgeschosses (RAW Stabmagie-Novize: freie Aktion,
+            // eine aktivierte Rune addiert +1W4 Stabschaden — Feuer/Blitz/
+            // Kälte/Säure im selben Dropdown). Rune Feuer markiert den
+            // Stabschoss zusätzlich als Feuerschaden (damageType.fire):
+            // der Feuergeschmiedet-Schutz des ZIELS greift (mathDamageProt,
+            // −1, mit Kartentext), und auf der Anwenderseite erscheint die
+            // Feuergeschmiedet-Kontextzeile im Wurf-Dialog (s. boon_lines-
+            // Aufruf oben). Die übrigen Runen addieren nur Schaden, ohne
+            // Schadensart (RAW verifiziert, Vault-Notiz Elementarrune).
+            // NPC-Stabmagier brauchen keinen Statikwert: simpleDamageRoll
+            // maximiert die Formel (1d4 → 4).
+            const runeSelect = html[0].querySelector("#elementalrune");
+            const runeValue = runeSelect?.value ?? "none";
+            if (runeValue !== "none") {
+              const runeStr = `+1d4[${game.i18n.localize("POWER_STAFFPROJECTILE.ELEMENTAL_RUNE")}]`;
+              try {
+                // Validate string as valid roll object
+                await new Roll(runeStr, {}).evaluate();
+              } catch (err) {
+                ui.notifications.error(game.i18n.format("POWER_STAFFPROJECTILE.ELEMENTAL_RUNE_ERROR", { err }));
+                return;
+              }
+              damModifier += `${runeStr} `;
+              if (runeValue === "fire") {
+                functionStuff.damageType = functionStuff.damageType ?? {};
+                functionStuff.damageType.fire = true;
               }
             }
             for (let pack of functionStuff.package) {
@@ -5649,6 +5698,16 @@ async function mathDamageProt(targetActor, damage, damageType = {}) {
     finalDamage = Math.round(finalDamage * targetActor.system.combat.damageProt.normal);
     infoText = await damageReductionText(targetActor.system.combat.damageProt.normal);
   }
+  // S2.1 (P4 Feuer-Paket, Rudolfs Freigabe 06.11.2026): Feuergeschmiedet
+  // (RAW verifiziert, Vault-Notiz): mystischer +1 Schutz gegen Feuer-
+  // schaden — PARALLEL zur Multiplikator-Kette (kein weiterer else-if),
+  // damit Feuer-Kräfte mit mysticArm/holy-Marker weiter ihren normalen
+  // Schutz-Faktor behalten UND der Feuerschutz obendrauf greift. Der
+  // Info-Text erscheint auf der Schadenskarte (Anzeige-Muster „(x2)“).
+  if (damageType.fire && hasBoonFireProtection(targetActor)) {
+    finalDamage = Math.max(0, finalDamage - 1);
+    infoText += " " + game.i18n.localize("BOON.FIRE_PROTECTION_TEXT");
+  }
   return { damage: finalDamage, text: infoText };
 }
 
@@ -6074,7 +6133,7 @@ async function attackResult(rollData, functionStuff) {
     resistRoll: functionStuff.resistRoll,
     resistRollText: functionStuff.resistRollText,
     hasCorruption: false,
-    rollString: await formatRollString(rollData[0], functionStuff.targetData.hasTarget, rollData[0].modifier),
+    rollString: await formatRollString(rollData[0], functionStuff.targetData.hasTarget, rollData[0].modifier, { freeModifier: functionStuff.freeModifier ?? 0, boonLineChain: functionStuff.boonLineChain ?? [] }),
     hasDamage: hasDamage,
     hasDmgMod: hasDmgMod,
     damageRollMod: damageRollMod,
@@ -6387,7 +6446,7 @@ async function attackResult(rollData, functionStuff) {
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
         flamingRounds.toString() +
         game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
-      let finalburningDmg = await mathDamageProt(functionStuff.targetData.actor, 2, { elemental: true });
+      let finalburningDmg = await mathDamageProt(functionStuff.targetData.actor, 2, { elemental: true, fire: true });
       templateData.flamingChat += finalburningDmg.text;
     } else if (doTime.effectIcon?.id === "acid" && hasDamage) {
       // A28 G2: Säurebeschichtet - 1d4 acid damage per round for 1d4 rounds,
@@ -6857,14 +6916,24 @@ async function attackResult(rollData, functionStuff) {
   return templateData;
 }
 
-async function formatRollString(rollDataElement, hasTarget, modifier) {
-  let rollString = `${rollDataElement.actingAttributeLabel} : (${rollDataElement.actingAttributeValue})`;
+/**
+ * S2.1 (P5+P9, Rudolfs Freigabe 06.11.2026): einheitliche Wurfzeilen-
+ * Darstellung (alter Doppelpunkt-Stil „Attr : (10) Modifikator: 1"
+ * entfällt): „{Attr} ({Wert}) + 1 (Modifikator) + 1 (Archivar)" — der
+ * freie Modifikator trägt das Label (Modifikator), Segen-/Last-Zeilen
+ * ihr boonName, Komponenten nur bei Wert ≠ 0. Echter Opposed behält
+ * den Anhang „⬅ {Zielattr} ({finalMod})". Ohne chainData (Sekundär-
+ * proben: Gift, Betäubung, Sturmbolzen …) gilt der modifier-Parameter
+ * als freier Modifikator. Boon-Zeilen-Labels laufen NICHT mehr über
+ * autoParams, sondern nur noch über diese Kette.
+ */
+async function formatRollString(rollDataElement, hasTarget, modifier, chainData = null) {
+  const cd = chainData ?? { freeModifier: modifier, boonLineChain: [] };
+  let rollString = `${rollDataElement.actingAttributeLabel} (${rollDataElement.actingAttributeValue})`;
+  rollString += formatModifierChain(cd.freeModifier, cd.boonLineChain);
   if (hasTarget && rollDataElement.targetAttributeLabel) {
     let attributeMod = 10 - rollDataElement.resistAttributeValue;
-    rollString += `  ⬅  ${rollDataElement.targetAttributeLabel} : (${attributeMod})`;
-  }
-  if (modifier) {
-    rollString += "  " + game.i18n.localize("COMBAT.CHAT_MODIFIER") + modifier.toString();
+    rollString += `  ⬅  ${rollDataElement.targetAttributeLabel} (${attributeMod})`;
   }
   return rollString;
 }
@@ -6990,7 +7059,7 @@ export async function standardPowerResult(rollData, functionStuff) {
   if (rollData != null) {
     hasRoll = true;
     trueActorSucceeded = rollData[0].trueActorSucceeded;
-    rollString = await formatRollString(rollData[0], functionStuff.targetData.hasTarget, rollData[0].modifier);
+    rollString = await formatRollString(rollData[0], functionStuff.targetData.hasTarget, rollData[0].modifier, { freeModifier: functionStuff.freeModifier ?? 0, boonLineChain: functionStuff.boonLineChain ?? [] });
     rollResult = rollData[0].rollResult;
     rollToolTip = rollData[0].toolTip;
     for (let i = 0; i < rollData.length; i++) {

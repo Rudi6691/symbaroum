@@ -242,11 +242,15 @@
                             <span class="automatic1" data-tooltip="{{localize "TOOLTIP.DIALOG.ISINTERGRATED"}}"></span>
                             {{/if}}
                             <!-- End of Full Automation -->
+                            <!-- S2.1 (P27): situationsabhaengiger Bonus/Malus (BOON_LINES) -->
+                            {{#if item.system.hasBoonLine}}
+                            <span class="boonline" data-tooltip="{{localize "TOOLTIP.DIALOG.HASBOONLINE"}}"></span>
+                            {{/if}}
                         </div>
                         <!-- </div> -->
                         <!-- Bestienkunde v1.1 (Rudolfs Testrunde 1): Titel
                             anzeigeseitig um die Spezialisierung erweitert -->
-                        <button type="button" class="item-edit">{{item.name}}{{lookup @root.beastloreTitleSuffix item.id}}</button>
+                        <button type="button" class="item-edit">{{item.name}}{{lookup @root.beastloreTitleSuffix item.id}}{{lookup @root.contactTitleSuffix item.id}}</button>
                     </div>
                     <div class="actions" data-tooltip="{{localize "TOOLTIP.POWER_ACTIONS"}}">{{item.system.actions}}</div>
                 </div>

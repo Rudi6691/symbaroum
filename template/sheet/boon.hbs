@@ -18,8 +18,19 @@
                 </div>
                 <div class="level">
                     <label for="{{id}}-system.level">{{localize "BOON.LEVEL"}}</label>
-                    <input id="{{id}}-system.level" name="system.level" type="text" value="{{system.level}}" data-dtype="Number"/>
+                    <div class="boon-level-ctrl">
+                        {{#if editable}}<button type="button" class="boon-level-btn" data-action="boonLevelMinus" data-tooltip="{{localize 'BOON.LEVEL_DECREASE'}}"><i class="fas fa-caret-left"></i></button>{{/if}}
+                        <input id="{{id}}-system.level" name="system.level" type="text" value="{{system.level}}" data-dtype="Number"/>
+                        {{#if editable}}<button type="button" class="boon-level-btn" data-action="boonLevelPlus" data-tooltip="{{localize 'BOON.LEVEL_INCREASE'}}"><i class="fas fa-caret-right"></i></button>{{/if}}
+                    </div>
                 </div>
+                {{!-- S2.1 (P25): GM-only Bonus/Malus-Feld (system.bonusValue), Fallback-Kette bonusValue → Stufe → +1 (boon.js). --}}
+                {{#if symbaroumOptions.isGM}}
+                <div class="level bonus-value-row">
+                    <label for="{{id}}-system.bonusValue" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
+                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="text" value="{{system.bonusValue}}" data-dtype="Number"/>
+                </div>
+                {{/if}}
                 {{#ifat symbaroumOptions.isGM symbaroumOptions.allowShowReference }}
                 <div class="name">
                     <label for="{{id}}-system.reference">{{localize "ABILITY.REFERENCE"}}</label>

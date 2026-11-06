@@ -438,6 +438,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           }
           attri_defaults.modifier = modifier;
           ecData.modifier = modifier;
+          // S2.1 (P5+P9): freier Modifikator RAW (nur Dialog-Feld, OHNE
+          // Paket-Mitglieder/Segen-Zeilen/Behinderung) für die einheit-
+          // liche Wurfzeile „+ 1 (Modifikator)" — die weiteren Modifi-
+          // katoren tragen ihre eigenen autoParams-Labels.
+          ecData.freeModifier = modifier;
           // TODO  - NOT UNIQUE ID - BAD IDEA
           let hasAdvantage = html[0].querySelector("#advantage-"+did)?.checked ?? false;
           attri_defaults.advantage = hasAdvantage ? "checked":"";
@@ -653,30 +658,31 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           attri_defaults.selectedFavour = ""+fvalue;			
           let favour = fvalue;
           ecData.favour += parseInt(fvalue);
-          // Segen & Lasten S2: Kontext-Zeilen auswerten (NACH dem Gunst-
-          // Radio, VOR Zeichen-der-Pein). Bonus-Zeilen addieren auf den
+          // Segen & Lasten S2.1 (P5+P9): Kontext-Zeilen auswerten (NACH dem
+          // Gunst-Radio, VOR Zeichen-der-Pein). Bonus-Zeilen addieren auf den
           // Modifikator (Dialog-Feld + ecData, damit der nicht-
-          // automatisierte rollAttribute-Fallback denselben Bonus
-          // bekommt); eine angekreuzte B/G-Zeile ERSETZT die Gunst
-          // (ersetzt, nicht addiert - inkl. der vorgewaehlten Gunst aus
-          // Verdrahtungen wie Dunkles Geheimnis), das Radio selbst wurde
-          // beim Ankreuzen bereits gesetzt und gesperrt.
+          // automatisierte rollAttribute-Fallback denselben Bonus bekommt)
+          // UND wandern mit Name+Wert in die einheitliche Wurfzeile
+          // (formatModifierChain — ihre Labels entfallen dafür in
+          // autoParams). sc-Zeilen (Gunst/Missgunst) sind KEIN numerischer
+          // Bestandteil der Kette: sie wirken als Vorauswahl des Radios
+          // (P6, Radio = Autorität im Submit) und behalten ihr Label in
+          // autoParams.
           const boonChecked = collectCheckedBoonLines(html, boon_lines);
           let boonModifierDelta = 0;
-          let boonFavourOverride = null;
+          ecData.boonLineChain = [];
           for (const line of boonChecked) {
-            ecData.autoParams += line.label + ", ";
-            if (line.sc) boonFavourOverride = line.sc === 'favour' ? 1 : -1;
-            else boonModifierDelta += line.bonus;
+            if (line.sc) {
+              ecData.autoParams += line.label + ", ";
+              continue;
+            }
+            ecData.boonLineChain.push({ boonName: line.boonName, bonus: line.bonus });
+            boonModifierDelta += line.bonus;
           }
           if (boonModifierDelta !== 0) {
             modifier += boonModifierDelta;
             ecData.modifier += boonModifierDelta;
             attri_defaults.modifier = modifier;
-          }
-          if (boonFavourOverride !== null) {
-            favour = boonFavourOverride;
-            ecData.favour = boonFavourOverride;
           }
           // A33 (Rudolf's Adept redesign, 23.10.): Zeichen der Pein -
           // attackers against a marked victim automatically attack with
@@ -861,8 +867,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             else{
                 buildRolls(ecData).then((val)=>resolve(val))
             }
-          } else {            
-            game.symbaroum.api.rollAttribute(actor, attributeName, getTarget(), targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier).then((roll) => {resolve(roll)});
+          } else {
+            // S2.1 (P5+P9): chainData für die einheitliche Wurfzeile mit-
+            // geben (freier Modifikator RAW + Segen-Zeilen; roll.js baut
+            // daraus „+ 1 (Modifikator) + 1 (Archivar)").
+            game.symbaroum.api.rollAttribute(actor, attributeName, getTarget(), targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, { freeModifier: ecData.freeModifier ?? 0, boonLineChain: ecData.boonLineChain ?? [] }).then((roll) => {resolve(roll)});
           }
         },
       },

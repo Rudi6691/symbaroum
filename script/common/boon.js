@@ -477,7 +477,10 @@ const BOON_LINES = {
     { attr: 'vigilant', label: 'BOON.LINE_GAMBLER_SPOT' },
   ],
   greenthumb: [{ attr: ['vigilant', 'cunning'], label: 'BOON.LINE_GREENTHUMB' }],
-  fireforged: [{ attr: '*', label: 'BOON.LINE_FIREFORGED' }],
+  /* P4 Feuer-Paket: Zeile erscheint NUR bei Feuer-Kontext (context.fire),
+   * also beim Einsatz feuerverbundener Kraefte/Widerstand dagegen - nicht
+   * auf nackten Attributproben (RAW-korrekt). */
+  fireforged: [{ attr: '*', label: 'BOON.LINE_FIREFORGED', fire: true }],
   welltraveled: [{ attr: 'persuasive', label: 'BOON.LINE_WELLTRAVELED' }],
   streethome: [
     { attr: 'discreet', label: 'BOON.LINE_STREETHOME_BLEND' },
@@ -525,11 +528,11 @@ function boonLineAttrMatch(attr, attributeName) {
  * erscheinen NUR bei Besitz (Ref muss per Migrations-Makro v2 gesetzt
  * sein), bleiben im Dialog UNANGEHAKT (Rudolfs Entscheidung 1 der
  * Scoping-Runde); Bonus je Zeile aus line.bonus bzw. system.bonusValue
- * (Fallback +1). Dedupe pro Ref (erstes Item gewinnt), Sortierung nach
+ * (Fallback-Kette S2.1: bonusValue → Stufe → +1). Dedupe pro Ref (erstes Item gewinnt), Sortierung nach
  * Label. Rückgabe: Array von { key, label, bonus, sc, boonName } —
  * key = `${ref}-${idx}` für DOM-IDs und Submit-Matching.
  */
-export function getBoonLinesForActor(actor, attributeName) {
+export function getBoonLinesForActor(actor, attributeName, context = {}) {
   if (!actor || !attributeName) return [];
   const out = [];
   const seenRefs = new Set();
@@ -541,12 +544,21 @@ export function getBoonLinesForActor(actor, attributeName) {
     const bonusValue = Number(item.system?.bonusValue);
     BOON_LINES[ref].forEach((line, idx) => {
       if (!boonLineAttrMatch(line.attr, attributeName)) return;
+      /* P4 Feuer-Paket: kontextgebundene Zeilen (bislang nur Feuergeschmiedet)
+       * erscheinen ausschließlich, wenn der Aufrufer den passenden Kontext
+       * mitgibt - alle anderen Zeilen ignorieren den Kontext. */
+      if (line.fire && !context.fire) return;
       let label = L(line.label);
       if (line.sc) {
         label += ` (${L(line.sc === 'favour' ? 'DIALOG.FAVOUR_FAVOUR' : 'DIALOG.FAVOUR_DISFAVOUR')})`;
         out.push({ key: `${ref}-${idx}`, label, bonus: 0, sc: line.sc, boonName: item.name });
       } else {
-        const bonus = line.bonus ?? (Number.isFinite(bonusValue) && bonusValue !== 0 ? bonusValue : 1);
+        /* S2.1 (P25, Rudolfs Entscheidung „3": Feld + Fallback-Kette):
+         * Bonus je Zeile aus line.bonus bzw. system.bonusValue, wenn
+         * gesetzt (Migration v2/Blatt-Feld); sonst Stufe (Bonus koppelt
+         * an die Stufe), sonst +1. */
+        const lvl = Math.max(1, Math.round(Number(item.system?.level) || 1));
+        const bonus = line.bonus ?? (Number.isFinite(bonusValue) && bonusValue !== 0 ? bonusValue : lvl);
         label += ` (${bonus >= 0 ? '+' : '-'}${Math.abs(bonus)})`;
         out.push({ key: `${ref}-${idx}`, label, bonus, sc: null, boonName: item.name });
       }
@@ -556,11 +568,34 @@ export function getBoonLinesForActor(actor, attributeName) {
   return out;
 }
 
+/**
+ * S2.1 (P5+P9, Rudolfs Freigabe 06.11.2026): einheitliche Wurfzeilen-
+ * Darstellung für BEIDE Karten-Typen (Eigenschaftsprobe roll.js UND
+ * Kraft-/Fähigkeiten-Karte formatRollString item.js):
+ *   `{Attribut} ({Wert}) + 1 (Modifikator) + 1 (Archivar) − 3 (Langsam)`
+ * Komponenten erscheinen nur mit Wert ≠ 0; Reihenfolge: freier Modifikator
+ * (Label DIALOG.MODIFIER), danach die Segen-/Last-Zeilen (Label =
+ * boonName). Rückgabe: führend mit Leerzeichen (oder '' wenn leer), damit
+ * Aufrufer einfach konkatenieren können. sc-Zeilen (Gunst/Missgunst)
+ * sind NICHT Teil der Kette — sie laufen weiter über autoParams.
+ */
+export function formatModifierChain(freeModifier, boonLineChain) {
+  const parts = [];
+  const fmt = (value) => `${value > 0 ? '+' : '−'} ${Math.abs(Math.round(value))}`;
+  const fm = Math.round(Number(freeModifier) || 0);
+  if (fm !== 0) parts.push(`${fmt(fm)} (${L('DIALOG.MODIFIER')})`);
+  for (const line of boonLineChain ?? []) {
+    const b = Math.round(Number(line?.bonus) || 0);
+    if (b === 0) continue;
+    parts.push(`${fmt(b)} (${line.boonName})`);
+  }
+  return parts.length ? ' ' + parts.join(' ') : '';
+}
+
 /*
  * Geprüfte Zeilen-Checkboxen eines Dialogs gegen die Zeilen-Liste
  * auflösen (html = symbDialog-Callback-Form [element] oder Element).
- */
-export function collectCheckedBoonLines(html, boonLines) {
+ */export function collectCheckedBoonLines(html, boonLines) {
   const root = html?.[0] ?? html;
   const map = new Map((boonLines ?? []).map((line) => [line.key, line]));
   const checked = [];
@@ -573,36 +608,52 @@ export function collectCheckedBoonLines(html, boonLines) {
 }
 
 /*
- * Gunst-/Missgunst-Exklusivität am Live-DOM (symbDialog-onRender):
- * Eine angekreuzte sc-Zeile hebt alle ANDEREN sc-Zeilen ab und setzt
- * UND SPERRT das Gunst-Radio auf ihren Wert (pro Wurf genau EINE Gunst-
- * bzw. Missgunst-Quelle); normalen Bonus-Zeilen stören sich nicht und
- * sind mehrfach ankreuzbar (addieren sich). Abwählen der sc-Zeile
- * stellt das Radio auf „Normal“ zurück und entsperrt es wieder.
+ * S2.1 (P6, Rudolfs Testrunde-Rückmeldung 06.11.): Gunst-/Missgunst-
+ * Zeilen (sc) sind eine VORWAHL des Gunst-Radios — das Radio bleibt
+ * IMMER veränderbar (Rudolf: „kann durch andere Modifikatoren aufgehoben
+ * werden und muss dann veränderbar sein") und ist im Submit die einzige
+ * Autorität. Angekreuzte sc-Zeile: hebt andere sc-Zeilen ab (Exklusivität
+ * unter sc-Zeilen bleibt) und setzt das Radio auf ihren Wert als
+ * Vorauswahl — OHNE Sperre. Abwählen der sc-Zeile stellt das Radio nur
+ * dann auf „Normal" zurück, wenn es noch auf der Vorauswahl dieser
+ * Zeile steht (eine manuelle Radio-Änderung des Nutzers bleibt
+ * unberührt). Bonus-Zeilen stören sich nicht und sind mehrfach
+ * ankreuzbar (addieren sich).
  */
 export function activateBoonLineExclusive(element) {
   const root = element?.[0] ?? element;
   const boxes = root?.querySelectorAll?.('[data-boonline]');
   if (!boxes || boxes.length === 0) return;
+  const radioOn = (radios, value) => {
+    for (const radio of radios) {
+      if (radio.checked && radio.value === value) return true;
+    }
+    return false;
+  };
+  const setRadio = (radios, value) => {
+    for (const radio of radios) {
+      radio.checked = radio.value === value;
+    }
+  };
   for (const box of boxes) {
     box.addEventListener('change', () => {
       const radios = root.querySelectorAll("input[name='favour']");
+      const sc = box.dataset.sc;
       if (!box.checked) {
-        for (const radio of radios) {
-          radio.disabled = false;
-          radio.checked = radio.value === '0';
+        // Abwählen einer sc-Zeile: Reset auf „Normal" nur, wenn das
+        // Radio noch auf der Vorauswahl DIESER Zeile steht.
+        if (sc && radioOn(radios, sc === 'favour' ? '1' : '-1')) {
+          setRadio(radios, '0');
         }
         return;
       }
-      const sc = box.dataset.sc;
       if (!sc) return;
+      // sc-Exklusivität: andere sc-Zeilen abwählen, Radio-Vorauswahl
+      // setzen (kein disabled mehr — P6).
       for (const other of boxes) {
         if (other !== box && other.dataset.sc) other.checked = false;
       }
-      for (const radio of radios) {
-        radio.disabled = true;
-        radio.checked = sc === 'favour' ? radio.value === '1' : radio.value === '-1';
-      }
+      setRadio(radios, sc === 'favour' ? '1' : '-1');
     });
   }
 }
@@ -821,6 +872,48 @@ export const BOON_ROLLS = {
 /** Kanonik-Check für actor.js markScripted (isScripted-Badge der Kachel). */
 export function isBoonRollScripted(reference) {
   return Boolean(reference && Object.prototype.hasOwnProperty.call(BOON_ROLLS, reference));
+}
+
+/**
+ * S2.1 (P27, Rudolfs Freigabe 06.11.2026): Kanonik-Check für den dritten
+ * Badge „situationsabhängiger Bonus/Malus" — gesetzt, wenn der Segen/die
+ * Last Situations-Zeilen (BOON_LINES) beisteuert, die Proben modifizieren
+ * (Bonus-Zeilen wie Archivar, Malus-Zeilen wie Paria, sc-/Gunst-Zeilen
+ * wie Wegfinder). Zentral ausgewertet in actor.js markScripted, so dass
+ * klassische Liste, moderne Kacheln UND Kampf-Favoriten alle profitieren.
+ */
+export function isBoonLineBonus(reference) {
+  return Boolean(reference && Object.prototype.hasOwnProperty.call(BOON_LINES, reference));
+}
+
+/**
+ * S2.1 (P4 Feuer-Paket, Rudolfs Freigabe 06.11.2026): RAW verifiziert
+ * (Vault-Notiz Feuergeschmiedet) — mystischer +1 Schutz gegen
+ * Feuerschaden. Ziel-Aktor besitzt den Segen (Referenz 'fireforged',
+ * per Migrations-Makro v2 gesetzt), wenn irgendein Segen-Item mit
+ * dieser Referenz existiert. Verbraucht in mathDamageProt (item.js),
+   NACH der bestehenden Multiplikator-Kette: finalDamage -1, min 0.
+ */
+export function hasBoonFireProtection(actor) {
+  return Boolean(
+    (actor?.items ?? []).some((item) => item?.type === 'boon' && String(item.system?.reference ?? '').trim() === 'fireforged')
+  );
+}
+
+/**
+ * S2.1 (P25): Klemmung der Segen-/Lasten-Stufe als pure Funktion —
+ * Mindeststufe 1, Maximalstufe „nach Beschreibung": Config-Map
+ * BOON_MAX_LEVEL je kanonischer Referenz, Standard 3
+ * (BOON_MAX_LEVEL_DEFAULT). Ungespeicherte/nicht-numerische Alt-Werte
+ * starten bei 1. Verbraucht vom Caret-Stepper im Blattkopf
+ * (sheet/item.js _onBoonLevelAdjust) UND vom Logik-Harness.
+ */
+export function boonNextLevel(base, delta, reference = '') {
+  const b = typeof base === 'number' && base >= 1 ? Math.round(base) : 1;
+  const cfg = game.symbaroum.config;
+  const ref = String(reference ?? '').trim();
+  const max = (cfg.BOON_MAX_LEVEL?.[ref] ?? cfg.BOON_MAX_LEVEL_DEFAULT ?? 3) || cfg.BOON_MAX_LEVEL_DEFAULT || 3;
+  return Math.min(max, Math.max(1, b + delta));
 }
 
 /* v1.2 (Rudolfs Testrunde v1.1, Rückmeldung b): Die v1.1-Ziel-Hinweis-

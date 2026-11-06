@@ -327,6 +327,23 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			if (sel) beastloreTitleSuffix[item.id] = ' [' + game.i18n.localize(sel.label) + ']';
 		}
 		context.beastloreTitleSuffix = beastloreTitleSuffix;
+		/* S2.1 (P15b, Rudolfs Testrunde-Rückmeldung 06.11.): Gruppierung
+		   des Kontakte-Segens anzeigeseitig im Titel (Muster Bestienkunde)
+		   — „Kontakte [Armee der Königin]" bzw. „Kontakte [eigene
+		   Gruppe]". Der gespeicherte Item-Name bleibt unberührt; der
+		   Suffix fließt über den powers-Eintrag in klassische Liste,
+		   moderne Kacheln UND Kampf-Favoriten. */
+		const contactTitleSuffix = {};
+		for (const item of items) {
+			const grp = item.system?.contactGroup;
+			if (!grp || item.system?.reference !== 'contacts') continue;
+			const label =
+				grp === 'custom'
+					? String(item.system?.contactGroupCustom ?? '').trim()
+					: game.i18n.localize(game.symbaroum.config.CONTACT_GROUP_SELECTION[grp]?.label ?? '');
+			if (label) contactTitleSuffix[item.id] = ' [' + label + ']';
+		}
+		context.contactTitleSuffix = contactTitleSuffix;
 		/* Brauen v1.1 (B1/B2): Rezeptur-Übersicht für den Ausrüstungs-Tab
 		   (modern: eigene Gruppe; klassisch: eigene Sektion). levelLabel/
 		   traditionLabel sind vorlokalisiert (Vorlage: rezeptur.js);
@@ -581,9 +598,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			const vwSuffix = tkIsVW && tradIds.length > 0 ? ` (${traditionLabel(tradIds[0])})` : '';
 			const entry = {
 				id: item.id,
-				name: item.name + (context.beastloreTitleSuffix?.[item.id] ?? '') + vwSuffix,
+				name: item.name + (context.beastloreTitleSuffix?.[item.id] ?? '') + (context.contactTitleSuffix?.[item.id] ?? '') + vwSuffix,
 				img: item.img,
 				hasScript: !!s.hasScript,
+				hasBoonLine: !!s.hasBoonLine,
 				isIntegrated: !!s.isIntegrated,
 				favorite: !!item.flags?.symbaroum?.favorite,
 				level: 0,
@@ -821,7 +839,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				const entry = powerEntryById[item.id];
 				// Bestienkunde v1.1: Favorit uebernimmt den erweiterten Titel
 				// aus dem powers-Eintrag (Suffix bereits in entry.name)
-				if (entry) favorites.push({ id: item.id, name: entry.name, img: item.img, kind: 'power', hasScript: entry.hasScript, sub: entry.sub });
+				if (entry) favorites.push({ id: item.id, name: entry.name, img: item.img, kind: 'power', hasScript: entry.hasScript, hasBoonLine: entry.hasBoonLine, sub: entry.sub });
 			} else if (s.isGear) {
 				// Aktive Waffen/Rüstungen erscheinen ohnehin immer im Kampf-Tab
 				if ((s.isWeapon || s.isArmor) && s.isActive) continue;
