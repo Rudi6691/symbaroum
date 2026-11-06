@@ -61,6 +61,26 @@ const F = (key, data) => game.i18n.format(key, data);
 /* Stufen-Rangfolge für den Stufen-Filter (Kandidaten-Stufe <= eigene). */
 const LEVEL_ORDER = { novice: 1, adept: 2, master: 3 };
 
+/* Segen & Lasten S2 Baustein A (Rudolfs „Leg los“, 06.11.2026):
+ * Grüner-Daumen-Zeile im Brau-/Analyse-Dialog — RAW gilt der Bonus des
+ * Segens „auch für alle Alchemie-Proben“. Bonus = system.bonusValue
+ * (Stapel-Segene = Anzahl der Käufe, Migrations-Makro v2), Fallback +1;
+ * null, wenn der Aktor den Segen nicht besitzt (Ref 'greenthumb',
+ * Migrations-Makro v2). Bewusst LOKAL statt Import aus boon.js: die
+ * BOON_LINES-Zeile des Segens ist reine Dialog-Angelegenheit der
+ * Eigenschafts-Würfe, hier reicht der Bonus-Lookup — der kreisförmige
+ * Importkette (boon.js ↔ item.js ↔ brewing.js) wird nicht erweitert.
+ * Opt-in per Häkchen, wie alle Kontext-Zeilen (Rudolfs Entscheidung 1). */
+function getGreenthumbAlchemyLine(actor) {
+	const item = (actor?.items ?? []).find(
+		(it) => it?.type === 'boon' && String(it.system?.reference ?? '').trim() === 'greenthumb'
+	);
+	if (!item) return null;
+	const bonusValue = Number(item.system?.bonusValue);
+	const bonus = Number.isFinite(bonusValue) && bonusValue !== 0 ? bonusValue : 1;
+	return { label: `${L('BOON.LINE_GREENTHUMB_ALCHEMY')} (+${bonus})`, bonus };
+}
+
 /* ---------------------------------------------------------------- */
 /*  Test-Rig /rig (Alchemie Modul 3 v1.1, Rudolfs Testrunde P7/8/    */
 /*  11/12 + Freigabe 05.11.)                                        */
@@ -487,9 +507,12 @@ export async function openBrewDialog(abilityItem, { presetRecipeId = null } = {}
 	const presetCand = presetRecipeId ? candidates.find((c) => c.recipe?.id === presetRecipeId) : null;
 	const preselectCand = presetCand ?? candidates[0];
 	const modern = isModernDialogActive();
+	/* S2: Grüner-Daumen-Zeile (nur bei Besitz des Segens). */
+	const greenthumb = getGreenthumbAlchemyLine(actor);
 	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/brew-dialog.hbs', {
 		renderModern: modern,
 		bonusNext: bonusNextAvailable,
+		greenthumb,
 		candidates: candidates.map((c) => ({
 			id: c.key,
 			label: `${c.elixir.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`,
@@ -548,10 +571,15 @@ export async function openBrewDialog(abilityItem, { presetRecipeId = null } = {}
 					   Modifikator aus #brew-modifier, addiert zum Labor-
 					   Bonus in der Probe; leer/ungültig = 0. */
 					const userMod = Number(html[0].querySelector('#brew-modifier')?.value);
-					const modifier = (Number.isFinite(userMod) ? userMod : 0);
 					/* Alchemie Modul 3: Bonus-Häkchen (nur zeigbar bei Flag;
 					   Verbrauch bucht performBrew am Actor-Flag ab). */
 					const bonusNext = bonusNextAvailable && !!html[0].querySelector('#brew-bonus-next')?.checked;
+					/* S2: Grüner-Daumen-Häkchen — Bonus addiert sich auf
+					   die Probe (performBrew zeigt ihn im Probe-Feld mit,
+					   formatBrewProbeLine zählt ihn zum freien
+					   Modifikator). */
+					const greenthumbChecked = !!html[0].querySelector('#brew-greenthumb')?.checked;
+					const modifier = (Number.isFinite(userMod) ? userMod : 0) + (greenthumb && greenthumbChecked ? greenthumb.bonus : 0);
 					let secret = false;
 					for (const radio of html[0].querySelectorAll("input[name='brew-vis']")) {
 						if (radio.checked) secret = radio.value === 'secret';
@@ -831,6 +859,10 @@ const TRACE_OVERRIDE = {
 	wounded: 'ANALYSE.CAT_WOUNDED',
 	revealed: 'ANALYSE.CAT_REVEALED',
 	detoxified: 'ANALYSE.CAT_DETOXIFIED',
+	/* Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Spur
+	 * „beruhigt“ für den Musikant-Beruhigen-Erfolg (Baustein D).
+	 * Reine Anzeige-Kategorie, gleiche Mechanik. */
+	calmed: 'ANALYSE.CAT_CALMED',
 };
 
 export function elixirCategoryKey(elixir) {
@@ -1328,8 +1360,11 @@ export async function openAnalyseDialog(abilityItem, { presetTargetUuid = null }
 	 * damit Liste und Elixier-Ziele unterscheidbar bleiben. */
 	const labelFor = (c) =>
 		`${c.unknown ? `${L('ANALYSE.UNKNOWN_BADGE')} · ` : ''}${c.item.type === 'rezeptur' ? `${L('ANALYSE.RECIPE_BADGE')} · ` : ''}${c.item.name} (${L(`ALCHEMY_LEVEL.${c.level.toUpperCase()}`)})`;
+	/* S2 Baustein A: Grüner-Daumen-Zeile (nur bei Besitz). */
+	const greenthumb = getGreenthumbAlchemyLine(actor);
 	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/analyse-dialog.hbs', {
 		renderModern: modern,
+		greenthumb,
 		candidates: candidates.map((c) => ({ id: c.key, label: labelFor(c) })),
 		preselect: presetTargetUuid ?? candidates[0].key,
 		guides: [{ id: '', label: L('ANALYSE.GUIDE_NONE') }, ...guides.map((g) => ({ id: g.id, label: g.label }))],
@@ -1401,7 +1436,10 @@ export async function openAnalyseDialog(abilityItem, { presetTargetUuid = null }
 					const labId = html[0].querySelector('#analyse-lab')?.value;
 					const facility = facilities.find((f) => f.item.id === labId) ?? null;
 					const userMod = Number(html[0].querySelector('#analyse-modifier')?.value);
-					const modifier = Number.isFinite(userMod) ? userMod : 0;
+					/* S2 Baustein A: Grüner-Daumen-Bonus addiert sich
+					   opt-in per Häkchen auf die Analyse-Probe. */
+					const greenthumbChecked = !!html[0].querySelector('#analyse-greenthumb')?.checked;
+					const modifier = (Number.isFinite(userMod) ? userMod : 0) + (greenthumb && greenthumbChecked ? greenthumb.bonus : 0);
 					/* v1.3 (Punkt 6c): Gunst-Radioblock (0/1/-1). */
 					let favour = 0;
 					for (const radio of html[0].querySelectorAll("input[name='analyse-favour']")) {

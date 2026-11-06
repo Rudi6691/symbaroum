@@ -723,15 +723,31 @@ SYMBAROUM.systemConditionEffects = [
     icon: "icons/svg/aura.svg",
   },
   {
-    // Elixiere v1.5 (Selbst-Elixiere auf andere, Rudolfs Freigabe 02.11.):
-    // Schlafend als eigenes Status-Symbol - Drohnentau setzt es (zusammen
-    // mit Benommen) auf das Ziel; wie die anderen Elixiere-Conditions ein
-    // Core-Icon im HUD-Paletten-Stil. Keine Engine-Anbindung: Rundenlauf
-    // kommt ueber die gewohnte condition+rounds-Feldkombination.
-    id: "sleeping",
-    label: "CONDITION.SLEEPING",
-    name: "CONDITION.SLEEPING",
-    icon: "icons/svg/sleep.svg",
+    // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026):
+    // (Baustein C) Der Elixiere-v1.5-Zustand „Schlafend“ (id sleeping,
+    // Drohnentau) ist ENTFERNT — ab jetzt liefert der Foundry-Core-
+    // Zustand `sleep` (EN „Asleep“, DE „Schlafend“ über den A35-Namen-
+    // Gürtel SYMBAROUM.STATUS_SLEEP; identisches Icon icons/svg/
+    // sleep.svg). Drohnentau war AUSSCHLIESSLICH datengetrieben
+    // (system.elixirEffect.condition "sleeping,dazed", Auflösung über
+    // CONFIG.statusEffects in elixirs.js) — das Begleit-GM-Makro
+    // „Schlafend-Migration“ (S2-Lieferung) überführt die Welt-Daten
+    // ("sleeping" → "sleep"), der Zustands-Chip-Dialog des Status-Tabs
+    // baut LIVE aus CONFIG.statusEffects und bietet den Core-Schlafend-
+    // Eintrag automatisch an. Damit zeigt die Statuspalette „Schlafend“
+    // nur noch EINMAL (Rudolfs Doppel-„Schlafend“-Befund der v1.2-
+    // Testrunde: Core sleep + System sleeping, beide „Schlafend“).
+    // (Baustein D) NEU stattdessen: „Beruhigt“ (id calmed) — gesetzt
+    // per GM-Karte, wenn der Musikant erfolgreich eine Bestie beruhigt
+    // (boon.js musicianResult); auch als wählbarer Elixier-Zustands-Chip
+    // konfigurierbar (Rudolfs Korrektur meiner Ausschluss-Empfehlung)
+    // und als Analyse-Spur „beruhigt“ (ANALYSE.CAT_CALMED). Bewusst
+    // KEINE flagData und KEIN duration-Objekt: das Symbol ist permanent,
+    // Rücksetzen ist reine SL-Sache (HUD) — keine Runden-Engine.
+    id: "calmed",
+    label: "CONDITION.CALMED",
+    name: "CONDITION.CALMED",
+    icon: "icons/svg/aura.svg",
   },
   {
     // A35: regeneration trait condition - engine-managed heal tick (resource
@@ -1238,6 +1254,47 @@ SYMBAROUM.CREATURE_CATEGORY_SELECTION = {
   undead: {
     id: "undead",
     label: "CREATURE_CATEGORY.UNDEAD",
+  },
+};
+
+/* Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026), Baustein B: die 7
+   offiziellen Fraktionen des Kontakte-Segens (RAW GRW: Armee der
+   Königin, Königliche Waldläufer, Hexen, Ordo Magica, Kirche von
+   Prios, Adelshäuser, Schatzsucher) für das Single-Select am Kontakte-
+   Item (system.contactGroup; dazu 'custom' + freies Textfeld
+   system.contactGroupCustom für SL-eigene Gruppierungen, Rudolfs
+   Entscheidung 1 der Scoping-Runde). Mehrfachkauf von Kontakte = Item
+   je Gruppierung. Auswahl-Listen-Muster wie CREATURE_CATEGORY_SELECTION
+   oben; die leer id '' (keine Gruppierung) steht im Sheet-Select, hier
+   bewusst NICHT in der Liste (das Select ergänzt '', 'custom' selbst). */
+SYMBAROUM.CONTACT_GROUP_SELECTION = {
+  queenarmy: {
+    id: "queenarmy",
+    label: "BOON.CONTACT_GROUP.QUEENARMY",
+  },
+  royalrangers: {
+    id: "royalrangers",
+    label: "BOON.CONTACT_GROUP.ROYALRANGERS",
+  },
+  witches: {
+    id: "witches",
+    label: "BOON.CONTACT_GROUP.WITCHES",
+  },
+  ordomagica: {
+    id: "ordomagica",
+    label: "BOON.CONTACT_GROUP.ORDOMAGICA",
+  },
+  prioschurch: {
+    id: "prioschurch",
+    label: "BOON.CONTACT_GROUP.PRIOSCHURCH",
+  },
+  noblehouses: {
+    id: "noblehouses",
+    label: "BOON.CONTACT_GROUP.NOBLEHOUSES",
+  },
+  treasurehunters: {
+    id: "treasurehunters",
+    label: "BOON.CONTACT_GROUP.TREASUREHUNTERS",
   },
 };
 

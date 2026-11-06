@@ -24,6 +24,22 @@
   <div class="m-roll-favour">
     <label class="lblfavour">{{radioBoxes groupName choices checked=roll_defaults.selectedFavour localize=true}}</label>
   </div>
+  {{!-- Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen
+       der besessenen Segen/Lasten — Gruppe „Segen & Lasten“ (Muster
+       Brau-Dialog: fieldset.m-ability-frame + Legend); gleiche Feld-IDs
+       wie der klassische Dialog, die Callback-Logik in dialog.js liest
+       per data-Attribut. --}}
+  {{#if boon_lines.length}}
+  <fieldset class="m-ability-frame boon-lines-frame">
+    <legend class="m-ability-label">{{localize "BOON.LINE_GROUP"}}</legend>
+    {{#each boon_lines as |line|}}
+    <div class="m-roll-check boon-line">
+      <label for="boonline-{{../did}}-{{line.key}}">{{line.label}}</label>
+      <input type="checkbox" id="boonline-{{../did}}-{{line.key}}" data-boonline="{{line.key}}" data-sc="{{line.sc}}" unchecked>
+    </div>
+    {{/each}}
+  </fieldset>
+  {{/if}}
   {{#if isWeaponRoll}}
     <div class="m-roll-check">
       <label for="advantage-{{did}}">{{localize "DIALOG.ADVANTAGE"}}</label>

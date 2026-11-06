@@ -33,6 +33,18 @@
   <div class="favour">
     <label class="lblfavour">{{radioBoxes groupName choices checked=roll_defaults.selectedFavour localize=true}}</label>
   </div>
+  {{!-- Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen
+       der besessenen Segen/Lasten für diese Eigenschaft — nur bei Besitz,
+       leer + ankreuzbar (Impeding-Muster); Bonus-Zeilen addieren auf den
+       Modifikator, B/G-Zeilen setzen + sperren das Gunst-Radio
+       (dialog.js-Submit nach dem Gunst-Radio; activateBoonLineExclusive
+       für die Exklusivität am Live-DOM). --}}
+  {{#each boon_lines as |line|}}
+  <div class="simplebox boon-line-row">
+    <label for="boonline-{{../did}}-{{line.key}}">{{line.label}}</label>
+    <span class="lblfavour"><input type="checkbox" id="boonline-{{../did}}-{{line.key}}" data-boonline="{{line.key}}" data-sc="{{line.sc}}" unchecked></span>
+  </div>
+  {{/each}}
 
   {{#if askImpeding}}
   <div class="simplebox">

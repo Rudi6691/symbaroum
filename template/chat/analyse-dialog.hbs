@@ -85,6 +85,16 @@
     </label>
   </div>
   {{/if}}
+  {{!-- Segen & Lasten S2 Baustein A (Rudolfs „Leg los“, 06.11.2026):
+      Grüner-Daumen-Zeile — nur bei Besitz des Segens (greenthumb null
+      sonst). Bonus addiert sich opt-in per Häkchen auf die Analyse-
+      Probe. --}}
+  {{#if greenthumb}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="analyse-greenthumb" data-tooltip="{{localize "BOON.LINE_GREENTHUMB_TOOLTIP"}}">{{greenthumb.label}}</label>
+    <input id="analyse-greenthumb" type="checkbox"/>
+  </div>
+  {{/if}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}" style="flex-wrap:wrap">
     <label for="analyse-info" style="flex:0 0 100%; width:100%; min-width:0;">{{localize "ANALYSE.INFO_LABEL"}}</label>
     <textarea id="analyse-info" rows="2" readonly style="width:100%; max-width:100%; box-sizing:border-box; color:inherit; resize:none; text-align:left;">{{info}}</textarea>

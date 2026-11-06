@@ -307,6 +307,38 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			allowShowReference: game.settings.get('symbaroum', 'allowShowReference'),
 		};
 		context.action_types = game.symbaroum.config.ACTION_TYPES;
+		/* Segen & Lasten S2 Baustein B (Rudolfs „Leg los“, 06.11.2026):
+		   Kontakte-Gruppierung am Kontakte-Segen (system.contactGroup,
+		   Single-Select der 7 offiziellen Fraktionen + 'custom' mit
+		   freiem Textfeld system.contactGroupCustom) — nur auf Items mit
+		   kanonischer Referenz 'contacts' (Migrations-Makro v2);
+		   Spieler-editierbar (Muster VW-desc-Select). Vorlokalisierte
+		   Liste (selectOptions ohne localize-Helper). */
+		context.showContactGroup =
+			this.item.type === 'boon' && String(this.item.system?.reference ?? '').trim() === 'contacts';
+		context.contactGroup = this.item.system.contactGroup ?? '';
+		context.contactGroupCustom = this.item.system.contactGroupCustom ?? '';
+		context.contact_group_selection = Object.values(game.symbaroum.config.CONTACT_GROUP_SELECTION).map((c) => ({
+			id: c.id,
+			label: game.i18n.localize(c.label),
+		}));
+		/* Segen & Lasten S2 Baustein A: Augur-Hinweis-Chip am Ritual-Blatt
+		   (Rituale haben KEINEN Wurfdialog, Augur bekommt also keine
+		   Kontext-Zeile) — nur bei Besitz des Augur-Segens am besitzenden
+		   Aktor; Bonus = system.bonusValue (Stapel-Segene = Anzahl der
+		   Käufe, Fallback +1). Chip ist reine Information (RAW: +X auf
+		   die Rituale Wahrsagen, Heiliger Rauch und Orakel) — das Würfeln
+		   übernimmt weiterhin die SL mit dem freien Modifikator. */
+		context.augurChip = '';
+		if (this.item.type === 'ritual' && this.item.isOwned) {
+			const augurItem = this.item.actor?.items?.find(
+				(it) => it.type === 'boon' && String(it.system?.reference ?? '').trim() === 'augur'
+			);
+			if (augurItem) {
+				const bonus = Number(augurItem.system?.bonusValue) || 1;
+				context.augurChip = game.i18n.format('BOON.AUGUR_RITUAL_HINT', { bonus });
+			}
+		}
 		// Bestienkunde v1 (Rudolfs Freigabe 28.10.): Kategorie-Dropdown nur
 		// auf Bestienkunde-Items (Adept-Tab, klassisch + modern); die Labels
 		// werden vorlokalisiert, damit selectOptions ohne localize-Helper
@@ -457,6 +489,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			{ id: 'wounded', label: game.i18n.localize('ANALYSE.CAT_WOUNDED') },
 			{ id: 'revealed', label: game.i18n.localize('ANALYSE.CAT_REVEALED') },
 			{ id: 'detoxified', label: game.i18n.localize('ANALYSE.CAT_DETOXIFIED') },
+			/* Segen & Lasten S2 Baustein D (Rudolfs Korrektur meiner
+			   Ausschluss-Empfehlung, 06.11.): „beruhigt“ als weitere
+			   Spuren-Kategorie — reine Anzeige/Override, gleiche
+			   Mechanik (brewing.js TRACE_OVERRIDE). Ein reines
+			   Beruhigt-Elixier (nur eff.condition) bleibt Auto-
+			   Ableitung „unbekannte Wirkung“, die SL setzt die Spur. */
+			{ id: 'calmed', label: game.i18n.localize('ANALYSE.CAT_CALMED') },
 		];
 		context.showAmmoEffect = context.showElixirFields && isAmmoCategory(this.item.system?.resourceCategory ?? '');
 		context.ammoEffect = this.item.system.ammoEffect ?? '';
@@ -647,6 +686,27 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			sel.addEventListener('change', () => {
 				if (!this.isEditable || !this.item.isOwner) return;
 				this.item.update({ 'system.traditions': sel.value });
+			});
+		}
+		// Segen & Lasten S2 Baustein B: Kontakte-Gruppierung am Kontakte-
+		// Segen (boon.hbs klassisch + modern) — wie das VW-desc-Select
+		// bewusst NICHT form-assoziiert (kein name-Attribut): die Werte
+		// laufen als bubbling change direkt per item.update in die
+		// Systemdaten (gleiche Landminen-Vermeidung wie Preisbasis und
+		// Zustands-/Traditionen-Dialog). Select = Fraktion ('' oder
+		// Fraktion oder 'custom'), Textfeld nur bei 'custom' aktiv.
+		const contactGroupSelect = element.querySelector('[data-contact-group]');
+		if (contactGroupSelect) {
+			contactGroupSelect.addEventListener('change', () => {
+				if (!this.isEditable || !this.item.isOwner) return;
+				this.item.update({ 'system.contactGroup': contactGroupSelect.value });
+			});
+		}
+		const contactGroupCustomInput = element.querySelector('[data-contact-group-custom]');
+		if (contactGroupCustomInput) {
+			contactGroupCustomInput.addEventListener('change', () => {
+				if (!this.isEditable || !this.item.isOwner) return;
+				this.item.update({ 'system.contactGroupCustom': String(contactGroupCustomInput.value ?? '').trim() });
 			});
 		}
 		// Test round 2, finding 1: Enter/Tab in an input commits via

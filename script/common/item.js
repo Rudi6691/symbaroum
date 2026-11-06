@@ -27,6 +27,10 @@ import { getDazedPenalty, consumeElixirDose } from "./elixirs.js";
 // (boon.js importiert modifierDialog/standardPowerResult zurück) folgt
 // dem etablierten Muster dialog.js <-> item.js
 import { getBoonRollConfig } from "./boon.js";
+// Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
+// Kräfte-/Fähigkeits-Würfeldialog (Typ B + B/G „Zweite Chance“ mit
+// Radio-Exklusivität) — Kanonik und Helfer in boon.js
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive } from "./boon.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3610,6 +3614,16 @@ export async function modifierDialog(functionStuff) {
       askPoisonCoating = true;
     }
   }
+  // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen der
+  // besessenen Segen/Lasten für die Wurf-Eigenschaft — nur bei FIXER
+  // Eigenschaft (bei Wahl-Eigenschaft askCastingAttribute weiß der
+  // Spieler erst im Dialog, womit er würfelt; die Zeilen blieben sonst
+  // stur auf der Vorbereichungs-Eigenschaft liegen). 'defense'-Würfe
+  // bleiben draußen (boonLineAttrMatch).
+  const boon_lines =
+    !functionStuff.askCastingAttribute && functionStuff.castingAttributeName
+      ? getBoonLinesForActor(functionStuff.actor, functionStuff.castingAttributeName)
+      : [];
   const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
     askCastingAttribute: functionStuff.askCastingAttribute,
@@ -3650,6 +3664,7 @@ export async function modifierDialog(functionStuff) {
     ownPoison: ownPoison,
     poisoner: poisoner,
     hasRoll: hasRoll,
+    boon_lines: boon_lines
   });
   let title;
   if (functionStuff.ability) {
@@ -3672,6 +3687,8 @@ export async function modifierDialog(functionStuff) {
     // Design-/Ansichtswechsel die offenen Würfeldialoge dieses Nutzers
     // geschlossen werden können (closeOpenRollDialogs).
     classes: [`symb-roll-dialog`, `symb-roll-user-${game.user.id}`, ...(modernRoll ? modernDialogClasses("modern-roll-dialog") : [])],
+    // Segen & Lasten S2: Gunst-/Missgunst-Exklusivität der B/G-Zeilen
+    onRender: (element) => activateBoonLineExclusive(element),
     // Kosmetik v1.1: größenveränderbar und Breiten-Skalierung sind
     // jetzt symbDialog-Defaults (siehe symbDialog.js) - hier nicht mehr
     // pro Aufrufstelle nötig.
@@ -3736,6 +3753,23 @@ export async function modifierDialog(functionStuff) {
               if (f.checked) fvalue = parseInt(f.value, 10);
             }
             functionStuff.favour += fvalue;
+            // Segen & Lasten S2: Kontext-Zeilen auswerten — Bonus-Zeilen
+            // addieren auf functionStuff.modifier (DIALOG-Feld setzt den
+            // Startwert, Zeilen laufen additiv dazu); eine angekreuzte
+            // B/G-Zeile ERSETZT die Gunst (ersetzt, nicht addiert —
+            // auch die fest verdrahtete Gunst aus dem Setup, z. B.
+            // Dunkles Geheimnis); das Radio selbst wurde beim Ankreuzen
+            // bereits gesetzt und gesperrt (activateBoonLineExclusive).
+            const boonChecked = collectCheckedBoonLines(html, boon_lines);
+            let boonFavourOverride = null;
+            for (const line of boonChecked) {
+              functionStuff.autoParams += line.label + ", ";
+              if (line.sc) boonFavourOverride = line.sc === "favour" ? 1 : -1;
+              else functionStuff.modifier += line.bonus;
+            }
+            if (boonFavourOverride !== null) {
+              functionStuff.favour = boonFavourOverride;
+            }
           }
 
           //Power/Ability has already been started and is maintained or chained

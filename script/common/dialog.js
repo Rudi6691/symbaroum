@@ -2,6 +2,10 @@ import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './rol
 import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel } from './item.js';
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
+// Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
+// Eigenschafts-Würfeldialog (Typ B + B/G „Zweite Chance“ mit Radio-
+// Exklusivität) — Kanonik und Helfer in boon.js
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive } from './boon.js';
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
@@ -350,6 +354,13 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       }
     }
   }
+  // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen der
+  // besessenen Segen/Lasten für DIESE Eigenschaft (Typ B Bonus-Zeilen +
+  // B/G „Zweite Chance“-Zeilen, Kanonik BOON_LINES in boon.js). Zeilen
+  // erscheinen nur bei Besitz, bleiben leer/angehakt-frei und sind reine
+  // Spieler-Opt-ins (RAW-Situationsboni); 'defense'-Rüstungs-Würfe und
+  // freie Makro-Würfe bleiben bewusst draußen.
+  const boon_lines = getBoonLinesForActor(actor, attributeName);
   // Automatisierungspaket 1 (28.10.): Würfeldialog im modernen Design, wenn
   // der Nutzer die modernen Blätter nutzt (pro User GLOBAL, Rudolfs
   // Entscheidung) - gleiche Feld-IDs, nur das Layout ist neu
@@ -382,7 +393,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "ammoEffectChoices": ammoEffectChoices,
     "askPoisonCoating": askPoisonCoating,
     "poisonCoatingChoices": poisonCoatingChoices,
-    "ownPoison": ownPoison
+    "ownPoison": ownPoison,
+    "boon_lines": boon_lines
   });
 
   const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName);
@@ -394,6 +406,10 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     // Design-/Ansichtswechsel die offenen Würfeldialoge dieses Nutzers
     // geschlossen werden können (closeOpenRollDialogs).
     classes: [`symb-roll-dialog`, `symb-roll-user-${game.user.id}`, ...(modernRoll ? modernDialogClasses('modern-roll-dialog') : [])],
+    // S2: Gunst-/Missgunst-Exklusivität der B/G-Zeilen am Live-DOM
+    // (bei Waffen-Würfen wird zusätzlich NACH dem zweiten Render im
+    // A30-Block unten aktiviert, siehe dort)
+    onRender: (element) => activateBoonLineExclusive(element),
     // Kosmetik v1.1: größenveränderbar und Breiten-Skalierung sind
     // jetzt symbDialog-Defaults (siehe symbDialog.js) - hier nicht mehr
     // pro Aufrufstelle nötig.
@@ -635,8 +651,33 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             if( f.checked ) fvalue = f.value;
           }
           attri_defaults.selectedFavour = ""+fvalue;			
-          const favour = fvalue;
+          let favour = fvalue;
           ecData.favour += parseInt(fvalue);
+          // Segen & Lasten S2: Kontext-Zeilen auswerten (NACH dem Gunst-
+          // Radio, VOR Zeichen-der-Pein). Bonus-Zeilen addieren auf den
+          // Modifikator (Dialog-Feld + ecData, damit der nicht-
+          // automatisierte rollAttribute-Fallback denselben Bonus
+          // bekommt); eine angekreuzte B/G-Zeile ERSETZT die Gunst
+          // (ersetzt, nicht addiert - inkl. der vorgewaehlten Gunst aus
+          // Verdrahtungen wie Dunkles Geheimnis), das Radio selbst wurde
+          // beim Ankreuzen bereits gesetzt und gesperrt.
+          const boonChecked = collectCheckedBoonLines(html, boon_lines);
+          let boonModifierDelta = 0;
+          let boonFavourOverride = null;
+          for (const line of boonChecked) {
+            ecData.autoParams += line.label + ", ";
+            if (line.sc) boonFavourOverride = line.sc === 'favour' ? 1 : -1;
+            else boonModifierDelta += line.bonus;
+          }
+          if (boonModifierDelta !== 0) {
+            modifier += boonModifierDelta;
+            ecData.modifier += boonModifierDelta;
+            attri_defaults.modifier = modifier;
+          }
+          if (boonFavourOverride !== null) {
+            favour = boonFavourOverride;
+            ecData.favour = boonFavourOverride;
+          }
           // A33 (Rudolf's Adept redesign, 23.10.): Zeichen der Pein -
           // attackers against a marked victim automatically attack with
           // favour (the GRW "defense twice, worse counts" is
@@ -849,6 +890,14 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
         () => {
           const postRoot = dialog.element;
           if (!postRoot) return;
+          // Segen & Lasten S2: Der A30-Block erzwingt hier einen ZWEITEN
+          // render()-Durchlauf — Listener, die symbDialogs onRender beim
+          // ERSTEN Render gesetzt hat, könnten am ausgetauschten DOM
+          // verwaist sein. Die Exklusivitäts-Verdrahtung der Kontext-
+          // Zeilen wird deshalb hier NOCHMAL gesetzt; ihre Logik ist
+          // idempotent (abwählen anderer sc-Zeilen, Radio setzen), ein
+          // eventuell doppelt laufender Listener bleibt folgenlos.
+          activateBoonLineExclusive(postRoot);
           if (askBastardGrip) {
             const a30DmgInput = postRoot.querySelector(`#weapondamage-${did}`);
             // Ressourcen v1.4 (A30-Live): Die einhändig unterdrueckten

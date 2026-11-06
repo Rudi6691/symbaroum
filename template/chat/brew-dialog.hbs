@@ -85,6 +85,15 @@
     </label>
   </div>
   {{/if}}
+  {{!-- Segen & Lasten S2 Baustein A (Rudolfs „Leg los“, 06.11.2026):
+      Grüner-Daumen-Zeile — nur bei Besitz des Segens (greenthumb null
+      sonst). Bonus = bonusValue (Fallback +1), addiert sich opt-in per
+      Häkchen auf die Brau-Probe. --}}  {{#if greenthumb}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="brew-greenthumb" data-tooltip="{{localize "BOON.LINE_GREENTHUMB_TOOLTIP"}}">{{greenthumb.label}}</label>
+    <input id="brew-greenthumb" type="checkbox"/>
+  </div>
+  {{/if}}
   {{!-- Alchemie Modul 3: Nachbrau-Bonus-Häkchen (nur sichtbar, wenn der
       Actor-Flag 'nachbrauBonus' aktiv ist - brewing.js verbraucht den Flag
       beim nächsten Gebräu mit +1). Standard: angehakt. --}}

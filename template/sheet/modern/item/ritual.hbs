@@ -6,6 +6,13 @@
     <div class="sheet-body m-item-body">
         <div class="tab" data-group="primary" data-tab="description">
             <div class="m-panel">
+                {{!-- Segen & Lasten S2 Baustein A (Rudolfs „Leg los“, 06.11.2026):
+                    Augur-Hinweis-Chip am Ritual-Blatt, moderne Ansicht —
+                    gleiche Bedingung/Text wie das klassische Blatt
+                    (context.augurChip, item.js). --}}
+                {{#if augurChip}}
+                <div class="m-roll-note augur-chip-row">{{augurChip}}</div>
+                {{/if}}
                 {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
                 {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
                 <h1>{{localize "TITLE.DESCRIPTION"}}</h1>

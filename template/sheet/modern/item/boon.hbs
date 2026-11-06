@@ -22,6 +22,29 @@
                     </select>
                 </div>
                 {{/if}}
+                {{!-- Segen & Lasten S2 Baustein B (Rudolfs „Leg los“,
+                    06.11.2026): Kontakte-Gruppierung am Kontakte-Segen,
+                    moderne Ansicht — gleiche Felder/Listener wie das
+                    klassische Blatt (data-contact-group /
+                    data-contact-group-custom, Änderungen per item.update,
+                    Muster VW-desc-Select). --}}
+                {{#if showContactGroup}}
+                <div class="traditions-row contact-group-row">
+                    <label for="{{id}}-contactgroup" data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}">{{localize "BOON.CONTACT_GROUP.SELECT_LABEL"}}</label>
+                    <select id="{{id}}-contactgroup" data-contact-group data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}" {{ifThen editable '' 'disabled'}}>
+                        <option value="" {{#unless contactGroup}}selected{{/unless}}>{{localize "BOON.CONTACT_GROUP.NONE"}}</option>
+                        {{#each contact_group_selection as |g|}}
+                        <option value="{{g.id}}" {{#ife ../contactGroup g.id}}selected{{/ife}}>{{g.label}}</option>
+                        {{/each}}
+                        <option value="custom" {{#ife contactGroup "custom"}}selected{{/ife}}>{{localize "BOON.CONTACT_GROUP.CUSTOM"}}</option>
+                    </select>
+                    {{#ife contactGroup "custom"}}
+                    <input type="text" id="{{id}}-contactgroup-custom" data-contact-group-custom value="{{contactGroupCustom}}" placeholder="{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}" {{ifThen editable '' 'disabled'}}/>
+                    {{else}}
+                    <input type="text" id="{{id}}-contactgroup-custom" data-contact-group-custom value="{{contactGroupCustom}}" placeholder="{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}" disabled/>
+                    {{/ife}}
+                </div>
+                {{/if}}
                 {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
                 {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
                 <h1>{{localize "TITLE.DESCRIPTION"}}</h1>

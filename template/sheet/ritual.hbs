@@ -27,6 +27,17 @@
 
         <div class="sheet-body">
             <div class="tab" data-group="primary" data-tab="description">
+                {{!-- Segen & Lasten S2 Baustein A (Rudolfs „Leg los“, 06.11.2026):
+                    Augur-Hinweis-Chip am Ritual-Blatt — Rituale haben keinen
+                    Wurfdialog, Augur bekommt also keine Kontext-Zeile; der
+                    Chip erinnert an den RAW-Bonus (+X je Kauf) auf die
+                    Rituale Wahrsagen, Heiliger Rauch und Orakel. Nur bei
+                    Besitz des Augur-Segens (context.augurChip, item.js). --}}
+                {{#if augurChip}}
+                <div class="simplebox augur-chip-row">
+                    <span class="lblfavour">{{augurChip}}</span>
+                </div>
+                {{/if}}
                 {{!-- Traditionen v1: zugeordnete Traditionen read-only im
                     Beschreibungs-Tab (rendert nur bei vorhandenen Labels). --}}
                 {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}

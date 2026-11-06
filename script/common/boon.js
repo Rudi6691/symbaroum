@@ -52,8 +52,21 @@
  *    Tasten entfällt; (c) Wahl-Dialoge Single-Instance (erneuter Klick
  *    bringt den offenen Dialog in den Vordergrund, singleKey an
  *    symbDialog).
+ *  - S2 „Würfeldialog-Boni & Kontakte-Gruppierung" (Rudolfs Startsignal
+ *    „Leg los", 06.11.2026): (A) BOON_LINES-Kanonik — Situations-Zeilen
+ *    (Typ B) und „Zweite Chance"-Zeilen (Sub-Typ B/G, Gunst-/Missgunst-
+ *    Exklusivität) für beide Würfeldialog-Pfade (dialog.js EC-Dialog +
+ *    item.js modifierDialog), Bonus aus system.bonusValue, leer +
+ *    ankreuzbar nur bei Besitz; (B) Kontakte-Gruppierungsfeld
+ *    (system.contactGroup, feste 7 + freier Text) fließt als Kontext in
+ *    den Kontakte-Wurf; (D) Musikant Beruhigen setzt bei Erfolg am
+ *    Bestien-Ziel das neue Statussymbol „Beruhigt" (Condition calmed,
+ *    Icon icons/svg/aura.svg) über die GM-Karte „Effekte auf Token
+ *    anwenden" (createModifyTokenChatButton, Muster Fliehende/fearEffect)
+ *    — Rücksetzen ist reine SL-Sache, keine Runden-Engine.
  */
 import { modifierDialog, standardPowerResult } from './item.js';
+import { createModifyTokenChatButton } from './roll.js';
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 
@@ -174,9 +187,29 @@ function bushcraftPreDialog(functionStuff) {
  * Kontakte (RAW GRW + Rudolfs Klärung): RAW ruft sich der Charakter per
  * Ausstrahlung einen Kontakt ins Gedächtnis; als Hausregel kann der
  * Wurf auch Auskunft über die verbundene Gruppierung/Faktion geben
- * (Scharfsinn). Ein Feld für die Gruppierung folgt mit S2.
+ * (Scharfsinn).
  */
+/* S2 Baustein B (Rudolfs „Leg los“, 06.11.2026): Gruppierung des
+ * Kontakte-Segens (system.contactGroup, Single-Select der 7 offiziellen
+ * Fraktionen + 'custom' mit freiem Text system.contactGroupCustom) als
+ * Kontext-Etikett auf Dialog und Karte — bekannte Fraktion aus der
+ * i18n-Liste, 'custom' trägt den freien Text (leer = fallback-Label);
+ * unbelegtes Feld (Default '') zeigt nichts. RAW bleibt die Erinnerung
+ * eine Ausstrahlungs-Probe; die Gruppierung ist reiner Kontext. */
+function contactsGroupLabel(functionStuff) {
+  const group = String(functionStuff.ability?.contactGroup ?? '').trim();
+  if (!group) return '';
+  if (group === 'custom') {
+    const custom = String(functionStuff.ability?.contactGroupCustom ?? '').trim();
+    return custom || L('BOON.CONTACT_GROUP.CUSTOM');
+  }
+  const key = `BOON.CONTACT_GROUP.${group.toUpperCase()}`;
+  const label = L(key);
+  return label !== key ? label : group;
+}
+
 function contactsPreDialog(functionStuff) {
+  const groupParam = contactsGroupLabel(functionStuff);
   boonChoiceDialog(
     functionStuff,
     {
@@ -189,6 +222,7 @@ function contactsPreDialog(functionStuff) {
           functionStuff.resultTextSuccess = L('BOON_ROLL.CONTACTS_SUCCESS_REMEMBER');
           functionStuff.resultTextFail = L('BOON_ROLL.CONTACTS_FAILURE_REMEMBER');
           functionStuff.autoParams += L('BOON_ROLL.CONTACTS_PARAM_REMEMBER') + ', ';
+          if (groupParam) functionStuff.autoParams += groupParam + ', ';
           modifierDialog(functionStuff);
         },
       },
@@ -201,6 +235,7 @@ function contactsPreDialog(functionStuff) {
           functionStuff.resultTextSuccess = L('BOON_ROLL.CONTACTS_SUCCESS_INQUIRE');
           functionStuff.resultTextFail = L('BOON_ROLL.CONTACTS_FAILURE_INQUIRE');
           functionStuff.autoParams += L('BOON_ROLL.CONTACTS_PARAM_INQUIRE') + ', ';
+          if (groupParam) functionStuff.autoParams += groupParam + ', ';
           modifierDialog(functionStuff);
         },
       },
@@ -305,6 +340,11 @@ function musicianPreDialog(functionStuff) {
               return;
             }
           }
+          // S2 Baustein D (Rudolf 06.11.): Beruhigen-Modus-Marker für
+          // musicianResult — nur bei ERFOLG wird das Statussymbol
+          // „Beruhigt" über die GM-Karte angewendet; Inspirieren und
+          // Misserfolge lösen nie eine Karte aus.
+          functionStuff.musicianCalm = true;
           modifierDialog(functionStuff);
         },
       },
@@ -375,6 +415,199 @@ function bestialPreDialog(functionStuff) {
 }
 
 /* ---------------------------------------------------------------- */
+/*  S2 Baustein A (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen      */
+/* ---------------------------------------------------------------- */
+
+/*
+ * BOON_LINES-Kanonik: Situations-Zeilen (Typ B, Bonus) und „Zweite
+ * Chance“-Zeilen (Sub-Typ B/G, sc: 'favour' | 'disfavour') aus der
+ * Canvas-Analyse — pro kanonischem Ref (system.reference) eine Liste
+ * von Zeilen-Objekten:
+ *   attr  — Eigenschaft(en), auf die die Zeile passt: String,
+ *           Array (Zeile deckt mehrere Eigenschaften ab) oder '*'
+ *           (alle Eigenschaftsproben, z. B. Gerüchtekoch/Feuer-
+ *           geschmiedet); 'defense'-Würfe bleiben bewusst draußen.
+ *   label — i18n-Key der Zeile (BOON.LINE_*); Bonus bzw. Gunst/
+ *           Missgunst hängt der Dialog-Builder als „(+X)“- bzw.
+ *           „(Gunst)“-Suffix an.
+ *   bonus — fester Bonus (Flinkfüßig +3 / Langsam −3, RAW Flucht &
+ *           Jagd); ohne bonus gilt system.bonusValue (Stapel-Segene =
+ *           Anzahl der Käufe, Migrations-Makro v2), Fallback +1 (RAW
+ *           der Umwelt-Segene).
+ *   sc    — 'favour' (2W20, besserer zählt) oder 'disfavour' (2W20,
+ *           schlechterer zählt): Zeile ERSETZT die Gunst des Wurfs
+ *           statt einen Bonus zu geben; pro Wurf ist nur EINE sc-Zeile
+ *           anwählbar (Ankreuzen entsperrt/freistellt das Gunst-Radio,
+ *           siehe activateBoonLineExclusive). Dunkles Geheimnis ist
+ *           bereits S1 fest verdrahtet und steht hier nicht nochmal.
+ * Augur bekommt KEINE Zeile (Rituale haben keinen Wurfdialog) — nur
+ * den Hinweis-Chip am Ritual-Blatt; bornlucky/Glücksstern ist S3.
+ */
+const BOON_LINES = {
+  // --- Bonus-Zeilen (Typ B) ---
+  archivist: [{ attr: 'cunning', label: 'BOON.LINE_ARCHIVIST' }],
+  bloodhound: [
+    { attr: 'vigilant', label: 'BOON.LINE_BLOODHOUND_TRACK' },
+    { attr: 'cunning', label: 'BOON.LINE_BLOODHOUND_HIDE' },
+  ],
+  shadowspawn: [{ attr: 'discreet', label: 'BOON.LINE_SHADOWSPAWN' }],
+  dexterous: [{ attr: 'discreet', label: 'BOON.LINE_DEXTEROUS' }],
+  catburglar: [
+    { attr: 'quick', label: 'BOON.LINE_CATBURGLAR_QUICK' },
+    { attr: 'discreet', label: 'BOON.LINE_CATBURGLAR_DISCREET' },
+  ],
+  impressionist: [
+    { attr: 'discreet', label: 'BOON.LINE_IMPRESSIONIST' },
+    { attr: 'discreet', label: 'BOON.LINE_IMPRESSIONIST_FAVOUR', sc: 'favour' },
+    { attr: 'discreet', label: 'BOON.LINE_IMPRESSIONIST_DISFAVOUR', sc: 'disfavour' },
+  ],
+  conartist: [
+    { attr: 'persuasive', label: 'BOON.LINE_CONARTIST_LIE' },
+    { attr: 'vigilant', label: 'BOON.LINE_CONARTIST_SPOT' },
+  ],
+  manipulator: [{ attr: 'persuasive', label: 'BOON.LINE_MANIPULATOR' }],
+  horrifying: [{ attr: 'persuasive', label: 'BOON.LINE_HORRIFYING' }],
+  commandingvoice: [{ attr: 'persuasive', label: 'BOON.LINE_COMMANDINGVOICE' }],
+  storyteller: [{ attr: 'persuasive', label: 'BOON.LINE_STORYTELLER' }],
+  telltale: [{ attr: '*', label: 'BOON.LINE_TELLTALE' }],
+  cartographer: [{ attr: ['vigilant', 'cunning'], label: 'BOON.LINE_CARTOGRAPHER' }],
+  medium: [{ attr: ['vigilant', 'resolute', 'persuasive'], label: 'BOON.LINE_MEDIUM' }],
+  gambler: [
+    { attr: 'cunning', label: 'BOON.LINE_GAMBLER_PLAY' },
+    { attr: 'vigilant', label: 'BOON.LINE_GAMBLER_SPOT' },
+  ],
+  greenthumb: [{ attr: ['vigilant', 'cunning'], label: 'BOON.LINE_GREENTHUMB' }],
+  fireforged: [{ attr: '*', label: 'BOON.LINE_FIREFORGED' }],
+  welltraveled: [{ attr: 'persuasive', label: 'BOON.LINE_WELLTRAVELED' }],
+  streethome: [
+    { attr: 'discreet', label: 'BOON.LINE_STREETHOME_BLEND' },
+    { attr: 'vigilant', label: 'BOON.LINE_STREETHOME_TURF' },
+  ],
+  watersedge: [{ attr: ['strong', 'quick'], label: 'BOON.LINE_WATERSEDGE' }],
+  marshrunner: [
+    { attr: ['strong', 'quick'], label: 'BOON.LINE_MARSHRUNNER_TRAVEL' },
+    { attr: 'vigilant', label: 'BOON.LINE_MARSHRUNNER_FOG' },
+  ],
+  mountainman: [
+    { attr: ['quick', 'strong'], label: 'BOON.LINE_MOUNTAINMAN_TRAVEL' },
+    { attr: 'strong', label: 'BOON.LINE_MOUNTAINMAN_CLIMB' },
+  ],
+  hardlife: [{ attr: ['strong', 'resolute'], label: 'BOON.LINE_HARDLIFE' }],
+  musician: [{ attr: 'persuasive', label: 'BOON.LINE_MUSICIAN' }],
+  mirage: [{ attr: 'persuasive', label: 'BOON.LINE_MIRAGE' }],
+  'fleet-footed': [{ attr: 'quick', label: 'BOON.LINE_FLEETFOOTED', bonus: 3 }],
+  slow: [{ attr: 'quick', label: 'BOON.LINE_SLOW', bonus: -3 }],
+  // --- „Zweite Chance“-Zeilen (Sub-Typ B/G) ---
+  pathfinder: [{ attr: 'vigilant', label: 'BOON.LINE_PATHFINDER', sc: 'favour' }],
+  escapeartist: [{ attr: ['strong', 'quick', 'discreet'], label: 'BOON.LINE_ESCAPEARTIST', sc: 'favour' }],
+  // Ref-Schreibweise 'priviledged' ist kanonisch (Migrations-Makro v2)
+  priviledged: [{ attr: 'persuasive', label: 'BOON.LINE_PRIVILEDGED', sc: 'favour' }],
+  bestial: [
+    { attr: 'persuasive', label: 'BOON.LINE_BESTIAL_FAVOUR', sc: 'favour' },
+    { attr: 'persuasive', label: 'BOON.LINE_BESTIAL_DISFAVOUR', sc: 'disfavour' },
+  ],
+  pariah: [
+    { attr: 'persuasive', label: 'BOON.LINE_PARIAH_DISFAVOUR', sc: 'disfavour' },
+    { attr: 'persuasive', label: 'BOON.LINE_PARIAH_FAVOUR', sc: 'favour' },
+  ],
+};
+
+/** Zeilen-Attribut-Match ('*' deckt alles, 'defense' bleibt draußen). */
+function boonLineAttrMatch(attr, attributeName) {
+  if (attributeName === 'defense') return false;
+  if (attr === '*') return true;
+  if (Array.isArray(attr)) return attr.includes(attributeName);
+  return attr === attributeName;
+}
+
+/*
+ * Alle Kontext-Zeilen eines Akteurs für eine Eigenschaft — Zeilen
+ * erscheinen NUR bei Besitz (Ref muss per Migrations-Makro v2 gesetzt
+ * sein), bleiben im Dialog UNANGEHAKT (Rudolfs Entscheidung 1 der
+ * Scoping-Runde); Bonus je Zeile aus line.bonus bzw. system.bonusValue
+ * (Fallback +1). Dedupe pro Ref (erstes Item gewinnt), Sortierung nach
+ * Label. Rückgabe: Array von { key, label, bonus, sc, boonName } —
+ * key = `${ref}-${idx}` für DOM-IDs und Submit-Matching.
+ */
+export function getBoonLinesForActor(actor, attributeName) {
+  if (!actor || !attributeName) return [];
+  const out = [];
+  const seenRefs = new Set();
+  for (const item of actor.items ?? []) {
+    if (item?.type !== 'boon' && item?.type !== 'burden') continue;
+    const ref = String(item.system?.reference ?? '').trim();
+    if (!ref || seenRefs.has(ref) || !BOON_LINES[ref]) continue;
+    seenRefs.add(ref);
+    const bonusValue = Number(item.system?.bonusValue);
+    BOON_LINES[ref].forEach((line, idx) => {
+      if (!boonLineAttrMatch(line.attr, attributeName)) return;
+      let label = L(line.label);
+      if (line.sc) {
+        label += ` (${L(line.sc === 'favour' ? 'DIALOG.FAVOUR_FAVOUR' : 'DIALOG.FAVOUR_DISFAVOUR')})`;
+        out.push({ key: `${ref}-${idx}`, label, bonus: 0, sc: line.sc, boonName: item.name });
+      } else {
+        const bonus = line.bonus ?? (Number.isFinite(bonusValue) && bonusValue !== 0 ? bonusValue : 1);
+        label += ` (${bonus >= 0 ? '+' : '-'}${Math.abs(bonus)})`;
+        out.push({ key: `${ref}-${idx}`, label, bonus, sc: null, boonName: item.name });
+      }
+    });
+  }
+  out.sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
+  return out;
+}
+
+/*
+ * Geprüfte Zeilen-Checkboxen eines Dialogs gegen die Zeilen-Liste
+ * auflösen (html = symbDialog-Callback-Form [element] oder Element).
+ */
+export function collectCheckedBoonLines(html, boonLines) {
+  const root = html?.[0] ?? html;
+  const map = new Map((boonLines ?? []).map((line) => [line.key, line]));
+  const checked = [];
+  for (const box of root?.querySelectorAll?.('[data-boonline]') ?? []) {
+    if (!box.checked) continue;
+    const line = map.get(box.dataset.boonline);
+    if (line) checked.push(line);
+  }
+  return checked;
+}
+
+/*
+ * Gunst-/Missgunst-Exklusivität am Live-DOM (symbDialog-onRender):
+ * Eine angekreuzte sc-Zeile hebt alle ANDEREN sc-Zeilen ab und setzt
+ * UND SPERRT das Gunst-Radio auf ihren Wert (pro Wurf genau EINE Gunst-
+ * bzw. Missgunst-Quelle); normalen Bonus-Zeilen stören sich nicht und
+ * sind mehrfach ankreuzbar (addieren sich). Abwählen der sc-Zeile
+ * stellt das Radio auf „Normal“ zurück und entsperrt es wieder.
+ */
+export function activateBoonLineExclusive(element) {
+  const root = element?.[0] ?? element;
+  const boxes = root?.querySelectorAll?.('[data-boonline]');
+  if (!boxes || boxes.length === 0) return;
+  for (const box of boxes) {
+    box.addEventListener('change', () => {
+      const radios = root.querySelectorAll("input[name='favour']");
+      if (!box.checked) {
+        for (const radio of radios) {
+          radio.disabled = false;
+          radio.checked = radio.value === '0';
+        }
+        return;
+      }
+      const sc = box.dataset.sc;
+      if (!sc) return;
+      for (const other of boxes) {
+        if (other !== box && other.dataset.sc) other.checked = false;
+      }
+      for (const radio of radios) {
+        radio.disabled = true;
+        radio.checked = sc === 'favour' ? radio.value === '1' : radio.value === '-1';
+      }
+    });
+  }
+}
+
+/* ---------------------------------------------------------------- */
 /*  Result-Funktionen (Ertrag nur bei Erfolg, Präzedenz Erdschoss)   */
 /* ---------------------------------------------------------------- */
 
@@ -409,6 +642,37 @@ async function enterpriseResult(rollData, functionStuff) {
     functionStuff.finalText = game.i18n.format(L(credited ? 'BOON_ROLL.ENTERPRISE_YIELD_CREDITED' : 'BOON_ROLL.ENTERPRISE_YIELD'), { amount });
   }
   await standardPowerResult(rollData, functionStuff);
+}
+
+/*
+ * S2 Baustein D (Rudolfs Wunsch 06.11.): Musikant Beruhigen — bei
+ * ERFOLG gegen ein Bestien-Ziel erhält die SL die GM-Karte „Wende die
+ * Ergebnisse auf den Token an“ mit dem neuen Statussymbol „Beruhigt“
+ * (Condition calmed, Icon icons/svg/aura.svg; Muster Fliehende/
+ * fearEffect, item.js). Das Symbol ist permanent (keine flagData,
+ * keine Runden-Engine, kein Ablauf) — Rücksetzen ist reine SL-Sache
+ * (HUD). Inspirieren (targetData neutralisiert) und Misserfolge
+ * lösen NIEMALS eine Karte aus; ohne Ziel-Token läuft die einfache
+ * Probe weiter (Rudolfs Festlegung v1.2) und es erscheint nur der
+ * Hinweis auf der Karte, wenn auch wirklich eine GM-Karte rausging.
+ */
+async function musicianResult(rollData, functionStuff) {
+  const calmedEffect =
+    functionStuff.musicianCalm &&
+    rollData?.[0]?.trueActorSucceeded &&
+    functionStuff.targetData?.hasTarget &&
+    functionStuff.targetData.tokenId
+      ? CONFIG.statusEffects.find((e) => e.id === 'calmed') ?? CONFIG.statusEffects['calmed']
+      : null;
+  if (calmedEffect) {
+    functionStuff.finalText = (functionStuff.finalText ? `${functionStuff.finalText} ` : '') + L('BOON_ROLL.MUSICIAN_CALM_APPLY_HINT');
+  }
+  await standardPowerResult(rollData, functionStuff);
+  if (calmedEffect) {
+    await createModifyTokenChatButton([
+      { tokenId: functionStuff.targetData.tokenId, addEffect: foundry.utils.duplicate(calmedEffect) },
+    ]);
+  }
 }
 
 /* ---------------------------------------------------------------- */
@@ -480,6 +744,8 @@ export const BOON_ROLLS = {
     // v1.1 (Rudolf P9): Beruhigen (nur Bestien, Ziel-Gate) oder
     // Inspirieren (kein Opposed, SL verwaltet den Bonus)
     preDialog: musicianPreDialog,
+    // S2 Baustein D: Beruhigen-Erfolg → GM-Karte „Beruhigt“ (calmed)
+    result: musicianResult,
   },
   cheat: {
     attribute: 'discreet',
