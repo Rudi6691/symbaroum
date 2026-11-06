@@ -341,7 +341,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				grp === 'custom'
 					? String(item.system?.contactGroupCustom ?? '').trim()
 					: game.i18n.localize(game.symbaroum.config.CONTACT_GROUP_SELECTION[grp]?.label ?? '');
-			if (label) contactTitleSuffix[item.id] = ' [' + label + ']';
+			/* S2.1-Fix (Testpunkt 17): runde Klammern statt eckiger
+			   (Rudolfs Rückmeldung 06.11.). */
+			if (label) contactTitleSuffix[item.id] = ' (' + label + ')';
 		}
 		context.contactTitleSuffix = contactTitleSuffix;
 		/* Brauen v1.1 (B1/B2): Rezeptur-Übersicht für den Ausrüstungs-Tab

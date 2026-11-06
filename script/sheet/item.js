@@ -1113,7 +1113,12 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		// Stepper UND Logik-Harness (tools/logic-harness.mjs)
 		const next = boonNextLevel(base, delta, ref);
 		if (next === base) return;
-		await this.item.update({ 'system.level': next });
+		/* S2.1-Fix (Testpunkt 15): Der Stufen-Stepper schreibt
+		   system.bonusValue mit — das Bonus-Feld ist damit reine
+		   Anzeige (disabled, s. Templates) und folgt automatisch
+		   der Stufe; die Fallback-Kette in boon.js
+		   (bonusValue → Stufe → +1) bleibt unangetastet. */
+		await this.item.update({ 'system.level': next, 'system.bonusValue': next });
 	}
 
 	/**

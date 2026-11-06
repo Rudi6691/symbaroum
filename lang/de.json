@@ -215,7 +215,7 @@
   "BOON.LEVEL_DECREASE": "Stufe senken",
   "BOON.LEVEL_INCREASE": "Stufe erhöhen",
   "BOON.BONUS_VALUE": "Bonus/Malus",
-  "BOON.BONUS_VALUE_TOOLTIP": "Fester Wert für die Situations-Bonus-Zeilen dieses Segens/dieser Last. Leer oder 0: es gilt die Stufe (bei Stufe 1 also +1); Einträge hier überschreiben die Stufe.",
+  "BOON.BONUS_VALUE_TOOLTIP": "Reine Anzeige: Dieser Wert folgt automatisch der Stufe — der Stufen-Stepper (Stufe \u2b06/\u2b07 im Kopf des Blatts) synchronisiert ihn mit. Ältere Items werden bei der nächsten Stufenänderung mitgezogen.",
   "BOON.FIRE_PROTECTION_TEXT": "−1 Feuerschutz (Feuergeschmiedet)",
   "BOON.AUGUR_RITUAL_HINT": "Augur (+{bonus}): Bonus auf die Rituale Wahrsagen, Heiliger Rauch und Orakel.",
   "BOON.CONTACT_GROUP.CUSTOM": "Eigene Gruppe",

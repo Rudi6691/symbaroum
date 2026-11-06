@@ -24,10 +24,13 @@
             <div class="v">{{toFixed system.initiative.value 2}}</div>
             <div class="l">{{localize "INITIATIVE.TITLE"}}</div>
         </div>
-        {{!-- Testrunde-2-Fund: Defaultanzeige = Gesamt-XP (Details im Hover
-            und im Dialog); verfügbar bleibt dort sichtbar. --}}
+        {{!-- S2.1-Fix (XP-Chip, Rudolfs Wunsch 06.11.): Anzeige
+            Gesamt/verfügbar. Beide Werte sind live abgeleitet
+            (actor.js: total, artifactrr, spent → available), der Chip
+            aktualisiert sich also bei XP-Erhalt und XP-Verwendung mit
+            jedem Blatt-Re-Render. Details weiter im Hover und Dialog. --}}
         <button type="button" class="m-chip m-chip-click modern-exp" data-tooltip="{{{modern.exp.tooltip}}}">
-            <div class="v">{{modern.exp.total}}</div>
+            <div class="v">{{modern.exp.total}}/{{modern.exp.available}}</div>
             <div class="l">{{localize "MODERN.CHIP_EXPERIENCE"}}</div>
         </button>
     </div>

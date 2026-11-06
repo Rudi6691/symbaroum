@@ -738,9 +738,9 @@
   background-color: rgb(0, 0, 0);
 }
 
-/* S2.1 (P27): dritter Badge klassisch - situationsabhaengiger
-   Bonus/Malus (BOON_LINES), Warn-Farben der beiden Modern-Themes als
-   Fallback, ansonsten klassisches Gold */
+/* S2.1 (P27, Fix-Runde Testpunkt 18): dritter Badge klassisch -
+   situationsabhaengiger Bonus/Malus (BOON_LINES). Rudolfs Vorgabe
+   06.11.: mittleres Blau statt Warn-Farbe. */
 .symbaroum.sheet.actor .boonline {
   display: inline-block;
   height: 46%;
@@ -748,7 +748,7 @@
   background-size: 20px;
   border: 0;
   border-radius: 50%;
-  background-color: var(--m-warn, #c98a2b);
+  background-color: #4a7fb5;
   box-shadow: 0 0 0 1px rgb(0, 0, 0);
 }
 
@@ -5945,6 +5945,7 @@ dialog.symb-dialog.chain-confirm footer button {
   --m-good: #6f9e7c;
   --m-warn: #c98a2b;
   --m-bad: #c0554a;
+  --m-info: #5d92c4;
   --m-input-bg: rgba(255, 255, 255, 0.06);
   --m-input-ink: #dfe6df;
   background: var(--m-bg);
@@ -5964,6 +5965,7 @@ dialog.symb-dialog.chain-confirm footer button {
   --m-good: #4d7a52;
   --m-warn: #b07c1e;
   --m-bad: #a3402f;
+  --m-info: #4a7fb5;
   --m-input-bg: rgba(255, 255, 255, 0.55);
   --m-input-ink: #2c2317;
 }
@@ -6886,8 +6888,9 @@ dialog.symb-dialog.chain-confirm footer button {
   background: var(--m-good);
 }
 
-/* S2.1 (P27): dritter Badge - situationsabhaengiger Bonus/Malus (BOON_LINES),
-   Punkt unten LINKS am Kachel-Icon (Rudolfs Vorgabe 06.11.), Warn-Farbe */
+/* S2.1 (P27, Fix-Runde Testpunkt 18): dritter Badge - situationsabhaengiger
+   Bonus/Malus (BOON_LINES), Punkt unten LINKS am Kachel-Icon (Rudolfs
+   Vorgabe 06.11.), mittleres Blau (--m-info) statt Warn-Farbe */
 .symbaroum.sheet.actor .modern-root .m-tile-imgwrap .boonline {
   position: absolute;
   left: -0.2rem;
@@ -6896,7 +6899,7 @@ dialog.symb-dialog.chain-confirm footer button {
   height: 0.5rem;
   border-radius: 50%;
   border: 0.0625rem solid var(--m-bg);
-  background: var(--m-warn);
+  background: var(--m-info);
 }
 
 .symbaroum.sheet.actor .modern-root .m-tile-name {
@@ -7864,25 +7867,34 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   opacity: 0.55;
 }
 
-/* S2.1 (P15a, Rudolfs Testrunde-Rückmeldung 06.11.): das deaktivierte
-   „Eigene Gruppe"-Feld zeigt auch im Disabled-Zustand den gespeicherten
-   Text (welche SL-Gruppierung zuletzt gewählt war) — das Core-Dimming
-   (klassisch) bzw. opacity 0.55 (modern) machte es unleserlich. Volle
-   Deckkraft + reguläre Textfarbe; Nicht-Editierbarkeit bleibt über den
-   Hintergrund (box-non-editable/-input-bg) und den Cursor erkennbar.
-   Gilt BEIDEN Designs (klassisches Item-Sheet + modern-root). */
+/* S2.1 (P15a, Fix-Runde Testpunkt 16): das deaktivierte „Eigene Gruppe"-
+   Feld bleibt unleserlich, weil (a) die Core / das WebKit-Stylesheet
+   Disabled-Inputs ueber -webkit-text-fill-color dimmt (nicht nur ueber
+   color/opacity) und (b) bei leerem Feld nur der gedimmte PLACEHOLDER
+   sichtbar ist. Bulletproof: opacity 1 + filter none + color und
+   -webkit-text-fill-color (jeweils !important, damit die Regel gegen
+   Core-Dimming gewinnt) PLUS eigene ::placeholder-Regeln. Der Heller-
+   Effekt moderner Disabled-Inputs (.modern-root input:disabled,
+   opacity 0.55 oben) wird vom hoeheren Selektor gezielt aufgehoben.
+   Nicht-Editierbarkeit bleibt ueber den Hintergrund und den Cursor
+   erkennbar. Gilt BEIDEN Designs. */
 .symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled],
 .symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled {
-  opacity: 1;
+  opacity: 1 !important;
+  filter: none !important;
   cursor: not-allowed;
 }
 
-.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled] {
-  color: var(--color-text);
+.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled],
+.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled]::placeholder {
+  color: var(--color-text) !important;
+  -webkit-text-fill-color: var(--color-text) !important;
 }
 
-.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled {
-  color: var(--m-input-ink);
+.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled,
+.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled::placeholder {
+  color: var(--m-input-ink) !important;
+  -webkit-text-fill-color: var(--m-input-ink) !important;
 }
 
 .symbaroum.sheet.item .modern-root.modern-locked input,

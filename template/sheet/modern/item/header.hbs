@@ -120,10 +120,12 @@
             <div class="m-item-chips">
                 {{#if modern.showBonusValue}}
                 {{!-- S2.1 (P25): GM-only Bonus/Malus-Feld (system.bonusValue);
-                    Fallback-Kette in boon.js: bonusValue → Stufe → +1. --}}
+                    S2.1-Fix (Testpunkt 15): reine Anzeige (disabled) - der
+                    Stufen-Stepper synchronisiert den Wert; Fallback-Kette in
+                    boon.js: bonusValue → Stufe → +1. --}}
                 <div class="m-inline-field m-bonusvalue-field">
                     <label for="{{id}}-system.bonusValue" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
-                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="number" value="{{system.bonusValue}}" data-dtype="Number" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}"/>
+                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="number" value="{{system.bonusValue}}" data-dtype="Number" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}" disabled/>
                 </div>
                 {{/if}}
                 {{#if modern.showReference}}

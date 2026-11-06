@@ -27,8 +27,10 @@
                 {{!-- S2.1 (P25): GM-only Bonus/Malus-Feld (system.bonusValue), Fallback-Kette bonusValue → Stufe → +1 (boon.js). --}}
                 {{#if symbaroumOptions.isGM}}
                 <div class="level bonus-value-row">
+                    {{!-- S2.1-Fix (Testpunkt 15): reine Anzeige - der
+                         Stufen-Stepper synchronisiert system.bonusValue. --}}
                     <label for="{{id}}-system.bonusValue" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
-                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="text" value="{{system.bonusValue}}" data-dtype="Number"/>
+                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="text" value="{{system.bonusValue}}" data-dtype="Number" disabled/>
                 </div>
                 {{/if}}
                 {{#ifat symbaroumOptions.isGM symbaroumOptions.allowShowReference }}
