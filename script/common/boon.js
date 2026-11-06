@@ -36,28 +36,102 @@
  *  - Opposed Proben (Musikant [Ausstrahlung←Willenskraft], Betrügen,
  *    Bestialisch, Mystisches Mal [Heimlichkeit←Aufmerksamkeit]) nutzen
  *    getTarget + targetResistAttribute, targetMandatory false — ohne
- *    markiertes Ziel läuft eine einfache Probe.
+ *    markiertes Ziel läuft eine einfache Probe (Rudolfs Festlegung
+ *    06.11.: auch ohne Ziel würfeln; mit Ziel wird ausgewertet und die
+ *    Karte zeigt „⬅ {Ziel-Eigenschaft}", v1.1 zusätzlich der Ziel-
+ *    Hinweis via addBoonTargetHint aus dem modifierDialog-Kopf).
+ *  - v1.1 (Rudolfs Testrunde 06.11.): Wahl-Dialoge nach Alchemie-Menü-
+ *    Vorlage (boonChoiceDialog, Kopfzeile „{Segen/Last} - Was willst du
+ *    tun?"); Buschwissen-Orientierungstaste, Musikant Beruhigen/
+ *    Inspirieren mit Bestie-Gate, Bestialisch Verbergen/Einschüchtern,
+ *    Unternehmens-Ertrag sofort aufs Geld (system.currency).
  */
 import { modifierDialog, standardPowerResult } from './item.js';
 import { symbDialog } from './symbDialog.js';
+import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 
 const L = (key) => game.i18n.localize(key);
+
+/* ---------------------------------------------------------------- */
+/*  v1.1: Wahl-Dialog nach Alchemie-Menü-Vorlage (brewing.js          */
+/*  openAlchemyMenu, Rudolfs Design-Runde 06.11.)                    */
+/* ---------------------------------------------------------------- */
+
+/**
+ * Segen & Lasten v1.1 (Rudolfs Testrunde, Dialog-Design): Alle Wahl-
+ * Dialoge der Segen/Lasten folgen EXAKT dem Alchemie-Menü-Muster —
+ * Kopfzeile „{Segen/Last} - Was willst du tun?", Hinweiszeile in
+ * .finalTxt (Container-Klasse symbaroum modern-roll-dialog|dialog je
+ * nach Nutzer-Design), Marker-Klassen symb-roll-dialog/symb-roll-user
+ * (Design-Wechsel schließt offene Dialoge, closeOpenRollDialogs) und
+ * die Footer-Buttons untereinander in gleicher Breite (onRender mit
+ * width 100% !important — die System-CSS 7.1.8 schlägt jedes einfache
+ * Inline-Style, Lernweis openAlchemyMenu).
+ */
+function boonChoiceDialog(functionStuff, hintKey, buttons, defaultAction) {
+  const modern = isModernDialogActive();
+  symbDialog({
+    title: game.i18n.format(L('BOON_ROLL.CHOICE_TITLE'), { name: functionStuff.abilityName }),
+    content: `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}"><div class="finalTxt">${L(hintKey)}</div></div>`,
+    classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+    width: 360,
+    onRender: (element) => {
+      const btns = element?.querySelectorAll?.('footer button');
+      if (!btns || btns.length === 0) return;
+      const footer = btns[0].closest('footer') ?? btns[0].parentElement;
+      if (footer) {
+        footer.style.display = 'flex';
+        footer.style.flexDirection = 'column';
+        footer.style.gap = '0.25rem';
+      }
+      for (const b of btns) {
+        b.style.boxSizing = 'border-box';
+        b.style.setProperty('width', '100%', 'important');
+        b.style.setProperty('align-self', 'stretch', 'important');
+      }
+    },
+    buttons,
+    default: defaultAction,
+  });
+}
+
+/** Standard-Abbruch-Taste der Wahl-Dialoge. */
+function boonCancelButton() {
+  return {
+    icon: '<i class="fas fa-times"></i>',
+    label: game.i18n.localize('BUTTON.CANCEL'),
+  };
+}
 
 /* ---------------------------------------------------------------- */
 /*  Wahl-Dialoge (preDialogFunction-Muster)                          */
 /* ---------------------------------------------------------------- */
 
 /*
- * Buschwissen (RAW APG): Unterwegs 1W6 Rationen pro Tag, ausschließlich
- * fokussiert (keine Bewegung) 1W10 Rationen. Terrainstufe I–III aus
- * system.level (Stufe = Käufe). Der Ertragswürfel wird NUR bei Erfolg
- * geworfen und auf der Karte gezeigt (bushcraftResult).
+ * Buschwissen (RAW APG): Orientierung in der Wildnis (v1.1, Rudolfs
+ * Testrunde P4 — oberste Taste, Aufmerksamkeits-Wurf ohne Ertrag),
+ * unterwegs 1W6 Rationen pro Tag, ausschließlich fokussiert (keine
+ * Bewegung) 1W10 Rationen. Terrainstufe I–III aus system.level
+ * (Stufe = Käufe). Der Ertragswürfel wird NUR bei Erfolg geworfen und
+ * auf der Karte gezeigt (bushcraftResult).
  */
 function bushcraftPreDialog(functionStuff) {
-  symbDialog({
-    title: functionStuff.abilityName,
-    content: `<div class="symbaroum dialog"><p class="lblfavour">${L('BOON_ROLL.BUSHCRAFT_MODE_TITLE')}</p></div>`,
-    buttons: {
+  boonChoiceDialog(
+    functionStuff,
+    'BOON_ROLL.BUSHCRAFT_MODE_TITLE',
+    {
+      orient: {
+        icon: '<i class="fas fa-compass"></i>',
+        label: L('BOON_ROLL.BUSHCRAFT_MODE_ORIENTATION'),
+        callback: () => {
+          functionStuff.bushcraftOrientation = true;
+          functionStuff.introText = L('BOON_ROLL.BUSHCRAFT_ORIENT_INTRO');
+          functionStuff.resultTextSuccess = L('BOON_ROLL.BUSHCRAFT_ORIENT_SUCCESS');
+          functionStuff.resultTextFail = L('BOON_ROLL.BUSHCRAFT_ORIENT_FAILURE');
+          functionStuff.autoParams += L('BOON_ROLL.BUSHCRAFT_PARAM_ORIENTATION') + ', ';
+          modifierDialog(functionStuff);
+        },
+      },
       onTheMove: {
         icon: '<i class="fas fa-hiking"></i>',
         label: L('BOON_ROLL.BUSHCRAFT_MODE_ON_THE_MOVE'),
@@ -76,13 +150,10 @@ function bushcraftPreDialog(functionStuff) {
           modifierDialog(functionStuff);
         },
       },
-      cancel: {
-        icon: '<i class="fas fa-times"></i>',
-        label: game.i18n.localize('BUTTON.CANCEL'),
-      },
+      cancel: boonCancelButton(),
     },
-    default: 'onTheMove',
-  });
+    'orient'
+  );
 }
 
 /*
@@ -92,10 +163,10 @@ function bushcraftPreDialog(functionStuff) {
  * (Scharfsinn). Ein Feld für die Gruppierung folgt mit S2.
  */
 function contactsPreDialog(functionStuff) {
-  symbDialog({
-    title: functionStuff.abilityName,
-    content: `<div class="symbaroum dialog"><p class="lblfavour">${L('BOON_ROLL.CONTACTS_MODE_TITLE')}</p></div>`,
-    buttons: {
+  boonChoiceDialog(
+    functionStuff,
+    'BOON_ROLL.CONTACTS_MODE_TITLE',
+    {
       remember: {
         icon: '<i class="fas fa-user-friends"></i>',
         label: L('BOON_ROLL.CONTACTS_MODE_REMEMBER'),
@@ -120,24 +191,22 @@ function contactsPreDialog(functionStuff) {
           modifierDialog(functionStuff);
         },
       },
-      cancel: {
-        icon: '<i class="fas fa-times"></i>',
-        label: game.i18n.localize('BUTTON.CANCEL'),
-      },
+      cancel: boonCancelButton(),
     },
-    default: 'remember',
-  });
+    'remember'
+  );
 }
 
 /*
  * Unternehmen (RAW APG): Scharfsinn (Handwerker) oder Ausstrahlung
- * (Dienstleister); Erfolg = 10+1W10 Thaler Gewinn (enterpriseResult).
+ * (Dienstleister); Erfolg = 10+1W10 Thaler Gewinn (enterpriseResult,
+ * v1.1 sofort dem Geldvermögen des Aktors gutgeschrieben).
  */
 function enterprisePreDialog(functionStuff) {
-  symbDialog({
-    title: functionStuff.abilityName,
-    content: `<div class="symbaroum dialog"><p class="lblfavour">${L('BOON_ROLL.ENTERPRISE_MODE_TITLE')}</p></div>`,
-    buttons: {
+  boonChoiceDialog(
+    functionStuff,
+    'BOON_ROLL.ENTERPRISE_MODE_TITLE',
+    {
       craft: {
         icon: '<i class="fas fa-hammer"></i>',
         label: L('BOON_ROLL.ENTERPRISE_MODE_CRAFT'),
@@ -156,13 +225,10 @@ function enterprisePreDialog(functionStuff) {
           modifierDialog(functionStuff);
         },
       },
-      cancel: {
-        icon: '<i class="fas fa-times"></i>',
-        label: game.i18n.localize('BUTTON.CANCEL'),
-      },
+      cancel: boonCancelButton(),
     },
-    default: 'craft',
-  });
+    'craft'
+  );
 }
 
 /*
@@ -171,10 +237,10 @@ function enterprisePreDialog(functionStuff) {
  * einer 20 verloren (Hinweis auf der Karte).
  */
 function professionPreDialog(functionStuff) {
-  symbDialog({
-    title: functionStuff.abilityName,
-    content: `<div class="symbaroum dialog"><p class="lblfavour">${L('BOON_ROLL.PROFESSION_MODE_TITLE')}</p></div>`,
-    buttons: {
+  boonChoiceDialog(
+    functionStuff,
+    'BOON_ROLL.PROFESSION_MODE_TITLE',
+    {
       cunning: {
         icon: '<i class="fas fa-clipboard-list"></i>',
         label: L('BOON_ROLL.PROFESSION_MODE_CUNNING'),
@@ -193,13 +259,110 @@ function professionPreDialog(functionStuff) {
           modifierDialog(functionStuff);
         },
       },
-      cancel: {
-        icon: '<i class="fas fa-times"></i>',
-        label: game.i18n.localize('BUTTON.CANCEL'),
-      },
+      cancel: boonCancelButton(),
     },
-    default: 'persuasive',
-  });
+    'persuasive'
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/*  v1.1: Musikant und Bestialisch — Wahl-Dialoge                    */
+/* ---------------------------------------------------------------- */
+
+/*
+ * Musikant (v1.1, Rudolfs Testrunde P9): Beruhigen (RAW: nur gegen
+ * Bestien, Ausstrahlung gegen Willenskraft — mit angewähltem Ziel-
+ * Token wird die Monsterkategorie geprüft, falsche Kategorie = Warnung
+ * ohne Wurf; ohne Ziel-Token läuft die einfache Probe weiter) oder
+ * Inspirieren (Ausstrahlung erhöhen für sich und Verbündete, kein
+ * Opposed-Wurf, die SL verwaltet den Bonus).
+ */
+function musicianPreDialog(functionStuff) {
+  boonChoiceDialog(
+    functionStuff,
+    'BOON_ROLL.MUSICIAN_MODE_TITLE',
+    {
+      calm: {
+        icon: '<i class="fas fa-dove"></i>',
+        label: L('BOON_ROLL.MUSICIAN_MODE_CALM'),
+        callback: () => {
+          // Bestie-Gate (v1.1, Rudolf P9a): nur mit markiertem Ziel —
+          // ohne Ziel bleibt der Wurf möglich (Rudolfs Festlegung)
+          if (functionStuff.targetData?.hasTarget) {
+            const category = functionStuff.targetData.actor?.system?.creatureCategory ?? '';
+            if (category !== 'beast') {
+              ui.notifications.warn(game.i18n.format(L('BOON_ROLL.MUSICIAN_NOT_BEAST'), { name: functionStuff.targetData.name ?? '' }));
+              return;
+            }
+          }
+          modifierDialog(functionStuff);
+        },
+      },
+      inspire: {
+        icon: '<i class="fas fa-music"></i>',
+        label: L('BOON_ROLL.MUSICIAN_MODE_INSPIRE'),
+        callback: () => {
+          functionStuff.castingAttributeName = 'persuasive';
+          // Inspirieren ist keine Opposed-Probe: ein markiertes Ziel
+          // fließt NICHT in den Wurf ein (neutrales targetData)
+          functionStuff.targetData = { hasTarget: false };
+          functionStuff.introText = L('BOON_ROLL.MUSICIAN_INSPIRE_INTRO');
+          functionStuff.resultTextSuccess = L('BOON_ROLL.MUSICIAN_INSPIRE_SUCCESS');
+          functionStuff.resultTextFail = L('BOON_ROLL.MUSICIAN_INSPIRE_FAILURE');
+          functionStuff.finalText = L('BOON_ROLL.MUSICIAN_INSPIRE_HINT');
+          functionStuff.autoParams += L('BOON_ROLL.MUSICIAN_INSPIRE_PARAM') + ', ';
+          modifierDialog(functionStuff);
+        },
+      },
+      cancel: boonCancelButton(),
+    },
+    'calm'
+  );
+}
+
+/*
+ * Bestialisch (v1.1, Rudolfs Testrunde P10): zwei Anwendungen —
+ * Verbergen der bestialischen Merkmale (Heimlichkeit gegen Aufmerk-
+ * samkeit des Ziels, bisheriges Verhalten) oder Einschüchtern
+ * (Ausstrahlung gegen Willenskraft des Ziels, Rudolfs Freigabe).
+ * Beide mit optionalem Ziel (ohne Ziel-Token einfache Probe).
+ */
+function bestialPreDialog(functionStuff) {
+  boonChoiceDialog(
+    functionStuff,
+    'BOON_ROLL.BESTIAL_MODE_TITLE',
+    {
+      hide: {
+        icon: '<i class="fas fa-mask"></i>',
+        label: L('BOON_ROLL.BESTIAL_MODE_HIDE'),
+        callback: () => {
+          functionStuff.autoParams += L('BOON_ROLL.BESTIAL_PARAM_HIDE') + ', ';
+          modifierDialog(functionStuff);
+        },
+      },
+      intimidate: {
+        icon: '<i class="fas fa-ghost"></i>',
+        label: L('BOON_ROLL.BESTIAL_MODE_INTIMIDATE'),
+        callback: () => {
+          functionStuff.castingAttributeName = 'persuasive';
+          // Opposed-Attribut auf Willenskraft umlenken — getTarget()
+          // lieferte Aufmerksamkeit (Setup-Default); modifierDialog
+          // und buildRolls lesen resistAttributeName aus dem targetData
+          if (functionStuff.targetData?.hasTarget) {
+            functionStuff.targetData.resistAttributeName = 'resolute';
+          }
+          functionStuff.introText = L('BOON_ROLL.BESTIAL_INTIMID_INTRO');
+          functionStuff.resultTextSuccess = L('BOON_ROLL.BESTIAL_INTIMID_SUCCESS');
+          functionStuff.resultTextFail = L('BOON_ROLL.BESTIAL_INTIMID_FAILURE');
+          functionStuff.finalText = L('BOON_ROLL.BESTIAL_INTIMID_HINT');
+          functionStuff.autoParams += L('BOON_ROLL.BESTIAL_PARAM_INTIMID') + ', ';
+          modifierDialog(functionStuff);
+        },
+      },
+      cancel: boonCancelButton(),
+    },
+    'hide'
+  );
 }
 
 /* ---------------------------------------------------------------- */
@@ -207,7 +370,9 @@ function professionPreDialog(functionStuff) {
 /* ---------------------------------------------------------------- */
 
 async function bushcraftResult(rollData, functionStuff) {
-  if (rollData?.[0]?.trueActorSucceeded) {
+  // v1.1 (Rudolf P4): Orientierung ist ein reiner Aufmerk-
+  // samkeits-Wurf — KEIN Ertragswürfel
+  if (rollData?.[0]?.trueActorSucceeded && !functionStuff.bushcraftOrientation) {
     const yieldRoll = await new Roll(functionStuff.bushcraftYieldFormula ?? '1d6').evaluate();
     functionStuff.resultRolls = [yieldRoll];
     functionStuff.finalText = game.i18n.format(L('BOON_ROLL.BUSHCRAFT_YIELD'), { count: yieldRoll.total });
@@ -218,8 +383,21 @@ async function bushcraftResult(rollData, functionStuff) {
 async function enterpriseResult(rollData, functionStuff) {
   if (rollData?.[0]?.trueActorSucceeded) {
     const incomeRoll = await new Roll('1d10').evaluate();
+    const amount = 10 + incomeRoll.total;
     functionStuff.resultRolls = [incomeRoll];
-    functionStuff.finalText = game.i18n.format(L('BOON_ROLL.ENTERPRISE_YIELD'), { amount: 10 + incomeRoll.total });
+    // v1.1 (Rudolf P6): Ertrag sofort auf das Geld des Aktors
+    // gutschreiben. system.currency ist der Basiswert in ORTEG
+    // (1 Thaler = 10 Schilling = 100 Orteg, Währungs-Dialog schreibt
+    // dieselbe Einheit zurück); ist das Feld kein endlicher Zahlenwert
+    // (z. B. Monster ohne Geld), bleibt es unberührt und der Kartentext
+    // ohne Gutschrift-Hinweis.
+    const current = Number(functionStuff.actor?.system?.currency);
+    let credited = false;
+    if (Number.isFinite(current)) {
+      await functionStuff.actor.update({ 'system.currency': Math.max(0, Math.round(current + amount * 100)) });
+      credited = true;
+    }
+    functionStuff.finalText = game.i18n.format(L(credited ? 'BOON_ROLL.ENTERPRISE_YIELD_CREDITED' : 'BOON_ROLL.ENTERPRISE_YIELD'), { amount });
   }
   await standardPowerResult(rollData, functionStuff);
 }
@@ -290,6 +468,9 @@ export const BOON_ROLLS = {
     hint: 'BOON_ROLL.MUSICIAN_HINT',
     getTarget: true,
     targetResistAttribute: 'resolute',
+    // v1.1 (Rudolf P9): Beruhigen (nur Bestien, Ziel-Gate) oder
+    // Inspirieren (kein Opposed, SL verwaltet den Bonus)
+    preDialog: musicianPreDialog,
   },
   cheat: {
     attribute: 'discreet',
@@ -347,6 +528,9 @@ export const BOON_ROLLS = {
     hint: 'BOON_ROLL.BESTIAL_HINT',
     getTarget: true,
     targetResistAttribute: 'vigilant',
+    // v1.1 (Rudolf P10): Verbergen (Heimlichkeit←Aufmerksamkeit) oder
+    // Einschüchtern (Ausstrahlung←Willenskraft, Ziel-Attribut-Override)
+    preDialog: bestialPreDialog,
   },
   mysticalmark: {
     attribute: 'discreet',
@@ -362,6 +546,30 @@ export const BOON_ROLLS = {
 /** Kanonik-Check für actor.js markScripted (isScripted-Badge der Kachel). */
 export function isBoonRollScripted(reference) {
   return Boolean(reference && Object.prototype.hasOwnProperty.call(BOON_ROLLS, reference));
+}
+
+/**
+ * Segen & Lasten v1.1 (Rudolfs Testrunde, Opposed-Befund): Ziel-Hinweis-
+ * zeile für die Opposed-Segene/-Lasten (Musikant, Betrügen, Bestialisch,
+ * Mystisches Mal). Läuft EINMAL pro Wurf aus dem Kopf von modifierDialog
+ * (item.js) und wirkt nur mit angewähltem Ziel-Token: die Zieleigenschaft
+ * wird dann auf der Ergebniskarte ausgewertet und angezeigt — der Hinweis
+ * („widersteht mit {Eigenschaft}") wandert über targetData.autoParams
+ * sowohl in die autoParams-Zeile des Würfeldialogs als auch an den
+ * targetText der Chat-Karte. Ohne Ziel-Token bleibt alles wie bisher
+ * (einfache Probe, Rudolfs Festlegung: Würfeln ohne Ziel bleibt möglich).
+ */
+export function addBoonTargetHint(functionStuff) {
+  if (!functionStuff || !functionStuff.targetData?.hasTarget || functionStuff.boonTargetHintDone) return;
+  const resistName = functionStuff.targetData.resistAttributeName ?? functionStuff.targetResistAttribute;
+  if (!resistName) return;
+  functionStuff.boonTargetHintDone = true;
+  try {
+    const label = game.symbaroum.api.getAttributeLabel(functionStuff.targetData.actor, resistName);
+    functionStuff.targetData.autoParams += game.i18n.format(L('BOON_ROLL.TARGET_HINT'), { attribute: label }) + ', ';
+  } catch (err) {
+    game.symbaroum.log('v1.1: boon target hint unavailable');
+  }
 }
 
 /* ---------------------------------------------------------------- */

@@ -26,7 +26,7 @@ import { getDazedPenalty, consumeElixirDose } from "./elixirs.js";
 // getBurdensConfig, Ertrags-Result-Funktionen) - der kreisförmige Import
 // (boon.js importiert modifierDialog/standardPowerResult zurück) folgt
 // dem etablierten Muster dialog.js <-> item.js
-import { getBoonRollConfig } from "./boon.js";
+import { getBoonRollConfig, addBoonTargetHint } from "./boon.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3466,6 +3466,14 @@ will send to screen a windows asking for modifiers for the roll, then roll, then
    * @param {any}   functionStuff  an object of parameters not used in the dialog function, but useful for resultFunction */
 export async function modifierDialog(functionStuff) {
   let hasTarget = functionStuff.targetData.hasTarget;
+  // Segen & Lasten v1.1 (Rudolfs Testrunde, Opposed-Befund): Ziel-Hinweis-
+  // zeile für die Opposed-Segene/-Lasten — nur mit angewähltem Ziel-Token
+  // (sonst einfache Probe, Rudolfs Festlegung: Würfeln ohne Ziel bleibt
+  // möglich). addBoonTargetHint wirkt idempotent (einmal pro Wurf) und
+  // zeigt sich im Würfeldialog (autoParams-Zeile) UND auf der Karte.
+  if (functionStuff.type === "boon" || functionStuff.type === "burden") {
+    addBoonTargetHint(functionStuff);
+  }
   let isWeaponRoll = false;
   let askCorruptedTargetDefaultYes = functionStuff.askCorruptedTarget && functionStuff.targetFullyCorrupted;
   let askCorruptedTargetDefaultNo = functionStuff.askCorruptedTarget && !functionStuff.targetFullyCorrupted;
@@ -3652,6 +3660,12 @@ export async function modifierDialog(functionStuff) {
     title = functionStuff.weapon.name;
   }
   const baseDialogTitle = title;
+  // Segen & Lasten v1.1 (Rudolfs Design-Runde): Titelleiste der Würfel-
+  // dialoge „{Segen/Last} - {Eigenschaft}" — nur für Segen/Lasten, alle
+  // anderen Würfe behalten ihren bisherigen Titel.
+  if ((functionStuff.type === "boon" || functionStuff.type === "burden") && functionStuff.castingAttributeName) {
+    title = `${title} - ${game.symbaroum.api.getAttributeLabel(functionStuff.actor, functionStuff.castingAttributeName)}`;
+  }
   let dialog = symbDialog({
     title: title,
     content: html,

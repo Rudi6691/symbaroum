@@ -1311,6 +1311,20 @@ SYMBAROUM.RESOURCE_CATEGORY_SELECTION = {
     id: "wurfspeer",
     label: "RESOURCE_CATEGORY.WURFSPEER",
   },
+  // Segen & Lasten v1.1 (Rudolfs Testrunde, 06.11.2026): Essens- und
+  // Wasserration als weitere Verbrauchs-Kategorien — additives Feld
+  // system.resourceCategory wie bei den bestehenden Kategorien (KEIN
+  // template.json-Default, A38-Lernweis; Alt-Tagging über GM-Makro).
+  // Das Verbrauchs-Backend (Reise/Tag, Buschwissen-Ertrag als Quelle)
+  // folgt mit Ausbaustufe S4.
+  essensration: {
+    id: "essensration",
+    label: "RESOURCE_CATEGORY.FOOD_RATION",
+  },
+  wasserration: {
+    id: "wasserration",
+    label: "RESOURCE_CATEGORY.WATER_RATION",
+  },
 };
 
 /* Munitionsverbrauch v1: Auswahl fuer das waffenseitige GM-Feld
