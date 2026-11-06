@@ -215,7 +215,7 @@
   "BOON.LEVEL_DECREASE": "Lower level",
   "BOON.LEVEL_INCREASE": "Raise level",
   "BOON.BONUS_VALUE": "Bonus/Penalty",
-  "BOON.BONUS_VALUE_TOOLTIP": "Display only: this value follows the level automatically — the level stepper (level \u2b06/\u2b07 in the sheet header) keeps it in sync. Older items are synced on the next level change.",
+  "BOON.BONUS_VALUE_TOOLTIP": "Display only (in the bonus tab): this value follows the level automatically — the level stepper (level \u2b06/\u2b07 in the sheet header) keeps it in sync. Older items are synced on the next level change.",
   "BOON.FIRE_PROTECTION_TEXT": "−1 fire protection (Fire-Forged)",
   "BOON.AUGUR_RITUAL_HINT": "Augur (+{bonus}): Bonus on the rituals Divination, Holy Smoke and Oracle.",
   "BOON.CONTACT_GROUP.CUSTOM": "Custom group",

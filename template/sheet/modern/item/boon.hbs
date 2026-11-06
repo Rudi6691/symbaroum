@@ -38,10 +38,21 @@
                         {{/each}}
                         <option value="custom" {{#ife contactGroup "custom"}}selected{{/ife}}>{{localize "BOON.CONTACT_GROUP.CUSTOM"}}</option>
                     </select>
+                    {{!-- S2.1-Fix (Testpunkt 30, Rudolfs Rückmeldung 07.11.,
+                        dritter Anlauf): KEIN disabled-Input mehr (Foundry
+                        dimmt solche Felder grau auf hell, CSS-Gegenregeln
+                        griffen zweimal nicht) — sobald das Feld nicht
+                        editierbar ist, reine TEXTANZEIGE im Input-Look.
+                        Gespeicherter Text in normaler Schriftfarbe; leeres
+                        Feld zeigt den Platzhalter kursiv (lesbar). --}}
                     {{#ife contactGroup "custom"}}
-                    <input type="text" id="{{id}}-contactgroup-custom" data-contact-group-custom value="{{contactGroupCustom}}" placeholder="{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}" {{ifThen editable '' 'disabled'}}/>
+                    {{#if editable}}
+                    <input type="text" id="{{id}}-contactgroup-custom" data-contact-group-custom value="{{contactGroupCustom}}" placeholder="{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}"/>
                     {{else}}
-                    <input type="text" id="{{id}}-contactgroup-custom" data-contact-group-custom value="{{contactGroupCustom}}" placeholder="{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}" disabled/>
+                    <span class="contact-group-custom-display {{#unless contactGroupCustom}}is-empty{{/unless}}" data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}">{{#if contactGroupCustom}}{{contactGroupCustom}}{{else}}{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}{{/if}}</span>
+                    {{/if}}
+                    {{else}}
+                    <span class="contact-group-custom-display {{#unless contactGroupCustom}}is-empty{{/unless}}" data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}">{{#if contactGroupCustom}}{{contactGroupCustom}}{{else}}{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}{{/if}}</span>
                     {{/ife}}
                 </div>
                 {{/if}}
@@ -54,6 +65,17 @@
         {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Rail-Button UND Inhalt. --}}
         {{#if symbaroumOptions.isGM}}
         <div class="tab" data-group="primary" data-tab="bonus">
+            {{!-- S2.1-Fix (Testpunkt 29, Rudolfs Rückmeldung 07.11.):
+                Bonus/Malus NUR hier im Bonus-Tab als reine TEXTANZEIGE
+                (war vorher im geteilten Kopf, also auf jedem Tab, und
+                als disabled-Input unleserlich gedimmt). Effective Wert
+                aus item.js (context.bonusValueDisplay, Fallback
+                bonusValue → Stufe → +1); der Stufen-Stepper im Kopf
+                synchronisiert system.bonusValue. --}}
+            <div class="m-inline-field m-bonusvalue-display">
+                <label data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
+                <span class="m-bonusvalue-display-value" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{bonusValueDisplay}}</span>
+            </div>
             {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
         </div>
         {{/if}}

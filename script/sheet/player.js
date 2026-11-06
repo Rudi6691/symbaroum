@@ -324,7 +324,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			const cat = item.system?.beastloreCategory;
 			if (!cat || item.system?.reference !== 'beastlore') continue;
 			const sel = game.symbaroum.config.CREATURE_CATEGORY_SELECTION[cat];
-			if (sel) beastloreTitleSuffix[item.id] = ' [' + game.i18n.localize(sel.label) + ']';
+			/* S2.1-Fix (Testpunkt 31, Rudolfs Hinweis 07.11.): runde
+			   Klammern statt eckiger — analog Kontakte (Testpunkt 17),
+			   einheitlich für ALLE Titel-Suffixe. */
+			if (sel) beastloreTitleSuffix[item.id] = ' (' + game.i18n.localize(sel.label) + ')';
 		}
 		context.beastloreTitleSuffix = beastloreTitleSuffix;
 		/* S2.1 (P15b, Rudolfs Testrunde-Rückmeldung 06.11.): Gruppierung

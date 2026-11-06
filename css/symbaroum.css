@@ -7867,34 +7867,67 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   opacity: 0.55;
 }
 
-/* S2.1 (P15a, Fix-Runde Testpunkt 16): das deaktivierte „Eigene Gruppe"-
-   Feld bleibt unleserlich, weil (a) die Core / das WebKit-Stylesheet
-   Disabled-Inputs ueber -webkit-text-fill-color dimmt (nicht nur ueber
-   color/opacity) und (b) bei leerem Feld nur der gedimmte PLACEHOLDER
-   sichtbar ist. Bulletproof: opacity 1 + filter none + color und
-   -webkit-text-fill-color (jeweils !important, damit die Regel gegen
-   Core-Dimming gewinnt) PLUS eigene ::placeholder-Regeln. Der Heller-
-   Effekt moderner Disabled-Inputs (.modern-root input:disabled,
-   opacity 0.55 oben) wird vom hoeheren Selektor gezielt aufgehoben.
-   Nicht-Editierbarkeit bleibt ueber den Hintergrund und den Cursor
-   erkennbar. Gilt BEIDEN Designs. */
-.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled],
-.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled {
-  opacity: 1 !important;
-  filter: none !important;
-  cursor: not-allowed;
+/* S2.1-Fix (Testpunkte 29 + 30, Rudolfs Rückmeldungen 07.11.): Beide
+   Problemfelder sind KEINE disabled-Inputs mehr. Foundry dimmt
+   disabled-Inputs (graue Schrift auf hellem Grund) so hartnäckig,
+   dass zwei CSS-Gegenrunden (S2.1 P15a und fix1 mit !important +
+   -webkit-text-fill-color) nicht griffen — die Felder sind deshalb
+   im Template (boon.hbs, beide Zweige) als reine TEXTANZEIGE im
+   Input-Look umgebaut; hier ist nur noch deren Optik. Ein <span>
+   kann nichts dimmen — das Problem ist damit KATEGORIAL weg, nicht
+   per CSS überschrieben. */
+/* (Testpunkt 30) „Eigene Gruppe"-Anzeige: Box wie ein Textfeld,
+   reguläre Schriftfarbe; leeres Feld zeigt den Platzhalter kursiv
+   (bewusst lesbar, kein Core-Placeholder-Grau). */
+.symbaroum.sheet.item .contact-group-row .contact-group-custom-display {
+  display: inline-block;
+  min-width: 10rem;
+  padding: 0.1rem 0.3rem;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border, #999);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.05);
+  color: inherit;
+  cursor: default;
 }
 
-.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled],
-.symbaroum.sheet.item input[type='text'][data-contact-group-custom][disabled]::placeholder {
-  color: var(--color-text) !important;
-  -webkit-text-fill-color: var(--color-text) !important;
+.symbaroum.sheet.item .contact-group-row .contact-group-custom-display.is-empty {
+  font-style: italic;
 }
 
-.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled,
-.symbaroum.sheet.item .modern-root input[data-contact-group-custom]:disabled::placeholder {
-  color: var(--m-input-ink) !important;
-  -webkit-text-fill-color: var(--m-input-ink) !important;
+.symbaroum.sheet.item .modern-root .contact-group-row .contact-group-custom-display {
+  min-width: 10rem;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--m-line);
+  border-radius: 0.25rem;
+  background: var(--m-input-bg);
+  color: var(--m-input-ink);
+}
+
+/* (Testpunkt 29) Bonus/Malus reine Anzeige im Bonus-Tab (klassisch):
+   hervorgehobener Wert, keine Interaktion. */
+.symbaroum.sheet.item .bonus-value-display {
+  margin: 0.3rem 0 0.5rem 0;
+}
+
+.symbaroum.sheet.item .bonus-value-display .bonus-value-display-value {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+/* (Testpunkt 29) Bonus/Malus reine Anzeige im Bonus-Tab (modern). */
+.symbaroum.sheet.item .modern-root .m-bonusvalue-display {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-bonusvalue-display .m-bonusvalue-display-value {
+  font-weight: bold;
+  font-size: 1rem;
+  color: var(--m-ink);
 }
 
 .symbaroum.sheet.item .modern-root.modern-locked input,

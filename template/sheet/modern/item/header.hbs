@@ -118,16 +118,12 @@
         <div class="m-item-section">
             <div class="m-sec-label">{{localize "MODERN_ITEM.SECTION_VALUES"}}</div>
             <div class="m-item-chips">
-                {{#if modern.showBonusValue}}
-                {{!-- S2.1 (P25): GM-only Bonus/Malus-Feld (system.bonusValue);
-                    S2.1-Fix (Testpunkt 15): reine Anzeige (disabled) - der
-                    Stufen-Stepper synchronisiert den Wert; Fallback-Kette in
-                    boon.js: bonusValue → Stufe → +1. --}}
-                <div class="m-inline-field m-bonusvalue-field">
-                    <label for="{{id}}-system.bonusValue" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
-                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="number" value="{{system.bonusValue}}" data-dtype="Number" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}" disabled/>
-                </div>
-                {{/if}}
+                {{!-- S2.1-Fix (Testpunkt 29): Das Bonus/Malus-Feld ist aus
+                    dem geteilten Kopf ENTFERNT (er wäre auf jedem Tab
+                    sichtbar, und der disabled-Input wurde von Foundry
+                    unleserlich gedimmt) — reine Textanzeige jetzt im
+                    Bonus-Tab (modern/item/{boon,burden}.hbs,
+                    context.bonusValueDisplay). --}}
                 {{#if modern.showReference}}
                 <div class="m-inline-field m-reference-field">
                     <label for="{{id}}-system.reference" data-tooltip="{{localize 'MODERN_ITEM.REFERENCE_TOOLTIP'}}">{{localize "ABILITY.REFERENCE"}}</label>

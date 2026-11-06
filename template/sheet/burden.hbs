@@ -24,15 +24,9 @@
                         {{#if editable}}<button type="button" class="boon-level-btn" data-action="boonLevelPlus" data-tooltip="{{localize 'BOON.LEVEL_INCREASE'}}"><i class="fas fa-caret-right"></i></button>{{/if}}
                     </div>
                 </div>
-                {{!-- S2.1 (P25): GM-only Bonus/Malus-Feld (system.bonusValue), Fallback-Kette bonusValue → Stufe → +1 (boon.js). --}}
-                {{#if symbaroumOptions.isGM}}
-                <div class="level bonus-value-row">
-                    {{!-- S2.1-Fix (Testpunkt 15): reine Anzeige - der
-                         Stufen-Stepper synchronisiert system.bonusValue. --}}
-                    <label for="{{id}}-system.bonusValue" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
-                    <input id="{{id}}-system.bonusValue" name="system.bonusValue" type="text" value="{{system.bonusValue}}" data-dtype="Number" disabled/>
-                </div>
-                {{/if}}
+                {{!-- S2.1-Fix (Testpunkt 29): Das Bonus/Malus-Feld ist aus
+                    dem Kopf ENTFERNT (der auf jedem Tab sichtbar wäre) und
+                    steht als reine Textanzeige im Bonus-Tab — siehe unten. --}}
                 {{#ifat symbaroumOptions.isGM symbaroumOptions.allowShowReference }}
                 <div class="name">
                     <label for="{{id}}-system.reference">{{localize "ABILITY.REFERENCE"}}</label>
@@ -61,6 +55,17 @@
             {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2): Reiter UND Inhalt - Spieler sehen den Tab nicht, Werte bleiben erhalten. --}}
             {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="bonus">
+                {{!-- S2.1-Fix (Testpunkt 29, Rudolfs Rückmeldung 07.11.):
+                    Bonus/Malus NUR hier im Bonus-Tab, als reine TEXTANZEIGE
+                    (kein disabled-Input, den Foundry unleserlich dimmt).
+                    Effective Wert inkl. Fallback bonusValue → Stufe → +1
+                    kommt fertig formatiert aus item.js
+                    (context.bonusValueDisplay); der Stufen-Stepper im
+                    Kopf synchronisiert system.bonusValue. --}}
+                <div class="level bonus-value-row bonus-value-display">
+                    <label data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{localize "BOON.BONUS_VALUE"}}</label>
+                    <span class="bonus-value-display-value" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">{{bonusValueDisplay}}</span>
+                </div>
                 {{> systems/symbaroum/template/sheet/tab/bonus.hbs}}
             </div>
             {{/if}}
