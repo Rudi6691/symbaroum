@@ -4161,8 +4161,8 @@ export async function modifierDialog(functionStuff) {
           // (Grad 3) gibt stattdessen GUNST auf die Giftprobe (Rudolfs
           // Entscheidung 3, 08.11.).
           // Handbuch der Gifte (B6): Das +1 auf die Giftmischer-Probe
-          // wird seit v1.1 SICHTBAR beim Dialogoeffnen vorbelegt (Ep-
-          ilepsie-Muster, siehe modifierDialog-Kontext oben) - der
+          // wird seit v1.1 SICHTBAR beim Dialogoeffnen vorbelegt
+          // (Epilepsie-Muster, siehe modifierDialog-Kontext oben) - der
           // Submit bucht es NICHT mehr dazu (kein Doppelbonus).
           if (poisoner) {
             const chosen = Number(html[0].querySelector("#poisoner").value);
