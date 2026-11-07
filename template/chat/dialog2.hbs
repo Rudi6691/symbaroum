@@ -114,8 +114,9 @@
     <div class="bonus">
       <label title="{{localize "DIALOG.POISON_COATING_HINT"}}">{{localize "DIALOG.POISON_COATING"}}</label>
       <select id="poisonCoating">
-        <option value="none" {{#unless ownPoison}}selected{{/unless}}>{{localize "DIALOG.POISON_COATING_NONE"}}</option>
+        <option value="none" {{#unless ownPoison}}{{#unless activeCoat}}selected{{/unless}}{{/unless}}>{{localize "DIALOG.POISON_COATING_NONE"}}</option>
         {{#if ownPoison}}<option value="ownpoison" selected>{{ownPoison.label}}</option>{{/if}}
+        {{#if activeCoat}}<option value="activecoat" selected>{{localize "POISON.COAT_OPTION" grade=activeCoat.grade}}</option>{{/if}}
         {{#each poisonCoatingChoices as |choice|}}
         <option value="{{choice.id}}">{{choice.name}} ({{localize "EQUIPMENT.QUANTITY_SHORT"}} {{choice.count}})</option>
         {{/each}}
@@ -217,9 +218,9 @@
   <div class="bonus">
     <label>{{localize "DIALOG.USE_POISON"}}</label>
     <select id="poisoner">
-      <option value="1">{{localize "DIALOG.LIGHT_POISON"}}</option>
-      <option value="2">{{localize "DIALOG.MEDIUM_POISON"}}</option>
-      <option value="3">{{localize "DIALOG.STRONG_POISON"}}</option>
+      {{#each poisonerChoices}}
+      <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+      {{/each}}
   </select>
   </div>
   {{/if}}

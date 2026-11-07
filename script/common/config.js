@@ -793,6 +793,21 @@ SYMBAROUM.systemConditionEffects = [
     name: "POWER_LABEL.WITCH_HAMMER",
     icon: "systems/symbaroum/asset/image/powers/witchhammer.svg",
   },
+  {
+    // Gift v1 B3-Adept (Rudolfs Freigabe 08.11.2026): Traeger-Symbol der
+    // aktiven Gift-BESCHICHTUNG eines Adept/Meister-Giftmischers - 1 Dosis
+    // wirkt fuer die GANZE Kampfszene (RAW Adept), Grad reitet in
+    // flagData.poisoncoat { grade }. Beiden Wuerfeldialogen als
+    // voreingestellte Option angeboten, manuell aenderbar (Rudolfs
+    // Wunsch). Keine duration, kein dot, kein turnEnd: das Symbol ist
+    // permanent - Ruecksetzen nach dem Kampf ist reine SL-Sache (HUD),
+    // analog calmed/Regeneration (Rudolfs Wortlaut: „analog zu
+    // Regeneration"); die Engine loescht es NIE von selbst.
+    id: "poisoncoat",
+    label: "CONDITION.POISONCOAT",
+    name: "CONDITION.POISONCOAT",
+    icon: "systems/symbaroum/asset/image/poisoncoat.svg",
+  },
 ];
 
 /* A34-Fix (Rudolf's test round, Befund 6): "durch und durch verdorben" for
@@ -1761,6 +1776,26 @@ SYMBAROUM.REZEPTUR_ORIGIN_SELECTION = {
    (dot.fixedDamage); das Antidot senkt diesen Festwert um 2 Punkte je
    Antidotstufe (Ausfuehrung im GM-Apply-Pfad hooks.js, Metadaten in
    flagData.conditionData.poison { damage, formula, rounds, roundsFormula }). */
+
+/* Gift v1 (Rudolfs Freigabe 08.11.2026): Stufenmodelle der Gift-Engine.
+   B2: Der Rundenschaden ist gradabhaengig - PCs (bzw. Monster als Opfer)
+   wuerfeln je Schadensstufe 1d4/1d6/1d8, NPC-Angreifer nutzen den fixen
+   Spiegelwert ceil(Wuerfel/2) = 2/3/4 (Muster healing()); der einmal
+   gewuerfelte Wert bleibt v1.6-konstant ueber die Laufzeit, Antidot
+   -2/Stufe unberuehrt. B5: Das Merkmal Giftig nutzt FESTE RAW-Werte je
+   Stufe (Runden 2/3/4, Schaden 2/3/4) statt der Grad-Wuerfel. B1:
+   Giftresistent senkt NUR DEN SCHADEN um eine Stufe (Dauer unberuehrt),
+   ein schwaches Gift wird neutralisiert (Rudolfs Floor, analog Antidot).
+   B3-Meister: Gift zaehlt eine Stufe hoeher (Schaden UND Dauer), ein
+   bereits starkes Gift gibt stattdessen Gunst auf die Giftprobe. */
+SYMBAROUM.POISON_GRADE_DAMAGE = { 1: "1d4", 2: "1d6", 3: "1d8" };
+SYMBAROUM.POISON_GRADE_NPC_DAMAGE = { 1: 2, 2: 3, 3: 4 };
+SYMBAROUM.POISONOUS_FIXED_ROUNDS = { 1: 2, 2: 3, 3: 4 };
+SYMBAROUM.POISONOUS_FIXED_DAMAGE = { 1: 2, 2: 3, 3: 4 };
+/* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
+   eine Wuerfelstufe gesenkt (1d8 -> 1d6 -> 1d4 -> neutralisiert); exotische
+   SL-kalibrierte Formeln bleiben unberuehrt (dokumentierte Begrenzung). */
+SYMBAROUM.POISON_COAT_STAIRS = { "1d8": "1d6", "1d6": "1d4", "1d4": null };
 
 /* Auswahl der Waffen-Grundschaden-Wuerfel (Original-Bestand, beim Elixier-
    v1.0-Versand versehentlich verschluckter Header - Sammel-Fix 01.11.:

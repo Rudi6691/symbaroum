@@ -30,7 +30,7 @@ import { getBoonRollConfig } from "./boon.js";
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
 // Kräfte-/Fähigkeits-Würfeldialog (Typ B + B/G „Zweite Chance“ mit
 // Radio-Exklusivität) — Kanonik und Helfer in boon.js
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty } from "./boon.js";
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty, hasPoisonResilient, hasPoisonManual } from "./boon.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3220,6 +3220,12 @@ export class SymbaroumItem extends Item {
     base.targetResistAttribute = "strong";
     base.usePoison = true;
     base.poison = base.powerLvl.level;
+    // Gift v1 B5 (Rudolfs Freigabe 08.11.2026): Das Merkmal Giftig nutzt
+    // FESTE RAW-Werte je Stufe (Novize 2 Runden a 2, Adept 3 a 3, Meister
+    // 4 a 4, Vault-Notiz „Giftig.md") statt des Grad-Wuerfelmodells - der
+    // Wurffluss bleibt unverändert einseitig [Scharfsinn<-Stärke] (Rudolfs
+    // Rückmeldung 2: „nur die Spieler würfeln").
+    base.poisonFixedValues = true;
     return base;
   }
 
@@ -3602,17 +3608,21 @@ export async function modifierDialog(functionStuff) {
   // Grad-Zeile "Gift aufgetragen?" im Modifier-Dialog entfaellt - DIE
   // Waffengift-Zeile ist "Gift auftragen" (gleiche Zeile wie im EC-Dialog,
   // dialog.js): Inventar-Gifte (Ausruestungs-Items mit Waffengift-Flag bzw.
-  // Legacy-Giftstufe, Bestand > 0, 1 Dosis je Angriff, Abbuchung beim
-  // Wuerfeln) PLUS die unbegrenzte EIGENGIFT-Option fuer Traeger des
-  // Merkmals Vergifter (poisoner) bzw. Giftig (poisonous) - Grad aus der
-  // Merkmalsstufe (1 = Leichtes, 2 = Mittleres, 3 = Starkes Gift, bei
-  // beiden Referenzen die hoehere Stufe), im Dialog VORSELEKTIERT, ohne
-  // Ressourcenverbrauch. Eigengift laeuft ueber den Vergifter-Pfad
-  // (functionStuff.poison -> poisonCalc), Inventar-Gift ueber den
-  // Coating-Pfad (functionStuff.poisonCoating).
+  // Legacy-Giftstufe, Bestand > 0) PLUS die unbegrenzte EIGENGIFT-Option
+  // fuer Traeger des Merkmals Giftig (poisonous) - Grad aus der Merkmals-
+  // stufe, im Dialog VORSELEKTIERT, ohne Ressourcenverbrauch. Eigengift
+  // laeuft ueber den Vergifter-Pfad (functionStuff.poison -> poisonCalc),
+  // Inventar-Gift ueber den Coating-Pfad (functionStuff.poisonCoating).
+  // Gift v1 (08.11.2026): B4 - Eigengift NUR noch das Merkmal Giftig
+  // (die Faehigkeit Giftmischer braucht Dosen aus dem Inventar, RAW-
+  // widrige unbegrenzte Gratis-Gifte entfallen). B3 - Adept/Meister
+  // sehen zusaetzlich die AKTIVE Szenen-Beschichtung (Condition
+  // poisoncoat, kein Verbrauch, Vergifter-Pfad); Inventar-Dosen tragen
+  // jetzt ihren Gift-Grad (getElixirPoisonGrade) fuer die B3-Logik.
   let askPoisonCoating = false;
   let poisonCoatingChoices = [];
   let ownPoison = null;
+  let activeCoatGrade = 0;
   if (isWeaponRoll) {
     const poisonCoatingItems = functionStuff.actor.items.filter((it) => {
       if (it?.type !== "equipment") return false;
@@ -3626,10 +3636,11 @@ export async function modifierDialog(functionStuff) {
         const eff = it.system.elixirEffect ?? {};
         const formula = String(eff.damagePerRound ?? "").trim() || String(eff.damage ?? "").trim() || "1d4";
         const roundsFormula = String(eff.rounds ?? "").trim() || "1d4";
-        return { id: it.id, name: it.name, count: getItemCount(it), formula, roundsFormula };
+        return { id: it.id, name: it.name, count: getItemCount(it), formula, roundsFormula, grade: getElixirPoisonGrade(it) };
       });
     }
-    const ownPoisonGrade = Math.max(getActorAbilityLevel(functionStuff.actor, "poisoner"), getActorAbilityLevel(functionStuff.actor, "poisonous"));
+    // B4: Eigengift nur noch ueber das Merkmal Giftig (poisonous)
+    const ownPoisonGrade = getActorAbilityLevel(functionStuff.actor, "poisonous");
     if (ownPoisonGrade > 0) {
       ownPoison = {
         grade: ownPoisonGrade,
@@ -3641,6 +3652,40 @@ export async function modifierDialog(functionStuff) {
       };
       askPoisonCoating = true;
     }
+    // B3: aktive Szenen-Beschichtung (Adept/Meister) als Option ohne
+    // Verbrauch; sie ist auch waehlbar, wenn das Inventar leer ist
+    activeCoatGrade = getActivePoisonCoatGrade(functionStuff.actor);
+    if (activeCoatGrade > 0) askPoisonCoating = true;
+  }
+  // Gift v1 B3/B4: Grad-Auswahl des Giftmischer-Faehigkeitswurfs ist an
+  // den Vorrat gebunden - nur Stufen mit vorhandener Dosis (Inventar-
+  // Union) plus die aktive Szenen-Beschichtung, sonst "Kein Gift".
+  // Meister-Bonusstufe und Gunst werden im Submit-Handler gesetzt.
+  let poisonerChoices = [];
+  if (poisoner) {
+    const invGrades = new Set(
+      functionStuff.actor.items
+        .filter((it) => {
+          if (it?.type !== "equipment") return false;
+          const eff = it.system?.elixirEffect ?? {};
+          const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
+          return isWeaponPoison && getItemCount(it) > 0;
+        })
+        .map((it) => getElixirPoisonGrade(it))
+        .filter((g) => g >= 1)
+    );
+    const coatGrade = getActivePoisonCoatGrade(functionStuff.actor);
+    if (coatGrade >= 1) invGrades.add(coatGrade);
+    const gradeLabel = (g) =>
+      game.i18n.localize(g === 1 ? "DIALOG.LIGHT_POISON" : g === 2 ? "DIALOG.MEDIUM_POISON" : "DIALOG.STRONG_POISON");
+    poisonerChoices = [...invGrades]
+      .sort((a, b) => a - b)
+      .map((g) => ({
+        value: g,
+        label: gradeLabel(g) + (g === coatGrade ? " " + game.i18n.localize("POISON.COAT_ACTIVE_SHORT") : ""),
+        selected: g === coatGrade,
+      }));
+    poisonerChoices.unshift({ value: 0, label: game.i18n.localize("DIALOG.NO_POISON"), selected: coatGrade < 1 });
   }
   // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen der
   // besessenen Segen/Lasten für die Wurf-Eigenschaft — nur bei FIXER
@@ -3699,7 +3744,10 @@ export async function modifierDialog(functionStuff) {
     askPoisonCoating: askPoisonCoating,
     poisonCoatingChoices: poisonCoatingChoices,
     ownPoison: ownPoison,
+    // Gift v1 B3: aktive Szenen-Beschichtung als eigene Select-Option
+    activeCoat: activeCoatGrade > 0 ? { grade: activeCoatGrade } : null,
     poisoner: poisoner,
+    poisonerChoices: poisonerChoices,
     hasRoll: hasRoll,
     boon_lines: boon_lines
   });
@@ -3966,25 +4014,44 @@ export async function modifierDialog(functionStuff) {
             // Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): die
             // Grad-Zeile "Gift aufgetragen?" (#poison) ist ENTFALLEN -
             // gelesen wird die vereinheitlichte Zeile "Gift auftragen"
-            // (#poisonCoating): 'ownpoison' = Eigengift (Grad aus der
-            // Merkmalsstufe, kein Verbrauch, Vergifter-Pfad), Inventar-
-            // Item = 1 Dosis abgebucht + Coating-Pfad (Muster dialog.js;
-            // bei fehlgeschlagener Abbuchung KEIN Wurf - die Notification
-            // kam aus dem Elixier-Modul), 'none' = kein Gift.
+            // (#poisonCoating). Gift v1 (08.11.): Aufloesung ueber den
+            // gemeinsamen Helper (beide Wuerfeldialoge): 'ownpoison' =
+            // Eigengift (B4: nur noch Merkmal Giftig, kein Verbrauch,
+            // Vergifter-Pfad), 'activecoat' = laufende Adept-Beschichtung
+            // (kein Verbrauch, Vergifter-Pfad), 'coatscene' = Inventar-
+            // Dosis startet die Szenen-Beschichtung (1 Dosis beim Submit,
+            // Vergifter-Pfad; Rueckgabe null = Abbuchung gescheitert,
+            // KEIN Wurf), Inventar-Dosis mit Novize/jeder = Coating-Pfad
+            // mit Abbuchung ERST bei gelungener Vergiftung, 'none' =
+            // kein Gift.
             if (askPoisonCoating) {
               const coatingChoice = html[0].querySelector("#poisonCoating")?.value ?? "none";
-              if (coatingChoice === "ownpoison") {
-                functionStuff.poison = ownPoison.grade;
-                functionStuff.autoParams += game.i18n.localize("DIALOG.OWN_POISON_PARAM") + ", ";
-              } else if (coatingChoice !== "none") {
-                const choice = poisonCoatingChoices.find((c) => c.id === coatingChoice);
-                const poisonItem = functionStuff.actor.items.get(coatingChoice);
-                if (choice && poisonItem && (await consumeElixirDose(poisonItem))) {
-                  functionStuff.poisonCoating = { name: poisonItem.name, formula: choice.formula, roundsFormula: choice.roundsFormula };
-                  functionStuff.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: poisonItem.name }) + ", ";
-                } else {
-                  return;
+              const resolved = await resolveWeaponPoisonChoice(functionStuff.actor, coatingChoice, { ownPoison, poisonCoatingChoices });
+              if (!resolved) return;
+              if (resolved.kind === "ownpoison" || resolved.kind === "activecoat" || resolved.kind === "coatscene") {
+                functionStuff.poison = resolved.poison;
+                if (resolved.kind !== "ownpoison") {
+                  functionStuff.poisonChosen = resolved.poison;
+                  functionStuff.poisonFromCoat = resolved.kind === "activecoat";
+                  // Meister-Giftmischer: Auch die Beschichtung ueber die
+                  // Waffe zaehlt 1 Stufe hoeher; ein bereits starkes
+                  // Coat gibt Gunst auf die Giftprobe (B3, analog zum
+                  // Faehigkeitswurf-Handler).
+                  if (getActorAbilityLevel(functionStuff.actor, "poisoner") >= 3) {
+                    if (resolved.poison < 3) {
+                      functionStuff.poison = resolved.poison + 1;
+                      functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_UPGRADE_PARAM") + ", ";
+                    } else {
+                      functionStuff.favour += 1;
+                      functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
+                    }
+                  }
                 }
+                functionStuff.autoParams +=
+                  (resolved.kind === "ownpoison" ? game.i18n.localize("DIALOG.OWN_POISON_PARAM") : game.i18n.localize("DIALOG.POISON_COAT_PARAM")) + ", ";
+              } else if (resolved.kind === "dose") {
+                functionStuff.poisonCoating = resolved.poisonCoating;
+                functionStuff.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: resolved.poisonCoating.name }) + ", ";
               }
             }
           }
@@ -4072,8 +4139,42 @@ export async function modifierDialog(functionStuff) {
               }
             } else functionStuff.medicusExam = true;
           }
+          // Gift v1 B3/B4/B6 (Giftmischer-Faehigkeitswurf): Grad-Select ist
+          // an den Vorrat gebunden (poisonerChoices). 0 = "Kein Gift" -
+          // dann laeuft der Faehigkeitswurf ohne Giftauswertung. Der
+          // gewaehlte Grad wird in poisonChosen gemerkt (B3-Dosis-Logik im
+          // usePoison-Block); eine bereits laufende Szenen-Beschichtung
+          // derselben Stufe wird NICHT neu abgebucht (poisonFromCoat).
+          // Meister (Stufe 3): gewaehltes Gift zaehlt 1 Stufe hoeher
+          // (schwach->moderat, moderat->stark); bereits STARKES Gift
+          // (Grad 3) gibt stattdessen GUNST auf die Giftprobe (Rudolfs
+          // Entscheidung 3, 08.11.).
+          // Handbuch der Gifte (B6): +1 auf die Giftmischer-Probe, wenn
+          // der Träger das Ausruestungs-Item mit Referenz poisonmanual
+          // besitzt.
           if (poisoner) {
-            functionStuff.poison = Number(html[0].querySelector("#poisoner").value);
+            const chosen = Number(html[0].querySelector("#poisoner").value);
+            functionStuff.poisonChosen = chosen;
+            if (chosen === 0) {
+              functionStuff.poison = 0;
+            } else {
+              const poisonerLevel = getActorAbilityLevel(functionStuff.actor, "poisoner");
+              functionStuff.poisonFromCoat = getActivePoisonCoatGrade(functionStuff.actor) === chosen;
+              if (poisonerLevel >= 3 && chosen < 3) {
+                functionStuff.poison = chosen + 1;
+                functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_UPGRADE_PARAM") + ", ";
+              } else if (poisonerLevel >= 3 && chosen === 3) {
+                functionStuff.poison = 3;
+                functionStuff.favour += 1;
+                functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
+              } else {
+                functionStuff.poison = chosen;
+              }
+              if (hasPoisonManual(functionStuff.actor)) {
+                functionStuff.modifier += 1;
+                functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MANUAL_PARAM") + ", ";
+              }
+            }
           }
           functionStuff.notResisted =
             functionStuff.notResisted ??
@@ -6221,17 +6322,29 @@ async function attackResult(rollData, functionStuff) {
   }
 
   if (functionStuff.poison > 0 && !targetDies && damageTot > 0 && functionStuff.targetData.actor.system.combat.damageProt.poison) {
-    let targetResMod = checkSpecialResistanceMod(functionStuff.targetData.actor.system.combat.damageReductions, functionStuff.targetData.autoParams, "poisoner");
-    let poisonFavour = targetResMod.favour;
-    functionStuff.targetData.autoParams += targetResMod.autoParams;
-    let poisonRoll = await baseRoll(functionStuff.actor, "cunning", functionStuff.targetData.actor, "strong", poisonFavour, -1 * targetResMod.modifier, functionStuff.resistRoll);
-    let poisonFunctionStuff = Object.assign(functionStuff, { modifier: -1 * targetResMod.modifier, favour: poisonFavour });
-    let poisonRes = await poisonCalc(poisonFunctionStuff, poisonRoll);
-    rolls.push(poisonRes.roll);
-    // Elixiere v1.6: konstanter Gift-Rundenschaden als eigener Wurf auf der Karte
-    if (poisonRes.poisonDotRoll) rolls.push(poisonRes.poisonDotRoll);
-    if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
-    templateData = Object.assign(templateData, poisonRes);
+    // Gift v1 B1: Giftresistent senkt schwaches Gift (Grad 1) auf 0 Schaden,
+    // das Gift wird analog Antidot vollstaendig neutralisiert (Rudolfs
+    // Rueckmeldung 2.11.). Da die Neutralisierung vor der Probe feststeht,
+    // entfaellt die Giftprobe komplett; moderat/stark laufen mit gesenkter
+    // Schadensstufe durch poisonCalc (Dauer unberuehrt).
+    if (hasPoisonResilient(functionStuff.targetData.actor) && functionStuff.poison <= 1) {
+      templateData.printPoison = true;
+      templateData.poisonChatIntro = functionStuff.actingCharName + game.i18n.localize("COMBAT.CHAT_POISON") + functionStuff.targetData.name;
+      templateData.poisonChatResult = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_NEUTRALIZED");
+    } else {
+      let targetResMod = checkSpecialResistanceMod(functionStuff.targetData.actor.system.combat.damageReductions, functionStuff.targetData.autoParams, "poisoner");
+      let poisonFavour = targetResMod.favour;
+      functionStuff.targetData.autoParams += targetResMod.autoParams;
+      let poisonRoll = await baseRoll(functionStuff.actor, "cunning", functionStuff.targetData.actor, "strong", poisonFavour, -1 * targetResMod.modifier, functionStuff.resistRoll);
+      let poisonFunctionStuff = Object.assign(functionStuff, { modifier: -1 * targetResMod.modifier, favour: poisonFavour });
+      let poisonRes = await poisonCalc(poisonFunctionStuff, poisonRoll);
+      // Gift v1: nur bei echtem Giftwurf auf die Karte (Neutralisierung via poisonCalc)
+      if (poisonRes.roll) rolls.push(poisonRes.roll);
+      // Elixiere v1.6: konstanter Gift-Rundenschaden als eigener Wurf auf der Karte
+      if (poisonRes.poisonDotRoll) rolls.push(poisonRes.poisonDotRoll);
+      if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
+      templateData = Object.assign(templateData, poisonRes);
+    }
   }
   // Elixiere v1.5 (Gift auftragen, Rudolfs Freigabe 02.11.): Waffenbeschichtung
   // aus dem INVENTAR - der Spieler hat im Wuerfeldialog einen Gift-Dosis-
@@ -6258,49 +6371,87 @@ async function attackResult(rollData, functionStuff) {
       templateData.poisonChatIntro = game.i18n.format("COMBAT.CHAT_POISON_COATING_INTRO", { poison: functionStuff.poisonCoating.name });
       templateData.poisonChatResult = game.i18n.localize("COMBAT.CHAT_POISON_NOTEXTEND");
     } else {
-      const coatingRoll = await baseRoll(functionStuff.actor, "strong", functionStuff.targetData.actor, "strong", 0, 0, false);
+      // Gift v1 B6 (Handbuch der Gifte): +1 auf die Beschichtungsprobe,
+      // wenn der Angreifer das Handbuch traegt UND die Faehigkeit
+      // Giftmischer besitzt (reine Giftig-Merkmale geben keinen Bonus,
+      // das Handbuch ist ein Giftmischer-Werkzeug).
+      const manualBonus = hasPoisonManual(functionStuff.actor) && getActorAbilityLevel(functionStuff.actor, "poisoner") > 0 ? 1 : 0;
+      const coatingRoll = await baseRoll(functionStuff.actor, "strong", functionStuff.targetData.actor, "strong", 0, manualBonus, false);
       rolls.push(...coatingRoll.rolls);
       templateData.printPoison = true;
       templateData.poisonChatIntro = game.i18n.format("COMBAT.CHAT_POISON_COATING_INTRO", { poison: functionStuff.poisonCoating.name });
-      templateData.poisonRollString = await formatRollString(coatingRoll, true, 0);
-      templateData.poisonRollResultString = await formatRollResult(coatingRoll);
+      templateData.poisonRollString = await formatRollString(coatingRoll, true, manualBonus);
+      templateData.poisonRollResultString =
+        await formatRollResult(coatingRoll) + (manualBonus ? " " + game.i18n.localize("DIALOG.POISON_MANUAL_PARAM") : "");
       if (coatingRoll.trueActorSucceeded) {
-        const coatingRounds = await new Roll(functionStuff.poisonCoating.roundsFormula).evaluate();
-        rolls.push(coatingRounds);
-        // Elixiere v1.6 (Rudolfs Antidot-Modell): der Rundenschaden eines
-        // Gifts wird bei der Anwendung EINMAL gewuerfelt und bleibt fuer
-        // die gesamte Rundenlaufzeit KONSTANT (dot.fixedDamage - die A28-
-        // Tick-Engine wendet den Festwert an statt je Runde neu zu wuerfeln;
-        // das Antidot senkt genau diesen Wert um 2 Punkte je Stufe).
-        const coatingDamage = await new Roll(functionStuff.poisonCoating.formula).evaluate();
-        rolls.push(coatingDamage);
-        templateData.poisonChatResult =
-          functionStuff.targetData.name +
-          game.i18n.format("COMBAT.CHAT_POISON_COATING_SUCCESS", { damage: coatingDamage.total, rounds: coatingRounds.total }) +
-          game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
-        const poisonEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison"));
-        flagDataArray.push({
-          tokenId: functionStuff.targetData.tokenId,
-          addEffect: poisonEffect,
-          effectDuration: coatingRounds.total,
-          dot: {
-            label: "QUALITY.POISON",
-            formula: functionStuff.poisonCoating.formula,
-            fixedDamage: coatingDamage.total,
-            resource: "toughness",
-            damageType: "poison",
-            stackable: false,
-            separateRoll: false,
-          },
-          conditionData: {
-            poison: {
-              damage: coatingDamage.total,
-              formula: functionStuff.poisonCoating.formula,
-              rounds: coatingRounds.total,
-              roundsFormula: functionStuff.poisonCoating.roundsFormula,
+        // Gift v1 B1: Giftresistent senkt die Beschichtungs-Formel eine
+        // Stufe (1W8->1W6, 1W6->1W4); 1W4 wird auf 0 gesenkt und das
+        // Gift analog Antidot VOLLSTAENDIG neutralisiert (Rudolfs
+        // Rueckmeldung 2.11.). Exotische Formeln ausserhalb der Treppe
+        // bleiben unberuehrt. Nur der SCHADEN sinkt, die Dauer laeuft
+        // normal - hier ist die Dauer aber itemseitig fix definiert.
+        let coatFormula = functionStuff.poisonCoating.formula;
+        let neutralizedByResilient = false;
+        let reducedByResilient = false;
+        if (hasPoisonResilient(functionStuff.targetData.actor) && Object.prototype.hasOwnProperty.call(game.symbaroum.config.POISON_COAT_STAIRS, coatFormula)) {
+          const stair = game.symbaroum.config.POISON_COAT_STAIRS[coatFormula];
+          if (stair === null) neutralizedByResilient = true;
+          else if (stair) {
+            coatFormula = stair;
+            reducedByResilient = true;
+          }
+        }
+        if (neutralizedByResilient) {
+          // Kein DoT, keine Runden, keine Dosis-Abbuchung (das Gift
+          // kommt gar nicht zur Wirkung).
+          templateData.poisonChatResult =
+            functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_NEUTRALIZED");
+        } else {
+          const coatingRounds = await new Roll(functionStuff.poisonCoating.roundsFormula).evaluate();
+          rolls.push(coatingRounds);
+          // Elixiere v1.6 (Rudolfs Antidot-Modell): der Rundenschaden eines
+          // Gifts wird bei der Anwendung EINMAL gewuerfelt und bleibt fuer
+          // die gesamte Rundenlaufzeit KONSTANT (dot.fixedDamage - die A28-
+          // Tick-Engine wendet den Festwert an statt je Runde neu zu wuerfeln;
+          // das Antidot senkt genau diesen Wert um 2 Punkte je Stufe).
+          const coatingDamage = await new Roll(coatFormula).evaluate();
+          rolls.push(coatingDamage);
+          templateData.poisonChatResult =
+            functionStuff.targetData.name +
+            game.i18n.format("COMBAT.CHAT_POISON_COATING_SUCCESS", { damage: coatingDamage.total, rounds: coatingRounds.total }) +
+            (reducedByResilient ? game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_REDUCED") : "") +
+            game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+          // Gift v1 B3: Dosis wird erst bei gelungener Vergiftung
+          // abgebucht (consume-on-hit statt consume-on-submit); bei
+          // Misslingen oder Neutralisierung bleibt der Vorrat unberuehrt.
+          if (functionStuff.poisonCoating.itemId) {
+            const doseItem = functionStuff.actor.items.get(functionStuff.poisonCoating.itemId);
+            if (doseItem) await consumeElixirDose(doseItem);
+          }
+          const poisonEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison"));
+          flagDataArray.push({
+            tokenId: functionStuff.targetData.tokenId,
+            addEffect: poisonEffect,
+            effectDuration: coatingRounds.total,
+            dot: {
+              label: "QUALITY.POISON",
+              formula: coatFormula,
+              fixedDamage: coatingDamage.total,
+              resource: "toughness",
+              damageType: "poison",
+              stackable: false,
+              separateRoll: false,
             },
-          },
-        });
+            conditionData: {
+              poison: {
+                damage: coatingDamage.total,
+                formula: coatFormula,
+                rounds: coatingRounds.total,
+                roundsFormula: functionStuff.poisonCoating.roundsFormula,
+              },
+            },
+          });
+        }
       } else {
         templateData.poisonChatResult = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_POISON_COATING_RESIST");
       }
@@ -6989,78 +7140,211 @@ async function healing(healFormula, targetToken, attackFromPC) {
   };
 }
 
+/* ===== Gift v1 (Rudolfs Freigabe 08.11.2026): Helfer B1/B3/B4 ===== */
+
+/* B4/Grad-Ableitung einer Inventar-Gift-Dosis: v1.5-Legacy-Feld
+   poisonGrade (falls numerisch), sonst Standard-Formel-Mapping
+   (Schaden/Runde 1d4 -> 1, 1d6 -> 2, 1d8 -> 3; exotische SL-
+   Kalibrierungen haben keinen Grad, Rueckgabe 0). */
+export function getElixirPoisonGrade(item) {
+  if (item?.type !== "equipment") return 0;
+  const eff = item.system?.elixirEffect ?? {};
+  const legacy = Number(String(eff.poisonGrade ?? "").trim());
+  if (Number.isFinite(legacy) && legacy >= 1) return Math.min(3, Math.round(legacy));
+  const formula = (String(eff.damagePerRound ?? "").trim() || String(eff.damage ?? "").trim()).toLowerCase();
+  const stairs = { "1d4": 1, "1d6": 2, "1d8": 3 };
+  return stairs[formula] ?? 0;
+}
+
+/* B3-Adept: Grad der aktiven Szenen-Beschichtung (Condition poisoncoat,
+   flagData.poisoncoat.grade); 0 = keine aktive Beschichtung. */
+export function getActivePoisonCoatGrade(actor) {
+  const eff = actor?.hasCondition?.("poisoncoat");
+  if (!eff || eff === "") return 0;
+  const grade = Number(eff.getFlag?.(game.system.id, "flagData")?.poisoncoat?.grade);
+  return Number.isFinite(grade) && grade >= 1 && grade <= 3 ? Math.round(grade) : 0;
+}
+
+/* B3-Adept: Szenen-Beschichtung setzen - eine andere Stufe ersetzt die
+   alte (neue Dosis = neue Beschichtung). Bewusst OHNE duration/dot/
+   turnEnd: das Symbol ist permanent, Ruecksetzen nach dem Kampf ist
+   reine SL-Sache (HUD, Rudolfs Wunsch analog Regeneration). */
+export async function setPoisonCoat(actor, grade) {
+  const g = Math.min(3, Math.max(1, Math.round(Number(grade) || 0)));
+  const effect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poisoncoat"));
+  if (actor?.hasCondition?.("poisoncoat")) await actor.removeCondition("poisoncoat");
+  await actor.addCondition(effect, { poisoncoat: { grade: g } });
+  return g;
+}
+
+/* B3-Novize: 1 Dosis je vergiftetem Treffer - bucht EIN passendes
+   Dosen-Item der gewaehlten Stufe ab (Warnung, wenn keins mehr da ist;
+   das Gift wirkt dennoch - SL-korrigierbar, dokumentierte Begrenzung). */
+export async function consumePoisonDoseByGrade(actor, grade) {
+  const target = Math.round(Number(grade) || 0);
+  if (target < 1) return false;
+  const candidates = (actor?.items ?? []).filter((it) => {
+    if (it?.type !== "equipment" || getItemCount(it) <= 0) return false;
+    const eff = it.system?.elixirEffect ?? {};
+    const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
+    return isWeaponPoison && getElixirPoisonGrade(it) === target;
+  });
+  if (candidates.length === 0) {
+    ui.notifications.warn(game.i18n.format("POISON.ERR_NO_DOSE_BY_GRADE", { grade: target }));
+    return false;
+  }
+  return consumeElixirDose(candidates[0]);
+}
+
+/* B3/B4: gemeinsame Aufloesung der Waffengift-Zeile (beide Wuerfe-
+   dialoge, dialog.js EC-Dialog + Modifier-Dialog in item.js):
+   'none' = kein Gift, 'ownpoison' = Eigengift (B4: nur noch das
+   Merkmal Giftig), 'activecoat' = aktive Adept-Beschichtung (kein
+   Verbrauch, Vergifter-Pfad), Item-ID = Inventar-Dosis:
+   Adept/Meister-Giftmischer starten damit die Szenen-Beschichtung
+   (1 Dosis abgebucht, Grad-Modell ueber den Vergifter-Pfad, Condition
+   poisoncoat), Novize/jeder andere laufen ueber den Coating-Pfad mit
+   Abbuchung ERST bei gelungener Vergiftung (poisonCoating.itemId,
+   B3-Novizen-Korrektur). Rueckgabe null = Abbuchung gescheitert
+   (Abbruch des Wurfs, bestehende Konvention). */
+export async function resolveWeaponPoisonChoice(actor, choiceId, context) {
+  const result = { kind: "none", poison: 0, poisonCoating: null };
+  if (!choiceId || choiceId === "none") return result;
+  if (choiceId === "ownpoison") {
+    result.kind = "ownpoison";
+    result.poison = context?.ownPoison?.grade ?? 0;
+    return result.poison > 0 ? result : null;
+  }
+  if (choiceId === "activecoat") {
+    result.kind = "activecoat";
+    result.poison = getActivePoisonCoatGrade(actor);
+    return result.poison > 0 ? result : null;
+  }
+  const choice = (context?.poisonCoatingChoices ?? []).find((c) => c.id === choiceId);
+  const poisonItem = actor?.items?.get?.(choiceId);
+  if (!choice || !poisonItem) return null;
+  const grade = getElixirPoisonGrade(poisonItem);
+  const poisonerLvl = getActorAbilityLevel(actor, "poisoner");
+  if (poisonerLvl >= 2 && grade >= 1) {
+    if (!(await consumeElixirDose(poisonItem))) return null;
+    await setPoisonCoat(actor, grade);
+    result.kind = "coatscene";
+    result.poison = grade;
+    return result;
+  }
+  result.kind = "dose";
+  result.poisonCoating = {
+    name: poisonItem.name,
+    formula: choice.formula,
+    roundsFormula: choice.roundsFormula,
+    itemId: poisonItem.id,
+  };
+  return result;
+}
+
 async function poisonCalc(functionStuff, poisonRoll) {
   let poisonRes = {};
   poisonRes.printPoison = false;
   poisonRes.poisonChatIntro = functionStuff.actingCharName + game.i18n.localize("COMBAT.CHAT_POISON") + functionStuff.targetData.name;
   let poisonDamage = "0";
-  let poisonedTimeLeft = 0;
   const effect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison"));
   poisonRes.poisonResistRollText = functionStuff.targetData.name + game.i18n.localize("ABILITY.RESIST_ROLL");
 
   if (!poisonRoll.trueActorSucceeded) {
     poisonRes.poisonChatResult = game.i18n.localize("COMBAT.CHAT_POISON_FAILURE");
   } else {
-    if (functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster") {
-      poisonDamage = "1d" + (2 * functionStuff.poison + 2).toString();
-    } else {
-      poisonDamage = (functionStuff.poison + 1).toString();
-    }
-    let PoisonRoundsRoll = await new Roll(poisonDamage).evaluate();
-    poisonRes.roll = PoisonRoundsRoll;
-
-    let NewPoisonRounds = PoisonRoundsRoll.total;
-    let poisonedEffectCounter = functionStuff.targetData.token.actor?.hasCondition(effect.id);
-    if (poisonedEffectCounter) {
-      //target already poisoned
+    // Gift v1 (Rudolfs Freigabe 08.11.2026): Stufenmodell der Gift-Engine.
+    // B2: Dauer 1d(2*Grad+2) je ORIGINALEM Grad (RAW-konform 1W4/1W6/1W8),
+    // Rundenschaden je SCHADENSSTUFE gradabhaengig (PC bzw. Monsteropfer
+    // wuerfeln 1d4/1d6/1d8, NPC-Angreifer nutzen den fixen Spiegelwert
+    // 2/3/4, Muster healing()). B1: Giftresistent senkt NUR DEN SCHADEN
+    // um eine Stufe (Dauer unberuehrt, Vault-Notiz „Der Zeitrahmen ist
+    // nicht betroffen"); ein schwaches Gift wird neutralisiert (Rudolfs
+    // Rueckmeldung 2, analog zum Antidot-<=0-Modell - bewusste Abweichung
+    // von der Notiz „1 Punkt"). B5: Das Merkmal Giftig nutzt feste
+    // RAW-Werte (Runden 2/3/4, Schaden 2/3/4) statt der Grad-Wuerfel.
+    const cfg = game.symbaroum.config;
+    const origGrade = Math.max(1, Math.min(3, Math.round(Number(functionStuff.poison) || 1)));
+    const fixedValues = functionStuff.poisonFixedValues === true;
+    const resilient = hasPoisonResilient(functionStuff.targetData.actor);
+    const damageGrade = resilient ? origGrade - 1 : origGrade;
+    if (damageGrade < 1) {
+      // B1-Floor: Schaden 0 = Gift aufgehoben - keine Condition, kein
+      // DoT, keine Schadens-/Dauerwuerfe; nur die Kennzeichnung.
+      poisonRes.poisonChatResult = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_NEUTRALIZED");
+    } else if (functionStuff.targetData.token.actor?.hasCondition(effect.id)) {
       poisonRes.poisonChatResult = game.i18n.localize("COMBAT.CHAT_POISON_NOTEXTEND");
     } else {
-      //new poisoning
-      // Elixiere v1.6 (Rudolfs Antidot-Modell): der Rundenschaden eines
-      // Gifts wird bei der Anwendung EINMAL gewuerfelt und bleibt fuer
-      // die Rundenlaufzeit KONSTANT (dot.fixedDamage, A28-Tick wendet den
-      // Festwert an; Antidot senkt ihn um 2 Punkte je Stufe, <= 0 = geheilt)
-      const poisonDotFormula =
-        functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster" ? "1d4" : "2";
-      const poisonDotRoll = await new Roll(poisonDotFormula).evaluate();
-      poisonRes.poisonDotRoll = poisonDotRoll;
-      poisonRes.flagData = {
+      // B2/B5: Der je Anwendung EINMAL ermittelte Rundenschaden bleibt
+      // v1.6-konstant ueber die Laufzeit (dot.fixedDamage, A28-Tick; das
+      // Antidot senkt ihn um 2 Punkte je Stufe - unveraendert).
+      let NewPoisonRounds;
+      let poisonDotFormula;
+      let poisonDotTotal;
+      const buildFlagData = () => ({
         tokenId: functionStuff.targetData.tokenId,
         addEffect: effect,
         effectDuration: NewPoisonRounds,
-        // A28 G2: the dot block opts the poisoned condition into the round/DoT
-        // engine - Vault Giftbeschichtet: 1d4 poison damage per round (fixed 2
-        // for NPC attackers, mirroring the chat display) for the rolled number
-        // of rounds, first tick on the victim's next turn, armor ignored
+        // A28 G2: der dot-Block meldet die Condition an die Runden-/DoT-
+        // Engine - Ruestung ignoriert, erster Tick am naechsten Zug des
+        // Opfers (unveraendert)
         dot: {
           label: "QUALITY.POISON",
           formula: poisonDotFormula,
-          fixedDamage: poisonDotRoll.total,
+          fixedDamage: poisonDotTotal,
           resource: "toughness",
           damageType: "poison",
           stackable: false,
           separateRoll: false,
         },
-        // Elixiere v1.6: Festwert-Metadaten fuer das Antidot (Hooks-Handler
-        // senkt conditionData.poison.damage um 2 je Antidotstufe und schreibt
-        // dot.fixedDamage mit); Restdauer UNVERAENDERT (Rudolfs Modell,
-        // ersetzt das v1.5-Regraduierungs-Geruest).
+        // Elixiere v1.6: Festwert-Metadaten fuer das Antidot (Hooks-
+        // Handler senkt conditionData.poison.damage um 2 je Antidotstufe
+        // und schreibt dot.fixedDamage mit); Restdauer UNVERAENDERT.
         conditionData: {
           poison: {
-            damage: poisonDotRoll.total,
+            damage: poisonDotTotal,
             formula: poisonDotFormula,
             rounds: NewPoisonRounds,
-            roundsFormula: poisonDamage,
+            roundsFormula: fixedValues ? String(NewPoisonRounds) : poisonDamage,
           },
         },
-      };
+      });
+      if (fixedValues) {
+        // B5 (Giftig): feste RAW-Werte - Runden 2/3/4 und Schaden 2/3/4
+        // je Stufe, KEINE Wuerfel (poisonRes.roll/poisonDotRoll bleiben
+        // weg, die Aufrufer pushen nur vorhandene Wuerfe).
+        NewPoisonRounds = cfg.POISONOUS_FIXED_ROUNDS[origGrade];
+        poisonDotTotal = cfg.POISONOUS_FIXED_DAMAGE[damageGrade];
+        poisonDotFormula = String(poisonDotTotal);
+      } else {
+        // B2: Dauer mit der Originalstufe (B1: Giftresistent fasst die
+        // Dauer NICHT an), Schaden mit der (ggf. gesenkten) Stufe.
+        poisonDamage = "1d" + (2 * origGrade + 2).toString();
+        const PoisonRoundsRoll = await new Roll(poisonDamage).evaluate();
+        poisonRes.roll = PoisonRoundsRoll;
+        NewPoisonRounds = PoisonRoundsRoll.total;
+        if (functionStuff.attackFromPC || functionStuff.targetData.actor.type === "monster") {
+          poisonDotFormula = cfg.POISON_GRADE_DAMAGE[damageGrade];
+          const poisonDotRoll = await new Roll(poisonDotFormula).evaluate();
+          poisonRes.poisonDotRoll = poisonDotRoll;
+          poisonDotTotal = poisonDotRoll.total;
+        } else {
+          poisonDotTotal = cfg.POISON_GRADE_NPC_DAMAGE[damageGrade];
+          poisonDotFormula = String(poisonDotTotal);
+        }
+      }
+      poisonRes.poisonApplied = true;
+      poisonRes.flagData = buildFlagData();
       poisonRes.poisonChatResult =
         functionStuff.targetData.name +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS1") +
-        poisonDotRoll.total.toString() +
+        poisonDotTotal.toString() +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
         NewPoisonRounds.toString() +
         game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+      if (resilient) {
+        poisonRes.poisonChatResult += game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_REDUCED");
+      }
     }
   }
   poisonRes.printPoison = true;
@@ -7239,15 +7523,38 @@ export async function standardPowerResult(rollData, functionStuff) {
     }
   }
 
-  if (functionStuff.usePoison) {
+  if (functionStuff.usePoison && functionStuff.poison > 0) {
     let poisonRes = await poisonCalc(functionStuff, rollData[0]);
-    rolls.push(poisonRes.roll);
+    // Gift v1: nur bei echtem Giftwurf auf die Karte (Neutralisierung
+    // durch Giftresistent zeigt poisonCalc ohne eigenen Wurf an).
+    if (poisonRes.roll) rolls.push(poisonRes.roll);
     // Elixiere v1.6: konstanter Gift-Rundenschaden als eigener Wurf auf der Karte
     if (poisonRes.poisonDotRoll) rolls.push(poisonRes.poisonDotRoll);
 
     introText = poisonRes.poisonChatIntro;
     resultText = poisonRes.poisonChatResult;
     if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
+    // Gift v1 B3 (Stufen des Giftmischers): Dosis-Abbuchung erst bei
+    // GELUNGENER Vergiftung (poisonApplied), nie bei Misslingen oder
+    // Neutralisierung; poisonFromCoat = der Wurf lief schon ueber eine
+    // abgebuchte Beschichtungs-Dosis, kein zweiter Verbrauch.
+    // Novize: 1 Dosis je vergiftetem Treffer (je Stufe).
+    // Adept/Meister: 1 Dosis startet die Beschichtung fuer die GANZE
+    // Kampfszene (Condition poisoncoat); laeuft dieselbe Stufe bereits,
+    // wird NICHT neu abgebucht.
+    if (poisonRes.poisonApplied && functionStuff.poisonChosen > 0 && !functionStuff.poisonFromCoat) {
+      const poisonerLevel = getActorAbilityLevel(functionStuff.actor, "poisoner");
+      if (poisonerLevel === 1) {
+        await consumePoisonDoseByGrade(functionStuff.actor, functionStuff.poisonChosen);
+      } else if (poisonerLevel >= 2) {
+        const coatGrade = getActivePoisonCoatGrade(functionStuff.actor);
+        if (coatGrade !== functionStuff.poisonChosen) {
+          if (await consumePoisonDoseByGrade(functionStuff.actor, functionStuff.poisonChosen)) {
+            await setPoisonCoat(functionStuff.actor, functionStuff.poisonChosen);
+          }
+        }
+      }
+    }
   }
 
   if (functionStuff.ability.reference === "strangler" && trueActorSucceeded) {

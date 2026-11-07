@@ -1076,3 +1076,40 @@ export function hasEpilepsy(actor) {
 export function getEpilepsyPenalty(actor) {
   return actor?.hasCondition?.('epilepsy') ? 1 : 0;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Gift v1 (Rudolfs Freigabe 08.11.2026): Giftresistent & Handbuch    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Gift v1 B1 (Konzept-Rev. 3, Vault-Notiz „Giftresistent.md"): Der
+ * einstufige Segen Giftresistent (Referenz 'poisonresilient', von Rudolf
+ * manuell angelegt — Segen/Lasten-Konvention: bewusst 0 Pack-Items)
+ * senkt bei ALLEN Gift-Engine-Pfaden NUR DEN SCHADEN um eine Stufe;
+ * die DAUER bleibt unberührt (RAW: „Der Zeitrahmen ist nicht betroffen").
+ * Rudolfs Neutralisierungs-Floor (Rückmeldung 2): ein schwaches Gift
+ * wird auf 0 gesenkt und damit VOLLSTÄNDIG aufgehoben (analog zum
+ * Antidot-<=0-Modell) — bewusste Abweichung von der Notiz („1 Punkt").
+ * Verbraucht in poisonCalc (item.js) und im Beschichtungs-Block.
+ */
+export function hasPoisonResilient(actor) {
+  return hasByReference(actor, 'boon', 'poisonresilient');
+}
+
+/**
+ * Gift v1 B6 (Vault-Notiz „Handbuch der Gifte.md", APG-Ausrüstung,
+ * 10 Thaler): Liegt das Buch (Ausrüstungs-Item, Referenz
+ * 'poisonmanual', manuell angelegt) im Inventar, erhält der Träger
+ * +1 auf ALLE Proben mit Giftmischer — im Fork: die [Scharfsinn<-
+ * Stärke]-Giftprobe des Giftmischer-Fähigkeitswurfs UND die
+ * Beschichtungs-Giftprobe beim Waffentreffer (nur wenn der Träger
+ * die Fähigkeit Giftmischer besitzt; das Merkmal Giftig profitiert
+ * bewusst NICHT, es ist keine Giftmischer-Probe).
+ */
+export function hasPoisonManual(actor) {
+  return Boolean(
+    (actor?.items ?? []).some(
+      (item) => item?.type === 'equipment' && String(item.system?.reference ?? '').trim() === 'poisonmanual'
+    )
+  );
+}

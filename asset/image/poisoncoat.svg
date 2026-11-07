@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Gift v1 B3-Adept: aktive Gift-Beschichtung der Waffe (Rudolfs Wunsch,
+       analog Regeneration) - Klinge mit auflaufendem Gift-Tropfen -->
+  <g>
+    <!-- Klinge -->
+    <path d="M 300 60 L 340 100 L 214 300 L 158 356 L 156 358 L 150 352 L 148 350 L 206 292 L 330 96 Z"
+          fill="#c9ccd4" stroke="#2b2d42" stroke-width="12" stroke-linejoin="round"/>
+    <!-- Parierstange + Griff -->
+    <path d="M 120 340 L 240 340 L 240 384 L 120 384 Z" fill="#7a5c3e" stroke="#2b2d42" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 168 384 L 192 384 L 168 470 Z" fill="#5b4226" stroke="#2b2d42" stroke-width="12" stroke-linejoin="round"/>
+    <!-- Gift-Tropfen an der Spitze -->
+    <path d="M 372 40 C 372 40 416 96 416 128 C 416 154 396 174 372 174 C 348 174 328 154 328 128 C 328 96 372 40 372 40 Z"
+          fill="#8bd450" stroke="#2b2d42" stroke-width="12" stroke-linejoin="round"/>
+    <!-- Tropfen-Kern -->
+    <circle cx="360" cy="130" r="14" fill="#e6ffd2"/>
+    <!-- zweite kleine Giftperle an der Klinge -->
+    <circle cx="250" cy="256" r="20" fill="#8bd450" stroke="#2b2d42" stroke-width="10"/>
+  </g>
+</svg>

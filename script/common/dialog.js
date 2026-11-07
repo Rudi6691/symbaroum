@@ -1,5 +1,5 @@
 import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './roll.js';
-import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel } from './item.js';
+import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel, getActivePoisonCoatGrade, resolveWeaponPoisonChoice } from './item.js';
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
@@ -14,7 +14,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
 import { consumeAmmoForAttack, getAmmoEffectTotal, consumeAmmoEffectForAttack } from './ammo.js';
 // Elixier-Automatisierung v1: Benommen-Malus (Nebelball) als Dialog-Vorbelegung
-import { getDazedPenalty, consumeElixirDose } from './elixirs.js';
+import { getDazedPenalty } from './elixirs.js';
 // Elixiere v1.5: Gift-Beschichtung - Bestandspruefung der Dosis-Stapel
 import { getItemCount } from './resources.js';
 
@@ -313,6 +313,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   let askPoisonCoating = false;
   let poisonCoatingChoices = [];
   let ownPoison = null;
+  let activeCoatGrade = 0;
   if (weapon !== null) {
     const poisonCoatingItems = actor.items.filter((it) => {
       if (it?.type !== "equipment") return false;
@@ -337,14 +338,16 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       });
     }
     // Elixiere v1.7 (Rudolfs Waffengift-Dialog-Vereinheitlichung): EIGEN-
-    // GIFT als unbegrenzte Option - Traeger des Merkmals Vergifter (poisoner)
-    // bzw. Giftig (poisonous) tragen ihr eigenes Gift auf die Waffe auf,
-    // OHNE Ressourcenverbrauch ("Giftig" = unbegrenzter Vorrat, Rudolfs
-    // Klaerung). Die Giftstufe ist durch die Stufe des Merkmals vorgegeben
-    // (1 = Leichtes, 2 = Mittleres, 3 = Starkes Gift, bei beiden Referenzen
-    // die hoehere Stufe) und im Dialog VORSELEKTIERT. Die Zeile erscheint
-    // damit auch fuer Vergifter OHNE Giftvorrat im Inventar.
-    const ownPoisonGrade = Math.max(getActorAbilityLevel(actor, "poisoner"), getActorAbilityLevel(actor, "poisonous"));
+    // GIFT als unbegrenzte Option - Traeger des Merkmals Giftig (poisonous)
+    // tragen ihr eigenes Gift auf die Waffe auf, OHNE Ressourcenverbrauch
+    // ("Giftig" = unbegrenzter Vorrat, Rudolfs Klaerung). Die Giftstufe
+    // ist durch die Stufe des Merkmals vorgegeben (1 = Leichtes, 2 =
+    // Mittleres, 3 = Starkes Gift) und im Dialog VORSELEKTIERT.
+    // Gift v1 B4 (08.11.2026): Eigengift NUR noch Giftig - die Faehigkeit
+    // Giftmischer (poisoner) braucht Dosen aus dem Inventar (RAW). B3:
+    // Adept/Meister sehen ihre AKTIVE Szenen-Beschichtung (Condition
+    // poisoncoat, kein Verbrauch, Vergifter-Pfad), auch ohne Inventar.
+    const ownPoisonGrade = getActorAbilityLevel(actor, "poisonous");
     if (ownPoisonGrade > 0) {
       ownPoison = {
         grade: ownPoisonGrade,
@@ -356,6 +359,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       };
       askPoisonCoating = true;
     }
+    activeCoatGrade = getActivePoisonCoatGrade(actor);
+    if (activeCoatGrade > 0) askPoisonCoating = true;
   }
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
   targetAttribute_selection.defense = {
@@ -430,6 +435,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "askPoisonCoating": askPoisonCoating,
     "poisonCoatingChoices": poisonCoatingChoices,
     "ownPoison": ownPoison,
+    // Gift v1 B3: aktive Szenen-Beschichtung als eigene Select-Option
+    "activeCoat": activeCoatGrade > 0 ? { grade: activeCoatGrade } : null,
     "boon_lines": boon_lines
   });
 
@@ -845,32 +852,49 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               if(specialAmmoLabel) ecData.autoParams += specialAmmoLabel + ", ";
             }
           }
-          // Elixiere v1.5 (Gift auftragen): Beschichtungs-Select lesen, 1
-          // Dosis vom gewaehlten Stapel abbuchen (bewusst NACH dem Spezial-
-          // munitions-Block, gleiche Block-Semantik: false = kein Wurf,
-          // Notification kam aus dem Elixier-Modul) und die Wirkung als
-          // ecData.poisonCoating fuer die Angriffskarte mitgeben.
-          // Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): dies ist
-          // jetzt DIE Gift-Zeile des Waffen-Dialogs - zusaetzlich zur
-          // Inventar-Option gibt es das EIGENGIFT des Vergifters/Giftigen
-          // (unbegrenzt, ohne Verbrauch, Grad aus der Merkmalsstufe, im
-          // Dialog vorselektiert); es laeuft ueber den Vergifter-Pfad
-          // (ecData.poison -> poisonCalc), nicht ueber den Coating-Pfad.
+          // Elixiere v1.5 (Gift auftragen): Beschichtungs-Select lesen und
+          // die Wirkung als ecData.poisonCoating fuer die Angriffskarte
+          // mitgeben. Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung):
+          // dies ist DIE Gift-Zeile des Waffen-Dialogs.
+          // Gift v1 (08.11.2026): Aufloesung ueber den gemeinsamen Helper
+          // resolveWeaponPoisonChoice (gleiche Semantik wie im Modifier-
+          // Dialog, item.js): 'ownpoison' = Eigengift (B4: nur noch
+          // Merkmal Giftig, Vergifter-Pfad), 'activecoat' = laufende
+          // Adept-Beschichtung (kein Verbrauch, Vergifter-Pfad),
+          // 'coatscene' = Inventar-Dosis startet die Szenen-Beschichtung
+          // (1 Dosis beim Submit; null-Rueckgabe = Abbuchung gescheitert,
+          // kein Wurf), Inventar-Dosis = Coating-Pfad mit Abbuchung ERST
+          // bei gelungener Vergiftung (B3-Novize, itemId mitgeben).
           if(askPoisonCoating) {
             const coatingChoice = html[0].querySelector("#poisonCoating-"+did)?.value ?? "none";
-            if(coatingChoice === "ownpoison") {
-              ecData.poison = ownPoison.grade;
-              ecData.autoParams += game.i18n.localize("DIALOG.OWN_POISON_PARAM") + ", ";
-            } else if(coatingChoice !== "none") {
-              const choice = poisonCoatingChoices.find((c) => c.id === coatingChoice);
-              const poisonItem = actor.items.get(coatingChoice);
-              if(choice && poisonItem && await consumeElixirDose(poisonItem)) {
-                ecData.poisonCoating = { name: poisonItem.name, formula: choice.formula, roundsFormula: choice.roundsFormula };
-                ecData.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: poisonItem.name }) + ", ";
-              } else {
-                resolve(false);
-                return;
+            const resolved = await resolveWeaponPoisonChoice(actor, coatingChoice, { ownPoison, poisonCoatingChoices });
+            if(!resolved) {
+              resolve(false);
+              return;
+            }
+            if(resolved.kind === "ownpoison" || resolved.kind === "activecoat" || resolved.kind === "coatscene") {
+              ecData.poison = resolved.poison;
+              if(resolved.kind !== "ownpoison") {
+                ecData.poisonChosen = resolved.poison;
+                ecData.poisonFromCoat = resolved.kind === "activecoat";
+                // Meister-Giftmischer: Beschichtung ueber die Waffe zaehlt
+                // 1 Stufe hoeher; starkes Coat gibt Gunst (B3, analog zum
+                // Faehigkeitswurf-Handler in item.js).
+                if(getActorAbilityLevel(actor, "poisoner") >= 3) {
+                  if(resolved.poison < 3) {
+                    ecData.poison = resolved.poison + 1;
+                    ecData.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_UPGRADE_PARAM") + ", ";
+                  } else {
+                    ecData.favour = (ecData.favour ?? 0) + 1;
+                    ecData.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
+                  }
+                }
               }
+              ecData.autoParams +=
+                (resolved.kind === "ownpoison" ? game.i18n.localize("DIALOG.OWN_POISON_PARAM") : game.i18n.localize("DIALOG.POISON_COAT_PARAM")) + ", ";
+            } else if(resolved.kind === "dose") {
+              ecData.poisonCoating = resolved.poisonCoating;
+              ecData.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: resolved.poisonCoating.name }) + ", ";
             }
           }
           if(weapon && game.settings.get('symbaroum', 'combatAutomation')){
