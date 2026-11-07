@@ -5638,9 +5638,16 @@ dialog.symb-dialog.chain-confirm footer {
   justify-content: center;
 }
 
-dialog.symb-dialog.chain-confirm .window-content button,
-dialog.symb-dialog.chain-confirm .dialog-buttons button,
-dialog.symb-dialog.chain-confirm footer button {
+/* P26-fix3 (Rudolfs Anmerkung zu fix2-03, 08.11.2026): Im MODERNEN Fenster
+   tragen die Ja/Nein-Buttons wieder die Standard-Größe wie in den anderen
+   Bestätigungsdialogen (z. B. A29 Aufrechterhalten-Abfrage; dort setzt nur
+   die moderne Basisregel flex/Fläche, Größe/Padding bleiben Foundry-Core).
+   Deshalb scopen wir die A25-Verkleinerung auf das klassische Fenster
+   (:not(.modern-dialog)) statt sie im Modern-Modus mit Spiegelwerten zu
+   überbieten - keine Wert-Raterei, kein Regel-Drift. */
+dialog.symb-dialog.chain-confirm:not(.modern-dialog) .window-content button,
+dialog.symb-dialog.chain-confirm:not(.modern-dialog) .dialog-buttons button,
+dialog.symb-dialog.chain-confirm:not(.modern-dialog) footer button {
   flex: 0 0 auto !important;
   padding: 2px 6px !important;
   font-size: 12px;
@@ -10849,4 +10856,23 @@ html body dialog.symb-dialog.modern-dialog .symbaroum.dialog .favour {
   background: var(--m-panel);
   display: flex;
   justify-content: center;
+}
+
+/* ============================================================
+   P26-fix3 (Rudolfs Anmerkung zu fix2-03, 08.11.2026): Die Frage
+   der Kettenbestätigungen (p.lblfavour - Kette, Draining-Glyph,
+   Erdstoß-Brocken, Brennglas-Ziel/Betäubung) trägt die klassische
+   V13-Banner-Typo der Grundregel ~134 (14px BOLD, var(--font-
+   text)). Im modernen Fenster wirkt sie dadurch typografisch
+   anders als der Fragetext der anderen Bestätigungsdialoge (z. B.
+   A29 Aufrechterhalten-Abfrage: normales p in Standard-Typo).
+   Angleich NUR im modernen chain-confirm-Fenster: font-weight/
+   font-family auf den Fenster-Standard (inherit) zurück; die
+   Größe bleibt 14px = identisch zum A29-p, Zentrierung und
+   Padding bleiben (abgenommener Banner-Look wie Todesprobe).
+   Die klassische Optik (Banner, bold) bleibt unverändert.
+   ============================================================ */
+html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lblfavour {
+  font-weight: 400;
+  font-family: inherit;
 }
