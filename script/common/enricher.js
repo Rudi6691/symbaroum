@@ -186,7 +186,15 @@ ${monster ? getTactics(actor) : ""}
 
     async function drawFromRollableTable(event) {
         event.preventDefault();
-        let currentNode = event.target.parentNode;        
+        /* P26-fix1 (Rudolfs Testrunde, P26-11): Das pNode-Muster
+           (event.target.parentNode) griff nur, wenn genau das <i>-Icon
+           getroffen wurde - ein Klick auf den umgebenden span
+           (.draw-from-table) lief ins Leere. closest() deckt beide Fälle
+           ab. */
+        let currentNode = event.target.closest(".draw-from-table");
+        if (!currentNode) {
+            return;
+        }
         let uuid = currentNode.getAttribute("data-uuid");
         if (!uuid) {
             return;
@@ -223,7 +231,12 @@ ${monster ? getTactics(actor) : ""}
                 {
                     Ok: {
                         label: game.i18n.localize("DIALOG.OK"), callback: async (html) => {
-                            let modifier = Number(html[0].querySelector("input[name='modifier'").value);
+                            /* P26-fix1: Der Selektor war unvollständig
+                               ("input[name='modifier'" ohne schließende
+                               Klammer) - querySelector warf beim Ok-Klick
+                               eine SyntaxError-Exception, statt den
+                               Modifikator zu lesen. */
+                            let modifier = Number(html[0].querySelector("input[name='modifier']").value);
                             if (isNaN(modifier)) { modifier = 0; }
                             await myF(uuid, modifier);
                         }
@@ -236,7 +249,9 @@ ${monster ? getTactics(actor) : ""}
         }
     }
     document.addEventListener("click", (e) => {
-        if(e.target.parentNode && e.target.parentNode.classList?.contains('draw-from-table') ) {            
+        /* P26-fix1: Delegation via closest() (s.o.) - der Listener fragt
+           nicht mehr das parentNode ab, drawFromRollableTable sucht selbst. */
+        if (e.target.closest && e.target.closest('.draw-from-table')) {
             drawFromRollableTable(e);
         }
     });

@@ -183,17 +183,18 @@ export function createRollData(rolls)
   return Roll.fromTerms([pool]);
 }
 
-export async function rollDeathTest(actor, withFavour, modifier) {
-  /* S3 (Rudolfs Festlegungen 1–3, 07.11.): Zäh erzwingt Gunst,
-     Kränklich Missgunst, beide zusammen netto neutral (ein Würfel).
-     Die Zwangswert-Prüfung läuft hier — vor dem Wurf — damit AUCH der
-     Quick-Pfad (Shift-Klick ohne Dialog, dialog.js) und jede Makro-
-     Nutzung die Zwangsgunst erhält; der Dialog zeigt das Radio nur
-     gesperrt an. Ohne Zäh/Kränklich bleibt alles beim übergebenen
-     withFavour (Dialog-Auswahl). Die Todeskarte bekommt eine Etikett-
-     Zeile (deathModLabel), wenn ein Segen/Last am Werk war. */
+export async function rollDeathTest(actor, withFavour, modifier, manualFavour = false) {
+  /* S3 (Rudolfs Festlegungen 1–3, 07.11.) → P26-fix1 (Rudolfs Testrunde,
+     P26-02): Zäh stellt Gunst vorausgewählt, Kränklich Missgunst, beide
+     zusammen netto neutral (ein Würfel). Diese Prüfung läuft — vor dem
+     Wurf — nur noch für Aufrufe OHNE Dialog-Flag (Makros), damit ein
+     Makro die Zwangsgunst behält; der Dialog (P26-fix1) übergibt
+     manualFavour=true und seine Vorauswahl — auch die manuell geänderte
+     Auswahl — gewinnt. Ohne Zäh/Kränklich bleibt alles beim übergebenen
+     withFavour. Die Todeskarte bekommt eine Etikett-Zeile
+     (deathModLabel), wenn ein Segen/Last am Werk war. */
   const deathMod = getDeathTestFavour(actor);
-  if (deathMod.locked) {
+  if (deathMod.forced && !manualFavour) {
     withFavour = String(deathMod.favour);
   }
   let rolls = [];
@@ -235,7 +236,7 @@ export async function rollDeathTest(actor, withFavour, modifier) {
     hasSucceed: hasSucceed,
     nbrOfFailure: nbrOfFailedDeathRoll,
     diceBreakdown: diceBreakdown,
-    deathModLabel: deathMod.locked ? game.i18n.localize(deathMod.labelKey) : null
+    deathModLabel: deathMod.forced ? game.i18n.localize(deathMod.labelKey) : null
   };
   const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/death.hbs', rollData);
   let chatData = {

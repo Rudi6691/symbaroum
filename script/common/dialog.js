@@ -26,14 +26,19 @@ let roll_defaults = {};
 export async function prepareRollDeathTest(actor) {
   const did = `${actor.id}${foundry.utils.randomID(20)}`; // dialogue ID - ensured unique IDs in form
   let attri_defaults = getRollDefaults("deathtest",false, false);
-  /* S3 (Rudolfs Festlegungen 1–3, 07.11.2026): Bei Zäh (Gunst erzwungen),
-     Kränklich (Missgunst erzwungen) oder beiden (neutral, ein Würfel)
-     wird das Gunst-Radio GESPERRT und im Template als reine Label-Zeile
-     angezeigt (bewusst KEIN disabled-Input — die Dimm-Falle aus der
-     S2.1-Lernweise); der Submit läuft dann auf dem Zwangswert.
-     rollDeathTest erzwingt dieselbe Logik zusätzlich vor dem Wurf, damit
-     auch Makros die Zwangsgunst erhalten. */
+  /* S3 (Rudolfs Festlegungen 1–3, 07.11.2026) → P26-fix1 (Rudolfs
+     Testrunde, P26-02): Bei Zäh (Gunst), Kränklich (Missgunst) oder
+     beiden (neutral, ein Würfel) ist der Wert jetzt VORAUSWAHL des
+     Gunst-Radios — das Radio bleibt MANUELL ÄNDERBAR („Nicht
+     verriegeln. Manuelle Einstellung muss möglich sein."), der
+     Segen/Last steht als Hinweiszeile über dem Radio. Der Submit liest
+     die Radios und übergibt rollDeathTest das Flag manualFavour, damit
+     die (ggf. geänderte) Dialog-Auswahl gewinnt; Makro-Aufrufe ohne
+     Flag behalten weiterhin die Zwangsgunst. */
   const deathMod = getDeathTestFavour(actor);
+  if (deathMod.forced) {
+    attri_defaults.selectedFavour = String(deathMod.favour);
+  }
   const dialoghtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/dialog-deathtest.hbs', {
     "did":did,
     "choices": { "0": "DIALOG.FAVOUR_NORMAL", "-1":"DIALOG.FAVOUR_DISFAVOUR", "1":"DIALOG.FAVOUR_FAVOUR"},
@@ -55,25 +60,24 @@ export async function prepareRollDeathTest(actor) {
         icon: '<i class="fas fa-check"></i>',
         label: game.i18n.localize('BUTTON.ROLL'),
         callback: async (html) => {
-					/* S3: Zwangsgunst bei locked — das Radio ist im Template
-					   nicht vorhanden, der Wert kommt aus dem Segen/Last. */
-					let fvalue = deathMod.locked ? String(deathMod.favour) : 0;
-					if( !deathMod.locked ) {
-						let favours = html[0].querySelectorAll("input[name='favour']");
-						for (let f of favours) {
-							if (f.checked) fvalue = f.value;
-						}
-					}
-					attri_defaults.selectedFavour = '' + fvalue;
-					const favour = fvalue;
+          /* P26-fix1: Das Radio ist immer vorhanden (Vorauswahl bei
+             Zäh/Kränklich, s.o.), der Submit liest die Auswahl des
+             Spielers und gibt sie mit manualFavour-Flag weiter. */
+          let fvalue = 0;
+          let favours = html[0].querySelectorAll("input[name='favour']");
+          for (let f of favours) {
+            if (f.checked) fvalue = f.value;
+          }
+          attri_defaults.selectedFavour = '' + fvalue;
+          const favour = fvalue;
 
-					let modifier = Number(html[0].querySelector('#modifier-'+did).value);
+          let modifier = Number(html[0].querySelector('#modifier-'+did).value);
           if(isNaN(modifier)) {
             modifier = 0;
           }
           attri_defaults.modifier = modifier;
 
-          await rollDeathTest(actor, favour, modifier);
+          await rollDeathTest(actor, favour, modifier, true);
         },
       },
       cancel: {

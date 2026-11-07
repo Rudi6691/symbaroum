@@ -3,16 +3,17 @@
         <label for="modifier-{{did}}">{{localize "DIALOG.MODIFIER"}}</label>
         <input id="modifier-{{did}}" value="{{roll_defaults.modifier}}" type="number" data-dtype="Number"/>
     </div>    
-    {{#if deathMod.locked}}
-    {{!-- S3 (Zäh/Kränklich, Rudolfs Festlegungen 1–3, 07.11.2026): Das
-         Gunst-Radio ist GESPERRT — reine Label-Zeile statt disabled-Input
-         (kein Dimm-Effekt), der Submit läuft auf dem Zwangswert. --}}
+    {{#if deathMod.forced}}
+    {{!-- P26-fix1 (Rudolfs Testrunde, P26-02: „Nicht verriegeln. Manuelle
+         Einstellung muss möglich sein."): Der Zwangswert aus Zäh/Kränklich
+         ist VORAUSWAHL des Radios unten (dialog.js setzt
+         roll_defaults.selectedFavour) — das Radio bleibt änderbar. Der
+         Segen/Last steht als Hinweiszeile darüber. --}}
     <div class="favour">
         <label class="lblfavour">{{localize deathMod.labelKey}}</label>
     </div>
-    {{else}}
+    {{/if}}
     <div class="favour">
         <label class="lblfavour">{{radioBoxes groupName choices checked=roll_defaults.selectedFavour localize=true}}</label>
-    </div>    
-    {{/if}}
+    </div>
 </div>

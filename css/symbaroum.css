@@ -10766,3 +10766,22 @@ fieldset.elixir-effect-frame fieldset.elixir-subblock legend {
   flex: 0 1 16em;
   max-width: 16em;
 }
+
+/* ============================================================
+   P26-fix1 (Rudolfs Testrunde, P26-01 + Sammelbefund): Die klassische
+   V13-Grundregel .symbaroum.dialog .lblfavour gibt dem Frage-/Gunst-
+   Banner den Textur-Balken (var(--title-color)) - mit HÖHERER
+   Spezifität (0,3,0) als das Modern-Label-Reset
+   (dialog.symb-dialog.modern-dialog label, 0,2,2). Dadurch blieb der
+   Balken in modernen Fenstern sichtbar: Todesprobe (label.lblfavour
+   über dem Gunst-Radio) und Kettenbestätigungen (p.lblfavour, die
+   Frage). Diese Regel hebt die Specificity und nimmt den Balken im
+   Modern-Fenster weg; Textfarbe wie die anderen Modern-Dialog-Labels
+   (--m-ink, lesbar auf dunklem Grund). Das klassische Design bleibt
+   unberührt (Regel greift nur im .modern-dialog-Fenster).
+   ============================================================ */
+dialog.symb-dialog.modern-dialog .symbaroum.dialog .lblfavour,
+dialog.symb-dialog.modern-dialog .symbaroum.dialog .packageInfo {
+  background: none;
+  color: var(--m-ink);
+}

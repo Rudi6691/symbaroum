@@ -1031,23 +1031,24 @@ function hasByReference(actor, type, reference) {
 }
 
 /**
- * S3 (Design-Runde 07.11., Rudolfs Festlegungen 1–3): Zwangsgunst der
- * Todesprobe. RAW sagt Zäh „darf … mit Gunst würfeln“ — Rudolf: IMMER
- * aktiv (ebenso Kränklich mit Missgunst). Beide gleichzeitig = netto
- * neutral, EIN Würfel, Hinweiszeile im Dialog. locked=true, sobald ein
- * Segen/Last beteiligt ist: Das Gunst-Radio des Todesprobe-Dialogs ist
- * dann GESPERRT (kein disabled-Input — reine Anzeige als Label-Zeile,
- * Lernweis „Dimmung“) und der Wurf läuft mit dem Zwangswert; die
- * Todeskarte zeigt zusätzlich eine Etikett-Zeile. Ohne Zäh/Kränklich
- * (locked=false) bleibt der Dialog exakt wie bisher.
+ * S3 (Design-Runde 07.11., Rudolfs Festlegungen 1–3) → P26-fix1
+ * (Rudolfs Testrunde, P26-02: „Nicht verriegeln. Manuelle Einstellung
+ * muss möglich sein."): Zwangsgunst der Todesprobe. RAW sagt Zäh
+ * „darf … mit Gunst würfeln" — Rudolf: IMMER aktiv (ebenso Kränklich
+ * mit Missgunst). Beide gleichzeitig = netto neutral, EIN Würfel.
+ * forced=true, sobald ein Segen/Last beteiligt ist: Der Zwangswert ist
+ * jetzt VORAUSWAHL des Gunst-Radios (nicht mehr gesperrt), manuell
+ * änderbar; der Dialog zeigt den Segen/Last als Hinweiszeile über dem
+ * Radio, die Todeskarte die Etikett-Zeile. Ohne Zäh/Kränklich
+ * (forced=false) bleibt der Dialog exakt wie bisher.
  */
 export function getDeathTestFavour(actor) {
   const tough = hasByReference(actor, 'boon', 'tough');
   const sickly = hasByReference(actor, 'burden', 'sickly');
-  if (tough && sickly) return { favour: 0, locked: true, labelKey: 'BOON.DEATH_NEUTRAL' };
-  if (tough) return { favour: 1, locked: true, labelKey: 'BOON.DEATH_TOUGH' };
-  if (sickly) return { favour: -1, locked: true, labelKey: 'BOON.DEATH_SICKLY' };
-  return { favour: 0, locked: false, labelKey: null };
+  if (tough && sickly) return { favour: 0, forced: true, labelKey: 'BOON.DEATH_NEUTRAL' };
+  if (tough) return { favour: 1, forced: true, labelKey: 'BOON.DEATH_TOUGH' };
+  if (sickly) return { favour: -1, forced: true, labelKey: 'BOON.DEATH_SICKLY' };
+  return { favour: 0, forced: false, labelKey: null };
 }
 
 /**
