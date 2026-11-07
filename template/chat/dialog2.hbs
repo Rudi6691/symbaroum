@@ -225,4 +225,13 @@
   </select>
   </div>
   {{/if}}
+  {{!-- Gift v1.2 (Rudolfs v1.1-Runde, P11): FESTE Handbuch-Bonus-Zeile
+        (Muster Waffenqualität "Durchschlagend": Label + gesperrtes Feld);
+        der Submit wendet das +1 auf den Giftmischer-Wurf an. --}}
+  {{#if poisonManualBonus}}
+  <div class="bonus">
+    <label title="{{localize "DIALOG.POISON_MANUAL_HINT"}}">{{localize "DIALOG.POISON_MANUAL_LABEL"}}</label>
+    <input type="text" value="+1" data-dtype="Text" disabled/>
+  </div>
+  {{/if}}
 </div>

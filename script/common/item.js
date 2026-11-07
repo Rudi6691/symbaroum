@@ -3611,10 +3611,15 @@ export async function modifierDialog(functionStuff) {
   // Item mit Referenz poisonmanual - deren Feld ist seit v1.1 am
   // Ausruestungs-Blatt editierbar (sheet/item.js referenceTypes).
   // Das Feld bleibt manuell aenderbar, der Submit bucht NICHT doppelt.
-  if (poisoner && hasPoisonManual(functionStuff.actor)) {
-    functionStuff.modifier = (Number(functionStuff.modifier) || 0) + 1;
-    functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MANUAL_PARAM") + ", ";
-  }
+  // Gift v1.2 (Rudolfs v1.1-Runde, P11 - Rudolfs Wortlaut: Das Handbuch-
+  // +1 "soll auch im Wuerfeldialog fuer Kampf und 'Giftmischer' auf-
+  // tauchen mit UNVERAENDERLICHEM Bonus analog zu Waffenqualitaeten
+  // wie 'Durchschlagend'"): Das +1 ist KEINE Vorbelegung des editier-
+  // baren Modifikator-Felds mehr (v1.1, Epilepsie-Muster), sondern eine
+  // FESTE, gesperrte Bonus-Zeile im Dialog (Muster Waffenqualitaets-
+  // Zeilen: Label + disabled-Feld). Der Submit wendet es selbst an
+  // (Giftmischer-Handler unten), das Modifikator-Feld bleibt sauber.
+  const poisonManualBonus = poisoner && hasPoisonManual(functionStuff.actor);
   // Elixiere v1.7 (Rudolfs Waffengift-Dialog-Vereinheitlichung): die alte
   // Grad-Zeile "Gift aufgetragen?" im Modifier-Dialog entfaellt - DIE
   // Waffengift-Zeile ist "Gift auftragen" (gleiche Zeile wie im EC-Dialog,
@@ -3760,6 +3765,9 @@ export async function modifierDialog(functionStuff) {
     pendingCoat: pendingCoat,
     poisoner: poisoner,
     poisonerChoices: poisonerChoices,
+    // Gift v1.2 (P11): festes Handbuch-Bonus-Flag fuer die gesperrte
+    // Dialog-Zeile (dialog2.hbs, Muster Waffenqualitaet)
+    poisonManualBonus: poisonManualBonus,
     hasRoll: hasRoll,
     boon_lines: boon_lines
   });
@@ -4040,14 +4048,14 @@ export async function modifierDialog(functionStuff) {
             // Runden tragen es; Abbuchung ERST bei gelungener Vergiftung,
             // effectiv im Coating-Block von attackResult), 'none' =
             // kein Gift UND Abwischen der anhaltenden Beschichtung.
-            // Gift v1.1 (P6): Die Meister-Aufwertung (Gift +1 Stufe bzw.
-            // Gunst) wirkt NICHT mehr hier im Submit, sondern zentral in
-            // attackResult - die Gunst jetzt NUR auf die Giftprobe
-            // (poisonProbeFavour), nicht mehr auf den Angriffswurf.
+            // Gift v1.2 (P9, Rudolfs Freigabe): "Kein Gift" wischt BEIDE
+            // Beschichtungen DAUERHAFT - die anhaltende Dosen-Beschichtung
+            // UND die aktive Szenen-Beschichtung (Condition poisoncoat);
+            // Re-Vergiftung nur mit neuer Dosis.
             if (askPoisonCoating) {
               const coatingChoice = html[0].querySelector("#poisonCoating")?.value ?? "none";
               functionStuff.poisonChoice = coatingChoice;
-              if (coatingChoice === "none") await clearPendingWeaponCoat(functionStuff.actor);
+              if (coatingChoice === "none") await wipeWeaponPoisonCoats(functionStuff.actor);
               const resolved = await resolveWeaponPoisonChoice(functionStuff.actor, coatingChoice, { ownPoison, poisonCoatingChoices });
               if (!resolved) return;
               if (resolved.kind === "ownpoison" || resolved.kind === "activecoat" || resolved.kind === "coatscene") {
@@ -4161,10 +4169,16 @@ export async function modifierDialog(functionStuff) {
           // (Grad 3) gibt stattdessen GUNST auf die Giftprobe (Rudolfs
           // Entscheidung 3, 08.11.).
           // Handbuch der Gifte (B6): Das +1 auf die Giftmischer-Probe
-          // wird seit v1.1 SICHTBAR beim Dialogoeffnen vorbelegt
-          // (Epilepsie-Muster, siehe modifierDialog-Kontext oben) - der
-          // Submit bucht es NICHT mehr dazu (kein Doppelbonus).
+          // ist seit v1.2 eine FESTE, gesperrte Bonus-Zeile im Dialog
+          // (poisonManualBonus, Muster Waffenqualitaet) - der Submit
+          // wendet es hier an (die v1.1-Feld-Vorbelegung ist entfallen).
           if (poisoner) {
+            // Gift v1.2 (P11): fester Handbuch-Bonus +1 auf den
+            // Giftmischer-Wurf (Karte zeigt den Handbuch-Parameter).
+            if (hasPoisonManual(functionStuff.actor)) {
+              functionStuff.modifier = (Number(functionStuff.modifier) || 0) + 1;
+              functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MANUAL_PARAM") + ", ";
+            }
             const chosen = Number(html[0].querySelector("#poisoner").value);
             functionStuff.poisonChosen = chosen;
             if (chosen === 0) {
@@ -6358,6 +6372,32 @@ async function attackResult(rollData, functionStuff) {
         functionStuff.poisonProbeFavour = (functionStuff.poisonProbeFavour ?? 0) + 1;
         functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
       }
+    } else if (functionStuff.poisonCoating && getActorAbilityLevel(functionStuff.actor, "poisoner") >= 3) {
+      /* Gift v1.2 (Rudolfs v1.1-Runde, P6/P7 - "In Karte wird nur ein
+         Wurf angezeigt bei Vergiftungsprobe, keine Gunst erkennbar"):
+         URSPRUNG DES BEFUNDES - die Meister-Aufwertung griff bisher NUR
+         im Vergifter-Pfad (functionStuff.poison > 0), die ANHALTENDE
+         Dosen-Beschichtung (poisonCoating) lief immer ohne Meister-
+         Logik durch den Coating-Block. Ab jetzt wirkt der Meister auch
+         auf der beschichteten Klinge: Grad-2-Dosis wird auf die Grad-3-
+         Wuerfelleiter (1d8) aufgewertet (B2-Gradmodell, Dauer = Dosen-
+         Formel unberuehrt - B1-"Zeitrahmen"-Praezedenz), eine STARKE
+         Grad-3-Dosis erhaelt stattdessen GUNST auf die Beschichtungs-
+         probe (coatingProbeFavour, 2 Wuerfel, besserer zaehlt). Die
+         Karte zeigt die Meister-Zeile im subText und die Gunst als
+         Würfelpaar in der Ergebniszeile. Grad 0 (alte Flags ohne
+         ableitbares Dosen-Item): kein Meister-Effekt (Limitierung). */
+      const coatGrade = Math.min(3, Math.max(0, Math.round(Number(functionStuff.poisonCoating.grade) || 0)));
+      if (coatGrade === 3) {
+        functionStuff.coatingProbeFavour = (functionStuff.coatingProbeFavour ?? 0) + 1;
+        functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
+      } else if (coatGrade >= 1) {
+        functionStuff.poisonCoating = Object.assign({}, functionStuff.poisonCoating, {
+          formula: game.symbaroum.config.POISON_GRADE_DAMAGE[coatGrade + 1] ?? functionStuff.poisonCoating.formula,
+          masterUpgraded: true,
+        });
+        functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_UPGRADE_PARAM") + ", ";
+      }
     }
   }
   // A28 fix (Rudolfs Testrunde): the Giftbeschichtet weapon quality had no
@@ -6434,7 +6474,12 @@ async function attackResult(rollData, functionStuff) {
       // Giftmischer besitzt (reine Giftig-Merkmale geben keinen Bonus,
       // das Handbuch ist ein Giftmischer-Werkzeug).
       const manualBonus = hasPoisonManual(functionStuff.actor) && getActorAbilityLevel(functionStuff.actor, "poisoner") > 0 ? 1 : 0;
-      const coatingRoll = await baseRoll(functionStuff.actor, "strong", functionStuff.targetData.actor, "strong", 0, manualBonus, false);
+      /* Gift v1.2 (P7): Gunst des Meister-Giftmischers auf die
+         Beschichtungsprobe (2 Wuerfel, besserer zaehlt - der Meister-
+         Block oben setzt coatingProbeFavour bei STARKER Grad-3-Dosis;
+         die Karte zeigt das Würfelpaar in der Ergebniszeile). */
+      const coatingFavour = functionStuff.coatingProbeFavour ?? 0;
+      const coatingRoll = await baseRoll(functionStuff.actor, "strong", functionStuff.targetData.actor, "strong", coatingFavour, manualBonus, false);
       rolls.push(...coatingRoll.rolls);
       templateData.printPoison = true;
       templateData.poisonChatIntro = game.i18n.format("COMBAT.CHAT_POISON_COATING_INTRO", { poison: functionStuff.poisonCoating.name });
@@ -7288,21 +7333,50 @@ export function isWeaponPoisonDose(item) {
 export function getPendingWeaponCoat(actor) {
   const coat = actor?.getFlag?.(game.system.id, "weaponCoat");
   if (!coat || !coat.itemId || !coat.formula) return null;
-  return coat;
+  /* Gift v1.2 (Rudolfs v1.1-Runde, P6/P7): Der GRAD der Dosis reist ab
+     jetzt mit dem Beschichtungs-Flag (Meister-Aufwertung +1 Stufe bzw.
+     Gunst braucht ihn). Alte v1.1-Flags ohne Grad werden rueckwaerts-
+     kompatibel aus dem Dosen-Item hergeleitet - ist das Item geloescht,
+     bleibt Grad 0 und der Meister-Effekt entfaellt (dokumentierte
+     Begrenzung, SL kann neu beschichten). */
+  let grade = Math.min(3, Math.max(0, Math.round(Number(coat.grade) || 0)));
+  if (grade < 1) {
+    const doseItem = actor?.items?.get?.(coat.itemId);
+    grade = doseItem ? Math.min(3, Math.max(0, Math.round(Number(getElixirPoisonGrade(doseItem)) || 0))) : 0;
+  }
+  return Object.assign({}, coat, { grade });
 }
 
 export async function setPendingWeaponCoat(actor, coat) {
   if (!actor?.setFlag || !coat?.itemId || !coat.formula) return null;
+  /* Gift v1.2 (P6/P7): Grad mitfuehren - die Meister-Aufwertung der
+     Dosen-Beschichtung braucht ihn (siehe attackResult). */
   return actor.setFlag(game.system.id, "weaponCoat", {
     name: coat.name ?? "",
     formula: coat.formula,
     roundsFormula: coat.roundsFormula ?? "1d4",
     itemId: coat.itemId,
+    grade: Math.min(3, Math.max(0, Math.round(Number(coat.grade) || 0))),
   });
 }
 
 export async function clearPendingWeaponCoat(actor) {
   if (actor?.unsetFlag) await actor.unsetFlag(game.system.id, "weaponCoat");
+}
+
+/* Gift v1.2 (Rudolfs v1.1-Runde, P9 - Rudolfs Wortlaut: "Opt-out ent-
+   spricht Abwischen. 'Aktive Beschichtung' loeschen. Wenn Waffe wieder
+   vergiftet werden soll, muss eine neue Dosis aufgetragen werden"):
+   "Kein Gift" im Waffengift-Dialog wischt ab jetzt BEIDE Beschichtungen
+   - die anhaltende Dosen-Beschichtung (Actor-Flag) UND die aktive
+   Szenen-Beschichtung (Condition poisoncoat) - und zwar DAUERHAFT, nicht
+   nur als Opt-out fuer den einzelnen Angriff. Re-Vergiftung nur ueber
+   eine neue Dosis. clearPendingWeaponCoat bleibt unangetastet, weil es
+   auch beim Dosen-Aufbrauch im Coating-Block laeuft und dort die
+   Condition NICHT anfassen darf. */
+export async function wipeWeaponPoisonCoats(actor) {
+  await clearPendingWeaponCoat(actor);
+  if (actor?.hasCondition?.("poisoncoat")) await actor.removeCondition("poisoncoat");
 }
 
 /* B3/B4: gemeinsame Aufloesung der Waffengift-Zeile (beide Wuerfe-
@@ -7358,6 +7432,7 @@ export async function resolveWeaponPoisonChoice(actor, choiceId, context) {
     formula: choice.formula,
     roundsFormula: choice.roundsFormula,
     itemId: poisonItem.id,
+    grade,
   };
   return result;
 }

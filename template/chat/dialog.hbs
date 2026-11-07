@@ -167,6 +167,16 @@
         </select>
       </div>
     {{/if}}
+    {{!-- Gift v1.2 (Rudolfs v1.1-Runde, P11): FESTE Handbuch-Bonus-Zeile
+          (Muster Waffenqualität "Durchschlagend": Label + gesperrtes Feld)
+          - das +1 wirkt auf die Gift-/Beschichtungsprobe, nicht auf den
+          Angriffswurf (siehe Hint-Tooltip). --}}
+    {{#if poisonManualBonus}}
+      <div class="bonus">
+        <label title="{{localize "DIALOG.POISON_MANUAL_HINT"}}">{{localize "DIALOG.POISON_MANUAL_LABEL"}}</label>
+        <input type="text" value="+1" data-dtype="Text" disabled/>
+      </div>
+    {{/if}}
       <div class="damagemodifier">
         <label for="dammodifier-{{did}}">{{localize "DIALOG.DAMAGE_MODIFIER"}}</label> <input id="dammodifier-{{did}}" value="{{roll_defaults.additionalModifier}}" type="text" data-dtype="Text"/> 
       </div>

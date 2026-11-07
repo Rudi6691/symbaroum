@@ -1,5 +1,5 @@
 import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './roll.js';
-import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel, getActivePoisonCoatGrade, getPendingWeaponCoat, setPendingWeaponCoat, clearPendingWeaponCoat, isWeaponPoisonDose, resolveWeaponPoisonChoice } from './item.js';
+import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel, getActivePoisonCoatGrade, getPendingWeaponCoat, setPendingWeaponCoat, wipeWeaponPoisonCoats, isWeaponPoisonDose, resolveWeaponPoisonChoice } from './item.js';
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
@@ -8,7 +8,7 @@ import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.j
 // S3 (07.11.2026): getDeathTestFavour sperrt das Gunst-Radio des
 // Todesprobe-Dialogs bei Zäh/Kränklich (Zwangswert), getEpilepsyPenalty
 // vorbelegt den Modifikator in der Anfalls-Erschöpfungsphase (−1).
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty } from './boon.js';
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty, hasPoisonManual } from './boon.js';
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
@@ -361,6 +361,12 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     pendingCoat = getPendingWeaponCoat(actor);
     if (pendingCoat) askPoisonCoating = true;
   }
+  // Gift v1.2 (Rudolfs v1.1-Runde, P11): FESTE Handbuch-Bonus-Zeile im
+  // Waffen-Wuerfeldialog (Muster Waffenqualitaet "Durchschlagend",
+  // gesperrtes Feld). Reine Anzeige - das +1 wirkt weiterhin auf die
+  // Beschichtungsprobe (Coating-Block in item.js), NICHT auf den
+  // Angriffswurf; der Faehigkeitswurf-Dialog hat sein eigenes +1.
+  const poisonManualBonus = weapon !== null && getActorAbilityLevel(actor, "poisoner") > 0 && hasPoisonManual(actor);
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
   targetAttribute_selection.defense = {
     id: "defense",
@@ -413,6 +419,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "askIgnoreArmor" : askIgnoreArmor,
     "ignoreArm": ignoreArm,
     "weaponModifiers" : weaponModifiersCtx,
+    // Gift v1.2 (P11): festes Handbuch-Bonus-Flag fuer die gesperrte
+    // Dialog-Zeile (dialog.hbs, Muster Waffenqualitaet)
+    "poisonManualBonus": poisonManualBonus,
     "isArmorRoll" : armor !== null,
     "askImpeding" : askImpeding,
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
@@ -869,13 +878,17 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           // Vergiftung gelingt - auch Treffer in spaeteren Runden tragen
           // es; Abbuchung erst bei gelungener Vergiftung), 'none' =
           // kein Gift UND Abwischen der anhaltenden Beschichtung.
+          // Gift v1.2 (P9, Rudolfs Freigabe): 'none' wischt BEIDE Be-
+          // schichtungen DAUERHAFT (anhaltende Dosis + aktive Szenen-
+          // Beschichtung, wipeWeaponPoisonCoats) - Re-Vergiftung nur
+          // mit neuer Dosis.
           // Gift v1.1 (P6): Die Meister-Aufwertung wirkt zentral in
           // attackResult (Gift +1 Stufe bzw. Gunst NUR auf die Gift-
           // probe), nicht mehr hier im Submit.
           if(askPoisonCoating) {
             const coatingChoice = html[0].querySelector("#poisonCoating-"+did)?.value ?? "none";
             ecData.poisonChoice = coatingChoice;
-            if(coatingChoice === "none") await clearPendingWeaponCoat(actor);
+            if(coatingChoice === "none") await wipeWeaponPoisonCoats(actor);
             const resolved = await resolveWeaponPoisonChoice(actor, coatingChoice, { ownPoison, poisonCoatingChoices });
             if(!resolved) {
               resolve(false);

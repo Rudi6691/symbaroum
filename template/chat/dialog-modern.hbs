@@ -244,6 +244,14 @@
         </select>
       </div>
     {{/if}}
+    {{!-- Gift v1.2 (P11): FESTE Handbuch-Bonus-Zeile (Muster Waffenqualität
+          "Durchschlagend": Label + gesperrtes Feld). --}}
+    {{#if poisonManualBonus}}
+      <div class="m-roll-row">
+        <label title="{{localize "DIALOG.POISON_MANUAL_HINT"}}">{{localize "DIALOG.POISON_MANUAL_LABEL"}}</label>
+        <input type="text" value="+1" data-dtype="Text" disabled/>
+      </div>
+    {{/if}}
     {{#if askAttackNb}}
       <div class="m-roll-favour"><label class="lblfavour">{{radioBoxes attNbRadio weaponModifiers.radioAttacks localize=false}}</label></div>
     {{/if}}
