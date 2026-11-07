@@ -3604,6 +3604,17 @@ export async function modifierDialog(functionStuff) {
     functionStuff.modifier = (Number(functionStuff.modifier) || 0) - epilepsyPenalty;
     functionStuff.autoParams += game.i18n.format("EPILEPSY.AUTOPARAM", { penalty: epilepsyPenalty }) + ", ";
   }
+  // Gift v1.1 (Rudolfs P9): Das Handbuch-+1 des Giftmischers wird
+  // SICHTBAR im Wuerfeldialog vorbelegt (Modifikator-Feld, Epilepsie-
+  // Muster) statt unsichtbar erst beim Submit (Rudolfs Befund: "Kein
+  // Bonus in Wuerfeldialog"). Voraussetzung bleibt das Ausruestungs-
+  // Item mit Referenz poisonmanual - deren Feld ist seit v1.1 am
+  // Ausruestungs-Blatt editierbar (sheet/item.js referenceTypes).
+  // Das Feld bleibt manuell aenderbar, der Submit bucht NICHT doppelt.
+  if (poisoner && hasPoisonManual(functionStuff.actor)) {
+    functionStuff.modifier = (Number(functionStuff.modifier) || 0) + 1;
+    functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MANUAL_PARAM") + ", ";
+  }
   // Elixiere v1.7 (Rudolfs Waffengift-Dialog-Vereinheitlichung): die alte
   // Grad-Zeile "Gift aufgetragen?" im Modifier-Dialog entfaellt - DIE
   // Waffengift-Zeile ist "Gift auftragen" (gleiche Zeile wie im EC-Dialog,
@@ -3623,13 +3634,11 @@ export async function modifierDialog(functionStuff) {
   let poisonCoatingChoices = [];
   let ownPoison = null;
   let activeCoatGrade = 0;
+  let pendingCoat = null;
   if (isWeaponRoll) {
-    const poisonCoatingItems = functionStuff.actor.items.filter((it) => {
-      if (it?.type !== "equipment") return false;
-      const eff = it.system?.elixirEffect ?? {};
-      const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
-      return isWeaponPoison && getItemCount(it) > 0;
-    });
+    // Gift v1.1 (P9): zentraler Dosen-Filter (Handbuch der Gifte mit
+    // Referenz poisonmanual bleibt ausserhalb aller Auswahllisten).
+    const poisonCoatingItems = functionStuff.actor.items.filter((it) => isWeaponPoisonDose(it));
     if (poisonCoatingItems.length > 0) {
       askPoisonCoating = true;
       poisonCoatingChoices = poisonCoatingItems.map((it) => {
@@ -3656,6 +3665,12 @@ export async function modifierDialog(functionStuff) {
     // Verbrauch; sie ist auch waehlbar, wenn das Inventar leer ist
     activeCoatGrade = getActivePoisonCoatGrade(functionStuff.actor);
     if (activeCoatGrade > 0) askPoisonCoating = true;
+    // Gift v1.1 (P4): anhaltende Dosen-Beschichtung (Actor-Flag) als
+    // VORSELEKTIERTE Option (dosecoat) - sie wirkt ab jetzt automatisch
+    // bei jedem Angriff (Auto-Apply in attackResult), bis eine Vergiftung
+    // gelingt oder "Kein Gift" sie abwischt.
+    pendingCoat = getPendingWeaponCoat(functionStuff.actor);
+    if (pendingCoat) askPoisonCoating = true;
   }
   // Gift v1 B3/B4: Grad-Auswahl des Giftmischer-Faehigkeitswurfs ist an
   // den Vorrat gebunden - nur Stufen mit vorhandener Dosis (Inventar-
@@ -3665,12 +3680,7 @@ export async function modifierDialog(functionStuff) {
   if (poisoner) {
     const invGrades = new Set(
       functionStuff.actor.items
-        .filter((it) => {
-          if (it?.type !== "equipment") return false;
-          const eff = it.system?.elixirEffect ?? {};
-          const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
-          return isWeaponPoison && getItemCount(it) > 0;
-        })
+        .filter((it) => isWeaponPoisonDose(it))
         .map((it) => getElixirPoisonGrade(it))
         .filter((g) => g >= 1)
     );
@@ -3746,6 +3756,8 @@ export async function modifierDialog(functionStuff) {
     ownPoison: ownPoison,
     // Gift v1 B3: aktive Szenen-Beschichtung als eigene Select-Option
     activeCoat: activeCoatGrade > 0 ? { grade: activeCoatGrade } : null,
+    // Gift v1.1 P4: anhaltende Dosen-Beschichtung als vorselektierte Option
+    pendingCoat: pendingCoat,
     poisoner: poisoner,
     poisonerChoices: poisonerChoices,
     hasRoll: hasRoll,
@@ -4021,11 +4033,21 @@ export async function modifierDialog(functionStuff) {
             // (kein Verbrauch, Vergifter-Pfad), 'coatscene' = Inventar-
             // Dosis startet die Szenen-Beschichtung (1 Dosis beim Submit,
             // Vergifter-Pfad; Rueckgabe null = Abbuchung gescheitert,
-            // KEIN Wurf), Inventar-Dosis mit Novize/jeder = Coating-Pfad
-            // mit Abbuchung ERST bei gelungener Vergiftung, 'none' =
-            // kein Gift.
+            // KEIN Wurf), 'dosecoat' = anhaltende Beschichtung bleibt
+            // (reine Anzeige), Inventar-Dosis (Novize/jeder) = ANHALTENDE
+            // Beschichtung (Gift v1.1, P4: Dosis bleibt auf der Klinge,
+            // bis eine Vergiftung gelingt - auch Treffer in spaeteren
+            // Runden tragen es; Abbuchung ERST bei gelungener Vergiftung,
+            // effectiv im Coating-Block von attackResult), 'none' =
+            // kein Gift UND Abwischen der anhaltenden Beschichtung.
+            // Gift v1.1 (P6): Die Meister-Aufwertung (Gift +1 Stufe bzw.
+            // Gunst) wirkt NICHT mehr hier im Submit, sondern zentral in
+            // attackResult - die Gunst jetzt NUR auf die Giftprobe
+            // (poisonProbeFavour), nicht mehr auf den Angriffswurf.
             if (askPoisonCoating) {
               const coatingChoice = html[0].querySelector("#poisonCoating")?.value ?? "none";
+              functionStuff.poisonChoice = coatingChoice;
+              if (coatingChoice === "none") await clearPendingWeaponCoat(functionStuff.actor);
               const resolved = await resolveWeaponPoisonChoice(functionStuff.actor, coatingChoice, { ownPoison, poisonCoatingChoices });
               if (!resolved) return;
               if (resolved.kind === "ownpoison" || resolved.kind === "activecoat" || resolved.kind === "coatscene") {
@@ -4033,24 +4055,13 @@ export async function modifierDialog(functionStuff) {
                 if (resolved.kind !== "ownpoison") {
                   functionStuff.poisonChosen = resolved.poison;
                   functionStuff.poisonFromCoat = resolved.kind === "activecoat";
-                  // Meister-Giftmischer: Auch die Beschichtung ueber die
-                  // Waffe zaehlt 1 Stufe hoeher; ein bereits starkes
-                  // Coat gibt Gunst auf die Giftprobe (B3, analog zum
-                  // Faehigkeitswurf-Handler).
-                  if (getActorAbilityLevel(functionStuff.actor, "poisoner") >= 3) {
-                    if (resolved.poison < 3) {
-                      functionStuff.poison = resolved.poison + 1;
-                      functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_UPGRADE_PARAM") + ", ";
-                    } else {
-                      functionStuff.favour += 1;
-                      functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
-                    }
-                  }
                 }
                 functionStuff.autoParams +=
                   (resolved.kind === "ownpoison" ? game.i18n.localize("DIALOG.OWN_POISON_PARAM") : game.i18n.localize("DIALOG.POISON_COAT_PARAM")) + ", ";
               } else if (resolved.kind === "dose") {
-                functionStuff.poisonCoating = resolved.poisonCoating;
+                await setPendingWeaponCoat(functionStuff.actor, resolved.poisonCoating);
+                functionStuff.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: resolved.poisonCoating.name }) + ", ";
+              } else if (resolved.kind === "dosecoat" && resolved.poisonCoating) {
                 functionStuff.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: resolved.poisonCoating.name }) + ", ";
               }
             }
@@ -4149,9 +4160,10 @@ export async function modifierDialog(functionStuff) {
           // (schwach->moderat, moderat->stark); bereits STARKES Gift
           // (Grad 3) gibt stattdessen GUNST auf die Giftprobe (Rudolfs
           // Entscheidung 3, 08.11.).
-          // Handbuch der Gifte (B6): +1 auf die Giftmischer-Probe, wenn
-          // der Träger das Ausruestungs-Item mit Referenz poisonmanual
-          // besitzt.
+          // Handbuch der Gifte (B6): Das +1 auf die Giftmischer-Probe
+          // wird seit v1.1 SICHTBAR beim Dialogoeffnen vorbelegt (Ep-
+          ilepsie-Muster, siehe modifierDialog-Kontext oben) - der
+          // Submit bucht es NICHT mehr dazu (kein Doppelbonus).
           if (poisoner) {
             const chosen = Number(html[0].querySelector("#poisoner").value);
             functionStuff.poisonChosen = chosen;
@@ -4169,10 +4181,6 @@ export async function modifierDialog(functionStuff) {
                 functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
               } else {
                 functionStuff.poison = chosen;
-              }
-              if (hasPoisonManual(functionStuff.actor)) {
-                functionStuff.modifier += 1;
-                functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MANUAL_PARAM") + ", ";
               }
             }
           }
@@ -6306,6 +6314,52 @@ async function attackResult(rollData, functionStuff) {
     corruptionChatResult: corruptionChatResult,
     corruptionTooltip: corruptionTooltip,
   };
+  // Gift v1.1 (Rudolfs Testrunde v1, 08.11.2026): P4 - anhaltende
+  // Dosen-Beschichtung (Actor-Flag weaponCoat). Eine im Wuerfeldialog
+  // gewaehlte Inventar-Dosis beschichtet die Waffe DAUERHAFT: Das Gift
+  // bleibt auf der Klinge, bis eine Vergiftung gelingt - auch Treffer
+  // in SPAETEREN Runden tragen es automatisch (hier angewendet, der
+  // Coating-Block unten macht Karte/Probe/B1-Treppe/Verbrauch). Die
+  // Dosis wird erst bei gelungener Vergiftung vergebucht und die Klinge
+  // bleibt beschichtet, solange der Stapel Dosen hat; "Kein Gift" im
+  // Dialog wischt sie ab (poisonChoice "none" = bewusster Opt-out).
+  // P6 - die aktive SZENEN-Beschichtung (Condition poisoncoat) wirkt
+  // jetzt zuverlaessig pro Angriff OHNE erneutes Auswaehlen: Ohne
+  // explizite Gift-Wahl wird sie hier automatisch angewendet (Auto-
+  // Apply); eine anhaltende Dosen-Beschichtung hat Vorrang, explizite
+  // Auswahlen (Dosis/Eigengift) bleiben unberuehrt.
+  if (functionStuff.poisonChoice !== "none") {
+    if (!functionStuff.poison && !functionStuff.poisonCoating) {
+      const pendingCoat = getPendingWeaponCoat(functionStuff.actor);
+      if (pendingCoat) {
+        functionStuff.poisonCoating = pendingCoat;
+      } else {
+        const coatGrade = getActivePoisonCoatGrade(functionStuff.actor);
+        if (coatGrade > 0) {
+          functionStuff.poison = coatGrade;
+          functionStuff.poisonChosen = coatGrade;
+          functionStuff.poisonFromCoat = true;
+          functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_COAT_PARAM") + ", ";
+        }
+      }
+    }
+    // Gift v1.1 P6a: Die Meister-Aufwertung der Waffen-Beschichtung
+    // (Gift +1 Stufe, bereits starkes Gift stattdessen GUNST) wirkt
+    // zentral hier - die Gunst bewusst NUR auf die GIFTPROBE
+    // (poisonProbeFavour, weiter unten im Gift-Gate), nicht mehr auf
+    // den Angriffswurf (Rudolfs P6-Befund: ecData.favour traf vorher
+    // die Angriffsprobe). Der Faehigkeitswurf-Pfad (usePoison) behaelt
+    // seine eigene Meister-Logik - dort IST der Wurf die Giftprobe.
+    if (functionStuff.poison > 0 && functionStuff.poisonChosen > 0 && getActorAbilityLevel(functionStuff.actor, "poisoner") >= 3) {
+      if (functionStuff.poison < 3) {
+        functionStuff.poison = functionStuff.poison + 1;
+        functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_UPGRADE_PARAM") + ", ";
+      } else {
+        functionStuff.poisonProbeFavour = (functionStuff.poisonProbeFavour ?? 0) + 1;
+        functionStuff.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
+      }
+    }
+  }
   // A28 fix (Rudolfs Testrunde): the Giftbeschichtet weapon quality had no
   // code path at all - a weapon with the quality auto-selects a light poison
   // dose so the established GRW opposed-roll model applies (cunning vs strong,
@@ -6313,7 +6367,10 @@ async function attackResult(rollData, functionStuff) {
   // poisoned targets). An explicit pick in the dialog's poison select still
   // wins, so medium/strong doses remain available. Covers both weapon shapes:
   // EC weapon data (.qualities) and a picked Item (.system.qualities).
-  if (!functionStuff.poison && (functionStuff.weapon?.system?.qualities ?? functionStuff.weapon?.qualities)?.poison) {
+  // Gift v1.1: bei AKTIVER Beschichtung (anhaengende Dosis oder gewaehlte
+  // Dosis) fuehrt die Klinge genau EIN Gift - die Qualitaet tritt zurueck
+  // (kein Doppel-DoT, gerade jetzt beim Auto-Apply relevant).
+  if (!functionStuff.poison && !functionStuff.poisonCoating && (functionStuff.weapon?.system?.qualities ?? functionStuff.weapon?.qualities)?.poison) {
     functionStuff.poison = 1;
     functionStuff.autoParams += game.i18n.localize("QUALITY.POISON") + ", ";
   }
@@ -6333,7 +6390,8 @@ async function attackResult(rollData, functionStuff) {
       templateData.poisonChatResult = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_NEUTRALIZED");
     } else {
       let targetResMod = checkSpecialResistanceMod(functionStuff.targetData.actor.system.combat.damageReductions, functionStuff.targetData.autoParams, "poisoner");
-      let poisonFavour = targetResMod.favour;
+      // Gift v1.1 P6a: Gunst des Meister-Coats NUR auf die Giftprobe
+      let poisonFavour = targetResMod.favour + (functionStuff.poisonProbeFavour ?? 0);
       functionStuff.targetData.autoParams += targetResMod.autoParams;
       let poisonRoll = await baseRoll(functionStuff.actor, "cunning", functionStuff.targetData.actor, "strong", poisonFavour, -1 * targetResMod.modifier, functionStuff.resistRoll);
       let poisonFunctionStuff = Object.assign(functionStuff, { modifier: -1 * targetResMod.modifier, favour: poisonFavour });
@@ -6424,9 +6482,18 @@ async function attackResult(rollData, functionStuff) {
           // Gift v1 B3: Dosis wird erst bei gelungener Vergiftung
           // abgebucht (consume-on-hit statt consume-on-submit); bei
           // Misslingen oder Neutralisierung bleibt der Vorrat unberuehrt.
+          // Gift v1.1 P4: Die anhaltende Beschichtung (Actor-Flag)
+          // bleibt danach bestehen, solange der Stapel Dosen hat
+          // ("1 Dosis je vergiftetem Treffer"); erst bei leeren
+          // Vorrat (oder geloeschtem Item) wird das Flag entfernt.
           if (functionStuff.poisonCoating.itemId) {
             const doseItem = functionStuff.actor.items.get(functionStuff.poisonCoating.itemId);
-            if (doseItem) await consumeElixirDose(doseItem);
+            if (doseItem) {
+              await consumeElixirDose(doseItem);
+              if (getItemCount(doseItem) <= 0) await clearPendingWeaponCoat(functionStuff.actor);
+            } else {
+              await clearPendingWeaponCoat(functionStuff.actor);
+            }
           }
           const poisonEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "poison"));
           flagDataArray.push({
@@ -7183,17 +7250,59 @@ export async function setPoisonCoat(actor, grade) {
 export async function consumePoisonDoseByGrade(actor, grade) {
   const target = Math.round(Number(grade) || 0);
   if (target < 1) return false;
-  const candidates = (actor?.items ?? []).filter((it) => {
-    if (it?.type !== "equipment" || getItemCount(it) <= 0) return false;
-    const eff = it.system?.elixirEffect ?? {};
-    const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
-    return isWeaponPoison && getElixirPoisonGrade(it) === target;
-  });
+  const candidates = (actor?.items ?? []).filter((it) => isWeaponPoisonDose(it) && getElixirPoisonGrade(it) === target);
   if (candidates.length === 0) {
     ui.notifications.warn(game.i18n.format("POISON.ERR_NO_DOSE_BY_GRADE", { grade: target }));
     return false;
   }
   return consumeElixirDose(candidates[0]);
+}
+
+/* Gift v1.1 (Rudolfs Testrunde v1, 08.11.2026, P9): zentraler Dosen-
+   Filter fuer ALLE Waffengift-Listen (beide Dialog-Kontexte, Grad-
+   Union des Faehigkeitswurfs, consumePoisonDoseByGrade): Ein Aus-
+   ruestungs-Item ist eine waffengift-faehige Dosis, wenn es das
+   Waffengift-Flag (bzw. die Legacy-Giftstufe) traegt - ABER NICHT das
+   Handbuch der Gifte ist (Referenz poisonmanual): Das Handbuch ist
+   Werkzeug, kein Gift, und taucht seit v1.1 nicht mehr in den
+   Auswahllisten auf (Rudolfs Befund: sein Handbuch-Item trug Dosen-
+   Daten und erschien doppelt). */
+export function isWeaponPoisonDose(item) {
+  if (item?.type !== "equipment") return false;
+  if (String(item.system?.reference ?? "").trim() === "poisonmanual") return false;
+  const eff = item.system?.elixirEffect ?? {};
+  const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
+  return isWeaponPoison && getItemCount(item) > 0;
+}
+
+/* Gift v1.1 (Rudolfs Testrunde v1, 08.11.2026, P4): anhaltende Dosen-
+   Beschichtung. Eine im Wuerfeldialog gewaehlte Inventar-Dosis be-
+   schichtet die Waffe DAUERHAFT (Actor-Flag weaponCoat, bewusst KEINE
+   Condition - der Novize bleibt symbollos, Rudolfs v1-Konzept): Das
+   Gift bleibt auf der Klinge, bis eine Vergiftung GELINGT - auch
+   Treffer in SPAETEREN Runden tragen es (Rudolfs P4-Befund). Die
+   Dosis wird erst bei gelungener Vergiftung vergebucht (consume-on-
+   hit bleibt), danach bleibt die Klinge beschichtet, solange der
+   Stapel Dosen hat ("1 Dosis je vergiftetem Treffer"). "Kein Gift" im
+   Dialog wischt die Beschichtung ab (manuelle Spieler/SL-Kontrolle). */
+export function getPendingWeaponCoat(actor) {
+  const coat = actor?.getFlag?.(game.system.id, "weaponCoat");
+  if (!coat || !coat.itemId || !coat.formula) return null;
+  return coat;
+}
+
+export async function setPendingWeaponCoat(actor, coat) {
+  if (!actor?.setFlag || !coat?.itemId || !coat.formula) return null;
+  return actor.setFlag(game.system.id, "weaponCoat", {
+    name: coat.name ?? "",
+    formula: coat.formula,
+    roundsFormula: coat.roundsFormula ?? "1d4",
+    itemId: coat.itemId,
+  });
+}
+
+export async function clearPendingWeaponCoat(actor) {
+  if (actor?.unsetFlag) await actor.unsetFlag(game.system.id, "weaponCoat");
 }
 
 /* B3/B4: gemeinsame Aufloesung der Waffengift-Zeile (beide Wuerfe-
@@ -7219,6 +7328,17 @@ export async function resolveWeaponPoisonChoice(actor, choiceId, context) {
     result.kind = "activecoat";
     result.poison = getActivePoisonCoatGrade(actor);
     return result.poison > 0 ? result : null;
+  }
+  /* Gift v1.1 (P4): voreingestellte Option der aktiven Dosen-
+     Beschichtung - kein Verbrauch, kein neuer Zustand, das Actor-
+     Flag bleibt unangetastet (reine Anzeige/Auffrischung, die
+     Wirkung laeuft ueber das Auto-Apply in attackResult). Faellt
+     das Flag inzwischen weg, laeuft der Angriff schlicht ohne
+     Gift (kein null-Abbruch - hier ging nie etwas schief). */
+  if (choiceId === "dosecoat") {
+    result.kind = "dosecoat";
+    result.poisonCoating = getPendingWeaponCoat(actor);
+    return result;
   }
   const choice = (context?.poisonCoatingChoices ?? []).find((c) => c.id === choiceId);
   const poisonItem = actor?.items?.get?.(choiceId);

@@ -956,7 +956,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   UND-Gating (isGM + allowShowReference, wie {{#ifat}} am klassischen
 		   Blatt); Level nur bei Segen/Last; berechnete Kampfwerte nur bei
 		   Waffe/Rüstung; Aktivieren-Button nur bei Fähigkeit/Merkmal/Kraft. */
-		const referenceTypes = ['ability', 'trait', 'mysticalPower', 'boon', 'burden'];
+		/* Gift v1.1 (Rudolfs Testrunde v1, P9): 'equipment' ergaenzt -
+		   das Referenz-Feld am Ausruestungs-Blatt war nicht editierbar
+		   (Typ-Liste blockte equipment), deshalb konnte die Referenz
+		   poisonmanual des Handbuchs der Gifte nie gesetzt werden und
+		   der Handbuch-Bonus wirkte nicht. GM + allowShowReference wie
+		   gehabt; das Feld existiert in beiden Headern bereits. */
+		const referenceTypes = ['ability', 'trait', 'mysticalPower', 'boon', 'burden', 'equipment'];
 		modern.showReference =
 			referenceTypes.includes(type) && !!game.user.isGM && !!game.settings.get('symbaroum', 'allowShowReference');
 		modern.showLevel = type === 'boon' || type === 'burden';

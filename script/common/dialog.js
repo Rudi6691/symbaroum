@@ -1,5 +1,5 @@
 import { getOwnerPlayer, createResistRollChatButton, rollDeathTest } from './roll.js';
-import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel, getActivePoisonCoatGrade, resolveWeaponPoisonChoice } from './item.js';
+import { buildRolls, isAxeArtistWeapon, getActorAbilityLevel, getActivePoisonCoatGrade, getPendingWeaponCoat, setPendingWeaponCoat, clearPendingWeaponCoat, isWeaponPoisonDose, resolveWeaponPoisonChoice } from './item.js';
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
@@ -314,18 +314,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   let poisonCoatingChoices = [];
   let ownPoison = null;
   let activeCoatGrade = 0;
+  let pendingCoat = null;
   if (weapon !== null) {
-    const poisonCoatingItems = actor.items.filter((it) => {
-      if (it?.type !== "equipment") return false;
-      const eff = it.system?.elixirEffect ?? {};
-      // Elixiere v1.6 (Rudolfs Waffengift-Modell): Gate ist das Waffengift-
-      // Flag am Item (Select Ja/Nein, Foundry-Form-Submit-Landmine) statt
-      // des v1.5-Giftstufen-Felds; Altbestand mit gesetzter Giftstufe bleibt
-      // waffengift-faehig (Fallback). Gifte definieren sich ueber die
-      // bestehenden Felder "Schaden/Runde" (bzw. "Schaden") + "Runden".
-      const isWeaponPoison = eff.weaponPoison === true || eff.weaponPoison === "true" || String(eff.poisonGrade ?? "").trim() !== "";
-      return isWeaponPoison && getItemCount(it) > 0;
-    });
+    // Gift v1.1 (P9): zentraler Dosen-Filter (Handbuch der Gifte mit
+    // Referenz poisonmanual bleibt ausserhalb aller Auswahllisten).
+    const poisonCoatingItems = actor.items.filter((it) => isWeaponPoisonDose(it));
     if (poisonCoatingItems.length > 0) {
       askPoisonCoating = true;
       poisonCoatingChoices = poisonCoatingItems.map((it) => {
@@ -361,6 +354,12 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     }
     activeCoatGrade = getActivePoisonCoatGrade(actor);
     if (activeCoatGrade > 0) askPoisonCoating = true;
+    // Gift v1.1 (P4): anhaltende Dosen-Beschichtung (Actor-Flag) als
+    // VORSELEKTIERTE Option (dosecoat) - sie wirkt automatisch bei
+    // jedem Angriff (Auto-Apply in attackResult), bis eine Vergiftung
+    // gelingt oder "Kein Gift" sie abwischt.
+    pendingCoat = getPendingWeaponCoat(actor);
+    if (pendingCoat) askPoisonCoating = true;
   }
   let targetAttribute_selection = foundry.utils.duplicate(game.symbaroum.config.ATTRIBUTE_SELECTION);
   targetAttribute_selection.defense = {
@@ -437,6 +436,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "ownPoison": ownPoison,
     // Gift v1 B3: aktive Szenen-Beschichtung als eigene Select-Option
     "activeCoat": activeCoatGrade > 0 ? { grade: activeCoatGrade } : null,
+    // Gift v1.1 P4: anhaltende Dosen-Beschichtung als vorselektierte Option
+    "pendingCoat": pendingCoat,
     "boon_lines": boon_lines
   });
 
@@ -852,10 +853,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               if(specialAmmoLabel) ecData.autoParams += specialAmmoLabel + ", ";
             }
           }
-          // Elixiere v1.5 (Gift auftragen): Beschichtungs-Select lesen und
-          // die Wirkung als ecData.poisonCoating fuer die Angriffskarte
-          // mitgeben. Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung):
-          // dies ist DIE Gift-Zeile des Waffen-Dialogs.
+          // Elixiere v1.5 (Gift auftragen): Beschichtungs-Select lesen.
+          // Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): dies ist
+          // DIE Gift-Zeile des Waffen-Dialogs.
           // Gift v1 (08.11.2026): Aufloesung ueber den gemeinsamen Helper
           // resolveWeaponPoisonChoice (gleiche Semantik wie im Modifier-
           // Dialog, item.js): 'ownpoison' = Eigengift (B4: nur noch
@@ -863,10 +863,19 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           // Adept-Beschichtung (kein Verbrauch, Vergifter-Pfad),
           // 'coatscene' = Inventar-Dosis startet die Szenen-Beschichtung
           // (1 Dosis beim Submit; null-Rueckgabe = Abbuchung gescheitert,
-          // kein Wurf), Inventar-Dosis = Coating-Pfad mit Abbuchung ERST
-          // bei gelungener Vergiftung (B3-Novize, itemId mitgeben).
+          // kein Wurf), 'dosecoat' = anhaltende Beschichtung bleibt
+          // (reine Anzeige), Inventar-Dosis = ANHALTENDE Beschichtung
+          // (Gift v1.1, P4: Dosis bleibt auf der Klinge, bis eine
+          // Vergiftung gelingt - auch Treffer in spaeteren Runden tragen
+          // es; Abbuchung erst bei gelungener Vergiftung), 'none' =
+          // kein Gift UND Abwischen der anhaltenden Beschichtung.
+          // Gift v1.1 (P6): Die Meister-Aufwertung wirkt zentral in
+          // attackResult (Gift +1 Stufe bzw. Gunst NUR auf die Gift-
+          // probe), nicht mehr hier im Submit.
           if(askPoisonCoating) {
             const coatingChoice = html[0].querySelector("#poisonCoating-"+did)?.value ?? "none";
+            ecData.poisonChoice = coatingChoice;
+            if(coatingChoice === "none") await clearPendingWeaponCoat(actor);
             const resolved = await resolveWeaponPoisonChoice(actor, coatingChoice, { ownPoison, poisonCoatingChoices });
             if(!resolved) {
               resolve(false);
@@ -877,23 +886,13 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               if(resolved.kind !== "ownpoison") {
                 ecData.poisonChosen = resolved.poison;
                 ecData.poisonFromCoat = resolved.kind === "activecoat";
-                // Meister-Giftmischer: Beschichtung ueber die Waffe zaehlt
-                // 1 Stufe hoeher; starkes Coat gibt Gunst (B3, analog zum
-                // Faehigkeitswurf-Handler in item.js).
-                if(getActorAbilityLevel(actor, "poisoner") >= 3) {
-                  if(resolved.poison < 3) {
-                    ecData.poison = resolved.poison + 1;
-                    ecData.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_UPGRADE_PARAM") + ", ";
-                  } else {
-                    ecData.favour = (ecData.favour ?? 0) + 1;
-                    ecData.autoParams += game.i18n.localize("DIALOG.POISON_MASTER_FAVOUR_PARAM") + ", ";
-                  }
-                }
               }
               ecData.autoParams +=
                 (resolved.kind === "ownpoison" ? game.i18n.localize("DIALOG.OWN_POISON_PARAM") : game.i18n.localize("DIALOG.POISON_COAT_PARAM")) + ", ";
             } else if(resolved.kind === "dose") {
-              ecData.poisonCoating = resolved.poisonCoating;
+              await setPendingWeaponCoat(actor, resolved.poisonCoating);
+              ecData.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: resolved.poisonCoating.name }) + ", ";
+            } else if(resolved.kind === "dosecoat" && resolved.poisonCoating) {
               ecData.autoParams += game.i18n.format("DIALOG.POISON_COATING_PARAM", { name: resolved.poisonCoating.name }) + ", ";
             }
           }
