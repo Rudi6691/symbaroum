@@ -9063,7 +9063,13 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 }
 
 .symbaroum.modern-roll-dialog .m-roll-favour label.lblfavour,
-.symbaroum.modern-roll-dialog label.lblfavour {
+.symbaroum.modern-roll-dialog label.lblfavour,
+/* P26-fix2 (Rudolfs Testrunde fix1-01): die Gunst-Zeile der Todesprobe
+   (klassischer Inhalts-Root .symbaroum.dialog im modernen Fenster) im
+   selben Zeilen-Stil wie die Gunst-Zeile des Würfeldialog-Masters -
+   mit Fenster-Scoping (dialog.symb-dialog.modern-dialog), weil der
+   klassische Root auch im klassischen Design existiert. */
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog label.lblfavour {
   background: none;
   color: var(--m-muted);
   font-weight: 600;
@@ -9200,7 +9206,17 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"],
    Darstellung mit dem Würfeldialog (Rudolf: "Darstellung im Würfeldialog
    ist der Master"), kein Regel-Drift bei künftigen Anpassungen. */
 html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"],
-html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"] {
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"],
+/* P26-fix2 (Rudolfs Testrunde fix1-01, 08.11.): die Todesprobe teilt das
+   moderne Fenster (dialog.symb-dialog.modern-dialog), ihr Inhalts-Root
+   ist aber klassisch (.symbaroum.dialog) - deshalb griffen die Master-
+   Regeln hier nicht, und die A6v9-Textfeld-Regel (input ohne Typ-
+   Ausschluss) traf die Radios: Box-Look statt Glyph, Punkt nicht
+   konzentrisch (identische Falle wie der Geben-Dialog, v1.7). FIX als
+   Selektor-Erweiterung der MASTER-Regeln statt Spiegel-Regeln: dieselben
+   Deklarationen = garantiert identische Darstellung mit dem
+   Würfeldialog-Master, kein Regel-Drift. */
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"] {
   appearance: none !important;
   -webkit-appearance: none !important;
   padding: 0 !important;
@@ -9241,7 +9257,10 @@ html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]::
 html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"]::before,
 html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"]::after,
 html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]::before,
-html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]::after {
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]::after,
+/* P26-fix2: PSEUDO-ELEMENT-GUARD auch für die Todesprobe-Radios */
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]::before,
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]::after {
   content: none !important;
   background: none !important;
   mask-image: none !important;
@@ -9254,7 +9273,9 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"
 }
 
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"],
-html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"] {
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"],
+/* P26-fix2: Todesprobe-Radios, s.o. (Selektor-Erweiterung) */
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"] {
   border-radius: 50% !important;
 }
 
@@ -9272,7 +9293,9 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"
 }
 
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]:checked,
-html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]:checked {
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]:checked,
+/* P26-fix2: Todesprobe-Radios, s.o. (Selektor-Erweiterung) */
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]:checked {
   /* v1.2: Radiopunkt vergrößert (38 % -> 48 % Füllung) - gut erkennbar
      auch im dunklen Design; Rahmen auf Akzent wie bei der Checkbox. */
   background-image: radial-gradient(circle, var(--m-accent) 0 48%, transparent 56% 100%) !important;
@@ -10784,4 +10807,46 @@ dialog.symb-dialog.modern-dialog .symbaroum.dialog .lblfavour,
 dialog.symb-dialog.modern-dialog .symbaroum.dialog .packageInfo {
   background: none;
   color: var(--m-ink);
+}
+
+/* ============================================================
+   P26-fix2 (Rudolfs Testrunde fix1-01/02, 08.11.2026): Die
+   Textur-Balken der klassischen Dialog-Inhalte blieben im
+   modernen Fenster sichtbar (Todesprobe: Modifier-Label +
+   Gunst-Zeile; Kettenbestätigungen: p.lblfavour; CASTING_NOT-
+   Kräfte: packageInfo/Labels). Ursache: der 7.1.10-Block
+   (dialog.symb-dialog .symbaroum.dialog label/.lblfavour/
+   .packageInfo, css ~4391) malt die title.webp-Textur MIT
+   !important - ein !important schlägt jede normale Deklaration
+   unabhängig von der Spezifität, deshalb verlor der fix1-
+   Override (ohne !important) grundlos. Kill mit eigenem
+   !important im Modern-Fenster-Scope: Spezifität (0,4,2) >
+   7.1.10 (0,3,2) bei gleicher Wichtigkeit. Das klassische
+   Design bleibt unberührt - die Regel greift nur im
+   .modern-dialog-Fenster. Farbe: Modern-Tinte; die Gunst-Zeile
+   (label.lblfavour) bekommt ihren Master-Stil (muted) über die
+   Erweiterung der Würfeldialog-Regel oben (höhere Spezifität).
+   ============================================================ */
+dialog.symb-dialog.modern-dialog .symbaroum.dialog label,
+dialog.symb-dialog.modern-dialog .symbaroum.dialog .lblfavour,
+dialog.symb-dialog.modern-dialog .symbaroum.dialog .packageInfo {
+  background: none !important;
+  color: var(--m-ink);
+}
+
+/* P26-fix2, Rudolfs Entscheidung „mit Box wie Würfeldialog": die
+   Gunst-Zeilen der Todesprobe (inkl. Hinweiszeile bei Zäh/
+   Kränklich - jede .favour-Zeile eine Box, Muster Würfeldialog)
+   bekommen denselben Box-Rahmen wie die m-roll-check/m-roll-
+   favour/m-roll-boxed-Zeilen des Würfeldialogs (Werte identisch
+   zum Block ~9290); display/justify ergänzen die klassische
+   .favour-Basisregel (flex, Zeile). */
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog .favour {
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0.1rem 0;
+  background: var(--m-panel);
+  display: flex;
+  justify-content: center;
 }

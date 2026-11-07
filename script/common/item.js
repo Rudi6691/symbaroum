@@ -7592,11 +7592,21 @@ export async function standardPowerResult(rollData, functionStuff) {
         // A24: snapshot the originator's resolute (Anathema probe resistance) and name
         // A34-Fix (Rudolf's test round, Befunde 2+3): genuine maintain symbols carry
         // the maintained marker so ONLY they raise the A29 "maintain?" reminder
+        // P26-fix2 (Rudolf's fix1 test round): the marker is now CONDITIONAL, like
+        // the A34-Fix already did in the addTargetEffect block above - a power
+        // level without maintain (Blinding Symbol novice/master per APG: the adept
+        // alone can maintain, master lasts until healed) must NOT tag its symbols
+        // as maintained: the A29 reminder would ask "maintain?" for a power that
+        // cannot be maintained on that level, "yes" recasts with full corruption
+        // and "no" would delete an until-healed symbol. Verified: every other
+        // activelyMaintainedTargetEffect power sets the symbol only on levels
+        // with maintain (Battlesymbol adept/master, Mark of Torment novice/adept,
+        // all others), so Blinding Symbol novice/master is the only behavior change.
         flagDataArray.push({
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
-          maintained: true,
+          ...(functionStuff.maintain !== game.symbaroum.config.MAINTAIN_NOT ? { maintained: true } : {}),
           ...(functionStuff.ability?.reference === "markoftorment" && functionStuff.powerLvl.level > 1 ? { attackerFavour: true } : {}),
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
