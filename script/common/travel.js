@@ -35,8 +35,9 @@
 
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
-import { consumeResource, consumeResourceFromItem } from './resources.js';
-import { getEncumbranceData } from './encumbrance.js';
+import { consumeResource, consumeResourceFromItem, getItemCount } from './resources.js';
+import { getEncumbranceData, getWeightCategory, formatGE } from './encumbrance.js';
+import { openGiveDialog } from './transfer.js';
 import { hasEnduringMarch } from './boon.js';
 import { prepareRollAttribute } from './dialog.js';
 import { createRollData } from './roll.js';
@@ -66,20 +67,44 @@ export function registerTravelSettings() {
 		config: true,
 		restricted: true,
 	});
-	// „Rationsverfolgung" (Rudolfs Runde-1-Wortlaut: „für Durst soll
-	// ‚Endlose Resourcen' der Standard sein außer ich schalte über ein
-	// Makro die Ressourcenverfolgung ein"): Default AUS = endlose
-	// Ressourcen (RAW-Wasser-Annahme aus 02.07), Essen UND Wasser
-	// gemeinsam (Runde-2-Wortlaut „Essen UND Wasser: ganze
-	// Rationsverfolgung an/aus"). Umschaltbar per GM-Makro (macro.js).
-	game.settings.register('symbaroum', 'rationTracking', {
-		name: 'TRAVEL.SETTING_RATION_TRACKING',
-		hint: 'TRAVEL.SETTING_RATION_TRACKING_HINT',
+	// v1.1 (Rudolfs Testrunde P3): „Essensrationen" und „Wasserrationen"
+	// GETRENNT verfolgbar — RAW-Nähe 02.07 (frisches Wasser ist meist
+	// frei verfügbar, nur Essen muss mitgetragen werden; der separate
+	// Wasser-Schalter deckt den SL-Fall „Wasser wird knapp" ab). Das
+	// GM-Makro schaltet beide GEMEINSAM um, Feinsteuerung hier.
+	game.settings.register('symbaroum', 'foodTrackingEnabled', {
+		name: 'TRAVEL.SETTING_FOOD_TRACKING',
+		hint: 'TRAVEL.SETTING_FOOD_TRACKING_HINT',
 		scope: 'world',
 		type: Boolean,
 		default: false,
 		config: true,
 		restricted: true,
+	});
+	game.settings.register('symbaroum', 'waterTrackingEnabled', {
+		name: 'TRAVEL.SETTING_WATER_TRACKING',
+		hint: 'TRAVEL.SETTING_WATER_TRACKING_HINT',
+		scope: 'world',
+		type: Boolean,
+		default: false,
+		config: true,
+		restricted: true,
+	});
+	// S4-v1-Sammelschalter: bleibt als interner Wert registriert
+	// (config:false) und wird in setupTravelRuntime EINMALIG auf die
+	// beiden neuen Schalter migriert — Bestehende Welten verlieren
+	// ihren Zustand nicht.
+	game.settings.register('symbaroum', 'rationTracking', {
+		scope: 'world',
+		type: Boolean,
+		default: false,
+		config: false,
+	});
+	game.settings.register('symbaroum', 'travelSplitMigrated', {
+		scope: 'world',
+		type: Boolean,
+		default: false,
+		config: false,
 	});
 	// Interne Zustandswerte (KEINE Foundry-Einstellungsliste, config:false)
 	game.settings.register('symbaroum', 'travelLastDayKey', {
@@ -120,13 +145,38 @@ export function isTravelEnabled() {
 	}
 }
 
-/** Effektiver Schalter der Rationsverfolgung (Essen UND Wasser). */
-export function isRationTrackingEnabled() {
+/** Effektiver Schalter: Essensrationen verfolgen. */
+export function isFoodTrackingEnabled() {
 	try {
-		return isTravelEnabled() && !!game.settings.get('symbaroum', 'rationTracking');
+		return isTravelEnabled() && !!game.settings.get('symbaroum', 'foodTrackingEnabled');
 	} catch (err) {
 		return false;
 	}
+}
+
+/** Effektiver Schalter: Wasserrationen verfolgen. */
+export function isWaterTrackingEnabled() {
+	try {
+		return isTravelEnabled() && !!game.settings.get('symbaroum', 'waterTrackingEnabled');
+	} catch (err) {
+		return false;
+	}
+}
+
+/** Effektiver Schalter der Rationsverfolgung (v1.1: Essen ODER Wasser
+ *  aktiv — Schwellen/Gates greifen je Kategorie einzeln). */
+export function isRationTrackingEnabled() {
+	return isFoodTrackingEnabled() || isWaterTrackingEnabled();
+}
+
+/** Kategoriespezifisches Gate (v1.1, P3): Essensration bucht nur bei
+ *  aktivem Essen-Schalter, Wasserration nur bei aktivem Wasser-
+ *  Schalter; andere Kategorien fallen auf „irgendeine Verfolgung“. */
+export function isRationTrackingFor(category) {
+	const c = String(category ?? '');
+	if (c === 'essensration') return isFoodTrackingEnabled();
+	if (c === 'wasserration') return isWaterTrackingEnabled();
+	return isRationTrackingEnabled();
 }
 
 /* ----------------------------------------------------------------
@@ -209,6 +259,9 @@ export async function advanceTravelDays(days) {
  *  fedToday      — verbleibende Nahrungs-Versorgungstage (Selbst-
  *                  versorgung/Buschwissen; 0 = nichts gebucht)
  *  wateredToday  — verbleibende Wasser-Versorgungstage (analog)
+ *  foragedKey    — Tag-Schlüssel des letzten Versorgungswurfs (v1.1,
+ *                  P13: 1× je Reisetag je Aktor; Tag-Schlüssel-Vergleich
+ *                  statt Reset-Flag, Selbstheilung beim Tageswechsel)
  *  strengthLoss  — akkumulierte Stärke-Verluste scheiternder Hunger-
  *                  Proben (RAW: täglich Stärke-Probe, Fehlschlag −1;
  *                  Stärke 0 = Tod, SL entscheidet — kein Auto-Tod)
@@ -230,6 +283,7 @@ export function getTravelFlags(actor) {
 		fedToday: getIntFlag(actor, 'fedToday'),
 		wateredToday: getIntFlag(actor, 'wateredToday'),
 		strengthLoss: getIntFlag(actor, 'strengthLoss'),
+		foragedKey: String(actor?.getFlag(FLAG_SCOPE, 'travel.foragedKey') ?? ''),
 	};
 }
 
@@ -279,14 +333,16 @@ export function hasFlaggedMembers() {
 /** Zustands-Berechnung aus den Zählern. */
 export function getTravelState(actor) {
 	const f = getTravelFlags(actor);
-	const tracking = isRationTrackingEnabled();
 	return {
 		foodDays: f.foodDays,
 		rationDays: f.rationDays,
 		waterDays: f.waterDays,
 		strengthLoss: f.strengthLoss,
-		hunger: tracking && (f.foodDays >= game.symbaroum.config.TRAVEL_HUNGER_DAYS || f.rationDays >= game.symbaroum.config.TRAVEL_RATION_DAYS),
-		thirst: tracking && f.waterDays >= game.symbaroum.config.TRAVEL_THIRST_DAYS,
+		// v1.1 (P3): Hunger läuft nur über den Essen-Schalter, Durst nur
+		// über den Wasser-Schalter — die Zähler der anderen Art bleiben
+		// bewusst stumm („Wasser wird knapp“ ohne Essens-Verfolgung)
+		hunger: isFoodTrackingEnabled() && (f.foodDays >= game.symbaroum.config.TRAVEL_HUNGER_DAYS || f.rationDays >= game.symbaroum.config.TRAVEL_RATION_DAYS),
+		thirst: isWaterTrackingEnabled() && f.waterDays >= game.symbaroum.config.TRAVEL_THIRST_DAYS,
 	};
 }
 
@@ -348,6 +404,24 @@ export function getTravelStatusContext(actor) {
 }
 
 /* ----------------------------------------------------------------
+ *  Versorgungs-Gate (v1.1, P13): 1× je Reisetag je Aktor
+ * ---------------------------------------------------------------- */
+
+/** Aktueller Tag-Schlüssel des Versorgungs-Gates (gleiche Konvention
+ *  wie die Tageswechsel-Engine; boon.js trägt den Schlüssel selbst —
+ *  KEIN Import boon.js → travel.js, nur umgekehrt). */
+export function currentTravelDayKey() {
+	const comps = currentComponents();
+	return comps ? dayKeyOf(comps) : null;
+}
+
+/** Hat der Aktor heute bereits einen Versorgungswurf abgelegt? */
+export function isForagedToday(actor) {
+	const key = currentTravelDayKey();
+	return !!key && String(actor?.getFlag(FLAG_SCOPE, 'travel.foragedKey') ?? '') === key;
+}
+
+/* ----------------------------------------------------------------
  *  Selbstversorgung der SC (Kap. 5.3, Rudolfs Runde-2-Vorgabe)
  * ---------------------------------------------------------------- */
 
@@ -384,7 +458,8 @@ export async function consumeRationSelfSupply(actor, item) {
 		flags.rationDays = 0;
 	}
 	// Flags schreiben (isMember steckt unverändert in flags — Foundry
-	// merged Objekt-Keys unter flags.symbaroum.travel, kein Replace)
+	// merged Objekt-Keys unter flags.symbaroum.travel, kein Replace;
+	// foragedKey bleibt bewusst unangetastet)
 	await actor.update({ 'flags.symbaroum.travel': flags });
 	ui.notifications.info(F('TRAVEL.SELF_CONSUMED', { name: item.name, actor: actor.name }));
 }
@@ -507,6 +582,8 @@ function effectivePaceFor(actor, pace) {
 /** km/Tag laut Tabelle 3.03a (Wilde Davokar = Werte des Hellen). */
 function distanceFor(mode, pace, terrain, river) {
 	const cfg = game.symbaroum.config;
+	// v1.1 „Lager/Aufenthalt": 0 km, keine Etappenrechnung
+	if (mode === 'camp') return 0;
 	let t = cfg.TRAVEL_TERRAIN_DISTANCE_KEY[terrain] ?? 'ambria';
 	if (river) t = cfg.TRAVEL_RIVER_EASIER[t] ?? t;
 	return cfg.TRAVEL_DISTANCE[mode]?.[pace]?.[t] ?? 0;
@@ -530,8 +607,9 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 	}
 	const cfg = game.symbaroum.config;
 	const daysN = Math.max(1, Math.round(Number(days) || 1));
-	const rationTracking = isRationTrackingEnabled();
-	const flagged = hasFlaggedMembers();
+	const foodTracking = isFoodTrackingEnabled();
+	const waterTracking = isWaterTrackingEnabled();
+	const anyTracking = foodTracking || waterTracking;
 
 	// Vorbelegung (Kap. 4.1): Flag-Mitglieder vorabgehakt; ohne Flag-
 	// Träger Fallback alle Aktoren mit Spielerbesitz; darüber liegt die
@@ -541,12 +619,13 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 		const saved = JSON.parse(game.settings.get('symbaroum', 'travelLastSelection') || '""');
 		if (Array.isArray(saved)) preselect = saved;
 	} catch (err) {}
-	// ALLE echten Welt-Aktoren sind wählbar — auch NSC-Gefährten als
-	// echte Aktoren (Träger/Lasttiere ohne Aktorblatt = S5-Paket);
-	// Vorbelegung oben greift nur ohne persistierte Auswahl.
-	const candidates = game.actors.contents;
+	// v1.1 (P6, Rudolfs Testrunde): nur noch die AUSGEWÄHLTEN Mitglieder
+	// der Reisegruppe (isMember-Flag; Fallback Spielerbesitz über
+	// getTravelGroup). NSC-Gefährten kommen per Kontextmenü-Flag in die
+	// Gruppe; Träger/Lasttiere ohne Aktorblatt = S5-Paket.
+	const candidates = getTravelGroup();
 	if (preselect.length === 0) {
-		preselect = (flagged ? getTravelGroup() : candidates.filter((a) => a.hasPlayerOwner === true)).map((a) => a.id);
+		preselect = candidates.map((a) => a.id);
 	}
 	const rationMode = game.settings.get('symbaroum', 'travelRationMode') === 'half' ? 'half' : 'full';
 
@@ -561,11 +640,12 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 
 	const memberRows = actorRows
 		.map((r) => {
-			const counterCells = rationTracking
-				? `<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-foodDays" value="${r.f.foodDays}"></td>
-				<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-rationDays" value="${r.f.rationDays}"></td>
-				<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-waterDays" value="${r.f.waterDays}"></td>
-				<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-strengthLoss" value="${r.f.strengthLoss}"></td>`
+			// v1.1 (P3): Zähler-Spalten je Schalter — Essen (ohne Essen,
+			// halbe Ration) nur bei Essens-Verfolgung, Wasser nur bei
+			// Wasser-Verfolgung; Stärke-Verlust bei beidem.
+			const counterCells = anyTracking
+				? `${foodTracking ? `<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-foodDays" value="${r.f.foodDays}"></td>
+				<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-rationDays" value="${r.f.rationDays}"></td>` : ''}${waterTracking ? `<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-waterDays" value="${r.f.waterDays}"></td>` : ''}<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-strengthLoss" value="${r.f.strengthLoss}"></td>`
 				: '';
 			return `<tr>
 				<td class="m-travel-name"><label class="m-travel-member"><input type="checkbox" data-travel-member="${r.actor.id}"${r.checked ? ' checked' : ''}> ${foundry.utils.escapeHTML(r.actor.name)}</label>${r.f.isMember ? ` <i class="fas fa-person-hiking" title="${L('TRAVEL.MEMBER_BADGE')}"></i>` : ''}</td>
@@ -574,11 +654,9 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 		})
 		.join('');
 
-	const counterHeads = rationTracking
-		? `<th class="m-travel-count">${L('TRAVEL.COUNTER_FOOD')}</th>
-			<th class="m-travel-count">${L('TRAVEL.COUNTER_RATION')}</th>
-			<th class="m-travel-count">${L('TRAVEL.COUNTER_WATER')}</th>
-			<th class="m-travel-count">${L('TRAVEL.COUNTER_STRENGTH')}</th>`
+	const counterHeads = anyTracking
+		? `${foodTracking ? `<th class="m-travel-count">${L('TRAVEL.COUNTER_FOOD')}</th>
+			<th class="m-travel-count">${L('TRAVEL.COUNTER_RATION')}</th>` : ''}${waterTracking ? `<th class="m-travel-count">${L('TRAVEL.COUNTER_WATER')}</th>` : ''}<th class="m-travel-count">${L('TRAVEL.COUNTER_STRENGTH')}</th>`
 		: '';
 
 	const modeRadios = Object.entries(cfg.TRAVEL_MODE)
@@ -600,18 +678,19 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 				${memberRows}
 			</table>
 		</div>
-		${rationTracking ? `<div class="m-travel-sec">${L('TRAVEL.SECTION_RATIONS')}</div>
+		${foodTracking ? `<div class="m-travel-sec">${L('TRAVEL.SECTION_RATIONS')}</div>
 		<div class="m-travel-radios">
 			<label class="m-travel-radio"><input type="radio" name="travelRation" value="full"${rationMode === 'full' ? ' checked' : ''}> ${L('TRAVEL.RATION_FULL')}</label>
 			<label class="m-travel-radio"><input type="radio" name="travelRation" value="half"${rationMode === 'half' ? ' checked' : ''}> ${L('TRAVEL.RATION_HALF')}</label>
 		</div>
-		<p class="m-travel-note">${L('TRAVEL.RATION_HINT')}</p>` : `<p class="m-travel-note">${L('TRAVEL.RATION_OFF_HINT')}</p>`}
+		<p class="m-travel-note">${L('TRAVEL.RATION_HINT')}</p>` : waterTracking ? `<p class="m-travel-note">${L('TRAVEL.WATER_ONLY_HINT')}</p>` : `<p class="m-travel-note">${L('TRAVEL.RATION_OFF_HINT')}</p>`}
 		<div class="m-travel-sec">${L('TRAVEL.SECTION_ROUTE')}</div>
 		<div class="m-travel-radios">${modeRadios}</div>
 		<div class="m-travel-row">
 			<label for="travelPace">${L('TRAVEL.PACE_LABEL')}</label>
 			<select id="travelPace">${paceOptions}</select>
 			<select id="travelPaceRide" style="display:none;">${ridePaceOptions}</select>
+			<span id="travelPaceCamp" style="display:none;">${L('TRAVEL.PACE_CAMP')}</span>
 		</div>
 		<div class="m-travel-row">
 			<label for="travelTerrain">${L('TRAVEL.TERRAIN_LABEL')}</label>
@@ -651,9 +730,13 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 				const mode = element.querySelector("input[name='travelMode']:checked")?.value ?? 'march';
 				const march = element.querySelector('#travelPace');
 				const ride = element.querySelector('#travelPaceRide');
+				const camp = element.querySelector('#travelPaceCamp');
 				if (march && ride) {
-					march.style.display = mode === 'ride' ? 'none' : '';
+					// v1.1 „Lager": Tempo-Anzeige statt Selects (Rudolfs
+					// Testrunde: „beim Tempo 'Lager' anzeigen")
+					march.style.display = mode === 'ride' || mode === 'camp' ? 'none' : '';
 					ride.style.display = mode === 'ride' ? '' : 'none';
+					if (camp) camp.style.display = mode === 'camp' ? '' : 'none';
 				}
 				updateKm();
 			}));
@@ -669,23 +752,13 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 				icon: '<i class="fas fa-leaf"></i>',
 				label: L('TRAVEL.SUPPLY_BUTTON'),
 				callback: (html) => {
-					// Vorräte auffüllen (Kap. 4.6): öffnet den BESTEHENDEN
-					// Buschwissen-Wurf (S1: Unterwegs 1W6 / Fokussiert
-					// 1W10; Orientierungstaste bleibt verfügbar) des
-					// ersten angehakten Mitglieds mit dem Segen; der
-					// Ertrag löst nach dem Wurf die GM-Karte „Gruppe
-					// versorgen (N Tage)" aus (Bestätigungspunkt 1).
-					const checkedIds = readCheckedMembers(html);
-					const pool = (checkedIds.length > 0 ? checkedIds : getTravelGroup().map((a) => a.id))
-						.map((id) => game.actors.get(id))
-						.filter(Boolean);
-					const caster = pool.find((a) => a.items.some((it) => it.type === 'boon' && String(it.system?.reference ?? '') === 'bushcraft'));
-					if (!caster) {
-						ui.notifications.info(L('TRAVEL.SUPPLY_NO_CASTER'));
-						return;
-					}
-					const boonItem = caster.items.find((it) => it.type === 'boon' && String(it.system?.reference ?? '') === 'bushcraft');
-					caster.usePower(boonItem);
+					// v1.1 (Rudolfs Testrunde): Auswahldialog, WELCHES
+					// Reisegruppe-Mitglied sucht — SC erhalten eine
+					// öffentliche Aufforderungs-Karte (der Spieler würfelt
+					// selbst), NSC würfelt die SL direkt. Der Ertrag wird
+					// nach dem Wurf als Rations-Items auf den Sucher
+					// gebucht (RAW: Gesamtmenge 1W6/1W10).
+					openSupplyRollRequest(readCheckedMembers(html));
 				},
 			},
 			cancel: {
@@ -736,7 +809,7 @@ async function submitTravelDay(html) {
 	game.settings.set('symbaroum', 'travelRationMode', rationMode === 'half' ? 'half' : 'full');
 	const mode = html[0].querySelector("input[name='travelMode']:checked")?.value ?? 'march';
 	const paceSel = mode === 'ride' ? html[0].querySelector('#travelPaceRide') : html[0].querySelector('#travelPace');
-	const pace = paceSel?.value ?? 'day';
+	const pace = mode === 'camp' ? 'camp' : (paceSel?.value ?? 'day');
 	const terrain = html[0].querySelector('#travelTerrain')?.value ?? 'davokar';
 	const river = !!html[0].querySelector('#travelRiver')?.checked;
 	const advance = !!html[0].querySelector('#travelAdvance')?.checked;
@@ -759,7 +832,8 @@ async function submitTravelDay(html) {
  * ---------------------------------------------------------------- */
 
 async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terrain, river, advance, counterEdits }) {
-	const rationTracking = isRationTrackingEnabled();
+	const foodTracking = isFoodTrackingEnabled();
+	const waterTracking = isWaterTrackingEnabled();
 	const cfg = game.symbaroum.config;
 	const cardActors = [];
 
@@ -788,7 +862,9 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 		//    streckt der halbe Verpflegungsplan den Vorrat, dokumentierte
 		//    Auslegung des Konzepts „1 Essensration pro Reisetag")
 		for (let day = 0; day < days; day++) {
-			if (rationTracking) {
+			// v1.1 (P3): Essen und Wasser buchen je nach eigenem Schalter —
+			// Voll/halbe Ration betrifft nur die Essensseite
+			if (foodTracking) {
 				if (flags.fedToday > 0) {
 					flags.fedToday -= 1;
 					flags.foodDays = 0;
@@ -813,6 +889,8 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 						flags.rationDays += 1;
 					}
 				}
+			}
+			if (waterTracking) {
 				if (flags.wateredToday > 0) {
 					flags.wateredToday -= 1;
 					flags.waterDays = 0;
@@ -829,8 +907,12 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 				}
 			}
 		}
-		// 3) Tempo-Konsequenzen (Kap. 4.4 + A39-Verzahnung)
-		const eff = effectivePaceFor(actor, pace);
+		// 3) Tempo-Konsequenzen (Kap. 4.4 + A39-Verzahnung); v1.1
+		// „Lager": keine Etappe, keine Proben, keine Zäh-Buchung,
+		// natürliche Heilung erlaubt (summary.noHealing = false)
+		const eff = pace === 'camp'
+			? { pace: 'camp', worsened: false, blocked: false, probeMalus: 0, encState: null }
+			: effectivePaceFor(actor, pace);
 		let toughLoss = 0;
 		let deathProbe = false;
 		if (eff.pace === 'death' && !eff.blocked) {
@@ -853,15 +935,18 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 				await actor.update({ 'system.health.toughness.value': Math.max(0, cur - toughLoss) });
 			}
 		}
-		// 4) Flags einmalig schreiben (isMember bleibt unangetastet)
+		// 4) Flags einmalig schreiben (isMember bleibt unangetastet);
+		// v1.1 (P13): Versorgungs-Gate für den neuen Reisetag freigeben
+		// (Tag-Schlüssel-Vergleich heilt ohnehin, hier explizit)
 		await actor.update({ 'flags.symbaroum.travel': flags });
+		await actor.unsetFlag(FLAG_SCOPE, 'travel.foragedKey');
 		const st = {
 			foodDays: flags.foodDays,
 			rationDays: flags.rationDays,
 			waterDays: flags.waterDays,
 			strengthLoss: flags.strengthLoss,
-			hunger: rationTracking && (flags.foodDays >= cfg.TRAVEL_HUNGER_DAYS || flags.rationDays >= cfg.TRAVEL_RATION_DAYS),
-			thirst: rationTracking && flags.waterDays >= cfg.TRAVEL_THIRST_DAYS,
+			hunger: foodTracking && (flags.foodDays >= cfg.TRAVEL_HUNGER_DAYS || flags.rationDays >= cfg.TRAVEL_RATION_DAYS),
+			thirst: waterTracking && flags.waterDays >= cfg.TRAVEL_THIRST_DAYS,
 		};
 		st.hungerLabel = st.hunger
 			? flags.foodDays >= cfg.TRAVEL_HUNGER_DAYS
@@ -883,14 +968,18 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 
 	// 5) EINE Chat-Karte je Abschluss (Kap. 4.7: Gruppierung bei N Tagen)
 	const km = distanceFor(mode, pace, terrain, river) * days;
-	const rationLabel = rationTracking ? (rationMode === 'half' ? L('TRAVEL.RATION_HALF') : L('TRAVEL.RATION_FULL')) : L('TRAVEL.RATION_OFF');
+	const rationLabel = foodTracking
+		? (rationMode === 'half' ? L('TRAVEL.RATION_HALF') : L('TRAVEL.RATION_FULL'))
+		: waterTracking ? L('TRAVEL.RATION_WATER_ONLY') : L('TRAVEL.RATION_OFF');
 	const cardData = {
 		days,
 		km,
 		modeLabel: L(game.symbaroum.config.TRAVEL_MODE[mode]?.label ?? 'TRAVEL.MODE_MARCH'),
 		pace,
 		paceLabel: L(game.symbaroum.config.TRAVEL_PACE[pace]?.[mode === 'ride' ? 'rideLabel' : 'label'] ?? 'TRAVEL.PACE_DAY'),
-		rationTracking,
+		rationTracking: foodTracking || waterTracking,
+		foodTracking,
+		waterTracking,
 		rationLabel,
 		enduringGroup,
 		actors: cardActors,
@@ -995,44 +1084,340 @@ async function postChat(content, flags = {}, rolls = []) {
 	await ChatMessage.create(chatData);
 }
 
-/** Buschwissen-Ertrag (Bestätigungspunkt 1, Versorgen-Button): GM-Karte
- *  „Gruppe versorgen (N Tage)" — versorgt die Reisegruppe (Mitglieder-
- *  Quelle getTravelGroup) für N Tage, OHNE Item-Materialisierung. */
-export async function createTravelSupplyCard(actorId, days) {
-	if (!game.user.isGM) return;
-	const n = Math.max(1, Math.round(Number(days) || 1));
-	const content = `<div class="symbaroum chat roll">
-		<div class="foreground">
-			<h3>${L('TRAVEL.SUPPLY_CARD_TITLE')}</h3>
-			<p>${F('TRAVEL.SUPPLY_CARD_TEXT', { days: n })}</p>
-			<button type="button" class="travel-apply-button" data-travel-supply="${n}"><i class="fas fa-basket-shopping"></i> ${F('TRAVEL.SUPPLY_APPLY', { days: n })}</button>
-		</div>
-	</div>`;
-	await postChat(content, { 'symbaroum.travelSupply': { actorId, days: n } });
+/* ----------------------------------------------------------------
+ *  „Vorräte auffüllen (Buschwissen)" v1.1 (Rudolfs Testrunde): Auswahl-
+ *  dialog WELCHES Mitglied würfelt, öffentliche Aufforderungs-Karte
+ *  an SC (der Spieler würfelt selbst), NSC-Wurf direkt durch die SL.
+ *  Der ERTRAG wird als Rations-Items auf den SUCHER gebucht (Rudolfs
+ *  v1.1-Entscheidung; RAW: Gesamtmenge 1W6 unterwegs / 1W10 fokussiert,
+ *  nicht je Mitglied) — Verteilung per Geben-Dialog. Ersetzt die v1-
+ *  Flag-Gutschrift „Gruppe versorgen (N Tage)" komplett.
+ * ---------------------------------------------------------------- */
+
+const BUSHCRAFT_REFERENCE = 'bushcraft';
+
+function findBushcraftBoon(actor) {
+	return actor?.items.find((it) => it.type === 'boon' && String(it.system?.reference ?? '') === BUSHCRAFT_REFERENCE) ?? null;
 }
 
-/** GM-Klick auf „Gruppe versorgen (N Tage)": Versorgungs-Vermerke für
- *  die Reisegruppe setzen (fedToday/wateredToday = N Tage, Zähler auf 0). */
-async function applyTravelSupply(days) {
+/** Auswahldialog: WELCHES Reisegruppe-Mitglied sucht Vorräte. */
+export function openSupplyRollRequest(actorIds) {
 	if (!game.user.isGM) return;
-	const members = getTravelGroup();
-	for (const actor of members) {
-		const flags = getTravelFlags(actor);
-		flags.fedToday = Math.max(flags.fedToday, days);
-		flags.wateredToday = Math.max(flags.wateredToday, days);
-		flags.foodDays = 0;
-		flags.rationDays = 0;
-		flags.waterDays = 0;
-		await actor.update({ 'flags.symbaroum.travel': flags });
+	const pool = (Array.isArray(actorIds) && actorIds.length > 0 ? actorIds : getTravelGroup().map((a) => a.id))
+		.map((id) => game.actors.get(id))
+		.filter(Boolean);
+	const casters = pool.filter((a) => findBushcraftBoon(a));
+	if (casters.length === 0) {
+		ui.notifications.info(L('TRAVEL.SUPPLY_NO_CASTER'));
+		return;
 	}
-	ui.notifications.info(F('TRAVEL.SUPPLY_DONE', { days, count: members.length }));
+	if (casters.length === 1) {
+		triggerSupplyRoll(casters[0]);
+		return;
+	}
+	const modern = isModernDialogActive();
+	const options = casters.map((a) => `<option value="${a.id}">${foundry.utils.escapeHTML(a.name)}</option>`).join('');
+	symbDialog({
+		title: L('TRAVEL.SUPPLY_SELECT_TITLE'),
+		content: `<div class="symbaroum travel-dialog${modern ? ' modern-travel-dialog' : ' dialog'}">
+			<p>${L('TRAVEL.SUPPLY_SELECT_TEXT')}</p>
+			<div class="m-travel-row"><label for="travelSupplyCaster">${L('TRAVEL.SUPPLY_CASTER_LABEL')}</label><select id="travelSupplyCaster">${options}</select></div>
+			<p class="m-travel-note">${L('TRAVEL.SUPPLY_SELECT_HINT')}</p>
+		</div>`,
+		classes: [...(modern ? modernDialogClasses('modern-travel-dialog') : [])],
+		width: 440,
+		buttons: {
+			roll: {
+				icon: '<i class="fas fa-leaf"></i>',
+				label: L('TRAVEL.SUPPLY_ROLL_BUTTON'),
+				callback: (html) => {
+					const id = html?.[0]?.querySelector?.('#travelSupplyCaster')?.value;
+					const actor = game.actors.get(id);
+					if (actor) triggerSupplyRoll(actor);
+				},
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+			},
+		},
+		default: 'roll',
+	});
+}
+
+/** Wurf anstoßen: SC erhalten eine öffentliche Aufforderungs-Karte
+ *  (klickbar nur für Besitzer/GM), NSC würfelt die SL direkt. */
+function triggerSupplyRoll(actor) {
+	const boonItem = findBushcraftBoon(actor);
+	if (!boonItem) {
+		ui.notifications.info(L('TRAVEL.SUPPLY_NO_CASTER'));
+		return;
+	}
+	if (actor.hasPlayerOwner) {
+		postSupplyRequestCard(actor, boonItem);
+	} else {
+		actor.usePower(boonItem);
+	}
+}
+
+async function postSupplyRequestCard(actor, boonItem) {
+	const content = `<div class="symbaroum chat roll travel-day-card">
+		<div class="foreground">
+			<h3>${L('TRAVEL.SUPPLY_REQUEST_TITLE')}</h3>
+			<img class="portrait" src="${actor.img}" alt=""/>
+			<p>${F('TRAVEL.SUPPLY_REQUEST_TEXT', { name: actor.name })}</p>
+			<button type="button" class="travel-probe-button" data-travel-supply-request="${actor.id}"><i class="fas fa-leaf"></i> ${L('TRAVEL.SUPPLY_REQUEST_BUTTON')}</button>
+			<p class="travel-day-footnote">${L('TRAVEL.SUPPLY_REQUEST_HINT')}</p>
+		</div>
+	</div>`;
+	await postChat(content, { 'symbaroum.travelSupplyRequest': { actorId: actor.id, boonItemId: boonItem.id } });
+}
+
+/* ----------------------------------------------------------------
+ *  Ertrags-Buchung (v1.1): Ziel-Item je Kategorie (Stapelerhöhung am
+ *  vorhandenen Rations-Item), Anzahl editierbar, am Ziel persistierende
+ *  Kapazität (0 = unbegrenzt; Rudolfs „Wasserschlauch"), Überlauf-
+ *  und Belastungsvorschau live.
+ * ---------------------------------------------------------------- */
+
+/** Optionale Stapel-Kapazität am Item (system.maxNumber). */
+function itemCapacity(item) {
+	const n = Number(item?.system?.maxNumber);
+	return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
+
+/** Verbleibender Platz im Stapel (Infinity = unbegrenzt). */
+function capacityHeadroom(item, capOverride = null) {
+	const cap = capOverride != null ? Math.max(0, Math.round(capOverride)) : itemCapacity(item);
+	if (cap <= 0) return Infinity;
+	return Math.max(0, cap - getItemCount(item));
+}
+
+function categoryLabel(category) {
+	return category === 'wasserration'
+		? L('RESOURCE_CATEGORY.WATER_RATION')
+		: L('RESOURCE_CATEGORY.FOOD_RATION');
+}
+
+/** Buchungsdialog des Ertrags am Sucher. */
+export function openTravelSupplyBooking(actorId, yieldTotal) {
+	if (!game.user.isGM) return;
+	const actor = game.actors.get(actorId);
+	if (!actor) return;
+	const n = Math.max(1, Math.round(Number(yieldTotal) || 1));
+	const rows = [];
+	for (const category of RATION_CATEGORIES) {
+		const items = actor.items.filter((it) => isRationItem(it) && String(it.system.resourceCategory) === category);
+		if (items.length === 0) {
+			rows.push(`<div class="m-travel-sec">${categoryLabel(category)}</div>
+			<p class="m-travel-note">${F('TRAVEL.SUPPLY_NO_TARGET', { category: categoryLabel(category), name: actor.name })}</p>`);
+			continue;
+		}
+		const options = items
+			.map((it) => {
+				const cap = itemCapacity(it);
+				return `<option value="${it.id}">${foundry.utils.escapeHTML(it.name)} — ${F('TRAVEL.SUPPLY_STOCK', { count: getItemCount(it) })}${cap > 0 ? ' / ' + F('TRAVEL.SUPPLY_CAP', { count: cap }) : ''}</option>`;
+			})
+			.join('');
+		rows.push(`<div class="m-travel-sec">${categoryLabel(category)}</div>
+			<div class="m-travel-row">
+				<label>${L('TRAVEL.SUPPLY_TARGET_LABEL')}</label>
+				<select data-travel-target="${category}">${options}</select>
+			</div>
+			<div class="m-travel-row">
+				<label>${L('TRAVEL.SUPPLY_AMOUNT_LABEL')}</label>
+				<input type="number" min="0" step="1" data-travel-amount="${category}" value="${n}">
+				<span class="m-travel-note" data-travel-room="${category}"></span>
+			</div>
+			<div class="m-travel-row">
+				<label>${L('TRAVEL.SUPPLY_CAP_INPUT_LABEL')}</label>
+				<input type="number" min="0" step="1" data-travel-cap="${category}" value="${itemCapacity(items[0])}">
+				<span class="m-travel-note">${L('TRAVEL.SUPPLY_CAP_INPUT_HINT')}</span>
+			</div>`);
+	}
+	const modern = isModernDialogActive();
+	symbDialog({
+		title: F('TRAVEL.BOOKING_TITLE', { name: actor.name }),
+		content: `<div class="symbaroum travel-dialog${modern ? ' modern-travel-dialog' : ' dialog'}">
+			<p>${F('TRAVEL.BOOKING_TEXT', { name: actor.name, count: n })}</p>
+			${rows.join('')}
+			<div class="m-travel-sec">${L('TRAVEL.BOOKING_LOAD_SEC')}</div>
+			<p class="m-travel-note" data-travel-load></p>
+			<p class="m-travel-note">${L('TRAVEL.BOOKING_LOAD_HINT')}</p>
+		</div>`,
+		classes: [...(modern ? modernDialogClasses('modern-travel-dialog') : [])],
+		width: 560,
+		onRender: (element) => {
+			const refresh = () => updateBookingPreview(element, actor);
+			for (const el of element?.querySelectorAll?.('[data-travel-target], [data-travel-amount], [data-travel-cap]') ?? []) {
+				el.addEventListener('change', refresh);
+				el.addEventListener('input', refresh);
+			}
+			refresh();
+		},
+		buttons: {
+			book: {
+				icon: '<i class="fas fa-basket-shopping"></i>',
+				label: L('TRAVEL.BOOKING_BUTTON'),
+				callback: (html) => submitTravelSupplyBooking(html, actor, n),
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+			},
+		},
+		default: 'book',
+	});
+}
+
+/** Eingaben des Buchungsdialog lesen. */
+function readBookingInputs(element) {
+	const out = {};
+	for (const category of RATION_CATEGORIES) {
+		const targetSel = element?.querySelector?.(`[data-travel-target="${category}"]`);
+		const amountEl = element?.querySelector?.(`[data-travel-amount="${category}"]`);
+		const capEl = element?.querySelector?.(`[data-travel-cap="${category}"]`);
+		if (!targetSel || !amountEl || !capEl) continue;
+		out[category] = {
+			itemId: targetSel.value,
+			cap: Math.max(0, Math.round(Number(capEl.value) || 0)),
+			amount: Math.max(0, Math.round(Number(amountEl.value) || 0)),
+		};
+	}
+	return out;
+}
+
+/** Live-Vorschau: Platz je Kategorie + Belastungs-Projektion. */
+function updateBookingPreview(element, actor) {
+	const inputs = readBookingInputs(element);
+	let extraGE = 0;
+	for (const [category, inp] of Object.entries(inputs)) {
+		const item = actor.items.get(inp.itemId);
+		if (!item) continue;
+		const room = capacityHeadroom(item, inp.cap);
+		const booked = Math.min(inp.amount, Number.isFinite(room) ? room : inp.amount);
+		const overflow = inp.amount - booked;
+		extraGE += (getWeightCategory(item.system?.weight).value ?? 0) * booked;
+		const roomEl = element?.querySelector?.(`[data-travel-room="${category}"]`);
+		if (roomEl) {
+			roomEl.textContent = overflow > 0
+				? F('TRAVEL.SUPPLY_ROOM_OVERFLOW', { count: room })
+				: Number.isFinite(room) ? F('TRAVEL.SUPPLY_ROOM', { count: room }) : L('TRAVEL.SUPPLY_ROOM_INF');
+			roomEl.classList.toggle('travel-warn', overflow > 0);
+		}
+	}
+	const enc = getEncumbranceData(actor);
+	const loadEl = element?.querySelector?.('[data-travel-load]');
+	if (loadEl) {
+		if (!enc.enabled) {
+			loadEl.textContent = L('TRAVEL.BOOKING_LOAD_OFF');
+		} else {
+			const projLoad = Math.round((enc.loadGE + extraGE) * 100) / 100;
+			const projState = projLoad > enc.hardLimit ? 'over' : projLoad > enc.baseLimit ? 'loaded' : 'ok';
+			const stateLabel = projState === 'over' ? L('WEIGHT.STATE_OVER') : projState === 'loaded' ? L('WEIGHT.STATE_LOADED') : L('WEIGHT.STATE_OK');
+			loadEl.textContent = F('TRAVEL.BOOKING_LOAD', { now: enc.loadDisplay, after: formatGE(projLoad), extra: formatGE(extraGE), state: stateLabel });
+			// Warnfarbe bei Zustands-Verschlechterung durch die Buchung
+			const order = ['ok', 'loaded', 'over'];
+			loadEl.classList.toggle('travel-warn', order.indexOf(projState) > order.indexOf(enc.state));
+		}
+	}
+}
+
+/** Buchen: Kapazität am Ziel persistieren, Stapel auffüllen, Überlauf
+ *  melden, Ergebnis-Karte mit Geben-Knöpfen. */
+async function submitTravelSupplyBooking(html, actor, yieldTotal) {
+	const element = html?.[0] ?? null;
+	if (!element) return;
+	const inputs = readBookingInputs(element);
+	const booked = [];
+	let overflowTotal = 0;
+	for (const [category, inp] of Object.entries(inputs)) {
+		const item = actor.items.get(inp.itemId);
+		if (!item) continue;
+		// Kapazität am Ziel-Item persistieren (einmal gesetzt, klemmt
+		// jede künftige Buchung; 0 = unbegrenzt)
+		if (itemCapacity(item) !== inp.cap) {
+			await item.update({ 'system.maxNumber': inp.cap });
+		}
+		const room = capacityHeadroom(item, inp.cap);
+		const take = Math.min(inp.amount, Number.isFinite(room) ? room : inp.amount);
+		const overflow = Math.max(0, inp.amount - take);
+		overflowTotal += overflow;
+		if (take > 0) {
+			await item.update({ 'system.number': getItemCount(item) + take });
+		}
+		if (take > 0 || overflow > 0) {
+			booked.push({ item, category, take, overflow });
+		}
+	}
+	if (booked.length === 0) {
+		ui.notifications.info(L('TRAVEL.BOOKING_NOTHING'));
+		return;
+	}
+	await postSupplyBookingCard(actor, yieldTotal, booked);
+	if (overflowTotal > 0) {
+		ui.notifications.warn(F('TRAVEL.BOOKING_OVERFLOW_TOAST', { count: overflowTotal }));
+	}
+}
+
+/** Ergebnis-Karte: gebuchte Stapel + Geben-Knöpfe (nur GM). */
+async function postSupplyBookingCard(actor, yieldTotal, booked) {
+	const lines = booked
+		.map((b) => {
+			const base = b.take > 0 ? F('TRAVEL.BOOKING_CARD_LINE', { count: b.take, item: b.item.name, stock: getItemCount(b.item) }) : '';
+			const over = b.overflow > 0 ? ` <span class="travel-warn">${F('TRAVEL.BOOKING_CARD_OVERFLOW', { count: b.overflow })}</span>` : '';
+			const give = b.take > 0
+				? ` <button type="button" class="travel-probe-button" data-travel-give="${b.item.id}" data-travel-giver="${actor.id}"><i class="fas fa-hand-holding"></i> ${L('TRAVEL.BOOKING_GIVE_BUTTON')}</button>`
+				: '';
+			return `<p>${base}${over}${give}</p>`;
+		})
+		.join('');
+	const content = `<div class="symbaroum chat roll travel-day-card">
+		<div class="foreground">
+			<h3>${L('TRAVEL.SUPPLY_CARD_TITLE')}</h3>
+			<img class="portrait" src="${actor.img}" alt=""/>
+			<p>${F('TRAVEL.BOOKING_CARD_TEXT', { name: actor.name, count: yieldTotal })}</p>
+			${lines}
+			<p class="travel-day-footnote">${L('TRAVEL.BOOKING_CARD_GIVE_HINT')}</p>
+		</div>
+	</div>`;
+	await postChat(content, { 'symbaroum.travelSupplyBooking': { actorId: actor.id } });
+}
+
+/** Chat-Ankündigung des Makro-Flips (v1.1, P3): Zustand im Chat-Log
+ *  statt nur Toast. */
+export async function announceRationTracking({ on = true, masterOn = false, food, water } = {}) {
+	if (!game.user.isGM) return;
+	const foodOn = food ?? on;
+	const waterOn = water ?? on;
+	const content = `<div class="symbaroum chat roll">
+		<div class="foreground">
+			<h3>${L('TRAVEL.SYSTEM_ALIAS')}</h3>
+			<p>${foodOn || waterOn ? L('TRAVEL.TRACKING_ON_CHAT') : L('TRAVEL.TRACKING_OFF_CHAT')}</p>
+			<p class="m-travel-note">${F('TRAVEL.TRACKING_STATE', { food: foodOn ? '✓' : '✗', water: waterOn ? '✓' : '✗' })}</p>
+			${masterOn ? `<p class="m-travel-note">${L('TRAVEL.MASTER_ON_NOTE')}</p>` : ''}
+		</div>
+	</div>`;
+	await postChat(content, {});
 }
 
 /* ----------------------------------------------------------------
  *  Runtime-Registrierung (hooks.js ruft setupTravelRuntime im ready)
  * ---------------------------------------------------------------- */
 
-export function setupTravelRuntime() {
+export async function setupTravelRuntime() {
+	// v1.1-Migration: den S4-v1-Sammelschalter EINMALIG auf die zwei
+	// getrennten Schalter überführen (rationTracking bleibt als interner
+	// Wert erhalten, Bestehende Welten verlieren ihren Zustand nicht)
+	try {
+		if (!game.settings.get('symbaroum', 'travelSplitMigrated')) {
+			if (game.settings.get('symbaroum', 'rationTracking')) {
+				await game.settings.set('symbaroum', 'foodTrackingEnabled', true);
+				await game.settings.set('symbaroum', 'waterTrackingEnabled', true);
+			}
+			await game.settings.set('symbaroum', 'travelSplitMigrated', true);
+		}
+	} catch (err) {}
 	// Tageswechsel-Engine: läuft auf JEDEM Client, verarbeitet nur der GM
 	Hooks.on('updateWorldTime', (worldTime) => handleWorldTimeUpdate(worldTime));
 
@@ -1083,23 +1468,46 @@ export function setupTravelRuntime() {
 				html.querySelectorAll('[data-travel-apply]').forEach((btn) => btn.remove());
 			}
 		}
-		// Buschwissen-Versorgungskarte (GM-Button)
-		if (message.getFlag(FLAG_SCOPE, 'travelSupply')) {
-			const btn = html.querySelector('[data-travel-supply]');
+		// v1.1: Aufforderungs-Karte „Vorräte auffüllen" — klickbar nur
+		// für Blattbesitzer und GM (der Spieler würfelt SELBST)
+		const request = message.getFlag(FLAG_SCOPE, 'travelSupplyRequest');
+		if (request) {
+			html.querySelectorAll('[data-travel-supply-request]').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const actor = game.actors.get(btn.dataset.travelSupplyRequest);
+					const boonItem = actor?.items.get(request.boonItemId) ?? findBushcraftBoon(actor);
+					if (!actor || !boonItem) return;
+					if (!game.user.isGM && !actor.isOwner) return;
+					actor.usePower(boonItem);
+				});
+				const actor = game.actors.get(btn.dataset.travelSupplyRequest);
+				if (!game.user.isGM && !(actor && actor.isOwner)) btn.remove();
+			});
+		}
+		// v1.1: Ertrags-Buchungskarte — Geben-Knöpfe nur für die SL
+		if (message.getFlag(FLAG_SCOPE, 'travelSupplyBooking')) {
+			const giveBtns = html.querySelectorAll('[data-travel-give]');
 			if (game.user.isGM) {
-				btn?.addEventListener('click', () => applyTravelSupply(Number(btn.dataset.travelSupply) || 1));
-			} else if (btn) {
-				btn.remove();
+				giveBtns.forEach((btn) => {
+					btn.addEventListener('click', () => {
+					const actor = game.actors.get(btn.dataset.travelGiver);
+					const item = actor?.items.get(btn.dataset.travelGive);
+					if (actor && item) openGiveDialog(actor, item);
+					});
+				});
+			} else {
+				giveBtns.forEach((btn) => btn.remove());
 			}
 		}
 	});
 
-	// Buschwissen-Ertrag → Versorgungskarte (boon.js feuert den Hook bei
-	// aktivem Master-Setting; bewusst lose gekoppelt — kein Import-Zykel
-	// zwischen boon.js und travel.js in DIESER Richtung)
+	// Buschwissen-Ertrag → Buchungsdialog (v1.1: Ertrag als Rations-
+	// Items auf den Sucher statt Flag-Gutschrift; boon.js feuert den Hook
+	// bei aktivem Master-Setting, bewusst lose gekoppelt — kein Import-
+	// Zykel zwischen boon.js und travel.js in DIESER Richtung)
 	Hooks.on('symbaroum:bushcraftYield', (data) => {
 		if (!isTravelEnabled() || !game.user.isGM) return;
 		if (!Number.isFinite(Number(data?.days)) || Number(data?.days) <= 0) return;
-		createTravelSupplyCard(data.actorId, data.days);
+		openTravelSupplyBooking(data.actorId, data.days);
 	});
 }

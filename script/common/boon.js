@@ -143,6 +143,48 @@ function boonCancelButton() {
  * (Stufe = Käufe). Der Ertragswürfel wird NUR bei Erfolg geworfen und
  * auf der Karte gezeigt (bushcraftResult).
  */
+/*
+ * S4 v1.1 (P13, Rudolfs Testrunde): Versorgungswurf-Gate — pro Reisetag
+ * und Aktor nur EIN Ertragswurf. Bewusst LOKAL implementiert (boon.js
+ * darf travel.js NICHT importieren, nur umgekehrt): Core-Tag-Schlüssel
+ * direkt über game.time.calendar gebildet, Vergleich gegen das Actor-
+ * Flag travel.foragedKey. travel.js setzt dasselbe Flag-Format und
+ * räumt es beim Reisetag-Abschluss (Reset). Ohne Reiseregeln ist das
+ * Gate inaktiv und der Ertrag unbegrenzt (reine Buschwissen-Nutzung).
+ */
+function travelEnabledLocal() {
+  try {
+    return !!game.settings.get('symbaroum', 'travelEnabled');
+  } catch (err) {
+    return false;
+  }
+}
+
+function travelDayKeyLocal() {
+  try {
+    const parts = game.time.calendar.timeToComponents(game.time.worldTime);
+    if (!parts) return null;
+    // EXAKT dasselbe Format wie travel.js dayKeyOf (dayOfMonth vor day,
+    // da day = Tag des Jahres ist; ?? 0-Fallback identisch), sonst
+    // greift das Gate nicht
+    return (parts.year ?? 0) + '-' + (parts.month ?? 0) + '-' + (parts.dayOfMonth ?? parts.day ?? 0);
+  } catch (err) {
+    return null;
+  }
+}
+
+async function isForagedTodayLocal(actor) {
+  try {
+    if (!actor || !travelEnabledLocal()) return false;
+    const key = travelDayKeyLocal();
+    if (!key) return false;
+    const flagged = await actor.getFlag('symbaroum', 'travel.foragedKey');
+    return flagged === key;
+  } catch (err) {
+    return false;
+  }
+}
+
 function bushcraftPreDialog(functionStuff) {
   boonChoiceDialog(
     functionStuff,
@@ -165,7 +207,13 @@ function bushcraftPreDialog(functionStuff) {
         callback: () => {
           functionStuff.bushcraftYieldFormula = '1d6';
           functionStuff.autoParams += L('BOON_ROLL.BUSHCRAFT_PARAM_ON_THE_MOVE') + ', ';
-          modifierDialog(functionStuff);
+          // S4 v1.1 (P13): Gate-Hinweis im Wurf-Dialog, wenn heute
+          // bereits geforstet wurde (introText überschreibt nicht die
+          // Modus-Texte — modifierDialog rendert ihn als Einleitung)
+          isForagedTodayLocal(functionStuff.actor).then((foraged) => {
+            if (foraged) functionStuff.introText = L('TRAVEL.FORAGED_TODAY_HINT');
+            modifierDialog(functionStuff);
+          });
         },
       },
       focused: {
@@ -174,7 +222,10 @@ function bushcraftPreDialog(functionStuff) {
         callback: () => {
           functionStuff.bushcraftYieldFormula = '1d10';
           functionStuff.autoParams += L('BOON_ROLL.BUSHCRAFT_PARAM_FOCUSED') + ', ';
-          modifierDialog(functionStuff);
+          isForagedTodayLocal(functionStuff.actor).then((foraged) => {
+            if (foraged) functionStuff.introText = L('TRAVEL.FORAGED_TODAY_HINT');
+            modifierDialog(functionStuff);
+          });
         },
       },
       cancel: boonCancelButton(),
@@ -666,25 +717,42 @@ export function activateBoonLineExclusive(element) {
 
 async function bushcraftResult(rollData, functionStuff) {
   // v1.1 (Rudolf P4): Orientierung ist ein reiner Aufmerk-
-  // samkeits-Wurf — KEIN Ertragswürfel
-  if (rollData?.[0]?.trueActorSucceeded && !functionStuff.bushcraftOrientation) {
-    const yieldRoll = await new Roll(functionStuff.bushcraftYieldFormula ?? '1d6').evaluate();
-    functionStuff.resultRolls = [yieldRoll];
-    functionStuff.finalText = game.i18n.format(L('BOON_ROLL.BUSHCRAFT_YIELD'), { count: yieldRoll.total });
-    // S4 (Konzept Kap. 4.6, Bestätigungspunkt 1 „Versorgen statt
-    // materialisieren"): Ertrag nur auf der Karte — bei aktiven
-    // Reiseregeln feuert der Wurf den Lose-Hook, travel.js erzeugt
-    // daraus die GM-Karte „Gruppe versorgen (N Tage)". KEIN Import
-    // travel.js → boon.js (nur umgekehrt), KEINE Item-Buchung hier.
-    try {
-      if (game.settings.get('symbaroum', 'travelEnabled')) {
-        Hooks.callAll('symbaroum:bushcraftYield', {
-          actorId: functionStuff.actor?.id ?? null,
-          days: yieldRoll.total,
-        });
+  // samkeits-Wurf — KEIN Ertragswürfel, KEIN Gate
+  if (!functionStuff.bushcraftOrientation) {
+    // S4 v1.1 (P13): Versorgungswurf-Gate — Ertrag nur 1x je Reise-
+    // tag und Aktor. Jede Yield-Probe (auch Fehlschlag) markiert den
+    // Tag; ein ZWEITER Wurf am selben Tag zeigt stattdessen den
+    // Hinweis-Text und erzeugt KEINEN Ertrag/Hook.
+    const gateActive = travelEnabledLocal();
+    const foragedToday = gateActive ? await isForagedTodayLocal(functionStuff.actor) : false;
+    if (gateActive && functionStuff.actor) {
+      try {
+        await functionStuff.actor.setFlag('symbaroum', 'travel.foragedKey', travelDayKeyLocal());
+      } catch (err) {
+        // Flag-Defekt darf den Wurf niemals blockieren
       }
-    } catch (err) {
-      // Setting/Defekt darf den Wurf niemals blockieren
+    }
+    if (rollData?.[0]?.trueActorSucceeded && foragedToday) {
+      functionStuff.finalText = L('TRAVEL.FORAGED_TODAY_RESULT');
+    } else if (rollData?.[0]?.trueActorSucceeded) {
+      const yieldRoll = await new Roll(functionStuff.bushcraftYieldFormula ?? '1d6').evaluate();
+      functionStuff.resultRolls = [yieldRoll];
+      functionStuff.finalText = game.i18n.format(L('BOON_ROLL.BUSHCRAFT_YIELD'), { count: yieldRoll.total });
+      // S4 v1.1 (Rudolfs Testrunde): Ertrag läuft bei aktiven Reise-
+      // regeln über den Lose-Hook nach travel.js, das dortige Buchungs-
+      // ziel sind Rations-Items auf dem Sucher (v1: Flag-Gutschrift
+      // „Gruppe versorgen (N Tage)“ komplett ersetzt). KEIN Import
+      // travel.js → boon.js (nur umgekehrt), KEINE Item-Buchung hier.
+      try {
+        if (gateActive) {
+          Hooks.callAll('symbaroum:bushcraftYield', {
+            actorId: functionStuff.actor?.id ?? null,
+            days: yieldRoll.total,
+          });
+        }
+      } catch (err) {
+        // Setting/Defekt darf den Wurf niemals blockieren
+      }
     }
   }
   await standardPowerResult(rollData, functionStuff);

@@ -11074,30 +11074,23 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
   margin: 0.1rem 0 0.3rem 0;
 }
 
-.symbaroum.chat.travel-day-card .travel-day-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-  margin-bottom: 0.35rem;
+/* v1.1 (P7, Rudolfs Testrunde): Aktorblock zweizeilig statt 3-Spalten-
+   Tabelle — Zeile 1 Name/Portrait, Zeile 2 Buchung/Zustand, fließend
+   umbruchbar (lange Karten werden nicht mehr gestaucht) */
+.symbaroum.chat.travel-day-card .travel-day-actor {
+  padding: 0.2rem 0.25rem 0.25rem 0.35rem;
 }
 
-.symbaroum.chat.travel-day-card .travel-day-table th {
-  text-align: left;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.75;
-  padding: 0.1rem 0.25rem;
-  border-bottom: 0.0625rem solid var(--m-line, #726e5c);
-}
-
-.symbaroum.chat.travel-day-card .travel-day-table td {
-  padding: 0.2rem 0.25rem;
-  vertical-align: middle;
-}
-
-.symbaroum.chat.travel-day-card .travel-day-table tr + tr td {
+.symbaroum.chat.travel-day-card .travel-day-actor + .travel-day-actor {
   border-top: 0.03125rem solid var(--m-line, #726e5c);
+}
+
+.symbaroum.chat.travel-day-card .travel-day-actor.travel-hungry {
+  border-left: 0.15rem solid rgba(176, 124, 30, 0.5);
+}
+
+.symbaroum.chat.travel-day-card .travel-day-actor.travel-thirsty {
+  border-left: 0.15rem solid rgba(163, 64, 47, 0.5);
 }
 
 .symbaroum.chat.travel-day-card .travel-day-name {
@@ -11105,6 +11098,7 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
   align-items: center;
   gap: 0.4rem;
   white-space: nowrap;
+  font-size: 0.85rem;
 }
 
 .symbaroum.chat.travel-day-card .travel-day-name img.portrait {
@@ -11119,15 +11113,19 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
   color: var(--m-accent, #b2925e) !important;
 }
 
-.symbaroum.chat.travel-day-card .travel-day-booking,
-.symbaroum.chat.travel-day-card .travel-day-state {
+.symbaroum.chat.travel-day-card .travel-day-info {
   font-size: 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.35rem;
+  row-gap: 0.15rem;
+  align-items: center;
+  margin-top: 0.1rem;
+  padding-left: 0.1rem;
 }
 
-.symbaroum.chat.travel-day-card .travel-day-booking span,
-.symbaroum.chat.travel-day-card .travel-day-state span {
+.symbaroum.chat.travel-day-card .travel-day-info span {
   display: inline-block;
-  margin: 0 0.2rem 0.15rem 0;
 }
 
 .symbaroum.chat.travel-day-card span.travel-ok {
@@ -11163,11 +11161,6 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
 .symbaroum.chat.travel-day-card .travel-chip.travel-tough {
   background: rgba(111, 158, 124, 0.2);
   color: #4d7a52;
-}
-
-.symbaroum.chat.travel-day-card tr.travel-hungry td.travel-day-state,
-.symbaroum.chat.travel-day-card tr.travel-thirsty td.travel-day-state {
-  border-left: 0.15rem solid rgba(176, 124, 30, 0.5);
 }
 
 .symbaroum.chat.travel-day-card .travel-day-actions {
@@ -11298,4 +11291,12 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
 
 .m-travel-chip.m-travel-thirst i {
   color: var(--m-bad) !important;
+}
+
+/* S4 v1.1: Warnfarbe der Kapazitaets-/Belastungs-Vorschau im
+   Buchungsdialog (travel.js toggelt .travel-warn am Hinweis-Span) */
+.symbaroum.travel-dialog span.travel-warn,
+.symbaroum.modern-travel-dialog span.travel-warn {
+  color: #a3402f;
+  font-weight: 600;
 }

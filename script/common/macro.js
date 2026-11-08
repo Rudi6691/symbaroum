@@ -13,7 +13,7 @@ import { getAmmoThreshold, isAmmoAlchemical } from "../common/ammo.js";
 // ein Makro die Ressourcenverfolgung ein"), Reisetag abschließen und
 // Rations-Tagging-Migration (Welt-Items + Inventare, Muster
 // containerMigration). Zykel-Sicherheit: nur Funktionsdeklarationen.
-import { openTravelDayDialog } from "../common/travel.js";
+import { openTravelDayDialog, announceRationTracking } from "../common/travel.js";
 
 export class SymbaroumMacros {
 	constructor() {}
@@ -2444,29 +2444,32 @@ export class SymbaroumMacros {
 
 	/* GM-Utility „Rationsverfolgung umschalten" (Rudolfs Runde-1-
 	 * Wortlaut: „außer ich schalte über ein Makro die Ressourcen-
-	 * verfolgung ein"): Toggelt das Setting 'rationTracking' (Essen UND
-	 * Wasser gemeinsam, Runde-2-Entscheidung). Einschalten aktiviert
-	 * auch den Master-Schalter 'travelEnabled' (falls noch aus — die
-	 * Verfolgung wäre sonst stumm); Ausschalten lässt den Master
-	 * unberührt (Reisetag-Dialog/Etappenrechner bleiben nutzbar).
+	 * verfolgung ein"): v1.1 (P3, Rudolfs Testrunde) — flippt die zwei
+	 * getrennten Schalter foodTrackingEnabled/waterTrackingEnabled
+	 * GEMEINSAM (beide an oder beide aus; Feinsteuerung einzeln in den
+	 * Einstellungen). Einschalten aktiviert auch den Master-Schalter
+	 * 'travelEnabled' (falls noch aus — die Verfolgung wäre sonst
+	 * stumm); Ausschalten lässt den Master unberührt (Reisetag-Dialog/
+	 * Etappenrechner bleiben nutzbar). Die Ansage läuft seit v1.1 als
+	 * Chat-Nachricht mit Zustandszeile (Essen ✓/✗, Wasser ✓/✗) statt
+	 * nur als Toast.
 	 */
 	async toggleRationTracking() {
 		if (!game.user.isGM) {
 			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
 			return;
 		}
-		const current = !!game.settings.get("symbaroum", "rationTracking");
-		if (current) {
-			await game.settings.set("symbaroum", "rationTracking", false);
-			ui.notifications.info(game.i18n.localize("TRAVEL.TRACKING_OFF_TOAST"));
-		} else {
-			if (!game.settings.get("symbaroum", "travelEnabled")) {
-				await game.settings.set("symbaroum", "travelEnabled", true);
-				ui.notifications.info(game.i18n.localize("TRAVEL.MASTER_ON_TOAST"));
-			}
-			await game.settings.set("symbaroum", "rationTracking", true);
-			ui.notifications.info(game.i18n.localize("TRAVEL.TRACKING_ON_TOAST"));
+		const food = !!game.settings.get("symbaroum", "foodTrackingEnabled");
+		const water = !!game.settings.get("symbaroum", "waterTrackingEnabled");
+		const target = !(food && water);
+		await game.settings.set("symbaroum", "foodTrackingEnabled", target);
+		await game.settings.set("symbaroum", "waterTrackingEnabled", target);
+		let masterOn = false;
+		if (target && !game.settings.get("symbaroum", "travelEnabled")) {
+			await game.settings.set("symbaroum", "travelEnabled", true);
+			masterOn = true;
 		}
+		await announceRationTracking({ on: target, masterOn, food: target, water: target });
 	}
 
 	/* GM-Utility „Reisetag abschließen": öffnet den Reisetag-Dialog

@@ -36,7 +36,7 @@ import { openConsumeResourceDialog, getItemCount } from '../common/resources.js'
 // der Stammleiste (Runde-4-Entscheidung: in v1).
 import {
 	isTravelEnabled,
-	isRationTrackingEnabled,
+	isRationTrackingFor,
 	isRationItem,
 	hasTravelState,
 	getTravelStatusContext,
@@ -1452,15 +1452,17 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				// Wasserrationen: bucht 1 vom Stapel (Behälter/Stapel wie
 				// immer) und setzt den Tagesvermerk des Charakters — die
 				// eigenen Vorräte zählen beim nächsten Reisetag-Abschluss
-				// VOR der Gruppenabbuchung. Nur bei aktiver Rations-
-				// verfolgung (bei „Endlosen Ressourcen" bleibt der Weg
-				// bewusst unsichtbar), GM und Blattbesitzer, Bestand > 0,
+				// VOR der Gruppenabbuchung. v1.1: nur wenn die Kategorie des
+				// Items auch wirklich verfolgt wird (getrennte Schalter —
+				// ein Wasserrations-Item zeigt den Eintrag nur bei aktiver
+				// Wasser-Verfolgung; bei „Endlosen Ressourcen" bleibt der
+				// Weg bewusst unsichtbar), GM und Blattbesitzer, Bestand > 0,
 				// nur im Ausrüstungs-Tab (gleiche visibleEl-Regel).
 				label: 'TRAVEL.CONSUME_SELF',
 				icon: `<i class="fa-solid fa-utensils"></i>`,
 				visible: (elem) => {
 					return (
-						isRationTrackingEnabled() &&
+						isRationTrackingFor(elem.system?.resourceCategory) &&
 						isRationItem(elem) &&
 						getItemCount(elem) > 0 &&
 						elem.isOwner

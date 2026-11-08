@@ -1846,13 +1846,18 @@ SYMBAROUM.TRAVEL_TERRAIN_DISTANCE_KEY = { ambria: "ambria", davokar: "davokar", 
 SYMBAROUM.TRAVEL_MODE = {
   march: { id: "march", label: "TRAVEL.MODE_MARCH" },
   ride: { id: "ride", label: "TRAVEL.MODE_RIDE" },
+  // v1.1 (Rudolfs Testrunde): „Lager/Aufenthalt“ als eigene Mode —
+  // 0 km, keine Marsch-Konsequenzen, natürliche Heilung erlaubt
+  camp: { id: "camp", label: "TRAVEL.MODE_CAMP" },
 };
 // Tempo: Tages-/Gewalt-/Todesmarsch (dynamisch ein-/ausschaltbar im
-// Reisetag-Dialog, Rudolfs Runde-2-Entscheidung)
+// Reisetag-Dialog, Rudolfs Runde-2-Entscheidung); „camp“ ist die
+// Pseudo-Tempo-Anzeige „Lager“ (distanceFor liefert dafür 0 km)
 SYMBAROUM.TRAVEL_PACE = {
   day: { id: "day", label: "TRAVEL.PACE_DAY", rideLabel: "TRAVEL.PACE_RIDE_DAY" },
   forced: { id: "forced", label: "TRAVEL.PACE_FORCED", rideLabel: "TRAVEL.PACE_RIDE_FORCED" },
   death: { id: "death", label: "TRAVEL.PACE_DEATH", rideLabel: "TRAVEL.PACE_RIDE_DEATH" },
+  camp: { id: "camp", label: "TRAVEL.PACE_CAMP", rideLabel: "TRAVEL.PACE_CAMP" },
 };
 SYMBAROUM.TRAVEL_PACE_ORDER = ["day", "forced", "death"];
 // Tabelle 3.03a: km/Tag je Tempo × Gebiet (GRW/02.07)
