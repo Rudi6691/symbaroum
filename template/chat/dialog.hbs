@@ -11,6 +11,15 @@
     <label for="modifier-{{did}}">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="modifier-{{did}}" type="number" value="{{roll_defaults.modifier}}" data-dtype="Number"/>
   </div>
+  {{!-- S4 v1.2 (Rudolfs Testrunde 2): Hunger-Stärke-Malus UNVERÄNDERBAR —
+        gesperrte Kontextzeile (Muster Gift-Handbuch-Bonus); der Abzug
+        wirkt fix beim Submit (dialog.js), KEIN editierbares Feld mehr. --}}
+  {{#if travelStrengthPenalty}}
+  <div class="bonus">
+    <label title="{{localize "TRAVEL.STRENGTH_AUTOPARAM_HINT"}}">{{localize "TRAVEL.STRENGTH_AUTOPARAM_LABEL"}}</label>
+    <input type="text" value="-{{travelStrengthPenalty}}" data-dtype="Text" disabled/>
+  </div>
+  {{/if}}
   {{#if isWeaponRoll}}
     <div class="simplebox freeattack-row">
       <label for="freeattack-{{did}}">{{localize "DIALOG.FREE_ATTACK"}}</label><span class="lblfavour"><input type="checkbox" id="freeattack-{{did}}" unchecked></span>

@@ -56,6 +56,15 @@
     <label>{{localize "DIALOG.MODIFIER"}}</label>
     <input id="bonus" type="number" value="{{defaultModifier}}" data-dtype="Number"/>
   </div>
+  {{!-- S4 v1.2 (Rudolfs Testrunde 2): Hunger-Stärke-Malus UNVERÄNDERBAR —
+        gesperrte Kontextzeile (Muster Gift-Handbuch-Bonus); der Abzug
+        wirkt fix beim Submit (item.js), KEIN editierbares Feld mehr. --}}
+  {{#if travelStrengthPenalty}}
+  <div class="m-roll-row">
+    <label title="{{localize "TRAVEL.STRENGTH_AUTOPARAM_HINT"}}">{{localize "TRAVEL.STRENGTH_AUTOPARAM_LABEL"}}</label>
+    <input type="text" value="-{{travelStrengthPenalty}}" data-dtype="Text" disabled/>
+  </div>
+  {{/if}}
   {{!-- S4 „Tag/Reise/Ressourcen" (07.11.2026): Hinweiszeile über dem
        Gunst-Radio bei Hunger/Durst — moderner Fähigkeitswurf --}}
   {{#if travelFavourHint}}<div class="m-roll-favour travel-favour-hint"><label class="lblfavour">{{travelFavourHint}}</label></div>{{/if}}

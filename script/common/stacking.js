@@ -160,8 +160,36 @@ export async function mergeStackDrop(actor, sourceItem, containerId = null) {
 	// Einzelheiten gerundet, nie unter 1.
 	const incoming = Math.max(1, Math.round(Number(sourceItem.system?.number ?? 1) || 1));
 	const current = Math.max(1, Math.round(Number(target.system?.number ?? 1) || 1));
-	await target.update({ "system.number": current + incoming });
-	if (sourceParent instanceof Actor) {
+	// v1.2 (Rudolfs Testrunde 2, „Wegbrot 7 Teile“): Kapazitäts-Klemme —
+	// ein Ziel-Stapel mit system.maxNumber > 0 (Kapazitätsfeld am
+	// Ausrüstungsblatt, z. B. Wegbrot 3/7 oder Wasserschlauch) wird nie
+	// über die Obergrenze hinaus aufgefüllt. merged bleibt aber mindes-
+	// tens beim aktuellen Bestand (manuelle Überfüllung wird bewusst
+	// nicht geschrumpft). Der Überhang bleibt als eigener Stapel
+	// stehen: eingebettete Quelle (Aktor/Behälter) behält das Item mit
+	// Restmenge, unverpackte Quelle (Seitenleiste/Kompendium) wird als
+	// Kopie im Ziel-Aktor angelegt (Muster splitStackItem).
+	const cap = Number(target.system?.maxNumber);
+	const capacity = Number.isFinite(cap) && cap > 0 ? Math.round(cap) : null;
+	const total = current + incoming;
+	const merged = capacity === null ? total : Math.max(current, Math.min(total, capacity));
+	const leftover = total - merged;
+	await target.update({ "system.number": merged });
+	if (leftover > 0) {
+		if (sourceParent instanceof Actor) {
+			await sourceItem.update({ "system.number": leftover });
+		} else {
+			const data = sourceItem.toObject();
+			delete data._id;
+			if (data.flags?.symbaroum && "favorite" in data.flags.symbaroum) {
+				delete data.flags.symbaroum.favorite;
+			}
+			data.system = data.system ?? {};
+			data.system.number = leftover;
+			if (containerId) data.system.container = containerId;
+			await actor.createEmbeddedDocuments("Item", [data]);
+		}
+	} else if (sourceParent instanceof Actor) {
 		await sourceParent.deleteEmbeddedDocuments("Item", [sourceItem.id]);
 	}
 	// Kosmetik v1 (Rudolfs Wunsch, 27.10.2026): Stapel-/Merge-Meldung dauerhaft

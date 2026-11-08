@@ -11293,6 +11293,58 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
   color: var(--m-bad) !important;
 }
 
+/* S4 v1.2 (Rudolfs Testrunde 2, „Bestand schlägt Zähler“): Bestands-
+   Chips — neutral ab Tag 1; Bestand > 0 = eigene Tönung (Essen
+   grünlich, Wasser bläulich), Warn-Styling (m-travel-hunger/-thirst)
+   bleibt den Schwellwerten vorbehalten. */
+.m-travel-chip.m-travel-food {
+  background: rgba(111, 158, 124, 0.18);
+  color: #4d7a52;
+  border: 0.0625rem solid rgba(111, 158, 124, 0.35);
+}
+
+.m-travel-chip.m-travel-food i {
+  color: #4d7a52 !important;
+}
+
+.m-travel-chip.m-travel-water {
+  background: rgba(96, 130, 182, 0.22);
+  color: #6082b6;
+  border: 0.0625rem solid rgba(96, 130, 182, 0.35);
+}
+
+.m-travel-chip.m-travel-water i {
+  color: #6082b6 !important;
+}
+
+/* Bestands-Chips sind Buttons (Klick = 1 Ration verzehren) —
+   UA-Styles zurücksetzen, Hover-Feedback geben. */
+button.m-travel-chip {
+  font: inherit;
+  cursor: pointer;
+}
+
+button.m-travel-chip:hover {
+  filter: brightness(1.15);
+}
+
+/* S4 v1.2: rote −X-Badge am Stärke-Attribut-Chip bei akkumulierten
+   Fehlschlägen der Hungerproben (unveränderbarer Malus, siehe
+   dialog.js/item.js). */
+.m-attr-chip .m-attr-pen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  border-radius: 0.3rem;
+  padding: 0 0.2rem;
+  background: rgba(192, 85, 74, 0.25);
+  color: var(--m-bad);
+  border: 0.0625rem solid rgba(192, 85, 74, 0.45);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
 /* S4 v1.1: Warnfarbe der Kapazitaets-/Belastungs-Vorschau im
    Buchungsdialog (travel.js toggelt .travel-warn am Hinweis-Span) */
 .symbaroum.travel-dialog span.travel-warn,

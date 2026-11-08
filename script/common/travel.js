@@ -35,7 +35,7 @@
 
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
-import { consumeResource, consumeResourceFromItem, getItemCount } from './resources.js';
+import { consumeResource, consumeResourceFromItem, getItemCount, getResourceTotal, findResourceItems } from './resources.js';
 import { getEncumbranceData, getWeightCategory, formatGE } from './encumbrance.js';
 import { openGiveDialog } from './transfer.js';
 import { hasEnduringMarch } from './boon.js';
@@ -377,30 +377,68 @@ export function getHungerPenalty(actor) {
 
 /**
  * Status-Chip-Kontext für die Stammleiste des modernen Aktorblatts
- * (Runde-4-Entscheidung: in v1). null, wenn die Reiseregeln aus sind
- * oder kein Zustand aktiv ist — der Chip verschwindet dann komplett
- * (klassische Ansicht bleibt unverändert).
+ * (Runde-4-Entscheidung: in v1). v1.2 (Rudolfs Testrunde 2, „Bestand
+ * schlägt Zähler“): Die Chips zählen NEUTRAL ab Tag 1 (kein
+ * Verschwinden mehr ohne aktiven Zustand) und sitzen zwischen
+ * Eigenschaften und Geld. Zeigt der Aktor RATIONS-BESTAND im Inventar,
+ * schlägt der Bestands-Chip die Tageszählung — als Button, dessen Klick
+ * 1 Ration für den Reisetag abbucht (consumeRationFromCategory, nur
+ * Besitzer/GM). Erst ab den Schwellwerten greift das Warn-Styling
+ * (active => m-travel-hunger/-thirst). null nur, wenn die Reiseregeln
+ * aus sind oder keine Kategorie verfolgt wird (klassische Ansicht
+ * bleibt unverändert).
  */
 export function getTravelStatusContext(actor) {
 	if (!isTravelEnabled() || !actor) return null;
 	const st = getTravelState(actor);
-	if (!st.hunger && !st.thirst) return null;
-	const hungerLabel =
-		st.foodDays >= game.symbaroum.config.TRAVEL_HUNGER_DAYS
-			? F('TRAVEL.CHIP_HUNGER_STARVING', { days: st.foodDays })
-			: F('TRAVEL.CHIP_HUNGER_RATION', { days: st.rationDays });
-	return {
-		hunger: st.hunger,
-		thirst: st.thirst,
-		hungerLabel,
-		thirstLabel: F('TRAVEL.CHIP_THIRST', { days: st.waterDays }),
-		hungerTooltip: F('TRAVEL.CHIP_HUNGER_TOOLTIP', {
-			food: st.foodDays,
-			ration: st.rationDays,
-			loss: st.strengthLoss,
-		}),
-		thirstTooltip: F('TRAVEL.CHIP_THIRST_TOOLTIP', { days: st.waterDays }),
-	};
+	const bookable = !!actor.isOwner;
+	const foodStock = isFoodTrackingEnabled() ? getResourceTotal(actor, 'essensration') : 0;
+	const waterStock = isWaterTrackingEnabled() ? getResourceTotal(actor, 'wasserration') : 0;
+	const foodTooltip = F('TRAVEL.CHIP_HUNGER_TOOLTIP', {
+		food: st.foodDays,
+		ration: st.rationDays,
+		loss: st.strengthLoss,
+	});
+	const waterTooltip = F('TRAVEL.CHIP_THIRST_TOOLTIP', { days: st.waterDays });
+	let food = null;
+	if (isFoodTrackingEnabled()) {
+		const label =
+			foodStock > 0
+				? F('TRAVEL.CHIP_FOOD_STOCK', { count: foodStock })
+				: st.hunger && st.foodDays >= game.symbaroum.config.TRAVEL_HUNGER_DAYS
+					? F('TRAVEL.CHIP_HUNGER_STARVING', { days: st.foodDays })
+					: st.rationDays > 0
+						? F('TRAVEL.CHIP_HUNGER_RATION', { days: st.rationDays })
+						: F('TRAVEL.CHIP_FOOD_COUNTING', { days: st.foodDays });
+		food = {
+			active: st.hunger,
+			bookable: bookable && foodStock > 0,
+			label,
+			tooltip:
+				foodStock > 0 && bookable
+					? `${foodTooltip} · ${L('TRAVEL.CHIP_CONSUME_HINT')}`
+					: foodTooltip,
+		};
+	}
+	let water = null;
+	if (isWaterTrackingEnabled()) {
+		water = {
+			active: st.thirst,
+			bookable: bookable && waterStock > 0,
+			label:
+				waterStock > 0
+					? F('TRAVEL.CHIP_WATER_STOCK', { count: waterStock })
+					: st.thirst
+						? F('TRAVEL.CHIP_THIRST', { days: st.waterDays })
+						: F('TRAVEL.CHIP_WATER_COUNTING', { days: st.waterDays }),
+			tooltip:
+				waterStock > 0 && bookable
+					? `${waterTooltip} · ${L('TRAVEL.CHIP_CONSUME_HINT')}`
+					: waterTooltip,
+		};
+	}
+	if (!food && !water) return null;
+	return { food, water };
 }
 
 /* ----------------------------------------------------------------
@@ -440,14 +478,17 @@ export function isRationItem(item) {
  * waterDays, Essensration fedToday + foodDays UND rationDays (eine
  * verzehrte Ration zählt als volle Verpflegung).
  */
-export async function consumeRationSelfSupply(actor, item) {
-	if (!actor || !isRationItem(item)) return;
-	const category = String(item.system.resourceCategory);
-	const taken = await consumeResourceFromItem(item, 1);
-	if (taken <= 0) {
-		ui.notifications.warn(L('TRAVEL.SELF_NO_STOCK'));
-		return;
-	}
+/** v1.2 (P4, Rudolfs Testrunde 2, Variante A): Reise-Aktionen an
+ *  UNVERKNÜPFTEN Spielsteinen (actor.isToken) wirken nur lokal — der
+ *  Reisetag bucht den Welt-Aktor. Warn-Toast, die Aktion läuft
+ *  trotzdem (bewusst, damit SL/Ad-hoc-NSC nicht blockiert werden). */
+function warnUnlinkedToken(actor) {
+	if (actor?.isToken) ui.notifications.warn(L('TRAVEL.TOKEN_UNLINKED_WARN'));
+}
+
+/** v1.2: Tagesvermerk + Zähler-Reset nach einer verzehrten Ration
+ *  (gemeinsame Basis von Kontextmenü „Verzehren“ und Bestands-Chip). */
+async function applySelfSupply(actor, category, itemName) {
 	const flags = getTravelFlags(actor);
 	if (category === 'wasserration') {
 		flags.wateredToday = Math.max(1, flags.wateredToday + 1);
@@ -461,7 +502,52 @@ export async function consumeRationSelfSupply(actor, item) {
 	// merged Objekt-Keys unter flags.symbaroum.travel, kein Replace;
 	// foragedKey bleibt bewusst unangetastet)
 	await actor.update({ 'flags.symbaroum.travel': flags });
-	ui.notifications.info(F('TRAVEL.SELF_CONSUMED', { name: item.name, actor: actor.name }));
+	ui.notifications.info(F('TRAVEL.SELF_CONSUMED', { name: itemName, actor: actor.name }));
+}
+
+export async function consumeRationSelfSupply(actor, item) {
+	if (!actor || !isRationItem(item)) return;
+	// v1.2 (P4): Warnung an unverknüpften Spielsteinen — buchen trotzdem
+	warnUnlinkedToken(actor);
+	const category = String(item.system.resourceCategory);
+	const taken = await consumeResourceFromItem(item, 1);
+	if (taken <= 0) {
+		ui.notifications.warn(L('TRAVEL.SELF_NO_STOCK'));
+		return;
+	}
+	await applySelfSupply(actor, category, item.name);
+}
+
+/**
+ * v1.2 („Bestand schlägt Zähler“): Bestands-Chip-Klick am modernen
+ * Blatt — bucht 1 Ration der Kategorie vom ERSTEN Stapel mit Bestand
+ * ab (Verzehren-Fluss wie das Kontextmenü: consumeResourceFromItem,
+ * Tagesvermerk, Zähler-Reset, Toast). Der Chip-Button wird nur bei
+ * Besitz + Bestand gerendert (getTravelStatusContext.bookable); das
+ * Owner-Gate hier ist die zweite Verteidigungslinie.
+ */
+export async function consumeRationFromCategory(actor, category) {
+	const cat = String(category ?? '');
+	if (!actor || !actor.isOwner || !RATION_CATEGORIES.includes(cat)) return;
+	// v1.2 (P4): Warnung an unverknüpften Spielsteinen — buchen trotzdem
+	warnUnlinkedToken(actor);
+	const stock = getResourceTotal(actor, cat);
+	if (stock <= 0) {
+		ui.notifications.warn(L('TRAVEL.SELF_NO_STOCK'));
+		return;
+	}
+	const stacks = findResourceItems(actor, cat);
+	const item = stacks.find((s) => getItemCount(s) > 0) ?? null;
+	if (!item) {
+		ui.notifications.warn(L('TRAVEL.SELF_NO_STOCK'));
+		return;
+	}
+	const taken = await consumeResourceFromItem(item, 1);
+	if (taken <= 0) {
+		ui.notifications.warn(L('TRAVEL.SELF_NO_STOCK'));
+		return;
+	}
+	await applySelfSupply(actor, cat, item.name);
 }
 
 /** Kontextmenü „Reise-Status zurücksetzen": eigene Zähler/Vermerke
@@ -469,6 +555,8 @@ export async function consumeRationSelfSupply(actor, item) {
  *  vorräte außerhalb des Inventars). isMember bleibt stehen. */
 export async function resetTravelStatus(actor) {
 	if (!actor) return;
+	// v1.2 (P4): Warnung an unverknüpften Spielsteinen — Reset läuft trotzdem
+	warnUnlinkedToken(actor);
 	await actor.update({
 		'flags.symbaroum.travel': {
 			isMember: !!actor.getFlag(FLAG_SCOPE, 'travel.isMember'),
@@ -785,6 +873,11 @@ function readCounterEdits(html) {
 	for (const el of root.querySelectorAll('input[data-travel-counter]')) {
 		const [actorId, key] = String(el.dataset.travelCounter ?? '').split('-');
 		if (!actorId || !key) continue;
+		// v1.2 (Rudolfs Testrunde 2, Absicherung): unveränderte Eingaben
+		// überspringen (HTML-Prefill = defaultValue) — verhindert den
+		// Stale-Overwrite der Zähler, wenn der Dialog länger offen war
+		// und der Flag-Stand inzwischen woanders weitergelaufen ist.
+		if (el.value === el.defaultValue) continue;
 		const n = Number(el.value);
 		if (!Number.isFinite(n) || n < 0) continue;
 		if (!out[actorId]) out[actorId] = {};

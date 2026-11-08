@@ -167,6 +167,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   if(travelFavour.forced) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(travelFavour.labelKey) + ', ';
   }
+  // S4 v1.2 (Rudolfs Testrunde 2): Der Hunger-Stärke-Malus ist
+  // UNVERÄNDERBAR — KEINE Vorbelegung des editierbaren Modifikator-
+  // Feldes mehr, stattdessen gesperrte Dialog-Zeile (dialog.hbs /
+  // dialog-modern.hbs, Muster Gift-Handbuch-Bonus) + fixe Abziehung
+  // beim Submit (siehe unten). autoParams (Chat-Karte) bleibt.
   const travelStrengthPenalty = attributeName === 'strong' ? getHungerPenalty(actor) : 0;
   if(travelStrengthPenalty > 0) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.format('TRAVEL.STRENGTH_AUTOPARAM', { penalty: travelStrengthPenalty }) + ', ';
@@ -449,6 +454,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     // Gift v1.2 (P11): festes Handbuch-Bonus-Flag fuer die gesperrte
     // Dialog-Zeile (dialog.hbs, Muster Waffenqualitaet)
     "poisonManualBonus": poisonManualBonus,
+    // S4 v1.2: Hunger-Stärke-Malus für die gesperrte Dialog-Zeile
+    "travelStrengthPenalty": travelStrengthPenalty,
     "isArmorRoll" : armor !== null,
     "askImpeding" : askImpeding,
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
@@ -456,8 +463,10 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "attri_mods" : attri_mods,
     "roll_defaults": (elixirDazedPenalty + epilepsyPenalty + travelStrengthPenalty) > 0 || travelFavour.forced
       ? { ...attri_defaults,
-          ...(((elixirDazedPenalty + epilepsyPenalty + travelStrengthPenalty) > 0)
-            ? { modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty - epilepsyPenalty - travelStrengthPenalty }
+          // S4 v1.2: travelStrengthPenalty bewusst NICHT mehr in der
+          // Vorbelegung (unveränderbar — gesperrte Zeile + fix beim Submit)
+          ...(((elixirDazedPenalty + epilepsyPenalty) > 0)
+            ? { modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty - epilepsyPenalty }
             : {}),
           ...(travelFavour.forced ? { selectedFavour: String(travelFavour.favour) } : {}) }
       : attri_defaults,
@@ -800,6 +809,14 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               ecData.autoParams += game.i18n.localize("ARMOR.IMPEDINGLONG") + ", ";
             }            
             attri_defaults.impeding = html[0].querySelector("#impeding-"+did).checked ? "checked":"";
+          }
+          // S4 v1.2: Hunger-Stärke-Malus UNVERÄNDERBAR — fixe Abziehung
+          // beim Submit (gesperrte Dialog-Zeile statt editierbarer
+          // Vorbelegung; autoParams steht bereits aus der Vorbelegung).
+          if(travelStrengthPenalty > 0) {
+            modifier = modifier - travelStrengthPenalty;
+            ecData.modifier += -travelStrengthPenalty;
+            attri_defaults.modifier = modifier;
           }
           if(askIgnoreArmor){
             ignoreArm = html[0].querySelector("#ignarm-"+did).checked;

@@ -949,6 +949,14 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			 * undefined/NaN/Negativ fallen auf den Anzeige-Fallback 1
 			 * zurueck (Alt-Items). */
 			numberDisplay: Number(item.system.number) >= 0 ? item.system.number : 1,
+			/* S4 v1.2 (Rudolfs Freigabe 08.11.): Kapazitätsfeld
+			 * (system.maxNumber) am Ausrüstungs-Kopf — nur bei
+			 * Ausrüstung MIT gesetzter Ressourcen-Kategorie (Rationen,
+			 * z. B. Wasserschlauch / Wegbrot); 0 = unbegrenzt.
+			 * Persistiert über submitOnChange (name-Attribut, Muster
+			 * system.number). */
+			showCapacity: type === 'equipment' && String(item.system?.resourceCategory ?? '') !== '',
+			maxNumberDisplay: Number(item.system?.maxNumber) >= 0 ? item.system?.maxNumber : 0,
 			weightTooltipKey: type === 'armor' ? 'WEIGHT.TOOLTIP_ARMOR' : 'WEIGHT.TOOLTIP',
 		};
 		/* Kopf-Zeile 2 (Booleans fertig berechnet - A6-Lernweis: Handlebars

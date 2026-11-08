@@ -94,16 +94,6 @@
             <div class="m-mark m-mark-red" style="left: {{modern.corruption.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.CORRUPTION_THRESHOLD"}}: {{modern.corruption.threshold}}"></div>
             {{/unless}}
         </div>
-        {{!-- S4 „Tag/Reise/Ressourcen" (Runde-4-Entscheidung: in v1): Reise-
-            Status-Chips (Hunger/Durst) unter den Vitalen, nur bei aktiven
-            Reiseregeln UND aktivem Zustand (player.js liefert null =>
-            Chip komplett weg). Tooltips führen die Zählerstände auf. --}}
-        {{#if modern.travel}}
-        <div class="m-travel-chip-row">
-            {{#if modern.travel.hunger}}<span class="m-travel-chip m-travel-hunger" data-tooltip="{{{modern.travel.hungerTooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.hungerLabel}}</span>{{/if}}
-            {{#if modern.travel.thirst}}<span class="m-travel-chip m-travel-thirst" data-tooltip="{{{modern.travel.thirstTooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.thirstLabel}}</span>{{/if}}
-        </div>
-        {{/if}}
     </div>
 
     {{!-- Kosmetik v1 (Rudolfs Wunsch, 30.10.): Die Chip-Klicks WÜRFELN die
@@ -125,9 +115,35 @@
         <button type="button" class="m-attr-chip attrDragM" data-attribute="{{a.key}}" data-tooltip="{{{a.tooltip}}}">
             <span class="v">{{a.display}}</span>
             <span class="l">{{a.abbr}}</span>
+            {{#if a.hungerPenalty}}<span class="m-attr-pen">−{{a.hungerPenalty}}</span>{{/if}}
         </button>
         {{/each}}
     </div>
+
+    {{!-- S4 v1.2 (Rudolfs Testrunde 2): Reise-Chips zwischen Eigenschaften
+        und Geld — zählen NEUTRAL ab Tag 1 („Bestand schlägt Zähler“):
+        Bestand > 0 = Bestands-Chip, Klick (nur Besitzer/GM) bucht 1 Ration
+        für den Reisetag ab (player.js-Listener -> travel.js); Bestand 0 =
+        Tageszählung, Warn-Styling (m-travel-hunger/-thirst) erst ab den
+        Schwellwerten. Tooltips führen die Zählerstände auf. --}}
+    {{#if modern.travel}}
+    <div class="m-travel-chip-row">
+        {{#if modern.travel.food}}
+        {{#if modern.travel.food.bookable}}
+        <button type="button" class="m-travel-chip{{#if modern.travel.food.active}} m-travel-hunger{{else}} m-travel-food{{/if}}" data-travel-consume="essensration" data-tooltip="{{{modern.travel.food.tooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.food.label}}</button>
+        {{else}}
+        <span class="m-travel-chip{{#if modern.travel.food.active}} m-travel-hunger{{else}} m-travel-food{{/if}}" data-tooltip="{{{modern.travel.food.tooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.food.label}}</span>
+        {{/if}}
+        {{/if}}
+        {{#if modern.travel.water}}
+        {{#if modern.travel.water.bookable}}
+        <button type="button" class="m-travel-chip{{#if modern.travel.water.active}} m-travel-thirst{{else}} m-travel-water{{/if}}" data-travel-consume="wasserration" data-tooltip="{{{modern.travel.water.tooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.water.label}}</button>
+        {{else}}
+        <span class="m-travel-chip{{#if modern.travel.water.active}} m-travel-thirst{{else}} m-travel-water{{/if}}" data-tooltip="{{{modern.travel.water.tooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.water.label}}</span>
+        {{/if}}
+        {{/if}}
+    </div>
+    {{/if}}
 
     <div class="m-sec-label">{{localize "TITLE.MONEY"}}</div>
     <button type="button" class="m-money-btn{{#unless editable}} m-readonly{{/unless}}" data-tooltip="{{localize "MODERN.MONEY_HINT"}}">

@@ -41,7 +41,9 @@ import {
 	hasTravelState,
 	getTravelStatusContext,
 	consumeRationSelfSupply,
+	consumeRationFromCategory,
 	resetTravelStatus,
+	getHungerPenalty,
 } from '../common/travel.js';
 // Elixier-Automatisierung v1: Kontextmenü-Eintrag „Elixier verwenden“
 import { useElixir, isAlchemical } from '../common/elixirs.js';
@@ -539,6 +541,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		const attributes = [];
 		for (const [key, a] of Object.entries(live.attributes)) {
 			if (!a?.label) continue;
+			/* S4 v1.2 (Rudolfs Testrunde 2): Hunger-Stärke-Malus am
+			   Stärke-Chip — rote −X-Badge (sidebar.hbs) + Tooltip-Zeile.
+			   Der Malus selbst ist UNVERÄNDERBAR (gesperrte Dialog-Zeile
+			   in dialog.hbs/item.js, Muster „Waffenqualität“). */
+			const hungerPenalty = key === 'strong' ? getHungerPenalty(this.actor) : 0;
+			const attrTooltip = a.msg ?? `${localize(a.label)}: ${a.total}`;
 			attributes.push({
 				key,
 				abbr: localize(`${a.label}ABBR`),
@@ -546,7 +554,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				total: a.total,
 				modifier: a.modifier,
 				display: isNPC && showMods ? `${a.modifier > 0 ? '+' : ''}${a.modifier}` : String(a.total),
-				tooltip: a.msg ?? `${localize(a.label)}: ${a.total}`,
+				tooltip: hungerPenalty > 0
+					? `${attrTooltip} · ${localize('TRAVEL.STRENGTH_AUTOPARAM_LABEL')} −${hungerPenalty}`
+					: attrTooltip,
+				hungerPenalty,
 			});
 		}
 
@@ -681,6 +692,15 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				...extra,
 			};
 		};
+		/* S4 v1.2 („x / y“ bei Kapazitäts-Items): Gear-Zeilen zeigen
+		   „n / max“ statt „× N“, wenn system.maxNumber > 0 gesetzt ist
+		   (Kapazitätsfeld am Ausrüstungsblatt, z. B. Wegbrot 3 / 7);
+		   ohne Kapazität bleibt „× N“ unverändert. */
+		const countDisplay = (rawItem) => {
+			const n = Math.max(1, Math.round(Number(rawItem?.system?.number ?? 1) || 1));
+			const max = Number(rawItem?.system?.maxNumber);
+			return Number.isFinite(max) && max > 0 ? `${n} / ${max}` : `× ${n}`;
+		};
 		const gear = { armors: [], weapons: [], equipments: [], artifacts: [], containers: [], rezepturen: [] };
 		/* Behältersystem v1: Items in einem (gültigen) Behälter erscheinen nur
 		   als Kinderzeile des Behälters, nie zusätzlich in den Einzelgruppen.
@@ -726,9 +746,9 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			   zeigen deshalb "× 1"; Ausrüstung mit Artefakt-Checkbox behält
 			   ihre Anzahl. */
 			if (s.isArtifact) {
-				gear.artifacts.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
+				gear.artifacts.push(gearRow(item.id, item.name, item.img, countDisplay(item), item));
 			} else if (s.isEquipment) {
-				gear.equipments.push(gearRow(item.id, item.name, item.img, `× ${s.number ?? 1}`, item));
+				gear.equipments.push(gearRow(item.id, item.name, item.img, countDisplay(item), item));
 			}
 		}
 		/* Brauen v1.1 (B1, Rudolfs Paket-2-Freigabe): eigene Gruppe
@@ -794,7 +814,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 						isContainer: false,
 						weightDisplay: w.display,
 						weightTooltip: w.tooltip,
-						sub: rz ? rz.sub : `× ${Math.max(1, Math.round(Number(child.system.number ?? 1) || 1))}`,
+						sub: rz ? rz.sub : countDisplay(child),
 					});
 				}
 			}
@@ -958,10 +978,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			money,
 			attributes,
 			gauge,
-			/* S4 „Tag/Reise/Ressourcen" (Runde-4-Entscheidung: Reise-
-			   Status-Chip in v1): Hunger-/Durst-Chip am Stammleisten-Kopf,
-			   null (Chip unsichtbar), wenn die Reiseregeln aus sind oder
-			   kein Zustand aktiv ist. */
+			/* S4 v1.2 (Rudolfs Testrunde 2): Reise-Chips zählen NEUTRAL ab
+			   Tag 1 („Bestand schlägt Zähler“) und sitzen zwischen
+			   Eigenschaften und Geld — null nur, wenn die Reiseregeln aus
+			   sind oder keine Kategorie verfolgt wird. */
 			travel: getTravelStatusContext(this.actor),
 			powerGroups,
 			powerTraditionFilter,
@@ -1197,6 +1217,21 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				const attributeName = chip?.dataset.attribute;
 				if (attributeName) {
 					prepareRollAttribute(this.actor, attributeName, null, null);
+				}
+			});
+		}
+		// S4 v1.2 („Bestand schlägt Zähler“): Bestands-Chips (Essen/
+		// Wasser) — Klick bucht 1 Ration der Kategorie für den
+		// Reisetag ab (travel.js übernimmt Gate/Bestand/Vermerk/Toast;
+		// der Button wird nur bei Besitz + Bestand gerendert).
+		const travelChips = element.querySelectorAll('[data-travel-consume]');
+		for (const s of travelChips) {
+			s.addEventListener('click', (ev) => {
+				ev.preventDefault();
+				const chip = ev.target.closest?.('[data-travel-consume]');
+				const category = chip?.dataset.travelConsume;
+				if (category) {
+					consumeRationFromCategory(this.actor, category);
 				}
 			});
 		}

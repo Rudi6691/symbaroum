@@ -3628,8 +3628,13 @@ export async function modifierDialog(functionStuff) {
     hasRoll && !functionStuff.askCastingAttribute && functionStuff.castingAttributeName === "strong"
       ? getHungerPenalty(functionStuff.actor)
       : 0;
+  // S4 v1.2 (Rudolfs Testrunde 2): Der Hunger-Stärke-Malus ist
+  // UNVERÄNDERBAR — KEINE Vorbelegung des editierbaren Modifikator-
+  // Feldes mehr (functionStuff.modifier unangetastet), stattdessen
+  // gesperrte Dialog-Zeile (dialog2.hbs/dialog2-modern.hbs, Muster
+  // Gift-Handbuch-Bonus) + fixe Abziehung beim Submit (siehe unten).
+  // autoParams (Chat-Karte) bleibt wie gehabt.
   if (travelStrengthPenalty > 0) {
-    functionStuff.modifier = (Number(functionStuff.modifier) || 0) - travelStrengthPenalty;
     functionStuff.autoParams += game.i18n.format("TRAVEL.STRENGTH_AUTOPARAM", { penalty: travelStrengthPenalty }) + ", ";
   }
   // Gift v1.1 (Rudolfs P9): Das Handbuch-+1 des Giftmischers wird
@@ -3798,6 +3803,8 @@ export async function modifierDialog(functionStuff) {
     // Gift v1.2 (P11): festes Handbuch-Bonus-Flag fuer die gesperrte
     // Dialog-Zeile (dialog2.hbs, Muster Waffenqualitaet)
     poisonManualBonus: poisonManualBonus,
+    // S4 v1.2: Hunger-Stärke-Malus für die gesperrte Dialog-Zeile
+    travelStrengthPenalty: travelStrengthPenalty,
     hasRoll: hasRoll,
     boon_lines: boon_lines
   });
@@ -3909,6 +3916,12 @@ export async function modifierDialog(functionStuff) {
               }
               functionStuff.boonLineChain.push({ boonName: line.boonName, bonus: line.bonus });
               functionStuff.modifier += line.bonus;
+            }
+            // S4 v1.2: Hunger-Stärke-Malus UNVERÄNDERBAR — fixe Abziehung
+            // beim Submit (gesperrte Dialog-Zeile, kein editierbares Feld;
+            // autoParams steht bereits aus der Vorbelegung oben).
+            if (travelStrengthPenalty > 0) {
+              functionStuff.modifier += -travelStrengthPenalty;
             }
           }
 
