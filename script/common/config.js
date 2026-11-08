@@ -1822,3 +1822,56 @@ SYMBAROUM.WEAPON_DAMAGE_SELECTION = {
     label: "1d12",
   },
 };
+
+/* ==================================================================
+   S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe „Baue es",
+   07.11.2026): Konstanten der Reiseregeln — GMG-Tabelle 3.03a
+   (Reisestrecke und -zeit), Tempo-/Gebiets-Listen für den
+   Etappenrechner im Reisetag-Dialog. Wilde Davokar nutzt die Werte
+   des Hellen (RAW-Tabelle kennt keine eigene Wilde-Spalte).
+   ================================================================== */
+// Gebiete: id = Kanonik für Distanz-Lookup (wilder → Werte von davokar)
+SYMBAROUM.TRAVEL_TERRAIN = {
+  ambria: { id: "ambria", label: "TRAVEL.TERRAIN_AMBRIA" },
+  davokar: { id: "davokar", label: "TRAVEL.TERRAIN_DAVOKAR" },
+  wild: { id: "wild", label: "TRAVEL.TERRAIN_WILD" },
+  dark: { id: "dark", label: "TRAVEL.TERRAIN_DARK" },
+};
+// Distanz-Lookup des Hellen/Wilden Davokar (Terrain-Reihenfolge der
+// Distanz-Objekte: ambria / davokar / dark — wild läuft über davokar)
+SYMBAROUM.TRAVEL_TERRAIN_ORDER = ["ambria", "davokar", "dark"];
+SYMBAROUM.TRAVEL_TERRAIN_DISTANCE_KEY = { ambria: "ambria", davokar: "davokar", wild: "davokar", dark: "dark" };
+// Fortbewegung: Marsch oder Ritt (Ritt-Zeilen der vollen 3.03a,
+// Rudolfs Runde-4-Entscheidung)
+SYMBAROUM.TRAVEL_MODE = {
+  march: { id: "march", label: "TRAVEL.MODE_MARCH" },
+  ride: { id: "ride", label: "TRAVEL.MODE_RIDE" },
+};
+// Tempo: Tages-/Gewalt-/Todesmarsch (dynamisch ein-/ausschaltbar im
+// Reisetag-Dialog, Rudolfs Runde-2-Entscheidung)
+SYMBAROUM.TRAVEL_PACE = {
+  day: { id: "day", label: "TRAVEL.PACE_DAY", rideLabel: "TRAVEL.PACE_RIDE_DAY" },
+  forced: { id: "forced", label: "TRAVEL.PACE_FORCED", rideLabel: "TRAVEL.PACE_RIDE_FORCED" },
+  death: { id: "death", label: "TRAVEL.PACE_DEATH", rideLabel: "TRAVEL.PACE_RIDE_DEATH" },
+};
+SYMBAROUM.TRAVEL_PACE_ORDER = ["day", "forced", "death"];
+// Tabelle 3.03a: km/Tag je Tempo × Gebiet (GRW/02.07)
+SYMBAROUM.TRAVEL_DISTANCE = {
+  march: {
+    day: { ambria: 20, davokar: 20, dark: 10 },
+    forced: { ambria: 40, davokar: 30, dark: 15 },
+    death: { ambria: 60, davokar: 40, dark: 20 },
+  },
+  ride: {
+    day: { ambria: 40, davokar: 30, dark: 10 },
+    forced: { ambria: 60, davokar: 45, dark: 15 },
+    death: { ambria: 70, davokar: 50, dark: 20 },
+  },
+};
+// Flussfahrt-Option: Gebiet eine Stufe einfacher (ambria bleibt ambria)
+SYMBAROUM.TRAVEL_RIVER_EASIER = { dark: "davokar", davokar: "ambria", wild: "davokar", ambria: "ambria" };
+// Hunger-/Durst-Schwellen (GMG 02.07): 5 Tage ohne Nahrung, 10 Tage auf
+// halber Ration, 3 Tage ohne Wasser
+SYMBAROUM.TRAVEL_HUNGER_DAYS = 5;
+SYMBAROUM.TRAVEL_RATION_DAYS = 10;
+SYMBAROUM.TRAVEL_THIRST_DAYS = 3;

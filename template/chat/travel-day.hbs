@@ -1,0 +1,91 @@
+{{!-- S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe „Baue es", 07.11.2026):
+      EINE Chat-Karte je abgeschlossenem Reisetag(e)-Abschluss — Kopf mit
+      Tageszahl, km laut Etappenrechner (Tabelle 3.03a), Tempo und Ration-
+      Modus; je Reisendem eine Zeile mit Buchung/Zählerstand; GM-Anwendungs-
+      Knöpfe für die täglichen Konsequenzen (Hunger-, Durst- und Strapazen-
+      Probe). Bewusst KEIN Auto-Tod: jede Anwendung klickt die SL.
+      Probe-Knöpfe öffnen die bestehende Stärke-Wurfmaschinerie (mit
+      Hunger-Missgunst-Vorbelegung aus dialog.js), Apply-Knöpfe sind
+      rein GM (travel.js entfernt sie bei Spielern). --}}
+<div class="symbaroum chat roll travel-day-card">
+    <div class="foreground">
+        <h3>{{localize "TRAVEL.CARD_TITLE" days=days}}</h3>
+        <div class="travel-day-head">
+            <span><i class="fas fa-route"></i> {{km}} {{localize "TRAVEL.KM_TOTAL"}}</span>
+            <span><i class="fas fa-gauge-high"></i> {{modeLabel}} &middot; {{paceLabel}}</span>
+            <span><i class="fas fa-basket-shopping"></i> {{rationLabel}}</span>
+        </div>
+        {{#if enduringGroup}}
+        <p class="travel-day-enduring">{{localize "TRAVEL.CARD_ENDURING_GROUP"}}</p>
+        {{/if}}
+        <table class="travel-day-table">
+            <tr>
+                <th>{{localize "TRAVEL.CARD_ACTOR"}}</th>
+                <th>{{localize "TRAVEL.CARD_BOOKING"}}</th>
+                <th>{{localize "TRAVEL.CARD_STATE"}}</th>
+            </tr>
+            {{#each actors}}
+            <tr class="travel-day-actor{{#if state.hunger}} travel-hungry{{/if}}{{#if state.thirst}} travel-thirsty{{/if}}">
+                <td class="travel-day-name">
+                    <img class="portrait" src="{{img}}"/>
+                    <span class="travel-day-actorname">{{name}}</span>
+                    {{#if enduring}}<i class="fa-solid fa-person-hiking" title="{{localize "TRAVEL.CARD_ENDURING"}}"></i>{{/if}}
+                </td>
+                <td class="travel-day-booking">
+                    {{#if ../rationTracking}}
+                        {{#if summary.suppliedFood}}<span class="travel-ok">{{localize "TRAVEL.CARD_FED_SUPPLIED"}}</span>{{/if}}
+                        {{#if summary.food}}<span class="travel-ok">{{localize "TRAVEL.CARD_FED" count=summary.food}}</span>{{/if}}
+                        {{#if summary.foodWarn}}<span class="travel-warn">{{localize "TRAVEL.CARD_NO_FOOD" count=summary.foodWarn}}</span>{{/if}}
+                        {{#if summary.suppliedWater}}<span class="travel-ok">{{localize "TRAVEL.CARD_WATERED_SUPPLIED"}}</span>{{/if}}
+                        {{#if summary.water}}<span class="travel-ok">{{localize "TRAVEL.CARD_WATERED" count=summary.water}}</span>{{/if}}
+                        {{#if summary.waterWarn}}<span class="travel-warn">{{localize "TRAVEL.CARD_NO_WATER" count=summary.waterWarn}}</span>{{/if}}
+                        {{#unless summary.suppliedFood}}{{#unless summary.food}}{{#unless summary.foodWarn}}<span class="travel-dim">{{localize "TRAVEL.CARD_RATION_SAVED"}}</span>{{/unless}}{{/unless}}{{/unless}}
+                    {{else}}
+                        <span class="travel-dim">{{localize "TRAVEL.CARD_NO_TRACKING"}}</span>
+                    {{/if}}
+                </td>
+                <td class="travel-day-state">
+                    {{#if state.hunger}}<span class="travel-chip travel-hunger">{{state.hungerLabel}}</span>{{/if}}
+                    {{#if state.thirst}}<span class="travel-chip travel-thirst">{{state.thirstLabel}}</span>{{/if}}
+                    {{#unless state.hunger}}{{#unless state.thirst}}<span class="travel-dim">{{localize "TRAVEL.CARD_FED_OK"}}</span>{{/unless}}{{/unless}}
+                    {{#if toughLoss}}<span class="travel-chip travel-tough">{{localize "TRAVEL.CARD_TOUGH_LOSS" count=toughLoss}}</span>{{/if}}
+                    {{#if summary.deathBlocked}}<span class="travel-warn">{{localize "TRAVEL.CARD_DEATH_BLOCKED"}}</span>{{/if}}
+                </td>
+            </tr>
+            {{/each}}
+        </table>
+        <div class="travel-day-actions">
+            {{#each actors}}
+            <div class="travel-day-actionrow">
+                <span class="travel-day-actionname"><img class="portrait" src="{{img}}"/> {{name}}</span>
+                {{#if state.hunger}}
+                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_HUNGER"}}</button>
+                <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="hungerFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_HUNGER_FAIL"}}</button>
+                {{/if}}
+                {{#if state.thirst}}
+                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_THIRST"}}</button>
+                <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="thirstFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_THIRST_FAIL"}}</button>
+                {{/if}}
+                {{#if deathProbe}}
+                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_DEATHMARCH"}}</button>
+                <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="deathFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_DEATH_FAIL"}}</button>
+                <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="accident"><i class="fas fa-skull"></i> {{localize "TRAVEL.CARD_APPLY_ACCIDENT"}}</button>
+                {{/if}}
+                {{#if summary.worsened}}
+                <span class="travel-warn">{{localize "TRAVEL.CARD_PACE_WORSENED"}}</span>
+                {{/if}}
+                {{#if summary.probeMalus}}
+                <span class="travel-warn">{{localize "TRAVEL.CARD_PROBE_MALUS" malus=summary.probeMalus}}</span>
+                {{/if}}
+                {{#if summary.noHealing}}
+                <span class="travel-dim">{{localize "TRAVEL.CARD_NO_HEALING"}}</span>
+                {{/if}}
+                {{#if enduring}}{{#if summary.noHealing}}
+                <span class="travel-ok">{{localize "TRAVEL.CARD_ENDURING_HEAL"}}</span>
+                {{/if}}{{/if}}
+            </div>
+            {{/each}}
+        </div>
+        <p class="travel-day-footnote">{{localize "TRAVEL.CARD_FOOTNOTE"}}</p>
+    </div>
+</div>

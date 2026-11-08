@@ -51,6 +51,10 @@
     <label>{{localize "DIALOG.MODIFIER"}}</label>
     <input id="bonus" type="number" value="{{defaultModifier}}" data-dtype="Number"/>
   </div>
+  {{!-- S4 „Tag/Reise/Ressourcen" (07.11.2026): Hinweiszeile über dem
+       Gunst-Radio bei Hunger/Durst — Fähigkeitswurf (item.js liefert
+       travelFavourHint + travelDefaultFavour als Radio-Vorbelegung) --}}
+  {{#if travelFavourHint}}<div class="favour travel-favour-hint"><label class="lblfavour">{{travelFavourHint}}</label></div>{{/if}}
   <div class="favour">
     <label class="lblfavour">{{radioBoxes groupName choices checked=defaultFavour localize=true}}</label>
   </div>

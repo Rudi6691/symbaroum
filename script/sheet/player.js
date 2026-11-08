@@ -30,6 +30,19 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 // (resourceCategory) ohne System-Trigger - Alchemiezutat bis zum Brau-Dialog
 // des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
 import { openConsumeResourceDialog, getItemCount } from '../common/resources.js';
+// S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026):
+// Selbstversorgung („Verzehren — für den Reisetag versorgt" am Rations-
+// stapel), Reise-Status-Reset am eigenen Blatt und der Reise-Status-Chip
+// der Stammleiste (Runde-4-Entscheidung: in v1).
+import {
+	isTravelEnabled,
+	isRationTrackingEnabled,
+	isRationItem,
+	hasTravelState,
+	getTravelStatusContext,
+	consumeRationSelfSupply,
+	resetTravelStatus,
+} from '../common/travel.js';
 // Elixier-Automatisierung v1: Kontextmenü-Eintrag „Elixier verwenden“
 import { useElixir, isAlchemical } from '../common/elixirs.js';
 // Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2 + Freigabe 05.11.): Der
@@ -945,6 +958,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			money,
 			attributes,
 			gauge,
+			/* S4 „Tag/Reise/Ressourcen" (Runde-4-Entscheidung: Reise-
+			   Status-Chip in v1): Hunger-/Durst-Chip am Stammleisten-Kopf,
+			   null (Chip unsichtbar), wenn die Reiseregeln aus sind oder
+			   kein Zustand aktiv ist. */
+			travel: getTravelStatusContext(this.actor),
 			powerGroups,
 			powerTraditionFilter,
 			gear,
@@ -1426,6 +1444,54 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openConsumeResourceDialog(this._ctxItem(elem));
+				},
+			},
+			{
+				// S4 „Tag/Reise/Ressourcen" (Rudolfs Runde-2-Vorgabe):
+				// „Verzehren — für den Reisetag versorgt" an Essens-/
+				// Wasserrationen: bucht 1 vom Stapel (Behälter/Stapel wie
+				// immer) und setzt den Tagesvermerk des Charakters — die
+				// eigenen Vorräte zählen beim nächsten Reisetag-Abschluss
+				// VOR der Gruppenabbuchung. Nur bei aktiver Rations-
+				// verfolgung (bei „Endlosen Ressourcen" bleibt der Weg
+				// bewusst unsichtbar), GM und Blattbesitzer, Bestand > 0,
+				// nur im Ausrüstungs-Tab (gleiche visibleEl-Regel).
+				label: 'TRAVEL.CONSUME_SELF',
+				icon: `<i class="fa-solid fa-utensils"></i>`,
+				visible: (elem) => {
+					return (
+						isRationTrackingEnabled() &&
+						isRationItem(elem) &&
+						getItemCount(elem) > 0 &&
+						elem.isOwner
+					);
+				},
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					consumeRationSelfSupply(this.actor, this._ctxItem(elem));
+				},
+			},
+			{
+				// S4 (Rudolfs Runde-2-Vorgabe: „für sich Flags zurücksetzen
+				// (Hunger-Flag, z. B.)"): „Reise-Status zurücksetzen" an
+				// Rations-Items — Zähler/Vermerke OHNE Buchung auf 0
+				// (Rollenspiel-Mahlzeiten, Gruppenvorräte außerhalb des
+				// Inventars; SL-Vertrauen wie beim Charakterbogen). Nur
+				// bei aktiven Reiseregeln UND wenn überhaupt ein Status
+				// steht; isMember bleibt unberührt.
+				label: 'TRAVEL.RESET_STATUS_MENU',
+				icon: `<i class="fa-solid fa-rotate-left"></i>`,
+				visible: (elem) => {
+					return (
+						isTravelEnabled() &&
+						isRationItem(elem) &&
+						hasTravelState(this.actor) &&
+						elem.isOwner
+					);
+				},
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					resetTravelStatus(this.actor);
 				},
 			},
 			{

@@ -15,6 +15,14 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 import { consumeAmmoForAttack, getAmmoEffectTotal, consumeAmmoEffectForAttack } from './ammo.js';
 // Elixier-Automatisierung v1: Benommen-Malus (Nebelball) als Dialog-Vorbelegung
 import { getDazedPenalty } from './elixirs.js';
+// S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026): Hunger/
+// Durst-Missgunst als VORBELEGUNG des Gunst-Radios (Muster Todesprobe/
+// getDeathTestFavour: Vorauswahl, NICHT verriegelt) + Hunger-Stärke-Malus
+// als Modifikator-Vorbelegung (Muster Benommen/Epilepsie) in JEDEM
+// Eigenschafts-Würfeldialog. Import-Zykel dialog.js ↔ travel.js ist
+// Laufzeit-sicher (beide Seiten nur Funktionsdeklarationen, Aufruf erst
+// zur Laufzeit — gleiche Prämisse wie item.js ↔ boon.js).
+import { getTravelTestFavour, getHungerPenalty } from './travel.js';
 // Elixiere v1.5: Gift-Beschichtung - Bestandspruefung der Dosis-Stapel
 import { getItemCount } from './resources.js';
 
@@ -143,6 +151,25 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   const epilepsyPenalty = getEpilepsyPenalty(actor);
   if(epilepsyPenalty > 0) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.format('EPILEPSY.AUTOPARAM', { penalty: epilepsyPenalty }) + ', ';
+  }
+  // S4 „Tag/Reise/Ressourcen" (07.11.2026): Hunger (≥5 Tage ohne / ≥10
+  // Tage halbe Ration) und Durst (≥3 Tage ohne Wasser) geben auf ALLEN
+  // Proben mit zwei Chancen zu scheitern automatisch MISSGUNST — als
+  // VORBELEGUNG des Gunst-Radios, bewusst manuell übersteuerbar (Rudolfs
+  // Runde-1-Wortlaut „1 und Hinweiszeile im Würfeldialog": Vorauswahl
+  // wie bei der Todesprobe PLUS Hinweiszeile über dem Radio). Die
+  // Todesprobe läuft bewusst NICHT hier (eigener Wurfpfad, S3).
+  // Der Stärke-Malus scheiternder Hunger-Proben greift nur in Stärke-
+  // probes (RAW: Stärke sinkt, nicht andere Eigenschaften) und läuft
+  // wie Benommen/Epilepsie über die KOPIE in roll_defaults — KEIN
+  // In-place-Mutation der gecachten Defaults (sonst Akkumulation).
+  const travelFavour = getTravelTestFavour(actor);
+  if(travelFavour.forced) {
+    ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(travelFavour.labelKey) + ', ';
+  }
+  const travelStrengthPenalty = attributeName === 'strong' ? getHungerPenalty(actor) : 0;
+  if(travelStrengthPenalty > 0) {
+    ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.format('TRAVEL.STRENGTH_AUTOPARAM', { penalty: travelStrengthPenalty }) + ', ';
   }
   let askImpeding = actor.system.combat.impeding !== 0 && weapon === null && armor === null;
   let weaponModifiers = null;
@@ -427,7 +454,16 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
     "groupName":"favour",
     "attri_mods" : attri_mods,
-    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 ? { ...attri_defaults, modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty - epilepsyPenalty } : attri_defaults,
+    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty + travelStrengthPenalty) > 0 || travelFavour.forced
+      ? { ...attri_defaults,
+          ...(((elixirDazedPenalty + epilepsyPenalty + travelStrengthPenalty) > 0)
+            ? { modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty - epilepsyPenalty - travelStrengthPenalty }
+            : {}),
+          ...(travelFavour.forced ? { selectedFavour: String(travelFavour.favour) } : {}) }
+      : attri_defaults,
+    // S4: Hinweiszeile über dem Gunst-Radio (4 Templates, Muster
+    // dialog-deathtest.hbs deathMod-Zeile) — bereits lokalisierter Text
+    "travelFavourHint": travelFavour.forced ? game.i18n.localize(travelFavour.labelKey) : null,
     "askAttackNb": askAttackNb,
     "attNbRadio": "attNbRadio",
     "targetAttribute_selection":targetAttribute_selection,

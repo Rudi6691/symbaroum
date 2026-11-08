@@ -30,7 +30,12 @@ import { registerLootSettings, registerLootRuntimeHooks } from './loot.js';
 // leben in resources.js (Verbraucher-Registry, Medicus-Abbuchung beim
 // Wurf, Kontextmenue-Dialog „Ressource verbrauchen")
 import { registerResourceSettings } from './resources.js';
-// Munitionsverbrauch v1: Welt-Settings „Munitionsverbrauch"/„Bergungsoption"
+// S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026): Reise-
+// Settings (Master „Reiseregeln" + „Rationsverfolgung", symbaroumConfig-
+// GM-Seite) + Runtime-Hooks (updateWorldTime-Tageswechsel, Akteur-
+// Kontextmenü, Chat-Karten-Buttons, Buschwissen-Ertrag). Engine: travel.js.
+import { registerTravelSettings, setupTravelRuntime } from './travel.js';
+// Munitionsverbrauch v1: Welt-Settings „Munitionsverbrauch“/„Bergungsoption“
 // (GM, world, Default AUS, Registration direkt nach den Ressourcen-Settings)
 // + Runtime-Hooks (Bergungs-Karte beim Kampfende, Bergungs-Button in der
 // Chat-Karte) - Abbuchung/Pre-Flight/Recovery leben in ammo.js
@@ -552,6 +557,16 @@ Hooks.once('init', () => {
 	// Buchung, Default bleibt der RAW-Modus).
 	registerBrewSettings();
 
+	// S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026): Welt-
+	// Settings „Reiseregeln" (Master, Default AUS) + „Rationsverfolgung"
+	// (Default AUS = „Endlose Ressourcen", Essen UND Wasser gemeinsam,
+	// umschaltbar über das GM-Utility-Makro) - bewusst DIRECT UNTER den
+	// Brau-Settings registriert (gleiche Foundry-Einstellungsliste wie
+	// lootEnabled*/resourceConsumption/ammo*/brew*, Reihenfolge =
+	// Registrierungsreihenfolge, Rudolfs Runde-1-Entscheidung „symbaroum-
+	// Config-GM-Seite" = config:true + restricted:true).
+	registerTravelSettings();
+
 	// Traditionen v1: Bekannte Traditionen der Welt (Array von Traditions-
 	// Ids, config:false — gepflegt über den eigenen Konfigurations-Dialog
 	// darunter). Steuert NUR, welche Traditionen in Dropdowns/Chips/Filtern
@@ -615,6 +630,11 @@ Hooks.once('ready', () => {
 	// Loot v1: Runtime-Hooks des Loot-Prozesses (HUD, Tod-Automatik,
 	// Klick-Interception, Canvas-Drop) + 'loot*'-Socket-Nachrichten
 	registerLootRuntimeHooks();
+	// S4 „Tag/Reise/Ressourcen": Laufzeit-Hooks der Reise-Engine —
+	// updateWorldTime-Tageswechsel (Tag-Schlüssel-Vergleich, SL-Dialog,
+	// NIEMALS Auto-Abbuchung), Akteur-Kontextmenü (Reisegruppe-Flag),
+	// Chat-Karten-Buttons der Tageskarte + Buschwissen-Ertrag.
+	setupTravelRuntime();
 	// Munitionsverbrauch v1.2: Bergen-Laufzeit ENTFERNT (Rudolfs Punkt-11-
 	// Entscheidung: Zaehler, preDeleteCombat-Karte, GM-Anwendungskarte,
 	// 'ammoTrack'-Socket fielen weg); Bergen laeuft jetzt ueber das

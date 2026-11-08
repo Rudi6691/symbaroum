@@ -31,6 +31,12 @@ import { getBoonRollConfig } from "./boon.js";
 // Kräfte-/Fähigkeits-Würfeldialog (Typ B + B/G „Zweite Chance“ mit
 // Radio-Exklusivität) — Kanonik und Helfer in boon.js
 import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty, hasPoisonResilient, hasPoisonManual } from "./boon.js";
+// S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026):
+// Hunger/Durst-Missgunst als Radio-VORBELEGUNG + Hunger-Stärke-Malus
+// als Modifikator-Vorbelegung im Fähigkeits-Würfeldialog (Helfer aus
+// travel.js). Zykel-Sicherheit wie dialog.js <-> item.js: nur
+// Funktionsdeklarationen, Aufruf erst zur Laufzeit.
+import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -3604,6 +3610,28 @@ export async function modifierDialog(functionStuff) {
     functionStuff.modifier = (Number(functionStuff.modifier) || 0) - epilepsyPenalty;
     functionStuff.autoParams += game.i18n.format("EPILEPSY.AUTOPARAM", { penalty: epilepsyPenalty }) + ", ";
   }
+  // S4-Paket „Tag/Reise/Ressourcen" (07.11.2026): Hunger (≥5 Tage ohne /
+  // ≥10 Tage halbe Ration) und Durst (≥3 Tage ohne Wasser) geben auf
+  // diesem Fähigkeitswurf automatisch MISSGUNST — VORBELEGUNG des Gunst-
+  // Radios (defaultFavour unten), NICHT verriegelt, plus Hinweiszeile
+  // travelFavourHint über dem Radio (Rudolfs Runde-1-Wortlaut „1 und
+  // Hinweiszeile im Würfeldialog"). Der Stärke-Malus scheiternder
+  // Hunger-Proben greift nur bei festen Stärke-Würfen (Muster Benommen/
+  // Epilepsie: Modifikator-VORBELEGUNG + autoParams-Zeile). Die Todes-
+  // probe läuft bewusst über ihren eigenen Pfad OHNE beides (S3-Grenz-
+  // entscheidung); Freiform-Makro-Würfe bleiben draussen (dokumentiert).
+  const travelFavour = hasRoll ? getTravelTestFavour(functionStuff.actor) : { forced: false, favour: 0, labelKey: null };
+  if (travelFavour.forced) {
+    functionStuff.autoParams += game.i18n.localize(travelFavour.labelKey) + ", ";
+  }
+  const travelStrengthPenalty =
+    hasRoll && !functionStuff.askCastingAttribute && functionStuff.castingAttributeName === "strong"
+      ? getHungerPenalty(functionStuff.actor)
+      : 0;
+  if (travelStrengthPenalty > 0) {
+    functionStuff.modifier = (Number(functionStuff.modifier) || 0) - travelStrengthPenalty;
+    functionStuff.autoParams += game.i18n.format("TRAVEL.STRENGTH_AUTOPARAM", { penalty: travelStrengthPenalty }) + ", ";
+  }
   // Gift v1.1 (Rudolfs P9): Das Handbuch-+1 des Giftmischers wird
   // SICHTBAR im Wuerfeldialog vorbelegt (Modifikator-Feld, Epilepsie-
   // Muster) statt unsichtbar erst beim Submit (Rudolfs Befund: "Kein
@@ -3740,7 +3768,9 @@ export async function modifierDialog(functionStuff) {
     d4: d4,
     choices: { 0: game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1": game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), 1: game.i18n.localize("DIALOG.FAVOUR_FAVOUR") },
     groupName: "favour",
-    defaultFavour: "0",
+    defaultFavour: travelFavour.forced ? String(travelFavour.favour) : "0",
+    // S4: Hinweiszeile über dem Gunst-Radio (dialog2[-modern].hbs)
+    travelFavourHint: travelFavour.forced ? game.i18n.localize(travelFavour.labelKey) : null,
     defaultModifier: functionStuff.modifier,
     defaultAdvantage: "",
     defaultDamModifier: "",

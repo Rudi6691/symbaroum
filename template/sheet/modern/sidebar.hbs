@@ -94,6 +94,16 @@
             <div class="m-mark m-mark-red" style="left: {{modern.corruption.thresholdPct}}%;" data-tooltip="{{localize "HEALTH.CORRUPTION_THRESHOLD"}}: {{modern.corruption.threshold}}"></div>
             {{/unless}}
         </div>
+        {{!-- S4 „Tag/Reise/Ressourcen" (Runde-4-Entscheidung: in v1): Reise-
+            Status-Chips (Hunger/Durst) unter den Vitalen, nur bei aktiven
+            Reiseregeln UND aktivem Zustand (player.js liefert null =>
+            Chip komplett weg). Tooltips führen die Zählerstände auf. --}}
+        {{#if modern.travel}}
+        <div class="m-travel-chip-row">
+            {{#if modern.travel.hunger}}<span class="m-travel-chip m-travel-hunger" data-tooltip="{{{modern.travel.hungerTooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.hungerLabel}}</span>{{/if}}
+            {{#if modern.travel.thirst}}<span class="m-travel-chip m-travel-thirst" data-tooltip="{{{modern.travel.thirstTooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.thirstLabel}}</span>{{/if}}
+        </div>
+        {{/if}}
     </div>
 
     {{!-- Kosmetik v1 (Rudolfs Wunsch, 30.10.): Die Chip-Klicks WÜRFELN die

@@ -9223,7 +9223,16 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"],
    Selektor-Erweiterung der MASTER-Regeln statt Spiegel-Regeln: dieselben
    Deklarationen = garantiert identische Darstellung mit dem
    Würfeldialog-Master, kein Regel-Drift. */
-html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"] {
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"],
+/* S4 „Tag/Reise/Ressourcen" (07.11.2026): Der Reisetag-Dialog (und der
+   Tageswechsel-Bestätigungsdialog) teilt das Fenster-Scope
+   dialog.symb-dialog.modern-dialog mit dem Würfeldialog — gleiche
+   Selektor-Erweiterung der MASTER-Regeln wie Geben-Dialog v1.7 und
+   Todesprobe P26-fix2, damit die Mitglied-Checkboxen, Ration-Radios,
+   Modus-Radios und Fortsetzen-Checkbox identisch mit dem Master
+   zeichnen (kein Regel-Drift). */
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"],
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"] {
   appearance: none !important;
   -webkit-appearance: none !important;
   padding: 0 !important;
@@ -9267,7 +9276,12 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]::
 html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]::after,
 /* P26-fix2: PSEUDO-ELEMENT-GUARD auch für die Todesprobe-Radios */
 html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]::before,
-html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]::after {
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]::after,
+/* S4: Pseudo-Element-Guard auch für den Reisetag-Dialog (s.o.) */
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"]::before,
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"]::after,
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]::before,
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]::after {
   content: none !important;
   background: none !important;
   mask-image: none !important;
@@ -9275,19 +9289,25 @@ html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]
 }
 
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"],
-html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"] {
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"],
+/* S4: Reisetag-Dialog-Checkboxen (Master-Erweiterung, s.o.) */
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"] {
   border-radius: 0.2rem !important;
 }
 
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"],
 html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"],
 /* P26-fix2: Todesprobe-Radios, s.o. (Selektor-Erweiterung) */
-html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"] {
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"],
+/* S4: Reisetag-Dialog-Radios (Master-Erweiterung, s.o.) */
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"] {
   border-radius: 50% !important;
 }
 
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="checkbox"]:checked,
-html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"]:checked {
+html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"]:checked,
+/* S4: Reisetag-Dialog (Master-Erweiterung, s.o.) */
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"]:checked {
   background-color: var(--m-accent) !important;
   /* v1.2: Häkchen im dunklen Design DUNKEL statt weiß - weiß auf Gold
      (#c9a227) war kaum erkennbar (Rudolfs Testrunde 2). Das helle Design
@@ -9302,7 +9322,9 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="checkbox"
 html body dialog.symb-dialog .symbaroum.modern-roll-dialog input[type="radio"]:checked,
 html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]:checked,
 /* P26-fix2: Todesprobe-Radios, s.o. (Selektor-Erweiterung) */
-html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]:checked {
+html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]:checked,
+/* S4: Reisetag-Dialog (Master-Erweiterung, s.o.) */
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]:checked {
   /* v1.2: Radiopunkt vergrößert (38 % -> 48 % Füllung) - gut erkennbar
      auch im dunklen Design; Rahmen auf Akzent wie bei der Checkbox. */
   background-image: radial-gradient(circle, var(--m-accent) 0 48%, transparent 56% 100%) !important;
@@ -9312,7 +9334,9 @@ html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]
 /* v1.2: Helles Design - Akzent #8a6d1c ist DUNKEL, deshalb weißes Häkchen
    (Theme-Klasse am Fenster-Root, A6v9-Muster). */
 html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-roll-dialog input[type="checkbox"]:checked,
-html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-give-dialog input[type="checkbox"]:checked {
+html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-give-dialog input[type="checkbox"]:checked,
+/* S4: Reisetag-Dialog (Master-Erweiterung, s.o.) */
+html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-travel-dialog input[type="checkbox"]:checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.5 8.5 3 3 7-8' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
 }
 
@@ -10875,4 +10899,403 @@ html body dialog.symb-dialog.modern-dialog .symbaroum.dialog .favour {
 html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lblfavour {
   font-weight: 400;
   font-family: inherit;
+}
+
+/* ================================================================
+   S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026):
+   Reisetag-Dialog, Tageswechsel-Bestätigung, Reisetag-Karte (Chat)
+   und Reise-Status-Chips der modernen Stammleiste.
+   Konventionen nach css-Checkliste v1.0: Dialog-Master = moderner
+   Würfeldialog (Checkbox/Radio-Master-Regeln oben per Selektor-
+   Erweiterung um .modern-travel-dialog); Geometrie in rem; Palette
+   über die Fenster-Variablen --m-*; Chat-Karten OHNE eigenen Panel-
+   Grund, Akzent-Balken links (give-card-Muster); Icon-Farben direkt
+   am <i>-Element mit !important.
+   ================================================================ */
+
+/* ---- Reisetag-Dialog: Layout (beide Designs, theme-neutral) ---- */
+.symbaroum.travel-dialog .m-travel-sec {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0.4rem 0 0.2rem 0;
+  padding-bottom: 0.15rem;
+}
+
+.symbaroum.travel-dialog .m-travel-scroll {
+  max-height: 40vh;
+  overflow-y: auto;
+  margin-bottom: 0.2rem;
+}
+
+.symbaroum.travel-dialog .m-travel-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.symbaroum.travel-dialog .m-travel-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.3rem;
+}
+
+.symbaroum.travel-dialog .m-travel-table td {
+  padding: 0.15rem 0.3rem;
+  vertical-align: middle;
+}
+
+.symbaroum.travel-dialog .m-travel-name label.m-travel-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.symbaroum.travel-dialog .m-travel-count input[type="number"] {
+  width: 3.5rem;
+  text-align: right;
+}
+
+.symbaroum.travel-dialog .m-travel-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.15rem 0;
+}
+
+.symbaroum.travel-dialog label.m-travel-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.symbaroum.travel-dialog .m-travel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.15rem 0;
+}
+
+.symbaroum.travel-dialog .m-travel-row label {
+  flex: 0 0 auto;
+  min-width: 6rem;
+}
+
+.symbaroum.travel-dialog .m-travel-km {
+  margin: 0.3rem 0 0.1rem 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.symbaroum.travel-dialog .m-travel-km b {
+  font-size: 1.05rem;
+}
+
+.symbaroum.travel-dialog p.m-travel-note {
+  font-size: 0.85rem;
+  margin: 0.15rem 0 0.3rem 0;
+}
+
+/* ---- Reisetag-Dialog: moderne Farben (nur .modern-travel-dialog,
+   das klassische Design erbt die klassische Dialog-Optik) ---- */
+.symbaroum.modern-travel-dialog .m-travel-sec {
+  color: var(--m-muted);
+  border-bottom: 0.0625rem solid var(--m-line);
+}
+
+.symbaroum.modern-travel-dialog .m-travel-radios,
+.symbaroum.modern-travel-dialog .m-travel-river {
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0.1rem 0;
+  background: var(--m-panel);
+}
+
+.symbaroum.modern-travel-dialog .m-travel-km {
+  color: var(--m-accent);
+}
+
+.symbaroum.modern-travel-dialog .m-travel-km i {
+  color: var(--m-accent) !important;
+}
+
+.symbaroum.modern-travel-dialog p.m-travel-note {
+  color: var(--m-muted);
+}
+
+.symbaroum.modern-travel-dialog .m-travel-table th {
+  color: var(--m-muted);
+  border-bottom: 0.0625rem solid var(--m-line);
+}
+
+.symbaroum.modern-travel-dialog .m-travel-table tr + tr td {
+  border-top: 0.03125rem solid var(--m-line);
+}
+
+.symbaroum.modern-travel-dialog .m-travel-count input[type="number"] {
+  background: var(--m-input-bg) !important;
+  color: var(--m-input-ink, var(--m-ink)) !important;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+}
+
+.symbaroum.modern-travel-dialog .m-travel-name i {
+  color: var(--m-accent) !important;
+}
+
+/* ---- Reisetag-Karte (Chat): give-card-Muster — kein eigener
+   Panel-Grund, Akzent-Balken links, Chip-/Warnfarben mit Fallbacks
+   (Chat-Kontext hat keine Fenster-Variablen) ---- */
+.symbaroum.chat.travel-day-card {
+  border: 0.0625rem solid var(--m-line, #726e5c);
+  border-left: 0.25rem solid var(--m-accent, #b2925e);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0.25rem 0;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  margin: 0.15rem 0 0.35rem 0;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-head i {
+  color: var(--m-accent, #b2925e) !important;
+}
+
+.symbaroum.chat.travel-day-card p.travel-day-enduring {
+  font-size: 0.85rem;
+  margin: 0.1rem 0 0.3rem 0;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+  padding: 0.1rem 0.25rem;
+  border-bottom: 0.0625rem solid var(--m-line, #726e5c);
+}
+
+.symbaroum.chat.travel-day-card .travel-day-table td {
+  padding: 0.2rem 0.25rem;
+  vertical-align: middle;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-table tr + tr td {
+  border-top: 0.03125rem solid var(--m-line, #726e5c);
+}
+
+.symbaroum.chat.travel-day-card .travel-day-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-name img.portrait {
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
+  border: none;
+  flex: 0 0 auto;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-name i {
+  color: var(--m-accent, #b2925e) !important;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-booking,
+.symbaroum.chat.travel-day-card .travel-day-state {
+  font-size: 0.8rem;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-booking span,
+.symbaroum.chat.travel-day-card .travel-day-state span {
+  display: inline-block;
+  margin: 0 0.2rem 0.15rem 0;
+}
+
+.symbaroum.chat.travel-day-card span.travel-ok {
+  color: #4d7a52;
+}
+
+.symbaroum.chat.travel-day-card span.travel-warn {
+  color: #a3402f;
+  font-weight: 600;
+}
+
+.symbaroum.chat.travel-day-card span.travel-dim {
+  opacity: 0.65;
+}
+
+.symbaroum.chat.travel-day-card .travel-chip {
+  border-radius: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.symbaroum.chat.travel-day-card .travel-chip.travel-hunger {
+  background: rgba(176, 124, 30, 0.25);
+  color: #b07c1e;
+}
+
+.symbaroum.chat.travel-day-card .travel-chip.travel-thirst {
+  background: rgba(163, 64, 47, 0.25);
+  color: #a3402f;
+}
+
+.symbaroum.chat.travel-day-card .travel-chip.travel-tough {
+  background: rgba(111, 158, 124, 0.2);
+  color: #4d7a52;
+}
+
+.symbaroum.chat.travel-day-card tr.travel-hungry td.travel-day-state,
+.symbaroum.chat.travel-day-card tr.travel-thirsty td.travel-day-state {
+  border-left: 0.15rem solid rgba(176, 124, 30, 0.5);
+}
+
+.symbaroum.chat.travel-day-card .travel-day-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.3rem;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-actionrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-actionname {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 8rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.symbaroum.chat.travel-day-card .travel-day-actionname img.portrait {
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+  border: none;
+  flex: 0 0 auto;
+}
+
+.symbaroum.chat.travel-day-card button.travel-probe-button,
+.symbaroum.chat.travel-day-card button.travel-apply-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0.0625rem solid var(--m-line, #726e5c);
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.symbaroum.chat.travel-day-card button.travel-probe-button:hover,
+.symbaroum.chat.travel-day-card button.travel-apply-button:hover {
+  border-color: var(--m-accent, #b2925e);
+}
+
+.symbaroum.chat.travel-day-card button.travel-apply-button {
+  border-color: rgba(176, 124, 30, 0.6);
+}
+
+.symbaroum.chat.travel-day-card button.travel-apply-button i {
+  color: #b07c1e !important;
+}
+
+.symbaroum.chat.travel-day-card button.travel-probe-button i {
+  color: var(--m-accent, #b2925e) !important;
+}
+
+.symbaroum.chat.travel-day-card p.travel-day-footnote {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  margin: 0.2rem 0 0 0;
+}
+
+/* ---- Buschwissen-Versorgungskarte (gleiche Karten-Familie) ---- */
+.symbaroum.chat button.travel-apply-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0.0625rem solid var(--m-line, #726e5c);
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.symbaroum.chat button.travel-apply-button:hover {
+  border-color: var(--m-accent, #b2925e);
+}
+
+.symbaroum.chat button.travel-apply-button i {
+  color: var(--m-accent, #b2925e) !important;
+}
+
+/* ---- Reise-Status-Chips der modernen Stammleiste (Runde 4:
+   in v1) — Farben je Zustand, Icon direkt am <i> mit !important
+   (css-Checkliste v1.0), Tooltips führen die Zähler auf ---- */
+.m-travel-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+
+.m-travel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.m-travel-chip.m-travel-hunger {
+  background: rgba(176, 124, 30, 0.25);
+  color: var(--m-warn);
+  border: 0.0625rem solid rgba(176, 124, 30, 0.4);
+}
+
+.m-travel-chip.m-travel-hunger i {
+  color: var(--m-warn) !important;
+}
+
+.m-travel-chip.m-travel-thirst {
+  background: rgba(192, 85, 74, 0.22);
+  color: var(--m-bad);
+  border: 0.0625rem solid rgba(192, 85, 74, 0.4);
+}
+
+.m-travel-chip.m-travel-thirst i {
+  color: var(--m-bad) !important;
 }

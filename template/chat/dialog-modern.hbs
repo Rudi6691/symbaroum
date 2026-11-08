@@ -21,6 +21,9 @@
     <label for="modifier-{{did}}">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="modifier-{{did}}" type="number" value="{{roll_defaults.modifier}}" data-dtype="Number"/>
   </div>
+  {{!-- S4 „Tag/Reise/Ressourcen" (07.11.2026): Hinweiszeile über dem
+       Gunst-Radio bei Hunger/Durst (klassisches Pendant dialog.hbs) --}}
+  {{#if travelFavourHint}}<div class="m-roll-favour travel-favour-hint"><label class="lblfavour">{{travelFavourHint}}</label></div>{{/if}}
   <div class="m-roll-favour">
     <label class="lblfavour">{{radioBoxes groupName choices checked=roll_defaults.selectedFavour localize=true}}</label>
   </div>

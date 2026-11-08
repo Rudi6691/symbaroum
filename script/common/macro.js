@@ -8,6 +8,12 @@ import { getCurrencyRates, parseCostString, getItemPriceBase, convertToBase } fr
 // funktionsfaehig (v1.3 laeuft unveraendert weiter, Rudolf kann auf den
 // Einzeiler game.symbaroum.macros.recoverAmmunition() umsteigen).
 import { getAmmoThreshold, isAmmoAlchemical } from "../common/ammo.js";
+// S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026): GM-
+// Utility-Makros — Rationsverfolgung umschalten (Runde-1-Wunsch „über
+// ein Makro die Ressourcenverfolgung ein"), Reisetag abschließen und
+// Rations-Tagging-Migration (Welt-Items + Inventare, Muster
+// containerMigration). Zykel-Sicherheit: nur Funktionsdeklarationen.
+import { openTravelDayDialog } from "../common/travel.js";
 
 export class SymbaroumMacros {
 	constructor() {}
@@ -1286,6 +1292,36 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.bulkAssignAxeArtistCompatibility();",
 				img: "icons/svg/sword.svg",
 			},
+			{
+				// S4 „Tag/Reise/Ressourcen" (Rudolfs Runde-1-Wortlaut: „für
+				// Durst soll ‚Endlose Resourcen' der Standard sein außer ich
+				// schalte über ein Makro die Ressourcenverfolgung ein"):
+				// Toggelt die Rationsverfolgung (Essen UND Wasser gemeinsam,
+				// Runde-2-Entscheidung). Beim Einschalten wird der Master-
+				// Schalter „Reiseregeln" mit aktiviert (falls noch aus);
+				// beim Ausschalten bleibt der Master unberührt.
+				name: game.i18n.localize("MACRO.TRAVEL_TOGGLE_NAME"),
+				command: "game.symbaroum.macros.toggleRationTracking();",
+				img: "icons/svg/goblet.svg",
+			},
+			{
+				// S4: Reisetag abschließen — öffnet den Reisetag-Dialog
+				// (Reisegruppe, Volle/halbe Ration, Etappenrechner 3.03a,
+				// A39-Verzahnung) und springt danach optional auf
+				// Morgengrauen des Folgetags (Mini Calendar / Core).
+				name: game.i18n.localize("MACRO.TRAVEL_DAY_NAME"),
+				command: "game.symbaroum.macros.travelDay();",
+				img: "icons/svg/sun.svg",
+			},
+			{
+				// S4: Rations-Tagging-Migration (Muster containerMigration):
+				// Ausrüstungs-Items ohne Ressourcen-Kategorie per Namens-
+				// heuristik auf Essens-/Wasserration vorschlagen — Welt-
+				// Items UND alle Inventare, editierbare Selects, idempotent.
+				name: game.i18n.localize("MACRO.RATIONS_TAGGING_NAME"),
+				command: "game.symbaroum.macros.rationsTaggingMigration();",
+				img: "icons/svg/backpack.svg",
+			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro
@@ -2400,5 +2436,145 @@ export class SymbaroumMacros {
 			speaker: ChatMessage.getSpeaker({ actor }),
 		});
 		ui.notifications.info(F("MACRO.BERGEN_TOAST", { recovered, fired, stack: stack.name }));
+	}
+
+	/**********************************************
+	 * S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026)
+	 *********************************************/
+
+	/* GM-Utility „Rationsverfolgung umschalten" (Rudolfs Runde-1-
+	 * Wortlaut: „außer ich schalte über ein Makro die Ressourcen-
+	 * verfolgung ein"): Toggelt das Setting 'rationTracking' (Essen UND
+	 * Wasser gemeinsam, Runde-2-Entscheidung). Einschalten aktiviert
+	 * auch den Master-Schalter 'travelEnabled' (falls noch aus — die
+	 * Verfolgung wäre sonst stumm); Ausschalten lässt den Master
+	 * unberührt (Reisetag-Dialog/Etappenrechner bleiben nutzbar).
+	 */
+	async toggleRationTracking() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const current = !!game.settings.get("symbaroum", "rationTracking");
+		if (current) {
+			await game.settings.set("symbaroum", "rationTracking", false);
+			ui.notifications.info(game.i18n.localize("TRAVEL.TRACKING_OFF_TOAST"));
+		} else {
+			if (!game.settings.get("symbaroum", "travelEnabled")) {
+				await game.settings.set("symbaroum", "travelEnabled", true);
+				ui.notifications.info(game.i18n.localize("TRAVEL.MASTER_ON_TOAST"));
+			}
+			await game.settings.set("symbaroum", "rationTracking", true);
+			ui.notifications.info(game.i18n.localize("TRAVEL.TRACKING_ON_TOAST"));
+		}
+	}
+
+	/* GM-Utility „Reisetag abschließen": öffnet den Reisetag-Dialog
+	 * (Mitglieder-Checkboxen, Volle/halbe Ration, Etappenrechner mit
+	 * Tabelle 3.03a, A39-Verzahnung, Buschwissen-Versorgen-Button) und
+	 * schließt optional auf Morgengrauen des Folgetags (Checkbox im
+	 * Dialog; Mini Calendar mit Morgengrauen-Sprung, sonst Core). */
+	travelDay() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		openTravelDayDialog({ days: 1, advanceAfter: true });
+	}
+
+	/* GM-Utility „Rations-Tagging" (Muster containerMigration): Ausrüstungs-
+	 * Items OHNE Ressourcen-Kategorie per Namensheuristik auf Essens-/
+	 * Wasserration vorschlagen — Welt-Items UND alle Actor-Inventare,
+	 * editierbare Selects je Zeile, idempotent (schon getaggte Items
+	 * erscheinen nie wieder). Kompendien bleiben unberührt. */
+	async rationsTaggingMigration() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const foodPattern = /(wegbrot|trockenration|trockenproviant|ration|proviant|verpflegung|brot|fleisch|food|bread|ration)/i;
+		const waterPattern = /(wasserschlauch|wasserflasche|wasserration|wasser|trinkwasser|flach|water|flask)/i;
+		const categories = game.symbaroum.config.RESOURCE_CATEGORY_SELECTION;
+
+		const entries = [];
+		for (const item of game.items) {
+			if (item.type !== "equipment") continue;
+			const cat = String(item.system?.resourceCategory ?? "");
+			if (cat !== "") continue;
+			const suggestion = waterPattern.test(item.name ?? "") ? "wasserration" : foodPattern.test(item.name ?? "") ? "essensration" : "";
+			if (suggestion) entries.push({ item, owner: null, suggestion });
+		}
+		for (const actor of game.actors) {
+			for (const item of actor.items) {
+				if (item.type !== "equipment") continue;
+				const cat = String(item.system?.resourceCategory ?? "");
+				if (cat !== "") continue;
+				const suggestion = waterPattern.test(item.name ?? "") ? "wasserration" : foodPattern.test(item.name ?? "") ? "essensration" : "";
+				if (suggestion) entries.push({ item, owner: actor.name, suggestion });
+			}
+		}
+		entries.sort((a, b) => (a.owner ?? "").localeCompare(b.owner ?? "") || a.item.name.localeCompare(b.item.name));
+
+		if (entries.length === 0) {
+			ui.notifications.info(game.i18n.localize("TRAVEL.TAGGING_NONE_FOUND"));
+			return;
+		}
+
+		let rows = "";
+		for (let i = 0; i < entries.length; i++) {
+			const { item, owner } = entries[i];
+			const displayName = owner ? `${item.name} (${owner})` : item.name;
+			const options = [""]
+				.concat(["essensration", "wasserration"])
+				.map(
+					(id) =>
+						`<option value="${id}"${id === entries[i].suggestion ? " selected" : ""}>${id === "" ? game.i18n.localize("TRAVEL.TAGGING_NO_CATEGORY") : game.i18n.localize(categories[id].label)}</option>`
+				)
+				.join("");
+			rows = rows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
+                    <td style="padding:2px 6px; white-space:nowrap;"><select style="width:100%;" data-entry-idx="${i}" class="ration-select">${options}</select></td>
+                </tr>`);
+		}
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("TRAVEL.TAGGING_HEADER")}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th style="text-align:left;">${game.i18n.localize("RESOURCE_CATEGORY.LABEL")}</th>
+            </tr>
+            ${rows}
+        </table>
+        </div>
+        <p style="margin:6px 0 0 0; font-size:0.9em; opacity:0.8;">${game.i18n.localize("TRAVEL.TAGGING_HINT")}</p>
+        </div>`;
+		symbDialog({
+			width: 600,
+			title: game.i18n.localize("TRAVEL.TAGGING_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Accept: {
+					label: game.i18n.localize("TRAVEL.TAGGING_ACCEPT"),
+					callback: async (html) => {
+						const root = html[0];
+						let count = 0;
+						for (let i = 0; i < entries.length; i++) {
+							const select = root.querySelector(`select.ration-select[data-entry-idx="${i}"]`);
+							if (!select) continue;
+							const cat = String(select.value ?? "");
+							if (cat === "") continue;
+							await entries[i].item.update({ "system.resourceCategory": cat });
+							count++;
+						}
+						ui.notifications.info(game.i18n.format("TRAVEL.TAGGING_DONE", { count }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("BUTTON.CANCEL"),
+				},
+			},
+		});
 	}
 }

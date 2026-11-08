@@ -671,6 +671,21 @@ async function bushcraftResult(rollData, functionStuff) {
     const yieldRoll = await new Roll(functionStuff.bushcraftYieldFormula ?? '1d6').evaluate();
     functionStuff.resultRolls = [yieldRoll];
     functionStuff.finalText = game.i18n.format(L('BOON_ROLL.BUSHCRAFT_YIELD'), { count: yieldRoll.total });
+    // S4 (Konzept Kap. 4.6, Bestätigungspunkt 1 „Versorgen statt
+    // materialisieren"): Ertrag nur auf der Karte — bei aktiven
+    // Reiseregeln feuert der Wurf den Lose-Hook, travel.js erzeugt
+    // daraus die GM-Karte „Gruppe versorgen (N Tage)". KEIN Import
+    // travel.js → boon.js (nur umgekehrt), KEINE Item-Buchung hier.
+    try {
+      if (game.settings.get('symbaroum', 'travelEnabled')) {
+        Hooks.callAll('symbaroum:bushcraftYield', {
+          actorId: functionStuff.actor?.id ?? null,
+          days: yieldRoll.total,
+        });
+      }
+    } catch (err) {
+      // Setting/Defekt darf den Wurf niemals blockieren
+    }
   }
   await standardPowerResult(rollData, functionStuff);
 }
@@ -1094,6 +1109,19 @@ export function getEpilepsyPenalty(actor) {
  */
 export function hasPoisonResilient(actor) {
   return hasByReference(actor, 'boon', 'poisonresilient');
+}
+
+/**
+ * S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe „Baue es",
+ * 07.11.2026, Konzept Kap. 6 — Segen „Ausdauernder Marsch",
+ * Referenz 'enduringmarch', manuell angelegt wie Giftresistent):
+ * Der Träger legt KEINE Strapazen-Probe im Todesmarsch ab (Zähigkeits-
+ * Verlust bleibt RAW) und HEILT stattdessen im Gewaltmarsch; Gruppen-
+ * weit erhalten Mitreisende eine zweite Chance + Erholungs-Probe.
+ * travel.js konsumiert das Flag für die Tageskarte.
+ */
+export function hasEnduringMarch(actor) {
+  return hasByReference(actor, 'boon', 'enduringmarch');
 }
 
 /**

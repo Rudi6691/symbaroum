@@ -30,6 +30,10 @@
       {{/ife}}
     {{/each}}
   {{/if}}
+  {{!-- S4 „Tag/Reise/Ressourcen" (07.11.2026): Hinweiszeile über dem
+       Gunst-Radio bei Hunger/Durst (Muster dialog-deathtest.hbs);
+       das Radio selbst ist unten VORBELEGT, nicht verriegelt --}}
+  {{#if travelFavourHint}}<div class="favour travel-favour-hint"><label class="lblfavour">{{travelFavourHint}}</label></div>{{/if}}
   <div class="favour">
     <label class="lblfavour">{{radioBoxes groupName choices checked=roll_defaults.selectedFavour localize=true}}</label>
   </div>
