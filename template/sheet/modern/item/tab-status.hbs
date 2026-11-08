@@ -50,6 +50,28 @@
             </select>
         </div>
         {{/if}}
+        {{!-- S4 v1.3 (Rudolfs Kapazitätsmodell, Platzierung 08.11.):
+            Kapazität (Obergrenze der Rationen, 0 = unbegrenzt/einfacher
+            Zahl-Stapel) UNTER der Ressourcen-Kategorie, nur bei Essens-/
+            Wasserration — Caret-Stepper (Min 0, Handler capacityPlus/
+            capacityMinus in item.js, Muster Anzahl-Stepper; Direkt-
+            Eingabe persistiert per name-Attribut/submitOnChange).
+            „Anzahl Rationen“ (der Füllstand) wohnt auf dem Beschrei-
+            bungs-Tab und erscheint erst bei Kapazität > 0. --}}
+        {{#if modern.showCapacityStatus}}
+        <div class="m-inline-field">
+            <label for="{{id}}-system.maxNumber" data-tooltip="{{localize "EQUIPMENT.MAXNUMBER_HINT"}}">{{localize "EQUIPMENT.MAXNUMBER"}}</label>
+            <div class="m-qty">
+                {{#if editable}}
+                <button type="button" class="m-qty-btn" data-action="capacityMinus" data-tooltip="{{localize 'MODERN.QTY_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
+                {{/if}}
+                <input id="{{id}}-system.maxNumber" name="system.maxNumber" type="number" min="0" step="1" value="{{modern.capacityDisplay}}" data-dtype="Number" data-tooltip="{{localize "EQUIPMENT.MAXNUMBER_HINT"}}"/>
+                {{#if editable}}
+                <button type="button" class="m-qty-btn" data-action="capacityPlus" data-tooltip="{{localize 'MODERN.QTY_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
+                {{/if}}
+            </div>
+        </div>
+        {{/if}}
         {{!-- Brauen v1 (02.11.): Labor-Qualität (system.facilityCategory),
             GM-only - steuert den Labor-Bonus des Brau-Dialogs (brewing.js).
             Klassische Position: direkt unter der Ressourcen-Kategorie. --}}

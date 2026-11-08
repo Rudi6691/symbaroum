@@ -130,16 +130,16 @@
     <div class="m-travel-chip-row">
         {{#if modern.travel.food}}
         {{#if modern.travel.food.bookable}}
-        <button type="button" class="m-travel-chip{{#if modern.travel.food.active}} m-travel-hunger{{else}} m-travel-food{{/if}}" data-travel-consume="essensration" data-tooltip="{{{modern.travel.food.tooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.food.label}}</button>
+        <button type="button" class="m-travel-chip{{#if modern.travel.food.active}} m-travel-hunger{{else}} m-travel-food{{/if}}{{#if modern.travel.food.supplied}} m-travel-supplied-chip{{/if}}" data-travel-consume="essensration" data-tooltip="{{{modern.travel.food.tooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.food.label}}{{#if modern.travel.food.supplied}} <i class="fa-solid fa-circle-check m-travel-supplied-badge"></i>{{/if}}</button>
         {{else}}
-        <span class="m-travel-chip{{#if modern.travel.food.active}} m-travel-hunger{{else}} m-travel-food{{/if}}" data-tooltip="{{{modern.travel.food.tooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.food.label}}</span>
+        <span class="m-travel-chip{{#if modern.travel.food.active}} m-travel-hunger{{else}} m-travel-food{{/if}}{{#if modern.travel.food.supplied}} m-travel-supplied-chip{{/if}}" data-tooltip="{{{modern.travel.food.tooltip}}}"><i class="fa-solid fa-utensils"></i> {{modern.travel.food.label}}{{#if modern.travel.food.supplied}} <i class="fa-solid fa-circle-check m-travel-supplied-badge"></i>{{/if}}</span>
         {{/if}}
         {{/if}}
         {{#if modern.travel.water}}
         {{#if modern.travel.water.bookable}}
-        <button type="button" class="m-travel-chip{{#if modern.travel.water.active}} m-travel-thirst{{else}} m-travel-water{{/if}}" data-travel-consume="wasserration" data-tooltip="{{{modern.travel.water.tooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.water.label}}</button>
+        <button type="button" class="m-travel-chip{{#if modern.travel.water.active}} m-travel-thirst{{else}} m-travel-water{{/if}}{{#if modern.travel.water.supplied}} m-travel-supplied-chip{{/if}}" data-travel-consume="wasserration" data-tooltip="{{{modern.travel.water.tooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.water.label}}{{#if modern.travel.water.supplied}} <i class="fa-solid fa-circle-check m-travel-supplied-badge"></i>{{/if}}</button>
         {{else}}
-        <span class="m-travel-chip{{#if modern.travel.water.active}} m-travel-thirst{{else}} m-travel-water{{/if}}" data-tooltip="{{{modern.travel.water.tooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.water.label}}</span>
+        <span class="m-travel-chip{{#if modern.travel.water.active}} m-travel-thirst{{else}} m-travel-water{{/if}}{{#if modern.travel.water.supplied}} m-travel-supplied-chip{{/if}}" data-tooltip="{{{modern.travel.water.tooltip}}}"><i class="fa-solid fa-droplet"></i> {{modern.travel.water.label}}{{#if modern.travel.water.supplied}} <i class="fa-solid fa-circle-check m-travel-supplied-badge"></i>{{/if}}</span>
         {{/if}}
         {{/if}}
     </div>

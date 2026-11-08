@@ -29,7 +29,7 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 // Ressourcen v1: Dialog „Ressource verbrauchen (N)" für kategorisierte Items
 // (resourceCategory) ohne System-Trigger - Alchemiezutat bis zum Brau-Dialog
 // des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
-import { openConsumeResourceDialog, getItemCount } from '../common/resources.js';
+import { openConsumeResourceDialog, getItemCount, isCapacityRationItem, getRationCount } from '../common/resources.js';
 // S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026):
 // Selbstversorgung („Verzehren — für den Reisetag versorgt" am Rations-
 // stapel), Reise-Status-Reset am eigenen Blatt und der Reise-Status-Chip
@@ -695,11 +695,20 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		/* S4 v1.2 („x / y“ bei Kapazitäts-Items): Gear-Zeilen zeigen
 		   „n / max“ statt „× N“, wenn system.maxNumber > 0 gesetzt ist
 		   (Kapazitätsfeld am Ausrüstungsblatt, z. B. Wegbrot 3 / 7);
-		   ohne Kapazität bleibt „× N“ unverändert. */
+		   ohne Kapazität bleibt „× N“ unverändert.
+		   S4 v1.3 (Rudolfs Kapazitätsmodell): Rations-Kapazitäts-
+		   Items zeigen den RATIONS-Füllstand „rationCount / max“ —
+		   die Item-Anzahl ist entkoppelt (1 Wasserschlauch = 1 Item,
+		   verkauft/wiegt als 1) und wird bewusst NICHT mit × 1
+		   angezeigt; einfache Zahl-Stapel mit Kapazität zeigen
+		   weiter „n / max“. */
 		const countDisplay = (rawItem) => {
 			const n = Math.max(1, Math.round(Number(rawItem?.system?.number ?? 1) || 1));
 			const max = Number(rawItem?.system?.maxNumber);
-			return Number.isFinite(max) && max > 0 ? `${n} / ${max}` : `× ${n}`;
+			if (Number.isFinite(max) && max > 0) {
+				return isCapacityRationItem(rawItem) ? `${getRationCount(rawItem)} / ${max}` : `${n} / ${max}`;
+			}
+			return `× ${n}`;
 		};
 		const gear = { armors: [], weapons: [], equipments: [], artifacts: [], containers: [], rezepturen: [] };
 		/* Behältersystem v1: Items in einem (gültigen) Behälter erscheinen nur

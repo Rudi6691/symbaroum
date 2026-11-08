@@ -35,7 +35,19 @@
 
 import { symbDialog } from './symbDialog.js';
 import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.js';
-import { consumeResource, consumeResourceFromItem, getItemCount, getResourceTotal, findResourceItems } from './resources.js';
+import {
+	consumeResource,
+	consumeResourceFromItem,
+	getItemCount,
+	getResourceTotal,
+	findResourceItems,
+	// S4 v1.3 (Kapazitätsmodell): zentrale Rations-Konstante + Kapazitäts-
+	// Helfer aus resources.js (keine zweite Kopie der Kategorien-Liste).
+	RATION_CATEGORIES,
+	isCapacityRationItem,
+	getRationCount,
+	getAvailableRations,
+} from './resources.js';
 import { getEncumbranceData, getWeightCategory, formatGE } from './encumbrance.js';
 import { openGiveDialog } from './transfer.js';
 import { hasEnduringMarch } from './boon.js';
@@ -391,6 +403,10 @@ export function getHungerPenalty(actor) {
 export function getTravelStatusContext(actor) {
 	if (!isTravelEnabled() || !actor) return null;
 	const st = getTravelState(actor);
+	// v1.3 (Rudolfs Meldung A): Versorgt-Zustand am Chip sichtbar —
+	// Badge im Template, Marker-Anzahl im Tooltip; ein Klick im
+	// Versorgt-Zustand warnt statt zu buchen (consumeRationFromCategory).
+	const fl = getTravelFlags(actor);
 	const bookable = !!actor.isOwner;
 	const foodStock = isFoodTrackingEnabled() ? getResourceTotal(actor, 'essensration') : 0;
 	const waterStock = isWaterTrackingEnabled() ? getResourceTotal(actor, 'wasserration') : 0;
@@ -402,6 +418,7 @@ export function getTravelStatusContext(actor) {
 	const waterTooltip = F('TRAVEL.CHIP_THIRST_TOOLTIP', { days: st.waterDays });
 	let food = null;
 	if (isFoodTrackingEnabled()) {
+		const supplied = fl.fedToday > 0;
 		const label =
 			foodStock > 0
 				? F('TRAVEL.CHIP_FOOD_STOCK', { count: foodStock })
@@ -413,18 +430,23 @@ export function getTravelStatusContext(actor) {
 		food = {
 			active: st.hunger,
 			bookable: bookable && foodStock > 0,
+			supplied,
 			label,
 			tooltip:
-				foodStock > 0 && bookable
-					? `${foodTooltip} · ${L('TRAVEL.CHIP_CONSUME_HINT')}`
-					: foodTooltip,
+				(supplied
+					? `${foodTooltip} · ${F('TRAVEL.CHIP_SUPPLIED_TOOLTIP', { count: fl.fedToday })}`
+					: foodStock > 0 && bookable
+						? `${foodTooltip} · ${L('TRAVEL.CHIP_CONSUME_HINT')}`
+						: foodTooltip),
 		};
 	}
 	let water = null;
 	if (isWaterTrackingEnabled()) {
+		const supplied = fl.wateredToday > 0;
 		water = {
 			active: st.thirst,
 			bookable: bookable && waterStock > 0,
+			supplied,
 			label:
 				waterStock > 0
 					? F('TRAVEL.CHIP_WATER_STOCK', { count: waterStock })
@@ -432,9 +454,11 @@ export function getTravelStatusContext(actor) {
 						? F('TRAVEL.CHIP_THIRST', { days: st.waterDays })
 						: F('TRAVEL.CHIP_WATER_COUNTING', { days: st.waterDays }),
 			tooltip:
-				waterStock > 0 && bookable
-					? `${waterTooltip} · ${L('TRAVEL.CHIP_CONSUME_HINT')}`
-					: waterTooltip,
+				(supplied
+					? `${waterTooltip} · ${F('TRAVEL.CHIP_SUPPLIED_TOOLTIP', { count: fl.wateredToday })}`
+					: waterStock > 0 && bookable
+						? `${waterTooltip} · ${L('TRAVEL.CHIP_CONSUME_HINT')}`
+						: waterTooltip),
 		};
 	}
 	if (!food && !water) return null;
@@ -463,7 +487,8 @@ export function isForagedToday(actor) {
  *  Selbstversorgung der SC (Kap. 5.3, Rudolfs Runde-2-Vorgabe)
  * ---------------------------------------------------------------- */
 
-const RATION_CATEGORIES = ['essensration', 'wasserration'];
+/* RATION_CATEGORIES kommt seit v1.3 aus resources.js (Import oben) —
+ * eine zentrale Definition für Konsum-Pfade und Blatt-Gating. */
 
 /** Kontextmenü-Gate: ist das Item eine Ration? */
 export function isRationItem(item) {
@@ -487,9 +512,17 @@ function warnUnlinkedToken(actor) {
 }
 
 /** v1.2: Tagesvermerk + Zähler-Reset nach einer verzehrten Ration
- *  (gemeinsame Basis von Kontextmenü „Verzehren“ und Bestands-Chip). */
+ *  (gemeinsame Basis von Kontextmenü „Verzehren“ und Bestands-Chip).
+ *  v1.3 (Rudolfs Entscheidung, Meldung B): Der Hunger-Stärke-Malus
+ *  (strengthLoss) wird bei einer verzehrten VOLLLEN Essensration
+ *  zurückgesetzt — Chip und Kontextmenü buchen immer ganze Rationen.
+ *  Wasserration resettet NICHT (Malus ist eine Hunger-Folge); halbe
+ *  Ration (nur Tag-Buchung, rationMode half) resettet ebenfalls
+ *  nicht (Rudolfs Entscheidung zu v1.3: „bei halber Ration wird der
+ *  Stärke-Malus nicht zurückgesetzt“). */
 async function applySelfSupply(actor, category, itemName) {
 	const flags = getTravelFlags(actor);
+	let restored = false;
 	if (category === 'wasserration') {
 		flags.wateredToday = Math.max(1, flags.wateredToday + 1);
 		flags.waterDays = 0;
@@ -497,12 +530,21 @@ async function applySelfSupply(actor, category, itemName) {
 		flags.fedToday = Math.max(1, flags.fedToday + 1);
 		flags.foodDays = 0;
 		flags.rationDays = 0;
+		// v1.3: volle Mahlzeit behebt den Hunger-Malus (RAW schweigt
+		// zur Erholung — Rudolfs Auslegung; nur Essen, nicht Wasser)
+		if (flags.strengthLoss > 0) {
+			flags.strengthLoss = 0;
+			restored = true;
+		}
 	}
 	// Flags schreiben (isMember steckt unverändert in flags — Foundry
 	// merged Objekt-Keys unter flags.symbaroum.travel, kein Replace;
 	// foragedKey bleibt bewusst unangetastet)
 	await actor.update({ 'flags.symbaroum.travel': flags });
 	ui.notifications.info(F('TRAVEL.SELF_CONSUMED', { name: itemName, actor: actor.name }));
+	if (restored) {
+		ui.notifications.info(F('TRAVEL.STRENGTH_RESTORED', { name: actor.name }));
+	}
 }
 
 export async function consumeRationSelfSupply(actor, item) {
@@ -531,13 +573,26 @@ export async function consumeRationFromCategory(actor, category) {
 	if (!actor || !actor.isOwner || !RATION_CATEGORIES.includes(cat)) return;
 	// v1.2 (P4): Warnung an unverknüpften Spielsteinen — buchen trotzdem
 	warnUnlinkedToken(actor);
+	// v1.3 (Rudolfs Meldung A, „Versorgt-Transparenz“): Ist der Akteur
+	// für den Reisetag bereits versorgt (Marker aus Chip-Klick oder
+	// Kontextmenü „Verzehren“), bucht der Chip-Klick NICHT nochmal —
+	// Warn-Toast statt weiterem Marker (kein Marker-Stau mehr, der
+	// die Tagesbuchung unsichtbar blockiert).
+	const flagsNow = getTravelFlags(actor);
+	const alreadySupplied = cat === 'wasserration' ? flagsNow.wateredToday > 0 : flagsNow.fedToday > 0;
+	if (alreadySupplied) {
+		ui.notifications.warn(F('TRAVEL.SUPPLY_SUPPLIED_WARN', { name: actor.name }));
+		return;
+	}
 	const stock = getResourceTotal(actor, cat);
 	if (stock <= 0) {
 		ui.notifications.warn(L('TRAVEL.SELF_NO_STOCK'));
 		return;
 	}
+	// v1.3: „Stapel mit Bestand“ = verfügbare Rationen (Kapazitäts-
+	// Item: rationCount, einfacher Stapel: Anzahl)
 	const stacks = findResourceItems(actor, cat);
-	const item = stacks.find((s) => getItemCount(s) > 0) ?? null;
+	const item = stacks.find((s) => getAvailableRations(s) > 0) ?? null;
 	if (!item) {
 		ui.notifications.warn(L('TRAVEL.SELF_NO_STOCK'));
 		return;
@@ -728,12 +783,23 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 
 	const memberRows = actorRows
 		.map((r) => {
+			// v1.3 (Rudolfs Meldung A): Die Versorgungs-Vermerke sind das
+			// Buchungs-Gate des Tagesabschlusses (Chip-Klick/Kontextmenü
+			// buchen vorab, der Abschluss konsumiert den Marker, statt
+			// nochmal zu buchen) — ab v1.3 als read-only Spalte sichtbar,
+			// damit das Gate nie wieder unsichtbar blockiert.
+			const markerParts = [];
+			if (r.f.fedToday > 0) markerParts.push(`<i class="fa-solid fa-utensils"></i> ${r.f.fedToday}`);
+			if (r.f.wateredToday > 0) markerParts.push(`<i class="fa-solid fa-droplet"></i> ${r.f.wateredToday}`);
+			const markersHtml = markerParts.length > 0
+				? `<span class="m-travel-markers" title="${F('TRAVEL.MARKER_CELL', { food: r.f.fedToday, water: r.f.wateredToday })}">${markerParts.join(' · ')}</span>`
+				: `<span class="m-travel-dim">–</span>`;
 			// v1.1 (P3): Zähler-Spalten je Schalter — Essen (ohne Essen,
 			// halbe Ration) nur bei Essens-Verfolgung, Wasser nur bei
 			// Wasser-Verfolgung; Stärke-Verlust bei beidem.
 			const counterCells = anyTracking
 				? `${foodTracking ? `<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-foodDays" value="${r.f.foodDays}"></td>
-				<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-rationDays" value="${r.f.rationDays}"></td>` : ''}${waterTracking ? `<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-waterDays" value="${r.f.waterDays}"></td>` : ''}<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-strengthLoss" value="${r.f.strengthLoss}"></td>`
+				<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-rationDays" value="${r.f.rationDays}"></td>` : ''}${waterTracking ? `<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-waterDays" value="${r.f.waterDays}"></td>` : ''}<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-strengthLoss" value="${r.f.strengthLoss}"></td><td class="m-travel-count">${markersHtml}</td>`
 				: '';
 			return `<tr>
 				<td class="m-travel-name"><label class="m-travel-member"><input type="checkbox" data-travel-member="${r.actor.id}"${r.checked ? ' checked' : ''}> ${foundry.utils.escapeHTML(r.actor.name)}</label>${r.f.isMember ? ` <i class="fas fa-person-hiking" title="${L('TRAVEL.MEMBER_BADGE')}"></i>` : ''}</td>
@@ -744,7 +810,7 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 
 	const counterHeads = anyTracking
 		? `${foodTracking ? `<th class="m-travel-count">${L('TRAVEL.COUNTER_FOOD')}</th>
-			<th class="m-travel-count">${L('TRAVEL.COUNTER_RATION')}</th>` : ''}${waterTracking ? `<th class="m-travel-count">${L('TRAVEL.COUNTER_WATER')}</th>` : ''}<th class="m-travel-count">${L('TRAVEL.COUNTER_STRENGTH')}</th>`
+			<th class="m-travel-count">${L('TRAVEL.COUNTER_RATION')}</th>` : ''}${waterTracking ? `<th class="m-travel-count">${L('TRAVEL.COUNTER_WATER')}</th>` : ''}<th class="m-travel-count">${L('TRAVEL.COUNTER_STRENGTH')}</th><th class="m-travel-count">${L('TRAVEL.COUNTER_MARKERS')}</th>`
 		: '';
 
 	const modeRadios = Object.entries(cfg.TRAVEL_MODE)
@@ -963,6 +1029,9 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 					flags.foodDays = 0;
 					flags.rationDays = 0;
 					summary.suppliedFood += 1;
+					// v1.3 (Meldung B): Marker = vorher verzehrte VOLLE
+					// Ration (Chip/Kontextmenü) → Hunger-Malus behoben
+					if (flags.strengthLoss > 0) flags.strengthLoss = 0;
 				} else {
 					const bookNow = rationMode === 'full' || flags.rationDays % 2 === 0;
 					if (bookNow) {
@@ -972,6 +1041,12 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 							flags.foodDays = 0;
 							if (rationMode === 'half') flags.rationDays += 1;
 							else flags.rationDays = 0;
+							// v1.3 (Meldung B): volle Ration gebucht →
+							// Hunger-Malus behoben; bei halber Ration
+							// bewusst NICHT (Rudolfs Entscheidung: der
+							// Körper hungelt weiter, rationDays läuft
+							// Richtung Hungerzustand)
+							if (rationMode !== 'half' && flags.strengthLoss > 0) flags.strengthLoss = 0;
 						} else {
 							flags.foodDays += 1;
 							summary.foodWarn += 1;
@@ -1273,17 +1348,19 @@ async function postSupplyRequestCard(actor, boonItem) {
  *  und Belastungsvorschau live.
  * ---------------------------------------------------------------- */
 
-/** Optionale Stapel-Kapazität am Item (system.maxNumber). */
+/** Optionale Stapel-Kapazität am Item (system.maxNumber; S4 v1.3:
+ *  gepflegt per Stepper im Status-Tab, NICHT mehr im Buchungsdialog). */
 function itemCapacity(item) {
 	const n = Number(item?.system?.maxNumber);
 	return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
 }
 
-/** Verbleibender Platz im Stapel (Infinity = unbegrenzt). */
-function capacityHeadroom(item, capOverride = null) {
-	const cap = capOverride != null ? Math.max(0, Math.round(capOverride)) : itemCapacity(item);
+/** Verbleibender Platz im Ziel (Infinity = unbegrenzt). S4 v1.3:
+ *  Kapazitäts-Items zählen rationCount (nicht die Item-Anzahl). */
+function capacityHeadroom(item) {
+	const cap = itemCapacity(item);
 	if (cap <= 0) return Infinity;
-	return Math.max(0, cap - getItemCount(item));
+	return Math.max(0, cap - getAvailableRations(item));
 }
 
 function categoryLabel(category) {
@@ -1300,7 +1377,17 @@ export function openTravelSupplyBooking(actorId, yieldTotal) {
 	const n = Math.max(1, Math.round(Number(yieldTotal) || 1));
 	const rows = [];
 	for (const category of RATION_CATEGORIES) {
-		const items = actor.items.filter((it) => isRationItem(it) && String(it.system.resourceCategory) === category);
+		// v1.3 (Rudolfs Punkt 15 + Kategorie-Regel): Kapazitäts-ESSens-
+		// rationen (Wegbrot: 1 Brot = N Teile, backt sich nicht im
+		// Wald) sind KEINE Buschwissen-Ziele; einfache Essens-Stapel
+		// und ALLE Wasserrationen (auch der auffüllbare Wasserschlauch)
+		// bleiben buchbar.
+		const items = actor.items.filter(
+			(it) =>
+				isRationItem(it) &&
+				String(it.system.resourceCategory) === category &&
+				!(category === 'essensration' && isCapacityRationItem(it))
+		);
 		if (items.length === 0) {
 			rows.push(`<div class="m-travel-sec">${categoryLabel(category)}</div>
 			<p class="m-travel-note">${F('TRAVEL.SUPPLY_NO_TARGET', { category: categoryLabel(category), name: actor.name })}</p>`);
@@ -1308,8 +1395,12 @@ export function openTravelSupplyBooking(actorId, yieldTotal) {
 		}
 		const options = items
 			.map((it) => {
+				// v1.3: Bestand = verfügbare Rationen; Kapazitäts-Ziele
+				// (Wasserschlauch) zeigen „x / Kap“ statt „Bestand x“
 				const cap = itemCapacity(it);
-				return `<option value="${it.id}">${foundry.utils.escapeHTML(it.name)} — ${F('TRAVEL.SUPPLY_STOCK', { count: getItemCount(it) })}${cap > 0 ? ' / ' + F('TRAVEL.SUPPLY_CAP', { count: cap }) : ''}</option>`;
+				return `<option value="${it.id}">${foundry.utils.escapeHTML(it.name)} — ${
+					cap > 0 ? F('TRAVEL.SUPPLY_STOCK_CAP', { count: getAvailableRations(it), cap }) : F('TRAVEL.SUPPLY_STOCK', { count: getAvailableRations(it) })
+				}</option>`;
 			})
 			.join('');
 		rows.push(`<div class="m-travel-sec">${categoryLabel(category)}</div>
@@ -1321,11 +1412,6 @@ export function openTravelSupplyBooking(actorId, yieldTotal) {
 				<label>${L('TRAVEL.SUPPLY_AMOUNT_LABEL')}</label>
 				<input type="number" min="0" step="1" data-travel-amount="${category}" value="${n}">
 				<span class="m-travel-note" data-travel-room="${category}"></span>
-			</div>
-			<div class="m-travel-row">
-				<label>${L('TRAVEL.SUPPLY_CAP_INPUT_LABEL')}</label>
-				<input type="number" min="0" step="1" data-travel-cap="${category}" value="${itemCapacity(items[0])}">
-				<span class="m-travel-note">${L('TRAVEL.SUPPLY_CAP_INPUT_HINT')}</span>
 			</div>`);
 	}
 	const modern = isModernDialogActive();
@@ -1342,7 +1428,7 @@ export function openTravelSupplyBooking(actorId, yieldTotal) {
 		width: 560,
 		onRender: (element) => {
 			const refresh = () => updateBookingPreview(element, actor);
-			for (const el of element?.querySelectorAll?.('[data-travel-target], [data-travel-amount], [data-travel-cap]') ?? []) {
+			for (const el of element?.querySelectorAll?.('[data-travel-target], [data-travel-amount]') ?? []) {
 				el.addEventListener('change', refresh);
 				el.addEventListener('input', refresh);
 			}
@@ -1369,11 +1455,9 @@ function readBookingInputs(element) {
 	for (const category of RATION_CATEGORIES) {
 		const targetSel = element?.querySelector?.(`[data-travel-target="${category}"]`);
 		const amountEl = element?.querySelector?.(`[data-travel-amount="${category}"]`);
-		const capEl = element?.querySelector?.(`[data-travel-cap="${category}"]`);
-		if (!targetSel || !amountEl || !capEl) continue;
+		if (!targetSel || !amountEl) continue;
 		out[category] = {
 			itemId: targetSel.value,
-			cap: Math.max(0, Math.round(Number(capEl.value) || 0)),
 			amount: Math.max(0, Math.round(Number(amountEl.value) || 0)),
 		};
 	}
@@ -1387,10 +1471,14 @@ function updateBookingPreview(element, actor) {
 	for (const [category, inp] of Object.entries(inputs)) {
 		const item = actor.items.get(inp.itemId);
 		if (!item) continue;
-		const room = capacityHeadroom(item, inp.cap);
+		const room = capacityHeadroom(item);
 		const booked = Math.min(inp.amount, Number.isFinite(room) ? room : inp.amount);
 		const overflow = inp.amount - booked;
-		extraGE += (getWeightCategory(item.system?.weight).value ?? 0) * booked;
+		// v1.3: Buchungen auf Kapazitäts-Items füllen rationCount und
+		// ändern Item-Anzahl/Gewicht bewusst NICHT (Gewicht/Preis =
+		// manuelle Buchhaltung, Rudolfs Wegbrot-Vorgabe) — die Last-
+		// Vorschau zählt nur Buchungen auf einfache Stapel.
+		extraGE += isCapacityRationItem(item) ? 0 : (getWeightCategory(item.system?.weight).value ?? 0) * booked;
 		const roomEl = element?.querySelector?.(`[data-travel-room="${category}"]`);
 		if (roomEl) {
 			roomEl.textContent = overflow > 0
@@ -1427,17 +1515,23 @@ async function submitTravelSupplyBooking(html, actor, yieldTotal) {
 	for (const [category, inp] of Object.entries(inputs)) {
 		const item = actor.items.get(inp.itemId);
 		if (!item) continue;
-		// Kapazität am Ziel-Item persistieren (einmal gesetzt, klemmt
-		// jede künftige Buchung; 0 = unbegrenzt)
-		if (itemCapacity(item) !== inp.cap) {
-			await item.update({ 'system.maxNumber': inp.cap });
-		}
-		const room = capacityHeadroom(item, inp.cap);
+		// v1.3: Die Kapazität wohnt seit v1.3 im Blatt (Status-Tab-
+		// Stepper) — der Dialog pflegt sie nicht mehr, klemmt aber an
+		// sie (capacityHeadroom ist rationCount-bewusst).
+		const room = capacityHeadroom(item);
 		const take = Math.min(inp.amount, Number.isFinite(room) ? room : inp.amount);
 		const overflow = Math.max(0, inp.amount - take);
 		overflowTotal += overflow;
 		if (take > 0) {
-			await item.update({ 'system.number': getItemCount(item) + take });
+			// v1.3 (Kapazitätsmodell): Kapazitäts-Ziele (z. B. Wasser-
+			// schlauch) füllen system.rationCount — die Item-Anzahl
+			// bleibt 1 (verkauft/wiegt als 1); einfache Stapel
+			// erhöhen die Anzahl wie bisher.
+			if (isCapacityRationItem(item)) {
+				await item.update({ 'system.rationCount': getRationCount(item) + take });
+			} else {
+				await item.update({ 'system.number': getItemCount(item) + take });
+			}
 		}
 		if (take > 0 || overflow > 0) {
 			booked.push({ item, category, take, overflow });
@@ -1457,7 +1551,7 @@ async function submitTravelSupplyBooking(html, actor, yieldTotal) {
 async function postSupplyBookingCard(actor, yieldTotal, booked) {
 	const lines = booked
 		.map((b) => {
-			const base = b.take > 0 ? F('TRAVEL.BOOKING_CARD_LINE', { count: b.take, item: b.item.name, stock: getItemCount(b.item) }) : '';
+			const base = b.take > 0 ? F('TRAVEL.BOOKING_CARD_LINE', { count: b.take, item: b.item.name, stock: getAvailableRations(b.item) }) : '';
 			const over = b.overflow > 0 ? ` <span class="travel-warn">${F('TRAVEL.BOOKING_CARD_OVERFLOW', { count: b.overflow })}</span>` : '';
 			const give = b.take > 0
 				? ` <button type="button" class="travel-probe-button" data-travel-give="${b.item.id}" data-travel-giver="${actor.id}"><i class="fas fa-hand-holding"></i> ${L('TRAVEL.BOOKING_GIVE_BUTTON')}</button>`

@@ -1,4 +1,6 @@
 import { isStackableItem } from '../common/stacking.js';
+// S4 v1.3 (Kapazitätsmodell): Rations-Helfer + Kategorien-Liste
+import { RATION_CATEGORIES, isCapacityRationItem, getRationCount } from '../common/resources.js';
 // Übergabe v1: Geben-Button der Titelzeile (Dialog/Consent/Socket in transfer.js)
 import { openGiveDialog } from '../common/transfer.js';
 // Item-Sheet-Modernisierung v1: die moderne Ansicht der Item-Blätter folgt
@@ -169,6 +171,21 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			},
 			quantityMinus: function (event) {
 				this._onQuantityAdjust(event, -1);
+			},
+			/* S4 v1.3 (Kapazitätsmodell): Caret-Stepper „Anzahl Rationen“
+			   (Beschreibungs-Tab) und „Kapazität“ (Status-Tab) — Klemmung
+			   in den Handlern (Min 0, Max „Anzahl Rationen“ = Kapazität). */
+			rationCountPlus: function (event) {
+				this._onRationCountAdjust(event, 1);
+			},
+			rationCountMinus: function (event) {
+				this._onRationCountAdjust(event, -1);
+			},
+			capacityPlus: function (event) {
+				this._onCapacityAdjust(event, 1);
+			},
+			capacityMinus: function (event) {
+				this._onCapacityAdjust(event, -1);
 			},
 			/* Segen & Lasten S2.1 (P25): Caret-Stepper an der Segen-/
 			   Lasten-Stufe (klassisch + modern); XP-Buchung laeuft über
@@ -949,14 +966,22 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			 * undefined/NaN/Negativ fallen auf den Anzeige-Fallback 1
 			 * zurueck (Alt-Items). */
 			numberDisplay: Number(item.system.number) >= 0 ? item.system.number : 1,
-			/* S4 v1.2 (Rudolfs Freigabe 08.11.): Kapazitätsfeld
-			 * (system.maxNumber) am Ausrüstungs-Kopf — nur bei
-			 * Ausrüstung MIT gesetzter Ressourcen-Kategorie (Rationen,
-			 * z. B. Wasserschlauch / Wegbrot); 0 = unbegrenzt.
-			 * Persistiert über submitOnChange (name-Attribut, Muster
-			 * system.number). */
-			showCapacity: type === 'equipment' && String(item.system?.resourceCategory ?? '') !== '',
-			maxNumberDisplay: Number(item.system?.maxNumber) >= 0 ? item.system?.maxNumber : 0,
+			/* S4 v1.3 (Rudolfs Kapazitätsmodell, Platzierung 08.11.): Das
+			 * v1.2-Kapazitätsfeld am Kopf ist ENTFALLEN. Die Kapazität
+			 * (system.maxNumber) wohnt im Status-Tab UNTER der Ressourcen-
+			 * Kategorie (GM-only), „Anzahl Rationen“ (system.rationCount)
+			 * auf dem Beschreibungs-Tab — beide mit Caret-Steppern
+			 * (Min 0, Max „Anzahl Rationen“ = Kapazität).
+			 * Diskriminator (Rudolfs starke Zustimmung): „Anzahl
+			 * Rationen“ erscheint NUR bei Rations-Kategorie MIT
+			 * Kapazität > 0 (Kapazitäts-Item) — einfache Zahl-Stapel
+			 * bleiben reine Anzahl-Stapel ohne Rationsfeld. */
+			showRationCount: isCapacityRationItem(item),
+			rationCountDisplay: getRationCount(item),
+			showCapacityStatus:
+				item.type === 'equipment' &&
+				RATION_CATEGORIES.includes(String(item.system?.resourceCategory ?? '')),
+			capacityDisplay: Math.max(0, Math.round(Number(item.system?.maxNumber) || 0)),
 			weightTooltipKey: type === 'armor' ? 'WEIGHT.TOOLTIP_ARMOR' : 'WEIGHT.TOOLTIP',
 		};
 		/* Kopf-Zeile 2 (Booleans fertig berechnet - A6-Lernweis: Handlebars
@@ -1116,6 +1141,41 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		const next = Math.max(0, base + delta);
 		if (next === base) return;
 		await this.item.update({ 'system.number': next });
+	}
+
+	/* S4 v1.3 (Rudolfs Kapazitätsmodell, Freigabe 08.11.): Stepper am
+	 * Rations-Füllstand (system.rationCount, Beschreibungs-Tab) und an
+	 * der Kapazität (system.maxNumber, Status-Tab). „Anzahl Rationen“:
+	 * Min 0 (leeres Kapazitäts-Item bleibt als Item stehen), Max =
+	 * eingestellte Kapazität (nur bei Kapazitäts-Items erreichbar —
+	 * das Feld rendert ohnehin nur dort). Kapazität: Min 0 (0 = kein
+	 * Kapazitäts-Item/unbegrenzter Zahl-Stapel). Muster _onQuantity-
+	 * Adjust/_onBoonLevelAdjust (Klemmung im Handler, item.update
+	 * direkt, kein Form-Submit). */
+	async _onRationCountAdjust(event, delta) {
+		event.preventDefault();
+		if (!this.isEditable || !this.item.isOwner) return;
+		if (!isCapacityRationItem(this.item)) return;
+		const cap = Math.max(0, Math.round(Number(this.item.system?.maxNumber) || 0));
+		const base = getRationCount(this.item);
+		const next = Math.min(cap, Math.max(0, base + delta));
+		if (next === base) return;
+		await this.item.update({ 'system.rationCount': next });
+	}
+
+	async _onCapacityAdjust(event, delta) {
+		event.preventDefault();
+		if (!this.isEditable || !this.item.isOwner) return;
+		if (
+			this.item.type !== 'equipment' ||
+			!RATION_CATEGORIES.includes(String(this.item.system?.resourceCategory ?? ''))
+		) {
+			return;
+		}
+		const base = Math.max(0, Math.round(Number(this.item.system?.maxNumber) || 0));
+		const next = Math.max(0, base + delta);
+		if (next === base) return;
+		await this.item.update({ 'system.maxNumber': next });
 	}
 
 	/**

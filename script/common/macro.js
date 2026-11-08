@@ -1322,6 +1322,14 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.rationsTaggingMigration();",
 				img: "icons/svg/backpack.svg",
 			},
+			{
+				// S4 v1.3 (Kapazitätsmodell): Migration der v1.2-Kapazitäts-
+				// Rationen auf number=1 + rationCount (Füllstand) — Welt-
+				// Items UND alle Inventare, je Zeile editierbar, idempotent.
+				name: game.i18n.localize("MACRO.RATION_CAPACITY_NAME"),
+				command: "game.symbaroum.macros.rationCapacityMigration();",
+				img: "icons/svg/item-bag.svg",
+			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro
@@ -2572,6 +2580,98 @@ export class SymbaroumMacros {
 							count++;
 						}
 						ui.notifications.info(game.i18n.format("TRAVEL.TAGGING_DONE", { count }));
+					},
+				},
+				Cancel: {
+					label: game.i18n.localize("BUTTON.CANCEL"),
+				},
+			},
+		});
+	}
+
+	/* S4 v1.3 (Rudolfs Kapazitätsmodell, Freigabe 08.11.): Migration
+	 * bestehender Rations-Kapazitäts-Items vom v1.2-Stand (number =
+	 * Rationsanzahl, maxNumber = Kapazität, z. B. Wegbrot 7/7) auf das
+	 * entkoppelte Modell: system.number = Item-Anzahl (1 — verkauft/
+	 * wiegt als 1), system.rationCount = Rations-Füllstand. Vorbelegung
+	 * min(number, Kapazität), je Zeile editierbar (Grenzfälle wie
+	 * number 1 entscheidet die SL selbst). Idempotent: Items mit
+	 * bereits gesetztem rationCount erscheinen nicht wieder. */
+	async rationCapacityMigration() {
+		if (!game.user.isGM) {
+			ui.notifications.warn(game.i18n.localize("MACRO.GM_ONLY"));
+			return;
+		}
+		const entries = [];
+		const collect = (item, owner) => {
+			if (item.type !== "equipment") return;
+			const cat = String(item.system?.resourceCategory ?? "");
+			if (!["essensration", "wasserration"].includes(cat)) return;
+			const cap = Number(item.system?.maxNumber);
+			if (!Number.isFinite(cap) || cap <= 0) return;
+			// bereits migriert (rationCount gesetzt)? Dann idempotent skippen
+			if (Number.isFinite(Number(item.system?.rationCount))) return;
+			const num = Math.max(1, Math.round(Number(item.system?.number ?? 1) || 1));
+			entries.push({ item, owner, cap: Math.round(cap), num, fill: Math.min(num, Math.round(cap)) });
+		};
+		for (const item of game.items) collect(item, null);
+		for (const actor of game.actors) {
+			for (const item of actor.items) collect(item, actor.name);
+		}
+		entries.sort((a, b) => (a.owner ?? "").localeCompare(b.owner ?? "") || a.item.name.localeCompare(b.item.name));
+		if (entries.length === 0) {
+			ui.notifications.info(game.i18n.localize("TRAVEL.CAPMIG_NONE_FOUND"));
+			return;
+		}
+		let rows = "";
+		for (let i = 0; i < entries.length; i++) {
+			const e = entries[i];
+			const displayName = e.owner ? `${e.item.name} (${e.owner})` : e.item.name;
+			rows = rows.concat(`<tr>
+                    <td style="padding:2px 6px 2px 0;">${foundry.utils.escapeHTML(displayName)}</td>
+                    <td style="padding:2px 6px; text-align:center;">${e.num}</td>
+                    <td style="padding:2px 6px; text-align:center;">${e.cap}</td>
+                    <td style="padding:2px 6px; white-space:nowrap;"><input type="number" min="0" step="1" value="${e.fill}" data-entry-idx="${i}" class="capfill-input" style="width:5rem;"></td>
+                </tr>`);
+		}
+		const dialog_content = `
+        <div style="display:flex; flex-direction:column;">
+        <p style="margin:0 0 6px 0;">${game.i18n.localize("TRAVEL.CAPMIG_HEADER")}</p>
+        <div style="width:100%; max-height:60vh; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <th style="text-align:left;">${game.i18n.localize("BIO.NAME")}</th>
+                <th style="text-align:center;">${game.i18n.localize("EQUIPMENT.NUMBER")}</th>
+                <th style="text-align:center;">${game.i18n.localize("EQUIPMENT.MAXNUMBER")}</th>
+                <th style="text-align:left;">${game.i18n.localize("EQUIPMENT.RATIONCOUNT")}</th>
+            </tr>
+            ${rows}
+        </table>
+        </div>
+        <p style="margin:6px 0 0 0; font-size:0.9em; opacity:0.8;">${game.i18n.localize("TRAVEL.CAPMIG_HINT")}</p>
+        </div>`;
+		symbDialog({
+			width: 620,
+			title: game.i18n.localize("TRAVEL.CAPMIG_DIALOG_TITLE"),
+			content: dialog_content,
+			buttons: {
+				Accept: {
+					label: game.i18n.localize("TRAVEL.CAPMIG_ACCEPT"),
+					img: "icons/svg/sun.svg",
+					callback: async (html) => {
+						const root = html[0];
+						let count = 0;
+						for (let i = 0; i < entries.length; i++) {
+							const input = root.querySelector(`input.capfill-input[data-entry-idx="${i}"]`);
+							if (!input) continue;
+							const fill = Math.min(entries[i].cap, Math.max(0, Math.round(Number(input.value) || 0)));
+							await entries[i].item.update({
+								"system.rationCount": fill,
+								"system.number": 1,
+							});
+							count++;
+						}
+						ui.notifications.info(game.i18n.format("TRAVEL.CAPMIG_DONE", { count }));
 					},
 				},
 				Cancel: {

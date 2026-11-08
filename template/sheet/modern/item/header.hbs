@@ -111,18 +111,12 @@
                     </div>
                 </div>
                 {{/if}}
-                {{!-- S4 v1.2 (Rudolfs Freigabe 08.11.): Kapazitätsfeld (Stapel-
-                      Obergrenze, 0 = unbegrenzt) nur bei Ausrüstung MIT gesetzter
-                      Ressourcen-Kategorie (z. B. Wasserschlauch, Wegbrot 7 Teile);
-                      submitOnChange persistiert über das name-Attribut (Muster
-                      system.number), x/y-Anzeige + Merge-Klemme folgen in
-                      player.js/stacking.js. --}}
-                {{#if modern.showCapacity}}
-                <div class="m-inline-field m-qty-field m-possess-field">
-                    <label class="m-sec-label" for="{{id}}-system.maxNumber">{{localize "EQUIPMENT.MAXNUMBER"}}</label>
-                    <input id="{{id}}-system.maxNumber" name="system.maxNumber" type="number" value="{{modern.maxNumberDisplay}}" data-dtype="Number" data-tooltip="{{localize "EQUIPMENT.MAXNUMBER_HINT"}}"/>
-                </div>
-                {{/if}}
+                {{!-- S4 v1.3 (Rudolfs Kapazitätsmodell, Platzierung
+                      08.11.): Das v1.2-Kapazitätsfeld am Kopf ist ENTFALLEN
+                      — die Kapazität wohnt im Status-Tab unter der Ressourcen-
+                      Kategorie, „Anzahl Rationen“ auf dem Beschreibungs-Tab
+                      (beide mit Caret-Steppern; siehe tab-status.hbs und
+                      equipment.hbs). --}}
             </div>
         </div>
         {{/if}}

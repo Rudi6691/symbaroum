@@ -137,6 +137,50 @@ export function getItemCount(item) {
 	return Number.isFinite(n) && n >= 0 ? Math.round(n) : 1;
 }
 
+/* ----------------------------------------------------------------
+ * S4 v1.3 (Rudolfs Kapazitätsmodell, Freigabe 08.11.): Rations-
+ * Kapazitäts-Items — die Item-Anzahl (system.number) ist UNAB-
+ * HÄNGIG von der Anzahl Rationen im Item („Gemeinsam ist ihnen,
+ * dass die Item-Anzahl unabhängig von der Anzahl Rationen in ihnen
+ * ist"): 1 Wasserschlauch = 1 Item (verkauft/wiegt als 1), fasst
+ * bis zu 5 Wasserrationen; 1 Wegbrot = 1 Item, 7 Essensrationen,
+ * 1 LE Gesamtgewicht (Gewicht/Preis bewusst manuelle Buchhaltung).
+ * Diskriminator: Rations-Kategorie + Kapazität (system.maxNumber)
+ * > 0. Einfache Rations-Stapel (Kapazität 0 = unbegrenzt) bleiben
+ * Zahl-Stapel wie bisher — Verzehr bucht dort system.number.
+ * ---------------------------------------------------------------- */
+
+/** S4 v1.3: Rations-Kategorien des Reise-Pakets (Zentral-Definition;
+ * travel.js/item.js importieren von hier, keine zweite Kopie). */
+export const RATION_CATEGORIES = ['essensration', 'wasserration'];
+
+/** Kapazitäts-Rations-Item (Rations-Kategorie MIT Kapazität > 0):
+ * Verzehr/Bestand laufen über system.rationCount, system.number
+ * bleibt unberührt (Item-Menge für Kauf/Verkauf/Gewicht/Stapel). */
+export function isCapacityRationItem(item) {
+	if (item?.type !== 'equipment') return false;
+	if (!RATION_CATEGORIES.includes(String(item.system?.resourceCategory ?? ''))) return false;
+	const cap = Number(item.system?.maxNumber);
+	return Number.isFinite(cap) && cap > 0;
+}
+
+/** Aktueller Rations-Bestand eines Kapazitäts-Items (0 = leer;
+ * ungültige/fehlende Werte gelten als leer — Bestand pflegt der
+ * Stepper auf dem Beschreibungs-Tab bzw. das Migrationsmakro). */
+export function getRationCount(item) {
+	const n = Number(item?.system?.rationCount);
+	return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
+}
+
+/**
+ * Verfügbare Rationen eines Items: Kapazitäts-Item = rationCount,
+ * einfacher Stapel = Anzahl (getItemCount). Zentrale Basis für
+ * Bestandsanzeige (Chips, x/y-Zeile) und alle Konsum-Pfade.
+ */
+export function getAvailableRations(item) {
+	return isCapacityRationItem(item) ? getRationCount(item) : getItemCount(item);
+}
+
 /**
  * Alle Ausruestungs-Items eines Akteurs in einer Ressourcen-Kategorie
  * (kategoriebasiert statt namensbasiert - Runde-2-Entscheidung; Behaelter-
@@ -149,13 +193,16 @@ export function findResourceItems(actor, category, { requireAvailable = true } =
 	return actor.items.filter((item) => {
 		if (item?.type !== 'equipment') return false;
 		if ((item.system?.resourceCategory ?? '') !== category) return false;
-		return !requireAvailable || getItemCount(item) > 0;
+		// S4 v1.3: verfügbar = verfügbare Rationen (Kapazitäts-Item:
+		// rationCount) bzw. Anzahl (einfacher Stapel, getAvailableRations)
+		return !requireAvailable || getAvailableRations(item) > 0;
 	});
 }
 
-/** Verfuegbare Gesamtmenge einer Kategorie im Inventar. */
+/** Verfuegbare Gesamtmenge einer Kategorie im Inventar
+ *  (S4 v1.3: Kapazitäts-Items tragen rationCount bei). */
 export function getResourceTotal(actor, category) {
-	return findResourceItems(actor, category).reduce((sum, item) => sum + getItemCount(item), 0);
+	return findResourceItems(actor, category).reduce((sum, item) => sum + getAvailableRations(item), 0);
 }
 
 /**
@@ -173,16 +220,23 @@ export function getResourceTotal(actor, category) {
 export async function consumeResource(actor, category, amount) {
 	const take = Math.max(1, Math.round(Number(amount) || 1));
 	const stacks = findResourceItems(actor, category);
-	const total = stacks.reduce((sum, item) => sum + getItemCount(item), 0);
+	const total = stacks.reduce((sum, item) => sum + getAvailableRations(item), 0);
 	if (total < take) return null;
 	let remaining = take;
 	let firstName = null;
 	for (const item of stacks) {
 		if (remaining <= 0) break;
-		const current = getItemCount(item);
+		const current = getAvailableRations(item);
 		const takeFromStack = Math.min(current, remaining);
-		// Bewusst bis 0 erlaubt - Zeile bleibt stehen (Rudolfs Entscheidung 3)
-		await item.update({ 'system.number': current - takeFromStack });
+		// S4 v1.3: Kapazitäts-Items buchen rationCount (Item-Anzahl
+		// bleibt unberührt), einfache Stapel buchen die Anzahl.
+		// Bewusst bis 0 erlaubt - Zeile bleibt stehen (Rudolfs
+		// Entscheidung 3; das leere Kapazitäts-Item bleibt als Item).
+		if (isCapacityRationItem(item)) {
+			await item.update({ 'system.rationCount': getRationCount(item) - takeFromStack });
+		} else {
+			await item.update({ 'system.number': current - takeFromStack });
+		}
 		remaining -= takeFromStack;
 		if (firstName === null) firstName = item.name;
 	}
@@ -196,10 +250,17 @@ export async function consumeResource(actor, category, amount) {
  */
 export async function consumeResourceFromItem(item, amount) {
 	if (!item || (item.system?.resourceCategory ?? '') === '') return 0;
-	const current = getItemCount(item);
+	const current = getAvailableRations(item);
 	const take = Math.min(current, Math.max(1, Math.round(Number(amount) || 1)));
 	if (take <= 0) return 0;
-	await item.update({ 'system.number': current - take });
+	// S4 v1.3: Kapazitäts-Items buchen rationCount (Kontextmenü
+	// „Ressource verbrauchen"/„Verzehren", Chip-Klick, Tag-Buchung),
+	// einfache Stapel buchen die Anzahl wie bisher.
+	if (isCapacityRationItem(item)) {
+		await item.update({ 'system.rationCount': getRationCount(item) - take });
+	} else {
+		await item.update({ 'system.number': current - take });
+	}
 	return take;
 }
 

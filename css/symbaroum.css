@@ -11317,15 +11317,91 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
   color: #6082b6 !important;
 }
 
-/* Bestands-Chips sind Buttons (Klick = 1 Ration verzehren) —
-   UA-Styles zurücksetzen, Hover-Feedback geben. */
-button.m-travel-chip {
-  font: inherit;
+/* S4 v1.3 (Rudolfs Testrunde 2, Punkt 2 — Root-Cause): Die globale
+   V13-Button-Regel .symbaroum.sheet.actor button (~564, title.webp-
+   Textur, border:none, padding:0, 14px fett) hat Spezifität 0,2,1
+   und schlug die Chip-Regeln (0,2,0 bzw. 0,1,1) — die Bestands-
+   Chips als <button> trugen darum die schwarze Textur. Voller Reset
+   am gescopeten Selektor (v3.5-Lernweis: globale Button-Regeln
+   treffen jeden neuen Button — m-attr-edit-Präzedenz ~6095); die
+   Tint-Werte sind identisch mit den span-Regeln oben (Beobachter
+   sehen Spans, die unangetastet bleiben). */
+.symbaroum.sheet.actor .modern-root button.m-travel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  text-align: left;
+  border: 0.0625rem solid transparent;
+  background: transparent;
   cursor: pointer;
 }
 
-button.m-travel-chip:hover {
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-food {
+  background: rgba(111, 158, 124, 0.18);
+  color: #4d7a52;
+  border-color: rgba(111, 158, 124, 0.35);
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-food i {
+  color: #4d7a52 !important;
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-water {
+  background: rgba(96, 130, 182, 0.22);
+  color: #6082b6;
+  border-color: rgba(96, 130, 182, 0.35);
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-water i {
+  color: #6082b6 !important;
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-hunger {
+  background: rgba(176, 124, 30, 0.25);
+  color: var(--m-warn);
+  border-color: rgba(176, 124, 30, 0.4);
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-hunger i {
+  color: var(--m-warn) !important;
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-thirst {
+  background: rgba(192, 85, 74, 0.22);
+  color: var(--m-bad);
+  border-color: rgba(192, 85, 74, 0.4);
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip.m-travel-thirst i {
+  color: var(--m-bad) !important;
+}
+
+.symbaroum.sheet.actor .modern-root button.m-travel-chip:hover {
   filter: brightness(1.15);
+}
+
+/* S4 v1.3 (Rudolfs Meldung A): Versorgt-Badge am Chip (Marker
+   aktiv — Klick warnt statt zu buchen, consumeRationFromCategory);
+   Farbe erbt aus der Chip-Tönung. */
+.m-travel-chip .m-travel-supplied-badge {
+  margin-left: 0.1rem;
+}
+
+/* S4 v1.3 (Meldung A): Vermerke-Spalte im Reisetag-Dialog — die
+   Marker sind das Buchungs-Gate (der Abschluss konsumiert sie
+   statt nochmal zu buchen) und damit ab jetzt sichtbar. */
+.travel-dialog .m-travel-markers i {
+  margin-right: 0.15rem;
+}
+
+.travel-dialog .m-travel-dim {
+  opacity: 0.45;
 }
 
 /* S4 v1.2: rote −X-Badge am Stärke-Attribut-Chip bei akkumulierten

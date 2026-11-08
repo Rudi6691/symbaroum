@@ -37,6 +37,8 @@
  */
 import { getItemPriceBase } from "./currency.js";
 import { isInsideContainer } from "./container.js";
+// S4 v1.3 (Kapazitätsmodell): Rations-Helfer aus resources.js
+import { isCapacityRationItem, getRationCount } from "./resources.js";
 
 /* -------------------------------------------- */
 /*  Regel-Matrix                                 */
@@ -156,6 +158,50 @@ export async function mergeStackDrop(actor, sourceItem, containerId = null) {
 	}
 	const target = findStackTarget(actor, sourceItem, { containerId });
 	if (!target) return null;
+	/* S4 v1.3 (Rudolfs Meldung C, Punkt 12): Ist das ZIEL ein Rations-
+	 * Kapazitäts-Item, füllt der Merge RATIONEN auf (system.ration-
+	 * Count, Item-Anzahl bleibt unberührt — 1 Wasserschlauch bleibt
+	 * 1 Item): Ziel wird bis zur Kapazität aufgefüllt, der Überhang
+	 * bleibt am Quel-Item (eingebettete Quelle behält Rest-Rationen;
+	 * eine Kapazitäts-QUELLE wird NIE gelöscht — der leere Schlauch
+	 * bleibt als Item stehen; unverpackte Quelle = Kopie im Ziel-
+	 * Akteur, Muster splitStackItem). Einfache Quellen zahlen ihre
+	 * Anzahl als Rationen ein. Kein Kapazitäts-Ziel: v1.2-Logik. */
+	if (isCapacityRationItem(target)) {
+		const sourceCapacity = isCapacityRationItem(sourceItem);
+		const incomingRations = sourceCapacity
+			? getRationCount(sourceItem)
+			: Math.max(1, Math.round(Number(sourceItem.system?.number ?? 1) || 1));
+		const currentRations = getRationCount(target);
+		const capacity = Math.round(Number(target.system?.maxNumber));
+		const totalRations = currentRations + incomingRations;
+		const mergedRations = Math.max(currentRations, Math.min(totalRations, capacity));
+		const leftoverRations = totalRations - mergedRations;
+		await target.update({ "system.rationCount": mergedRations });
+		if (sourceCapacity) {
+			// Kapazitäts-Quelle: nie löschen, Rest-Rationen bleiben
+			// am (physischen) Item; Item-Anzahl bleibt unberührt
+			await sourceItem.update({ "system.rationCount": leftoverRations });
+		} else if (leftoverRations > 0) {
+			if (sourceParent instanceof Actor) {
+				await sourceItem.update({ "system.number": leftoverRations });
+			} else {
+				const data = sourceItem.toObject();
+				delete data._id;
+				if (data.flags?.symbaroum && "favorite" in data.flags.symbaroum) {
+					delete data.flags.symbaroum.favorite;
+				}
+				data.system = data.system ?? {};
+				data.system.number = leftoverRations;
+				if (containerId) data.system.container = containerId;
+				await actor.createEmbeddedDocuments("Item", [data]);
+			}
+		} else if (sourceParent instanceof Actor) {
+			await sourceParent.deleteEmbeddedDocuments("Item", [sourceItem.id]);
+		}
+		// Kosmetik v1: Merge-Toast bleibt dauerhaft ausgeblendet
+		return target;
+	}
 	// Anzahl-Semantik wie Behältersystem/Last: fehlende Anzahl = 1,
 	// Einzelheiten gerundet, nie unter 1.
 	const incoming = Math.max(1, Math.round(Number(sourceItem.system?.number ?? 1) || 1));
