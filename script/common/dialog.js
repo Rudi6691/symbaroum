@@ -22,7 +22,7 @@ import { getDazedPenalty } from './elixirs.js';
 // Eigenschafts-Würfeldialog. Import-Zykel dialog.js ↔ travel.js ist
 // Laufzeit-sicher (beide Seiten nur Funktionsdeklarationen, Aufruf erst
 // zur Laufzeit — gleiche Prämisse wie item.js ↔ boon.js).
-import { getTravelTestFavour, getHungerPenalty, recordHungerFailure, recordMarchFailure, recordMarchAccident, recordThirstFailure } from './travel.js';
+import { getTravelTestFavour, getHungerPenalty, recordHungerFailure, recordMarchFailure, recordMarchAccident, recordThirstFailure, recordNightmaresSuccess, recordNightmaresFailureCard } from './travel.js';
 // Elixiere v1.5: Gift-Beschichtung - Bestandspruefung der Dosis-Stapel
 import { getItemCount } from './resources.js';
 
@@ -465,6 +465,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     // Kontextzeilen im Würfeldialog (gleiche Stelle wie die Hungerprobe)
     "travelMarchProbe": !!(ecData.travelMarchProbe),
     "travelThirstProbe": !!(ecData.travelThirstProbe),
+    // S4.2 (Rudolfs Auswahlrunde 09.11.): Albträume-Probe-Kontext —
+    // Kontextzeile im Willenskraft-Wurfeldialog (gleiche Stelle)
+    "travelNightmaresProbe": !!(ecData.travelNightmaresProbe),
     "isArmorRoll" : armor !== null,
     "askImpeding" : askImpeding,
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
@@ -508,10 +511,12 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
 
   // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe — Dialogtitel
   // „Stärke - Hungerprobe“ (Suffix aus dem ecData-Kontext);
-  // S4-Sammel-Fix (Teil 1): analoge Titel für Strapazen- und Durstprobe
+  // S4-Sammel-Fix (Teil 1): analoge Titel für Strapazen- und Durstprobe;
+  // S4.2: Albträume (Willenskraft statt Stärke)
   const travelProbeTitleSuffix = ecData.travelHungerProbe ? game.i18n.localize('TRAVEL.HUNGER_PROBE_TITLE')
     : ecData.travelMarchProbe ? game.i18n.localize('TRAVEL.MARCH_PROBE_TITLE')
     : ecData.travelThirstProbe ? game.i18n.localize('TRAVEL.THIRST_PROBE_TITLE')
+    : ecData.travelNightmaresProbe ? game.i18n.localize('TRAVEL.NIGHTMARES_PROBE_TITLE')
     : '';
   const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName)
     + (travelProbeTitleSuffix ? ' - ' + travelProbeTitleSuffix : '');
@@ -1019,6 +1024,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               introText: ecData.travelHungerProbe ? game.i18n.format('TRAVEL.HUNGER_CARD_INTRO', { name: actor.name })
                 : ecData.travelMarchProbe ? game.i18n.format('TRAVEL.MARCH_CARD_INTRO', { name: actor.name })
                 : ecData.travelThirstProbe ? game.i18n.format('TRAVEL.THIRST_CARD_INTRO', { name: actor.name })
+                : ecData.travelNightmaresProbe ? game.i18n.format('TRAVEL.NIGHTMARES_CARD_INTRO', { name: actor.name })
                 : null }).then(async (roll) => {
               // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe — bei MISserfolg
               // steigt der Stärke-Malus sofort um 1 (travel.js
@@ -1043,6 +1049,17 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               // Durst-Todes-Karte (SL entscheidet, kein Auto-Tod).
               else if (ecData?.travelThirstProbe && roll?.hasSucceed === false) {
                 await recordThirstFailure(actor);
+              }
+              // S4.2 (Rudolfs Auswahlrunde 09.11.): Albträume-Probe —
+              // Erfolg bucht die zurückgestellte natürliche Heilung
+              // (recordNightmaresSuccess inkl. Heilungs-Karte),
+              // Misserfolg verhindert sie (Versagens-Karte).
+              else if (ecData?.travelNightmaresProbe) {
+                if (roll?.hasSucceed === true) {
+                  await recordNightmaresSuccess(actor, ecData?.travelNightmaresHeal ?? 0, ecData?.travelNightmaresDays ?? 1);
+                } else if (roll?.hasSucceed === false) {
+                  await recordNightmaresFailureCard(actor);
+                }
               }
               resolve(roll);
             });

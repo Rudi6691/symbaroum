@@ -28,6 +28,12 @@
     <input type="text" value="{{localize "TRAVEL.THIRST_PROBE_CONSEQUENCE"}}" data-dtype="Text" disabled/>
   </div>
   {{/if}}
+  {{#if travelNightmaresProbe}}
+  <div class="bonus">
+    <label title="{{localize "TRAVEL.NIGHTMARES_PROBE_HINT"}}">{{localize "TRAVEL.NIGHTMARES_PROBE_LABEL"}}</label>
+    <input type="text" value="{{localize "TRAVEL.NIGHTMARES_PROBE_CONSEQUENCE"}}" data-dtype="Text" disabled/>
+  </div>
+  {{/if}}
   <div class="bonus">
     <label for="modifier-{{did}}">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="modifier-{{did}}" type="number" value="{{roll_defaults.modifier}}" data-dtype="Number"/>

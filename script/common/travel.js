@@ -50,7 +50,7 @@ import {
 } from './resources.js';
 import { getEncumbranceData, getWeightCategory, formatGE } from './encumbrance.js';
 import { openGiveDialog } from './transfer.js';
-import { hasEnduringMarch } from './boon.js';
+import { hasEnduringMarch, hasNightmaresBurden } from './boon.js';
 import { prepareRollAttribute } from './dialog.js';
 import { createRollData, getOwnerPlayer } from './roll.js';
 
@@ -1167,6 +1167,13 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 	 * Würfeln-Karte (Resist-Muster), siehe nach der Karten-Erstellung. */
 	const hungerRequests = [];
 
+	/* S4.2 (Rudolfs Auswahlrunde 09.11.): Albträume-Anfragekarten
+	 * sammeln — heilungsbedürftige Mitglieder mit der Last Albträume
+	 * erhalten statt der Auto-Buchung die Karte „Albträume prüfen“
+	 * (Willenskraft-Probe entscheidet über die Heilung: Erfolg =
+	 * Buchung, Misserfolg = keine Heilung + Versagens-Karte). */
+	const nightmaresRequests = [];
+
 	for (const actorId of actorIds) {
 		const worldActor = game.actors.get(actorId);
 		if (!worldActor) continue;
@@ -1306,39 +1313,46 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 				: F('TRAVEL.CHIP_HUNGER_RATION', { days: st.rationDays })
 			: '';
 		st.thirstLabel = st.thirst ? F('TRAVEL.CHIP_THIRST', { days: st.waterDays }) : '';
-		/* S4-Sammel-Fix (Teil 2): Natürliche Heilung — je abge-
+		/* S4-Sammel-Fix (Teil 2) + S4.2: Natürliche Heilung — je abge-
 		 * schlossenem Reisetag +1 Zähigkeit (RAW-Grundregel), gebremst
-		 * durch Gewalt-/Todesmarsch (summary.noHealing), Hunger- oder
-		 * Durst-Warnschwelle oder in der Nacht fehlgeschlagene
-		 * Albträume (Rudolfs vierstelliger Blocker). Nur buchen, wenn
+		 * durch Gewalt-/Todesmarsch (summary.noHealing) oder Hunger-
+		 * bzw. Durst-Warnschwelle. Seit S4.2 (Rudolfs Auswahlrunde)
+		 * ersetzt die Last Albträume den v1-Merker-Blocker: Bei
+		 * anstehender Heilung läuft der Wurf über die Anfrage-Karte
+		 * „Albträume prüfen“ statt still zu blocken. Nur buchen, wenn
 		 * der persistierte Istwert nicht über dem Maximum liegt
 		 * (Hunger-Zähigkeits-Klemme niemals überschreiben — Daten-
 		 * verlust-Schutz). Karte nur bei tatsächlicher Heilung,
 		 * geflüstert an Spieler-Besitzer + GM. */
 		if (isNaturalHealingEnabled()) {
-			/* Albträume-Merker an SZENEN-VERTRETER und Welt-Aktor
-			 * lesen (der Albträume-Wurf kann je nach Szenenlage an
-			 * beiden hängen; der synthetische Aktor meldet dieselbe
-			 * ID, deshalb Instanzvergleich) und an BEIDEN konsumieren
-			 * — einmalige Wirkung über die Nacht. */
+			/* S4.2: Legacy-Aufräumen des v1-Merker-Systems — Rest-
+			 * flags (falls aus der v1-Phase gesetzt) werden still
+			 * konsumiert; sie haben keine Wirkung mehr. */
 			const distinctWorldActor = worldActor && worldActor !== actor ? worldActor : null;
-			const nightmares = !!actor.getFlag(FLAG_SCOPE, 'travel.nightmaresFailed')
-				|| !!(distinctWorldActor && distinctWorldActor.getFlag(FLAG_SCOPE, 'travel.nightmaresFailed'));
-			if (nightmares) {
+			if (actor.getFlag(FLAG_SCOPE, 'travel.nightmaresFailed')) {
 				await actor.unsetFlag(FLAG_SCOPE, 'travel.nightmaresFailed');
-				if (distinctWorldActor) {
-					await distinctWorldActor.unsetFlag(FLAG_SCOPE, 'travel.nightmaresFailed');
-				}
 			}
-			const blocked = !!summary.noHealing || !!st.hunger || !!st.thirst || nightmares;
+			if (distinctWorldActor?.getFlag(FLAG_SCOPE, 'travel.nightmaresFailed')) {
+				await distinctWorldActor.unsetFlag(FLAG_SCOPE, 'travel.nightmaresFailed');
+			}
+			const blocked = !!summary.noHealing || !!st.hunger || !!st.thirst;
 			const curValue = Number(actor.system?.health?.toughness?.value);
 			const curMax = Number(actor.system?.health?.toughness?.max);
 			if (!blocked && Number.isFinite(curValue) && Number.isFinite(curMax) && curValue <= curMax) {
 				const newValue = Math.min(curValue + days, curMax);
 				const healed = newValue - curValue;
 				if (healed > 0) {
-					await actor.update({ 'system.health.toughness.value': newValue });
-					await postWhisperSystemCard(F('TRAVEL.CARD_NATURAL_HEALING', { name: actor.name, amount: healed, days }), actor);
+					/* S4.2: Last Albträume — Heilung NUR nach
+					 * bestandener nächtlicher Willenskraft-Probe
+					 * (Karte „Albträume prüfen“, Versandschritt
+					 * nach der Tageskarte); der Betrag wird im
+					 * Erfolgsfall gebucht (recordNightmaresSuccess). */
+					if (hasNightmaresBurden(actor)) {
+						nightmaresRequests.push({ actorId, actor, healed, days });
+					} else {
+						await actor.update({ 'system.health.toughness.value': newValue });
+						await postWhisperSystemCard(F('TRAVEL.CARD_NATURAL_HEALING', { name: actor.name, amount: healed, days }), actor);
+					}
 				}
 			}
 		}
@@ -1404,6 +1418,15 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 		}
 	}
 
+	/* S4.2 (Rudolfs Auswahlrunde 09.11.): Albträume-Anfragekarten
+	 * versenden — mit aktivem Spieler-Besitzer geflüstert per Socket
+	 * an den Spieler (symbcomms TravelNightmaresProbe, Hunger-Muster);
+	 * NSC ohne aktiven Besitzer erhalten eine GM-Karte (die SL würfelt
+	 * selbst, gleiche Flagge/Karte). */
+	for (const req of nightmaresRequests) {
+		await sendNightmaresRequest(req);
+	}
+
 	// 6) Zeitsprung (nur auf Wunsch — der Tageswechsel-Hook hat die Zeit
 	//    bereits bewegt, das Makro öffnet den Dialog VOR dem Sprung)
 	if (advance) {
@@ -1416,7 +1439,7 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
  * ---------------------------------------------------------------- */
 
 /** Strapazen-/Hunger-/Durst-Probe über die bestehende Wurf-Maschinerie. */
-async function rollTravelProbe(actorRef, kind = null) {
+async function rollTravelProbe(actorRef, kind = null, healAmount = 0, healDays = 1) {
 	/* v1.5: Akzeptiert Welt-Aktor-ID (Tageskarte) oder Aktor-Instanz
 	 * (Anfrage-Karte); Welt-Aktoren werden auf den SZENEN-VERTRETER
 	 * aufgelöst, damit Probe UND Malus-Buchung (recordHungerFailure)
@@ -1442,7 +1465,18 @@ async function rollTravelProbe(actorRef, kind = null) {
 	 * scheitert“ sind damit entfallen (Tageskarten-Tasten entfernt). */
 	if (kind === 'march') ecData.travelMarchProbe = true;
 	if (kind === 'thirst') ecData.travelThirstProbe = true;
-	await prepareRollAttribute(actor, 'strong', null, null, ecData);
+	/* S4.2 (Rudolfs Auswahlrunde 09.11.): Albträume-Probe — WILLENS-
+	 * kraft-Dialog mit Albträume-Kontext; der Misserfolg verhindert
+	 * die anstehende Heilung (Versagens-Karte), der Erfolg bucht sie
+	 * (healAmount/healDays kommen aus der Anfrage-Karte, siehe
+	 * sendNightmaresRequest → dialog.js Auswertung). */
+	if (kind === 'nightmares') {
+		ecData.travelNightmaresProbe = true;
+		ecData.travelNightmaresHeal = Number(healAmount) || 0;
+		ecData.travelNightmaresDays = Math.max(1, Number(healDays) || 1);
+	}
+	const attribute = kind === 'nightmares' ? 'resolute' : 'strong';
+	await prepareRollAttribute(actor, attribute, null, null, ecData);
 }
 
 /**
@@ -1510,15 +1544,75 @@ export async function recordThirstFailure(actor) {
 }
 
 /**
- * S4-Sammel-Fix (Teil 2, Albträume): Merker, dass eine Albträume-
- * Verzauberung in der letzten Nacht fehlgeschlagen ist — blockiert
- * die natürliche Heilung beim nächsten Reisetags-Abschluss. Wird in
- * item.js nach dem misslungenen Albträume-Wurf gesetzt und beim
- * Tagesabschluss KONSUMIERT (einmalige Wirkung).
+ * S4.2 (Rudolfs Auswahlrunde 09.11.): Bestandene Albträume-Probe —
+ * die zurückgestellte natürliche Heilung wird jetzt gebucht (Klemme
+ * erneut geprüft: Istwert <= max, min(value + heal, max); Daten-
+ * verlust-Schutz wie im Teil-2-Block) und mit der geflüsterten
+ * Heilungs-Karte quittiert (Muster postWhisperSystemCard).
  */
-export async function recordNightmaresFailed(actor) {
+export async function recordNightmaresSuccess(actor, healAmount = 0, healDays = 1) {
 	if (!actor) return;
-	await actor.setFlag(FLAG_SCOPE, 'travel.nightmaresFailed', true);
+	const heal = Math.max(0, Number(healAmount) || 0);
+	const days = Math.max(1, Number(healDays) || 1);
+	const curValue = Number(actor.system?.health?.toughness?.value);
+	const curMax = Number(actor.system?.health?.toughness?.max);
+	if (!Number.isFinite(curValue) || !Number.isFinite(curMax) || curValue > curMax || heal <= 0) return;
+	const newValue = Math.min(curValue + heal, curMax);
+	const healed = newValue - curValue;
+	if (healed <= 0) return;
+	await actor.update({ 'system.health.toughness.value': newValue });
+	await postWhisperSystemCard(F('TRAVEL.CARD_NATURAL_HEALING', { name: actor.name, amount: healed, days }), actor);
+}
+
+/**
+ * S4.2: Misslungene Albträume-Probe — keine Heilung an diesem Tag;
+ * geflüsterte Versagens-Karte mit dem etablierten Last-Text
+ * (BOON_ROLL.NIGHTMARES_FAILURE), an Spieler-Besitzer + GM.
+ */
+export async function recordNightmaresFailureCard(actor) {
+	if (!actor) return;
+	await postWhisperSystemCard(L('BOON_ROLL.NIGHTMARES_FAILURE'), actor);
+}
+
+/**
+ * S4.2 (Rudolfs Auswahlrunde 09.11.): Anfrage-Karte „Albträume
+ *  prüfen“ — mit aktivem Spieler-Besitzer geflüstert per Socket an
+ *  den Spieler (symbcomms TravelNightmaresProbe, Hunger-Muster),
+ *  sonst GM-Karte (die SL würfelt für den NSC; gleiche Flagge und
+ *  Karte, travel.js renderChatMessageHTML wertet beide aus).
+ *  healed = Heilungsbetrag, days = abgeschlossene Reisetage (für
+ *  die Erfolgs-Buchung + Heilungs-Karte; Klick → rollTravelProbe
+ *  'nightmares' → dialog.js → recordNightmaresSuccess).
+ */
+async function sendNightmaresRequest(req) {
+	if (!req?.actor) return;
+	const owners = await getOwnerPlayer(req.actor);
+	if (owners.length > 0) {
+		game.symbaroum.emit({
+			type: 'TravelNightmaresProbe',
+			data: {
+				targetUserId: owners[0].id,
+				actorId: req.actorId,
+				actorName: req.actor.name,
+				heal: req.healed,
+				days: req.days,
+			},
+		});
+		return;
+	}
+	// NSC ohne aktiven Spieler-Besitzer: GM-Karte (SL würfelt selbst)
+	const html = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/travel-probe-request.hbs', {
+		introText: L('TRAVEL.NIGHTMARES_REQUEST_TITLE'),
+		mainText: F('TRAVEL.NIGHTMARES_REQUEST_MAIN', { name: req.actor.name }),
+		buttonText: L('TRAVEL.NIGHTMARES_REQUEST_BUTTON'),
+	});
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: L('TRAVEL.SYSTEM_ALIAS') }),
+		whisper: ChatMessage.getWhisperRecipients('GM'),
+		content: html,
+		flags: { [FLAG_SCOPE]: { travelNightmaresRequest: { actorId: req.actorId, actorName: req.actor.name, heal: req.healed, days: req.days } } },
+	});
 }
 
 /** GM-Anwendung einer Karten-Aktion (kein Auto-Tod — SL entscheidet). */
@@ -2049,6 +2143,28 @@ export async function setupTravelRuntime() {
 		}
 		// v1.1: Aufforderungs-Karte „Vorräte auffüllen" — klickbar nur
 		// für Blattbesitzer und GM (der Spieler würfelt SELBST)
+		/* S4.2 (Rudolfs Auswahlrunde 09.11.): Anfrage-Karte Albtraeume
+		 * pruefen - Spieler-Besitzer wuerfelt selbst (Karte gehoert ihm,
+		 * erzeugt auf seinem Client via symbcomms TravelNightmaresProbe)
+		 * oder die SL wuerfelt fuer NSC (GM-Karte aus sendNightmaresRequest,
+		 * gleiche Flagge). Nach dem Klick verschwindet die Karte
+		 * KOMPLETT (Muster hungerRequest) und der Willenskraft-Wurfdialog
+		 * mit Albtraeume-Kontext oeffnet: Erfolg bucht die zurueckgestellte
+		 * Heilung (recordNightmaresSuccess), Misserfolg verhindert sie
+		 * (Versagens-Karte, dialog.js). */
+		const nightmaresRequest = message.getFlag(FLAG_SCOPE, 'travelNightmaresRequest');
+		if (nightmaresRequest) {
+			html.querySelectorAll('[data-travel-nightmares-request]').forEach((btn) => {
+				btn.addEventListener('click', async () => {
+					const world = game.actors.get(nightmaresRequest.actorId);
+					const actor = world ? resolveSceneRepresentative(world) : null;
+					if (!actor) return;
+					if (!game.user.isGM && !actor.isOwner) return;
+					await message.delete();
+					await rollTravelProbe(actor, 'nightmares', Number(nightmaresRequest.heal) || 0, Number(nightmaresRequest.days) || 1);
+				});
+			});
+		}
 		const request = message.getFlag(FLAG_SCOPE, 'travelSupplyRequest');
 		if (request) {
 			html.querySelectorAll('[data-travel-supply-request]').forEach((btn) => {

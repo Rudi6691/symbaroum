@@ -1147,6 +1147,17 @@ export function hasEpilepsy(actor) {
 }
 
 /**
+ * S4.2 (Rudolfs Auswahlrunde 09.11.): Traeger der Last Albtraeume
+ * (Referenz 'nightmares'). Der Reiseregeln-Flow bucht die natuerliche
+ * Heilung dieses Mitglieds nicht automatisch, sondern sendet die
+ * Anfrage-Karte „Albtraeume pruefen“ (Willenskraft-Probe entscheidet,
+ * travel.js completeTravelDays / sendNightmaresRequest).
+ */
+export function hasNightmaresBurden(actor) {
+  return hasByReference(actor, 'burden', 'nightmares');
+}
+
+/**
  * S3 Phase 2 (RAW-Zweitphasen-Modell): Nach dem Anfall (Gelähmt 1W6
  * Runden) erschöpft der Charakter mit −1 auf alle Erfolgsproben bis
  * zum Szenenende. Gekoppelt an die Condition „epilepsy“ (id aus

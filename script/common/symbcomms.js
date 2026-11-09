@@ -54,6 +54,30 @@ export class SymbaroumCommsListener
             chatData[flagKey] = comData.data;
             return ChatMessage.create(chatData);
         }
+        /* S4.2 (Rudolfs Auswahlrunde 09.11., Albtraeume): Anfragekarte
+           „Albtraeume pruefen“ — completeTravelDays sendet sie statt der
+           Auto-Buchung, wenn ein heilungsbeduerftiges Reisemitglied die
+           Last Albtraeume traegt. Der Spieler wuerfelt selbst (Willens-
+           kraft): Erfolg = Heilung, Misserfolg = keine (travel.js
+           recordNightmaresSuccess/recordNightmaresFailureCard). Muster
+           TravelHungerProbe; Karte/Flagge travelNightmaresRequest. */
+        else if(comData.type === "TravelNightmaresProbe" && comData.data.targetUserId === game.userId)
+        {
+            let templateData = {
+                introText: game.i18n.localize("TRAVEL.NIGHTMARES_REQUEST_TITLE"),
+                mainText: game.i18n.format("TRAVEL.NIGHTMARES_REQUEST_MAIN", {name: comData.data.actorName}),
+                buttonText: game.i18n.localize("TRAVEL.NIGHTMARES_REQUEST_BUTTON")
+            }
+            const html = await foundry.applications.handlebars.renderTemplate("systems/symbaroum/template/chat/travel-probe-request.hbs", templateData);
+            const flagKey = `flags.${game.system.id}.travelNightmaresRequest`;
+            const chatData = {
+                speaker: ChatMessage.getSpeaker({alias:game.i18n.localize("DIALOG.SYSTEM_MESSAGE")}),
+                whisper: [game.user],
+                content: html
+            };
+            chatData[flagKey] = comData.data;
+            return ChatMessage.create(chatData);
+        }
     }
 
     static async ready() {
