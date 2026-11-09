@@ -22,7 +22,7 @@ import { getDazedPenalty } from './elixirs.js';
 // Eigenschafts-Würfeldialog. Import-Zykel dialog.js ↔ travel.js ist
 // Laufzeit-sicher (beide Seiten nur Funktionsdeklarationen, Aufruf erst
 // zur Laufzeit — gleiche Prämisse wie item.js ↔ boon.js).
-import { getTravelTestFavour, getHungerPenalty, recordHungerFailure } from './travel.js';
+import { getTravelTestFavour, getHungerPenalty, recordHungerFailure, recordMarchFailure, recordMarchAccident, recordThirstFailure } from './travel.js';
 // Elixiere v1.5: Gift-Beschichtung - Bestandspruefung der Dosis-Stapel
 import { getItemCount } from './resources.js';
 
@@ -461,6 +461,10 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe-Kontext — Kontextzeile
     // vor dem Modifikator (dialog.hbs/dialog-modern.hbs)
     "travelHungerProbe": !!(ecData.travelHungerProbe),
+    // S4-Sammel-Fix (Teil 1): Strapazen-/Durst-Probe-Kontext — eigene
+    // Kontextzeilen im Würfeldialog (gleiche Stelle wie die Hungerprobe)
+    "travelMarchProbe": !!(ecData.travelMarchProbe),
+    "travelThirstProbe": !!(ecData.travelThirstProbe),
     "isArmorRoll" : armor !== null,
     "askImpeding" : askImpeding,
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
@@ -503,9 +507,14 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   });
 
   // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe — Dialogtitel
-  // „Stärke - Hungerprobe“ (Suffix aus dem ecData-Kontext)
+  // „Stärke - Hungerprobe“ (Suffix aus dem ecData-Kontext);
+  // S4-Sammel-Fix (Teil 1): analoge Titel für Strapazen- und Durstprobe
+  const travelProbeTitleSuffix = ecData.travelHungerProbe ? game.i18n.localize('TRAVEL.HUNGER_PROBE_TITLE')
+    : ecData.travelMarchProbe ? game.i18n.localize('TRAVEL.MARCH_PROBE_TITLE')
+    : ecData.travelThirstProbe ? game.i18n.localize('TRAVEL.THIRST_PROBE_TITLE')
+    : '';
   const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName)
-    + (ecData.travelHungerProbe ? ' - ' + game.i18n.localize('TRAVEL.HUNGER_PROBE_TITLE') : '');
+    + (travelProbeTitleSuffix ? ' - ' + travelProbeTitleSuffix : '');
   const dialog = symbDialog({
     title: baseDialogTitle,
     content: dialoghtml,
@@ -1005,15 +1014,35 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             // daraus „+ 1 (Modifikator) + 1 (Archivar)").
             game.symbaroum.api.rollAttribute(actor, attributeName, getTarget(), targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, { freeModifier: ecData.freeModifier ?? 0, boonLineChain: ecData.boonLineChain ?? [],
               // v1.5 (Rudolfs Punkt 2): Titelzeile auf der Wurfkarte
-              // (roll.hbs introText) — nur bei Hunger-Kontext gesetzt
+              // (roll.hbs introText) — bei Reise-Probe-Kontext gesetzt
               // („{Name} macht eine Hungerprobe!").
-              introText: ecData.travelHungerProbe ? game.i18n.format('TRAVEL.HUNGER_CARD_INTRO', { name: actor.name }) : null }).then(async (roll) => {
+              introText: ecData.travelHungerProbe ? game.i18n.format('TRAVEL.HUNGER_CARD_INTRO', { name: actor.name })
+                : ecData.travelMarchProbe ? game.i18n.format('TRAVEL.MARCH_CARD_INTRO', { name: actor.name })
+                : ecData.travelThirstProbe ? game.i18n.format('TRAVEL.THIRST_CARD_INTRO', { name: actor.name })
+                : null }).then(async (roll) => {
               // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe — bei MISserfolg
               // steigt der Stärke-Malus sofort um 1 (travel.js
               // recordHungerFailure; ersetzt die entfallene GM-Taste
               // „Hunger-Probe scheitert“ auf der Tageskarte).
               if (ecData?.travelHungerProbe && roll?.hasSucceed === false) {
                 await recordHungerFailure(actor);
+              }
+              // S4-Sammel-Fix (Teil 1): Strapazenprobe — natürliche 20
+              // (zählender Wurf) = Unfall-Karte OHNE zusätzlichen
+              // Schaden (Rudolfs Entscheidung; SL entscheidet, kein
+              // Auto-Tod); jeder andere Misserfolg bucht +1W6 Schaden
+              // (Floor 0) mit Würfel-Karte.
+              else if (ecData?.travelMarchProbe) {
+                if (Number(roll?.diceResult) === 20) {
+                  await recordMarchAccident(actor);
+                } else if (roll?.hasSucceed === false) {
+                  await recordMarchFailure(actor);
+                }
+              }
+              // S4-Sammel-Fix (Teil 1): Durstprobe — Misserfolg bucht die
+              // Durst-Todes-Karte (SL entscheidet, kein Auto-Tod).
+              else if (ecData?.travelThirstProbe && roll?.hasSucceed === false) {
+                await recordThirstFailure(actor);
               }
               resolve(roll);
             });

@@ -1304,10 +1304,28 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 	_prepareSubmitData(event, form, formData, updateData) {
 		const update = super._prepareSubmitData(event, form, formData, updateData);
 		if (update && typeof update === 'object') {
+			/* v1.1 (S4-Sammel-Fix, Rudolfs Testrunde 5 rot): Der flache
+			 * Object.keys-Scan traf NICHTS, weil die V14-Submit-Daten
+			 * EXPANDIERT/NESTED sind (_processFormData: "extracted into
+			 * an expanded object"). Die Klemmung läuft jetzt ZUSÄTZLICH
+			 * über foundry.utils.getProperty/setProperty je
+			 * BONUS_FIELDS-Pfad (f.name) mit raw !== undefined-Guard;
+			 * der flache Scan bleibt als Zweitpfad. Klemmformel
+			 * unverändert: NaN/leer -> 0, Runden, -10/+10. */
+			const clamp = (raw) => {
+				const value = Number(raw);
+				return Math.min(10, Math.max(-10, Number.isFinite(value) ? Math.round(value) : 0));
+			};
 			for (const key of Object.keys(update)) {
 				if (!key.startsWith('system.bonus.')) continue;
-				const value = Number(update[key]);
-				update[key] = Math.min(10, Math.max(-10, Number.isFinite(value) ? Math.round(value) : 0));
+				update[key] = clamp(update[key]);
+			}
+			for (const field of game.symbaroum.config.BONUS_FIELDS ?? []) {
+				const name = field?.name;
+				if (!name || !name.startsWith('system.bonus.')) continue;
+				const raw = foundry.utils.getProperty(update, name);
+				if (raw === undefined) continue;
+				foundry.utils.setProperty(update, name, clamp(raw));
 			}
 		}
 		return update;

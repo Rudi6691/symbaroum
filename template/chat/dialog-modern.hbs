@@ -26,6 +26,18 @@
     <input type="text" value="{{localize "TRAVEL.HUNGER_PROBE_CONSEQUENCE"}}" data-dtype="Text" disabled/>
   </div>
   {{/if}}
+  {{#if travelMarchProbe}}
+  <div class="m-roll-row">
+    <label title="{{localize "TRAVEL.MARCH_PROBE_HINT"}}">{{localize "TRAVEL.MARCH_PROBE_LABEL"}}</label>
+    <input type="text" value="{{localize "TRAVEL.MARCH_PROBE_CONSEQUENCE"}}" data-dtype="Text" disabled/>
+  </div>
+  {{/if}}
+  {{#if travelThirstProbe}}
+  <div class="m-roll-row">
+    <label title="{{localize "TRAVEL.THIRST_PROBE_HINT"}}">{{localize "TRAVEL.THIRST_PROBE_LABEL"}}</label>
+    <input type="text" value="{{localize "TRAVEL.THIRST_PROBE_CONSEQUENCE"}}" data-dtype="Text" disabled/>
+  </div>
+  {{/if}}
   <div class="m-roll-row">
     <label for="modifier-{{did}}">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="modifier-{{did}}" type="number" value="{{roll_defaults.modifier}}" data-dtype="Number"/>

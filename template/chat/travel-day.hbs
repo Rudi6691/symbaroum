@@ -67,11 +67,9 @@
                 {{/if}}
                 {{#if state.thirst}}
                 <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="thirst"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_THIRST"}}</button>
-                <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="thirstFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_THIRST_FAIL"}}</button>
                 {{/if}}
                 {{#if deathProbe}}
                 <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="march"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_DEATHMARCH"}}</button>
-                <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="deathFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_DEATH_FAIL"}}</button>
                 <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="accident"><i class="fas fa-skull"></i> {{localize "TRAVEL.CARD_APPLY_ACCIDENT"}}</button>
                 {{/if}}
                 {{#if summary.worsened}}

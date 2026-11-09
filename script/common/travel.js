@@ -118,6 +118,28 @@ export function registerTravelSettings() {
 		default: false,
 		config: false,
 	});
+	// S4-Sammel-Fix (Rudolfs Freigabe 09.11. „Leg los."): Natürliche
+	// Heilung + temporärer Korruptions-Abbau als WELT-Schalter,
+	// Default AN (Rudolfs Auswahlrunden-Entscheidung „Beide an"),
+	// wirksam nur zusammen mit dem Reise-Master-Schalter.
+	game.settings.register('symbaroum', 'naturalHealingEnabled', {
+		name: 'TRAVEL.SETTING_NATURAL_HEALING',
+		hint: 'TRAVEL.SETTING_NATURAL_HEALING_HINT',
+		scope: 'world',
+		type: Boolean,
+		default: true,
+		config: true,
+		restricted: true,
+	});
+	game.settings.register('symbaroum', 'corruptionDecayEnabled', {
+		name: 'TRAVEL.SETTING_CORRUPTION_DECAY',
+		hint: 'TRAVEL.SETTING_CORRUPTION_DECAY_HINT',
+		scope: 'world',
+		type: Boolean,
+		default: true,
+		config: true,
+		restricted: true,
+	});
 	// Interne Zustandswerte (KEINE Foundry-Einstellungsliste, config:false)
 	game.settings.register('symbaroum', 'travelLastDayKey', {
 		scope: 'world',
@@ -126,6 +148,13 @@ export function registerTravelSettings() {
 		config: false,
 	});
 	game.settings.register('symbaroum', 'travelLastDayTime', {
+		scope: 'world',
+		type: Number,
+		default: 0,
+		config: false,
+	});
+	// S4-Sammel-Fix: Letzte verarbeitete Weltzeit des Korruptions-Abbaus
+	game.settings.register('symbaroum', 'travelLastCorruptionTime', {
 		scope: 'world',
 		type: Number,
 		default: 0,
@@ -170,6 +199,24 @@ export function isFoodTrackingEnabled() {
 export function isWaterTrackingEnabled() {
 	try {
 		return isTravelEnabled() && !!game.settings.get('symbaroum', 'waterTrackingEnabled');
+	} catch (err) {
+		return false;
+	}
+}
+
+/** S4-Sammel-Fix: Effektiver Schalter „Natürliche Heilung". */
+export function isNaturalHealingEnabled() {
+	try {
+		return isTravelEnabled() && !!game.settings.get('symbaroum', 'naturalHealingEnabled');
+	} catch (err) {
+		return false;
+	}
+}
+
+/** S4-Sammel-Fix: Effektiver Schalter „Korruptions-Abbau". */
+export function isCorruptionDecayEnabled() {
+	try {
+		return isTravelEnabled() && !!game.settings.get('symbaroum', 'corruptionDecayEnabled');
 	} catch (err) {
 		return false;
 	}
@@ -655,6 +702,83 @@ export async function resetTravelStatus(actor) {
  * ---------------------------------------------------------------- */
 
 /**
+ * S4-Sammel-Fix (Teil 3): Temporäre Korruption abbauen — je 15 Minuten
+ *  Weltzeit −1 Punkt temporäre Korruption bei allen Reisegruppen-
+ * Mitgliedern, AUSSERHALB von Kämpfen. Aktiver Kampf pausiert den
+ * Abbau OHNE Nachholung (Rudolfs Entscheidung). Große Zeitsprünge
+ * (z. B. Reisetag-Schub auf Morgengrauen) sammeln automatisch alle
+ * vergangenen Intervalle — temporäre Korruption erreicht dabei
+ * vollständig 0 (Komplettabbau). Geflüsterte Infokarte je Mitglied
+ * erst, wenn die temporäre Korruption AUF 0 fällt (an Spieler-Besitzer
+ * + GM; NSC ohne Besitzer nur GM). corr.value wird in actor.js
+ * _getCorruptionValues aus temporary + longterm + permanent abgeleitet.
+ */
+async function handleCorruptionDecay(worldTime) {
+	if (!isCorruptionDecayEnabled()) return;
+	const currentTime = Number(worldTime) || 0;
+	if (game.combat?.active) {
+		// Kampf: Abbau pausieren, verstrichene Kampfzeit NICHT nachholen
+		game.settings.set('symbaroum', 'travelLastCorruptionTime', currentTime);
+		return;
+	}
+	const lastTime = Number(game.settings.get('symbaroum', 'travelLastCorruptionTime')) || 0;
+	if (lastTime === 0) {
+		// Erstabgleich: Referenzzeit setzen, noch nichts abbauen
+		game.settings.set('symbaroum', 'travelLastCorruptionTime', currentTime);
+		return;
+	}
+	if (currentTime < lastTime) {
+		// Rückwärtssprung: Referenz still nachführen, nichts zurückbuchen
+		game.settings.set('symbaroum', 'travelLastCorruptionTime', currentTime);
+		return;
+	}
+	const elapsed = currentTime - lastTime;
+	if (elapsed < 900) return; // 15 Minuten = 900 Sekunden Weltzeit
+	const points = Math.floor(elapsed / 900);
+	// Restintervall erhalten: nur vollständige Intervalle fortschreiben
+	game.settings.set('symbaroum', 'travelLastCorruptionTime', lastTime + points * 900);
+	for (const actor of getTravelGroup()) {
+		const temporary = Number(actor.system?.health?.corruption?.temporary);
+		if (!Number.isFinite(temporary) || temporary <= 0) continue;
+		const reduction = Math.min(points, temporary);
+		if (reduction <= 0) continue;
+		const newTemporary = temporary - reduction;
+		await actor.update({ 'system.health.corruption.temporary': newTemporary });
+		if (newTemporary === 0) {
+			await postWhisperSystemCard(F('TRAVEL.CARD_CORRUPTION_CLEAR', { name: actor.name }), actor);
+		}
+	}
+}
+
+/** Geflüsterte Systemkarte (S4-Sammel-Fix): an Spieler-Besitzer des
+ *  Aktors UND alle aktiven GMs (dedupliziert); ohne Besitzer nur GM.
+ *  Muster postSystemCard, aber rollMode-unabhängig immer geflüstert. */
+async function postWhisperSystemCard(text, actor) {
+	const content = `<div class="symbaroum chat roll">
+		<div class="foreground">
+			<h3>${L('TRAVEL.SYSTEM_ALIAS')}</h3>
+			${actor ? `<img class="portrait" src="${actor.img}"/>` : ''}
+			<p>${text}</p>
+		</div>
+	</div>`;
+	const targets = new Map();
+	for (const user of game.users) {
+		if (user.active && user.isGM) targets.set(user.id, user.id);
+	}
+	if (actor) {
+		const owners = await getOwnerPlayer(actor);
+		for (const user of owners) targets.set(user.id, user.id);
+	}
+	if (targets.size === 0) targets.set(game.user.id, game.user.id);
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: L('TRAVEL.SYSTEM_ALIAS') }),
+		content,
+		whisper: [...targets.values()],
+	});
+}
+
+/**
  * Tag-Schlüssel-Vergleich statt Delta-Analyse (31.10.-Analyse):
  *  gleich → nichts; Rückwärtssprung → Key still nachführen, kein
  *  Dialog, keine Abbuchung; Vorwärtssprung (auch mehrägig) → SL-Dialog
@@ -663,6 +787,10 @@ export async function resetTravelStatus(actor) {
  */
 export function handleWorldTimeUpdate(worldTime) {
 	if (!game.user.isGM || !isTravelEnabled()) return;
+	/* S4-Sammel-Fix (Teil 3): Korruptions-Abbau läuft kontinuierlich
+	 * mit der Weltzeit (je 15 Minuten −1 temporäre Korruption), VOR
+	 * den Tageswechsel-Früh-Returns und unabhängig vom Tag-Dialog. */
+	handleCorruptionDecay(worldTime);
 	const comps = currentComponents(worldTime);
 	if (!comps) return;
 	const key = dayKeyOf(comps);
@@ -1178,6 +1306,42 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 				: F('TRAVEL.CHIP_HUNGER_RATION', { days: st.rationDays })
 			: '';
 		st.thirstLabel = st.thirst ? F('TRAVEL.CHIP_THIRST', { days: st.waterDays }) : '';
+		/* S4-Sammel-Fix (Teil 2): Natürliche Heilung — je abge-
+		 * schlossenem Reisetag +1 Zähigkeit (RAW-Grundregel), gebremst
+		 * durch Gewalt-/Todesmarsch (summary.noHealing), Hunger- oder
+		 * Durst-Warnschwelle oder in der Nacht fehlgeschlagene
+		 * Albträume (Rudolfs vierstelliger Blocker). Nur buchen, wenn
+		 * der persistierte Istwert nicht über dem Maximum liegt
+		 * (Hunger-Zähigkeits-Klemme niemals überschreiben — Daten-
+		 * verlust-Schutz). Karte nur bei tatsächlicher Heilung,
+		 * geflüstert an Spieler-Besitzer + GM. */
+		if (isNaturalHealingEnabled()) {
+			/* Albträume-Merker an SZENEN-VERTRETER und Welt-Aktor
+			 * lesen (der Albträume-Wurf kann je nach Szenenlage an
+			 * beiden hängen; der synthetische Aktor meldet dieselbe
+			 * ID, deshalb Instanzvergleich) und an BEIDEN konsumieren
+			 * — einmalige Wirkung über die Nacht. */
+			const distinctWorldActor = worldActor && worldActor !== actor ? worldActor : null;
+			const nightmares = !!actor.getFlag(FLAG_SCOPE, 'travel.nightmaresFailed')
+				|| !!(distinctWorldActor && distinctWorldActor.getFlag(FLAG_SCOPE, 'travel.nightmaresFailed'));
+			if (nightmares) {
+				await actor.unsetFlag(FLAG_SCOPE, 'travel.nightmaresFailed');
+				if (distinctWorldActor) {
+					await distinctWorldActor.unsetFlag(FLAG_SCOPE, 'travel.nightmaresFailed');
+				}
+			}
+			const blocked = !!summary.noHealing || !!st.hunger || !!st.thirst || nightmares;
+			const curValue = Number(actor.system?.health?.toughness?.value);
+			const curMax = Number(actor.system?.health?.toughness?.max);
+			if (!blocked && Number.isFinite(curValue) && Number.isFinite(curMax) && curValue <= curMax) {
+				const newValue = Math.min(curValue + days, curMax);
+				const healed = newValue - curValue;
+				if (healed > 0) {
+					await actor.update({ 'system.health.toughness.value': newValue });
+					await postWhisperSystemCard(F('TRAVEL.CARD_NATURAL_HEALING', { name: actor.name, amount: healed, days }), actor);
+				}
+			}
+		}
 		cardActors.push({
 			id: actor.id,
 			name: actor.name,
@@ -1267,9 +1431,17 @@ async function rollTravelProbe(actorRef, kind = null) {
 	 * „Stärke - Hungerprobe“, Kontextzeile vor dem Modifikator und
 	 * automatische Stärke-Malus-Buchung bei Misserfolg (dialog.js);
 	 * die GM-Taste „Hunger-Probe scheitert“ ist entfallen. Durst-
-	 * und Todesmarsch-Proben laufen unverändert ohne Kontext. */
+	 * und Todesmarsch-Proben laufen seit dem S4-Sammel-Fix über den
+	 * identischen Kontext (siehe Flags unten). */
 	const ecData = { targetData: { hasTarget: false, leaderTarget: false, actor: {} } };
 	if (kind === 'hunger') ecData.travelHungerProbe = true;
+	/* S4-Sammel-Fix (Teil 1): Strapazen- und Durst-Probe erhalten den
+	 * gleichen Dialog-Kontext wie die Hungerprobe (Titel, Kontext-
+	 * zeile, Karte, automatische Buchung bei Misserfolg — dialog.js);
+	 * die GM-Tasten „Strapazen-Probe scheitert“ und „Durst-Probe
+	 * scheitert“ sind damit entfallen (Tageskarten-Tasten entfernt). */
+	if (kind === 'march') ecData.travelMarchProbe = true;
+	if (kind === 'thirst') ecData.travelThirstProbe = true;
 	await prepareRollAttribute(actor, 'strong', null, null, ecData);
 }
 
@@ -1299,6 +1471,56 @@ export async function recordHungerFailure(actor) {
 	}
 }
 
+/**
+ * S4-Sammel-Fix (Teil 1): Fehlschlag der Strapazen-Probe — automatisch
+ * +1W6 Schaden (Floor 0) mit Würfel-Karte; das frühere GM-Tasten-Innere
+ * ist jetzt die Funktion, der deathFail-Case delegiert hierher
+ * (Altkarten-Kompatibilität). Kein Auto-Tod — die SL entscheidet.
+ */
+export async function recordMarchFailure(actor) {
+	if (!actor) return;
+	const dmgRoll = await new Roll('1d6').evaluate();
+	const cur = Number(actor.system?.health?.toughness?.value);
+	if (Number.isFinite(cur)) {
+		await actor.update({ 'system.health.toughness.value': Math.max(0, cur - dmgRoll.total) });
+	}
+	await postSystemCard(F('TRAVEL.CARD_DEATH_FAIL', { name: actor.name, dmg: dmgRoll.total }), actor, dmgRoll);
+}
+
+/**
+ * S4-Sammel-Fix (Teil 1): Natürliche 20 auf der Strapazen-Probe (RAW:
+ * tödlicher Unfall) — Unfall-Karte, die SL entscheidet (kein Auto-Tod,
+ * KEIN zusätzlicher Schadenswurf). Wird aus der Wurfauswertung in
+ * dialog.js getriggert; der accident-Case der Tageskarte delegiert
+ * hierher (Altkarten-Kompatibilität).
+ */
+export async function recordMarchAccident(actor) {
+	if (!actor) return;
+	await postSystemCard(F('TRAVEL.CARD_ACCIDENT', { name: actor.name }), actor);
+}
+
+/**
+ * S4-Sammel-Fix (Teil 1): Fehlschlag der Durst-Probe — Durst-Todes-
+ * Karte (SL entscheidet, kein Auto-Tod, S3-Philosophie); der
+ * thirstFail-Case delegiert hierher (Altkarten-Kompatibilität).
+ */
+export async function recordThirstFailure(actor) {
+	if (!actor) return;
+	await postSystemCard(F('TRAVEL.CARD_DEATH_THIRST', { name: actor.name }), actor);
+}
+
+/**
+ * S4-Sammel-Fix (Teil 2, Albträume): Merker, dass eine Albträume-
+ * Verzauberung in der letzten Nacht fehlgeschlagen ist — blockiert
+ * die natürliche Heilung beim nächsten Reisetags-Abschluss. Wird in
+ * item.js nach dem misslungenen Albträume-Wurf gesetzt und beim
+ * Tagesabschluss KONSUMIERT (einmalige Wirkung).
+ */
+export async function recordNightmaresFailed(actor) {
+	if (!actor) return;
+	await actor.setFlag(FLAG_SCOPE, 'travel.nightmaresFailed', true);
+}
+
 /** GM-Anwendung einer Karten-Aktion (kein Auto-Tod — SL entscheidet). */
 async function applyTravelCardAction(dataset) {
 	const actor = game.actors.get(dataset.actorId);
@@ -1314,25 +1536,25 @@ async function applyTravelCardAction(dataset) {
 			break;
 		}
 		case 'deathFail': {
-			// Fehlschlag der Strapazen-Probe (Todesmarsch): +1W6 Schaden
-			const dmgRoll = await new Roll('1d6').evaluate();
-			const cur = Number(actor.system?.health?.toughness?.value);
-			if (Number.isFinite(cur)) {
-				await actor.update({ 'system.health.toughness.value': Math.max(0, cur - dmgRoll.total) });
-			}
-			await postSystemCard(F('TRAVEL.CARD_DEATH_FAIL', { name: actor.name, dmg: dmgRoll.total }), actor, dmgRoll);
+			// S4-Sammel-Fix: GM-Taste entfallen, Misserfolg bucht sich aus
+			// der Wurfauswertung (dialog.js → recordMarchFailure); der Case
+			// delegiert für Altkarten, die vor dem Sammel-Fix im Chat stehen.
+			await recordMarchFailure(actor);
 			break;
 		}
 		case 'accident': {
 			// Natürliche 20 auf der Strapazen-Probe (RAW): tödlicher
-			// Unfall — Karte, SL entscheidet (kein Auto-Tod)
-			await postSystemCard(F('TRAVEL.CARD_ACCIDENT', { name: actor.name }), actor);
+			// Unfall — Karte, SL entscheidet (kein Auto-Tod); S4-Sammel-
+			// Fix delegiert an recordMarchAccident (dialog.js nutzt
+			// dieselbe Funktion aus der Wurfauswertung).
+			await recordMarchAccident(actor);
 			break;
 		}
 		case 'thirstFail': {
-			// Fehlschlag der täglichen Durst-Probe: Tod — Karte, SL
-			// entscheidet (kein Auto-Tod, S3-Philosophie)
-			await postSystemCard(F('TRAVEL.CARD_DEATH_THIRST', { name: actor.name }), actor);
+			// S4-Sammel-Fix: GM-Taste entfallen, Misserfolg bucht sich aus
+			// der Wurfauswertung (dialog.js → recordThirstFailure); der Case
+			// delegiert für Altkarten (kein Auto-Tod, S3-Philosophie).
+			await recordThirstFailure(actor);
 			break;
 		}
 		default:

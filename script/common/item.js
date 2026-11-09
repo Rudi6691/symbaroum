@@ -36,7 +36,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // als Modifikator-Vorbelegung im Fähigkeits-Würfeldialog (Helfer aus
 // travel.js). Zykel-Sicherheit wie dialog.js <-> item.js: nur
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
-import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
+import { getTravelTestFavour, getHungerPenalty, recordNightmaresFailed } from "./travel.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -7612,6 +7612,13 @@ export async function standardPowerResult(rollData, functionStuff) {
     for (let i = 0; i < rollData.length; i++) {
       rolls = rolls.concat(rollData[i].rolls);
     }
+  }
+  // S4-Sammel-Fix (Albträume): Misslungene Albträume-Verzauberung
+  // markieren — blockiert die natürliche Heilung beim nächsten
+  // Reisetags-Abschluss (travel.js completeTravelDays konsumiert
+  // den Merker, einmalige Wirkung über die Nacht).
+  if (functionStuff.reference === "nightmares" && !trueActorSucceeded) {
+    await recordNightmaresFailed(functionStuff.actor);
   }
 
   if (functionStuff.rollFailedFSmod && !trueActorSucceeded) {
