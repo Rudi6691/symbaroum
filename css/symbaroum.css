@@ -11497,3 +11497,88 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
   color: #a3402f;
   font-weight: 600;
 }
+
+/* ================= AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026) =================
+   Zone-Tab auf dem Mystische-Kraft-Blatt: moderne Ansicht (m-*Vokabular der
+   css-Checkliste, rem statt px, Palette ausschließlich über --m-*-Variablen,
+   Scope .symbaroum.sheet.item .modern-root) + klassische Ansicht (minimal,
+   .zone-hint/.zone-place) + die geflüsterte Auto-Targeting-Karte (Muster
+   give-card: Standard-Chat-Hintergrund, Akzent-Balken links). */
+
+.symbaroum.sheet.item .modern-root .m-zone-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.symbaroum.sheet.item .modern-root .m-zone-row .m-inline-field {
+  flex: 1 1 9rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-zone-row .m-zone-size input {
+  width: 4.5rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-zone-hint {
+  font-size: 0.72rem;
+  color: var(--m-muted);
+  margin: 0.4rem 0 0;
+}
+
+.symbaroum.sheet.item .modern-root .m-zone-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-zone-place i {
+  color: var(--m-accent);
+}
+
+/* Klassische Ansicht des Zone-Tabs: dezente Hinweiszeilen und der
+   Platzier-Knopf in der klassischen Button-Basis (kein Theming-Umbau,
+   die klassische Ansicht bleibt bewusst unangetastet im Look). */
+.symbaroum.sheet.item .zone-hint {
+  font-size: 0.7rem;
+  color: #4a4131;
+  margin: 0.3rem 0 0;
+}
+
+.symbaroum.sheet.item button.zone-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.symbaroum.sheet.item button.zone-place i {
+  color: #7a5c2e;
+}
+
+/* Flüsterkarte des Auto-Targeting (Muster give-card): Akzent-Balken
+   links, kompakte Detailzeilen, Icon in Akzentfarbe mit statischem
+   Fallback (Chat-Kontext kennt keine --m-*-Variablen). */
+.symbaroum.aoe-card {
+  border: 0.0625rem solid var(--m-line, #726e5c);
+  border-left: 0.25rem solid var(--m-accent, #b2925e);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0.25rem 0;
+}
+
+.symbaroum.aoe-card .aoe-card-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.symbaroum.aoe-card .aoe-card-line i {
+  color: #b2925e;
+}
+
+.symbaroum.aoe-card .aoe-card-detail {
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}

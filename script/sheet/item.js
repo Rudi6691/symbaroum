@@ -26,6 +26,11 @@ import { openBrewDialog, findAlchemyAbility, restoreDeception, exposeScheinRecip
 // bekannten Traditionen). Hier: Tab-Kontext, Traditions-Dialog-Action
 // und die Geheimnis-Chips der Qualitäts-Tabs.
 import { resolveItemTraditions, knownTraditionSelection, isForbiddenKnowledge, qualitySecretLabels, parseTraditions } from '../common/tradition.js';
+// AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026): GM-only „Zone“-
+// Tab auf Mystische-Kraft-Blättern (Form/Größe/Ziele, additive Felder
+// system.areaZone) + Platzier-Action placeZone (Template-Platzierung mit
+// Auto-Targeting, Engine aoe.js).
+import { aoeEnabled, getZoneConfig, placeZoneFromItem } from '../common/aoe.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -305,6 +310,17 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 						},
 					},
 				});
+			},
+			/* AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026):
+			   „Zone platzieren“-Knopf des GM-only Zone-Tabs (klassisch +
+			   modern, gleiche data-action): startet den interaktiven Core-
+			   Platzierungsworkflow (Vorschau folgt der Maus, Klick platziert,
+			   Mausrad rotiert, ESC bricht ab) und markiert danach die Token
+			   der Fläche nach dem Zielfilter als Ziele - Engine komplett in
+			   aoe.js (placeZoneFromItem inkl. Setting-/Szenen-Guards). */
+			placeZone: async function (event) {
+				event.preventDefault();
+				await placeZoneFromItem(this.item);
 			},
 		},
 	};
@@ -644,6 +660,46 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   der Traditionen“) für die Chips in den Qualitäts-Tabs — nur
 		   Waffen-/Rüstungs-Blätter werten die Map aus. */
 		context.quality_secret_labels = qualitySecretLabels();
+		/* AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026): Kontext
+		   des GM-only „Zone“-Tabs auf Mystische-Kraft-Blättern. Die Felder
+		   (system.areaZone.shape/size/targeting) sind form-assoziiert und
+		   laufen über den normalen Form-Submit (submitOnChange); ein leeres
+		   Alt-Item startet mit „Keine Fläche“, Größe-Fallback 1, Zielfilter-
+		   Fallback „Alle“ (getZoneConfig-Kanonik in aoe.js, dieselbe Quelle
+		   wie die Platzierung). Vorlokalisierte Auswahllisten (Muster
+		   Bestienkunde/Ressourcen-Kategorie, selectOptions ohne localize-
+		   Helper). aoeCanPlace zeigt den Platzier-Knopf nur bei aktivem
+		   Setting + aktiver Szene + konfigurierter Form; die blockiert-
+		   Ursache wird als fertiger Text mitgegeben (keine Template-Logik,
+		   A6-Lernweis: Booleans/Strings in JS vorbereiten). */
+		context.showAoeZoneTab = this.item.type === 'mysticalPower' && !!game.user.isGM;
+		if (context.showAoeZoneTab) {
+			const zoneCfg = getZoneConfig(this.item);
+			const zone = this.item.system?.areaZone ?? {};
+			const settingOn = aoeEnabled();
+			const sceneActive = !!(game.canvas?.scene ?? canvas?.scene);
+			context.aoe = {
+				shape: zoneCfg?.shape ?? '',
+				size: zoneCfg?.size ?? Math.max(1, Math.round(Number(zone.size) || 0) || 1),
+				targeting: zoneCfg?.targeting ?? 'all',
+			};
+			context.aoe_shape_selection = Object.values(game.symbaroum.config.AOE_SHAPE_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			}));
+			context.aoe_targeting_selection = Object.values(game.symbaroum.config.AOE_TARGETING_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			}));
+			context.aoeCanPlace = settingOn && sceneActive && !!zoneCfg;
+			context.aoeBlockedReason = zoneCfg
+				? !settingOn
+					? game.i18n.localize('AOE.ERR_DISABLED')
+					: !sceneActive
+						? game.i18n.localize('AOE.ERR_NO_SCENE')
+						: ''
+				: '';
+		}
 		/* Item-Sheet-Modernisierung v1: renderModern schaltet jedes der 11
 		   Item-Blätter in den modernisierten Zweig seines Wurzel-Templates -
 		   EXAKT wie am Aktorblatt (A6): Welt-Setting aktiviert, individuelle

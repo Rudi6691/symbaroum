@@ -86,6 +86,42 @@
             {{> systems/symbaroum/template/sheet/modern/item/tab-traditions.hbs}}
         </div>
         {{/if}}
+        {{!-- AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026): GM-only
+            „Zone“-Tab (moderne Ansicht) — Fläche des Kraft-Items konfigurieren
+            (Form/Größe/Ziele, additive Felder system.areaZone) und die Region
+            interaktiv platzieren (placeZone: Core-Workflow, 1 Feld = 2 m). --}}
+        {{#if showAoeZoneTab}}
+        <div class="tab" data-group="primary" data-tab="zone">
+            <div class="m-panel">
+                <h1>{{localize "AOE.TAB_LABEL"}}</h1>
+                <div class="m-row m-zone-row">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.areaZone.shape">{{localize "AOE.FIELD_SHAPE"}}</label>
+                        <select id="{{id}}-system.areaZone.shape" name="system.areaZone.shape">
+                            {{selectOptions aoe_shape_selection selected=aoe.shape labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field m-zone-size">
+                        <label for="{{id}}-system.areaZone.size" data-tooltip="{{localize "AOE.INFO_SIZE"}}">{{localize "AOE.FIELD_SIZE"}}</label>
+                        <input id="{{id}}-system.areaZone.size" name="system.areaZone.size" type="number" min="1" value="{{aoe.size}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.areaZone.targeting" data-tooltip="{{localize "AOE.INFO_TARGETING"}}">{{localize "AOE.FIELD_TARGETING"}}</label>
+                        <select id="{{id}}-system.areaZone.targeting" name="system.areaZone.targeting">
+                            {{selectOptions aoe_targeting_selection selected=aoe.targeting labelAttr="label"}}
+                        </select>
+                    </div>
+                </div>
+                <p class="m-zone-hint">{{localize "AOE.INFO_SCALE"}}</p>
+                <p class="m-zone-hint">{{localize "AOE.INFO_DEFAULTS"}}</p>
+                {{#if aoeCanPlace}}
+                <button type="button" class="m-zone-place" data-action="placeZone"><i class="fas fa-draw-polygon"></i> {{localize "AOE.PLACE_BUTTON"}}</button>
+                {{else if aoeBlockedReason}}
+                <p class="m-zone-hint">{{aoeBlockedReason}}</p>
+                {{/if}}
+            </div>
+        </div>
+        {{/if}}
     </div>
 </div>
     <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
@@ -98,5 +134,7 @@
         {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>{{/if}}
         {{!-- Traditionen v1: Rail-Button „Traditionen“ GM-only (alle Blätter). --}}
         {{#if symbaroumOptions.isGM}}<button type="button" class="modern-rail-btn" data-tab="traditions" data-tooltip="{{localize 'TRADITION.TAB_LABEL'}}"><i class="fas fa-gear"></i></button>{{/if}}
+        {{!-- AoE Stufe 1: Rail-Button „Zone“ GM-only (Rail-Buttons tragen dieselben Bedingungen wie die Tabs). --}}
+        {{#if showAoeZoneTab}}<button type="button" class="modern-rail-btn" data-tab="zone" data-tooltip="{{localize 'AOE.TAB_LABEL'}}"><i class="fas fa-draw-polygon"></i></button>{{/if}}
     </nav>
 </div>

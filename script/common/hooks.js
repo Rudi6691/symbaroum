@@ -45,6 +45,11 @@ import { registerTravelSettings, setupTravelRuntime, registerTravelContextMenu }
 // laeuft jetzt ausschliesslich ueber das Bergen-Makro (Spieler + GM, manuelle
 // Anzahl-Eingabe). Die Bergungsoption bleibt als Makro-Gate bestehen.
 import { registerAmmoSettings } from './ammo.js';
+// AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026): Welt-Setting
+// „Flächeneffekte (AoE)“ (GM, world, Default AN) + Template-Platzierung
+// mit Auto-Targeting aus dem Kraft-Item - Engine: aoe.js, Datenmodell
+// system.areaZone (template.json, additives Feld).
+import { registerAoeSettings } from './aoe.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
@@ -575,6 +580,13 @@ Hooks.once('init', () => {
 	// Registrierungsreihenfolge, Rudolfs Runde-1-Entscheidung „symbaroum-
 	// Config-GM-Seite" = config:true + restricted:true).
 	registerTravelSettings();
+
+	// AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026): Welt-Setting
+	// „Flächeneffekte (AoE)“ (GM, scope world, Default AN - die Automati-
+	// sierung ist abschaltbar, Muster travelEnabled) - bewusst DIRECT UNTER
+	// den Reise-Settings registriert (gleiche Foundry-Einstellungsliste,
+	// Reihenfolge = Registrierungsreihenfolge).
+	registerAoeSettings();
 
 	// Traditionen v1: Bekannte Traditionen der Welt (Array von Traditions-
 	// Ids, config:false — gepflegt über den eigenen Konfigurations-Dialog

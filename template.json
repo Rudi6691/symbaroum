@@ -209,6 +209,16 @@
       "traditions": {
         "traditions": "",
         "traditionsActive": ""
+      },
+      "areaZone": {
+        "areaZone": {
+          "shape": "",
+          "size": 0,
+          "targeting": "",
+          "trigger": "",
+          "action": "",
+          "duration": ""
+        }
       }
     },
     "trait": {
@@ -261,7 +271,8 @@
     "mysticalPower": {
       "templates": [
         "bonus",
-        "traditions"
+        "traditions",
+        "areaZone"
       ],
       "material": "",
       "description": "",

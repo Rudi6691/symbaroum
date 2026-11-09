@@ -35,6 +35,7 @@
             <b class="item" data-tab="master">{{localize "TAB.MASTER"}}</b>
             {{!-- v1.3: Bonus-Tab GM-only (Rudolfs Nachtest v1.2) --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="bonus">{{localize "TAB.BONUS"}}</b>{{/if}}
             {{!-- Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): „Traditionen“-Tab GM-only auf ALLEN Item-Blättern. --}}{{#if symbaroumOptions.isGM}}<b class="item" data-tab="traditions">{{localize "TRADITION.TAB_LABEL"}}</b>{{/if}}
+            {{!-- AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026): „Zone“-Tab GM-only auf dem Mystische-Kraft-Blatt. --}}{{#if showAoeZoneTab}}<b class="item" data-tab="zone">{{localize "AOE.TAB_LABEL"}}</b>{{/if}}
         </div>
 
         <div class="sheet-body">
@@ -115,6 +116,40 @@
             {{#if symbaroumOptions.isGM}}
             <div class="tab" data-group="primary" data-tab="traditions">
                 {{> systems/symbaroum/template/sheet/tab/traditions.hbs}}
+            </div>
+            {{/if}}
+            {{!-- AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026): GM-only
+                „Zone“-Tab (klassische Ansicht) — dieselben Felder wie der moderne
+                Tab (system.areaZone.shape/size/targeting, form-assoziiert) plus
+                Platzier-Knopf; Hinweise 1 Feld = 2 m und RAW-Empfehlung. --}}
+            {{#if showAoeZoneTab}}
+            <div class="tab" data-group="primary" data-tab="zone">
+                <div class="stats foreground border">
+                    <h1>{{localize "AOE.TAB_LABEL"}}</h1>
+                    <div class="action">
+                        <label for="{{id}}-system.areaZone.shape">{{localize "AOE.FIELD_SHAPE"}}</label>
+                        <select id="{{id}}-system.areaZone.shape" name="system.areaZone.shape">
+                            {{selectOptions aoe_shape_selection selected=aoe.shape labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="action">
+                        <label for="{{id}}-system.areaZone.size" data-tooltip="{{localize "AOE.INFO_SIZE"}}">{{localize "AOE.FIELD_SIZE"}}</label>
+                        <input id="{{id}}-system.areaZone.size" name="system.areaZone.size" type="number" min="1" value="{{aoe.size}}"/>
+                    </div>
+                    <div class="action">
+                        <label for="{{id}}-system.areaZone.targeting" data-tooltip="{{localize "AOE.INFO_TARGETING"}}">{{localize "AOE.FIELD_TARGETING"}}</label>
+                        <select id="{{id}}-system.areaZone.targeting" name="system.areaZone.targeting">
+                            {{selectOptions aoe_targeting_selection selected=aoe.targeting labelAttr="label"}}
+                        </select>
+                    </div>
+                    <p class="zone-hint">{{localize "AOE.INFO_SCALE"}}</p>
+                    <p class="zone-hint">{{localize "AOE.INFO_DEFAULTS"}}</p>
+                    {{#if aoeCanPlace}}
+                    <button type="button" class="zone-place" data-action="placeZone"><i class="fas fa-draw-polygon"></i> {{localize "AOE.PLACE_BUTTON"}}</button>
+                    {{else if aoeBlockedReason}}
+                    <p class="zone-hint">{{aoeBlockedReason}}</p>
+                    {{/if}}
+                </div>
             </div>
             {{/if}}
         </div>

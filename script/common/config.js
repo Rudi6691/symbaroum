@@ -1880,3 +1880,54 @@ SYMBAROUM.TRAVEL_RIVER_EASIER = { dark: "davokar", davokar: "ambria", wild: "dav
 SYMBAROUM.TRAVEL_HUNGER_DAYS = 5;
 SYMBAROUM.TRAVEL_RATION_DAYS = 10;
 SYMBAROUM.TRAVEL_THIRST_DAYS = 3;
+
+/* AoE Stufe 1 (Rudolfs Startsignal „Leg los“ 09.11.2026, Konzept: AOE-
+   Analyserunde v5, alle Entscheidungen getroffen): Auswahl-Listen der
+   Zonen-Konfiguration am Mystische-Kraft-Blatt (GM-only „Zone“-Tab).
+   Stufe 1 = Template-Platzierung (Foundry-Region mit Core-Flag
+   „MeasuredTemplate“) + Auto-Targeting, reine Felder-Rechnung
+   (1 Feld = 2 Meter Kampfskala, unabhängig von der Szenenkalibrierung).
+   Die Stufe-2/3-Felder trigger/action/duration stehen bereits im
+   Datenmodell (system.areaZone, additives template.json-Template,
+   A38-sicher), werden aber in Stufe 1 noch nicht ausgewertet. */
+SYMBAROUM.AOE_SHAPE_SELECTION = {
+  "": {
+    id: "",
+    label: "AOE.SHAPE_NONE",
+  },
+  circle: {
+    id: "circle",
+    label: "AOE.SHAPE_CIRCLE",
+  },
+  cone: {
+    id: "cone",
+    label: "AOE.SHAPE_CONE",
+  },
+  line: {
+    id: "line",
+    label: "AOE.SHAPE_LINE",
+  },
+  rectangle: {
+    id: "rectangle",
+    label: "AOE.SHAPE_RECT",
+  },
+};
+
+/* AoE Stufe 1: Zielfilter des Auto-Targeting — 'all' = alle sichtbaren
+   Token in der Fläche, 'enemies'/'allies' = Dispositions-Vergleich gegen
+   den Wirker-Token (kleiner/groß-gleich der Wirker-Disposition; ohne
+   Wirker-Token gilt die freundliche Standard-Perspektive der SL). */
+SYMBAROUM.AOE_TARGETING_SELECTION = {
+  all: {
+    id: "all",
+    label: "AOE.TARGETING_ALL",
+  },
+  allies: {
+    id: "allies",
+    label: "AOE.TARGETING_ALLIES",
+  },
+  enemies: {
+    id: "enemies",
+    label: "AOE.TARGETING_ENEMIES",
+  },
+};
