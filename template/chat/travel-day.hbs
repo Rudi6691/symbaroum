@@ -56,10 +56,14 @@
             <div class="travel-day-actionrow">
                 <span class="travel-day-actionname"><img class="portrait" src="{{img}}"/> {{name}}</span>
                 {{#if state.hunger}}
-                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="hunger"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_HUNGER"}}</button>
                 {{!-- v1.4 (Rudolfs Punkt 5): GM-Taste „Hunger-Probe scheitert“ ENTFALLEN —
                       der Misserfolg der Hungerprobe bucht den Stärke-Malus automatisch
-                      aus der Wurfauswertung (travel.js recordHungerFailure). --}}
+                      aus der Wurfauswertung (travel.js recordHungerFailure).
+                      v1.5 (Rudolfs Punkt 2): Diese Probe-Taste ist SL-FALLBACK — Spieler
+                      erhalten eine eigene Anfrage-Karte (travel-probe-request.hbs,
+                      symbcomms.js TravelHungerProbe); der Chat-Listener blendet die
+                      Taste für Nicht-GM aus (travel.js renderChatMessageHTML). --}}
+                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="hunger"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_HUNGER"}}</button>
                 {{/if}}
                 {{#if state.thirst}}
                 <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="thirst"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_THIRST"}}</button>

@@ -9427,6 +9427,13 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-quantity {
   margin-bottom: 0.5rem;
 }
 
+/* v1.5 (Rudolfs Punkt 3, CSS-Ausrichtung): In den m-eq-row-Stepperzeilen
+   (Menge + Rationen) verschiebt der Alt-Margin das Feld innerhalb der
+   Flex-Row nach oben; dort wird er auf 0 gesetzt. */
+html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-eq-row .m-give-quantity {
+  margin-bottom: 0;
+}
+
 html body dialog.symb-dialog .symbaroum.modern-give-dialog .m-give-note {
   display: flex;
   flex-wrap: wrap;

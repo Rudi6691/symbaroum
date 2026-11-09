@@ -1,0 +1,16 @@
+{{!-- v1.5 (Rudolfs Punkt 2, Hungerprobe): Anfragekarte je Besitzer.
+      Muster: resistButton.hbs. Wird nach dem Tagesabschluss (travel.js
+      completeTravelDays) über symbcomms.js "TravelHungerProbe" als
+      geflüsterte Nachricht an den aktiven Spieler-Besitzer versendet;
+      travel-day-card-Klasse wird zwecks Button-Styling mitgenutzt
+      (.travel-probe-button ist auf .symbaroum.chat.travel-day-card
+      gescopet, css/symbaroum.css). Nach Klick auf die Würfel-Taste
+      löscht travel.js (renderChatMessageHTML, Flag travelHungerRequest)
+      diese Karte und öffnet die Hungerprobe. --}}
+<div class="symbaroum chat travel-day-card travel-probe-request">
+	<div class="foreground">
+		<h4>{{introText}}</h4>
+		<h4>{{mainText}}</h4>
+		<p><button type="button" class="travel-probe-button" data-travel-hunger-request="1"><i class="fas fa-dice"></i> {{localize "TRAVEL.HUNGER_REQUEST_BUTTON"}}</button></p>
+	</div>
+</div>

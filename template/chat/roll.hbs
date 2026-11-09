@@ -1,6 +1,11 @@
 <div class='symbaroum chat roll'>
 	<div class='foreground'>
 		<img class='portrait' src='{{subImg}}' />
+		{{!-- v1.5 (Rudolfs Punkt 2, Hungerprobe): optionale Titelzeile
+		      („{Name} macht eine Hungerprobe!"), nur gerendert, wenn der
+		      Aufrufer introText setzt (roll.js, dialog.js Hunger-Kontext);
+		      alle anderen Würfe unverändert. --}}
+		{{#if introText}}<h4 class='symb-roll-intro'>{{introText}}</h4>{{/if}}
 		<h3>{{removeMarkup name}}</h3>
 		{{#if hasSucceed}}
 

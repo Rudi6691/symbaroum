@@ -126,6 +126,10 @@ export async function rollAttribute(actor, actingAttributeName, targetActor, tar
   let rollData = {
     subImg: actingCharImg,
     name: rollName,
+    /* v1.5 (Rudolfs Punkt 2, Hungerprobe): Optionale Titelzeile über
+       der Wurfzeile — nur gesetzt, wenn der Aufrufer (dialog.js,
+       Hunger-Kontext) sie mitgibt; alle anderen Würfe unverändert. */
+    introText: effectiveChain.introText ?? null,
     margin: (rollResults.diceTarget - rollResults.diceResult),
     hasSucceed: rollResults.hasSucceed,
     diceResult: rollResults.diceResult,

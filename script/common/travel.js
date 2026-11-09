@@ -52,7 +52,7 @@ import { getEncumbranceData, getWeightCategory, formatGE } from './encumbrance.j
 import { openGiveDialog } from './transfer.js';
 import { hasEnduringMarch } from './boon.js';
 import { prepareRollAttribute } from './dialog.js';
-import { createRollData } from './roll.js';
+import { createRollData, getOwnerPlayer } from './roll.js';
 
 const L = (key) => game.i18n.localize(key);
 const F = (key, data) => game.i18n.format(key, data);
@@ -334,6 +334,30 @@ export function getTravelGroup() {
 /** Gibt es ÜBERHAUPT Flag-Mitglieder? (für die Vorbelegung im Dialog) */
 export function hasFlaggedMembers() {
 	return game.actors.some((a) => !!a.getFlag(FLAG_SCOPE, 'travel.isMember'));
+}
+
+/**
+ * v1.5 (Rudolfs Option A „Token-First“, Testrunde v1.4 Punkt 4): Findet
+ * den Spielstein eines Welt-Aktors in der AKTIVEN Szene. Der synthetische
+ * Aktor eines unverknüpften Spielsteins meldet dieselbe ID wie der Welt-
+ * Aktor (deshalb lief die v1.4-Warnprüfung ins Leere) — verlässlicher
+ * Diskriminator ist token.document.actorLink (Muster migration.js).
+ */
+function findSceneToken(actor) {
+	if (!canvas?.tokens?.placeables) return null;
+	return canvas.tokens.placeables.find((t) => t.actor?.id === actor.id) ?? null;
+}
+
+/**
+ * v1.5 (Option A): Löst den Szenen-Vertreter eines Welt-Aktors auf —
+ * Spielstein vorhanden: dessen Aktor (verknüpft = identische Daten mit
+ * dem Welt-Aktor; unverknüpft = der token-lokale Aktor mit dem SICHT-
+ * BAREN Inventar und dem token-lokalen Reise-Status der Einzelaktionen,
+ * v1.2 Variante A). Ohne Spielstein: der Welt-Aktor selbst.
+ */
+function resolveSceneRepresentative(actor) {
+	if (!actor) return null;
+	return findSceneToken(actor)?.actor ?? actor;
 }
 
 /* ----------------------------------------------------------------
@@ -774,10 +798,18 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 
 	const actorRows = candidates
 		.map((actor) => {
-			const f = getTravelFlags(actor);
-			const enc = getEncumbranceData(actor);
-			const checked = preselect.includes(actor.id) || f.isMember;
-			return { actor, f, enc, checked };
+			/* v1.5 (Rudolfs Option A „Token-First“): Anzeige und Buchung
+			 * lesen denselben SZENEN-VERTRETER — bei unverknüpften
+			 * Spielsteinen laufen Chip-/Kontextzustand token-lokal
+			 * (v1.2 Variante A); Zähler/Vermerke/Last aus dem Welt-
+			 * Aktor würden gegen die Buchung prellen. Das isMember-
+			 * Flag bleibt am Welt-Aktor (Sidebar-Kontextmenü). */
+			const rep = resolveSceneRepresentative(actor);
+			const f = getTravelFlags(rep);
+			const enc = getEncumbranceData(rep);
+			const isMember = !!actor.getFlag(FLAG_SCOPE, 'travel.isMember');
+			const checked = preselect.includes(actor.id) || isMember;
+			return { actor, rep, f, enc, isMember, checked };
 		})
 		.filter((r) => r.actor);
 
@@ -802,7 +834,7 @@ export function openTravelDayDialog({ days = 1, advanceAfter = true } = {}) {
 				<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-rationDays" value="${r.f.rationDays}"></td>` : ''}${waterTracking ? `<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-waterDays" value="${r.f.waterDays}"></td>` : ''}<td class="m-travel-count"><input type="number" min="0" step="1" data-travel-counter="${r.actor.id}-strengthLoss" value="${r.f.strengthLoss}"></td><td class="m-travel-count">${markersHtml}</td>`
 				: '';
 			return `<tr>
-				<td class="m-travel-name"><label class="m-travel-member"><input type="checkbox" data-travel-member="${r.actor.id}"${r.checked ? ' checked' : ''}> ${foundry.utils.escapeHTML(r.actor.name)}</label>${r.f.isMember ? ` <i class="fas fa-person-hiking" title="${L('TRAVEL.MEMBER_BADGE')}"></i>` : ''}</td>
+				<td class="m-travel-name"><label class="m-travel-member"><input type="checkbox" data-travel-member="${r.actor.id}"${r.checked ? ' checked' : ''}> ${foundry.utils.escapeHTML(r.actor.name)}</label>${r.isMember ? ` <i class="fas fa-person-hiking" title="${L('TRAVEL.MEMBER_BADGE')}"></i>` : ''}</td>
 				${counterCells}
 			</tr>`;
 		})
@@ -1002,20 +1034,32 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 	// + Erholungs-Probe im Gewaltmarsch.
 	let enduringGroup = false;
 
+	/* v1.5 (Rudolfs Punkt 2): Hunger-Anforderungskarten sammeln — je
+	 * besitzendem Spieler entsteht nach der Tageskarte eine eigene
+	 * Würfeln-Karte (Resist-Muster), siehe nach der Karten-Erstellung. */
+	const hungerRequests = [];
+
 	for (const actorId of actorIds) {
-		const actor = game.actors.get(actorId);
-		if (!actor) continue;
-		/* v1.4 (Rudolfs Testrunde v1.3, P15 — seine Entscheidung
-		 * „beide Warnfälle“): Der Tagesabschluss warnt pro gebuchtem
-		 * Akteur wie die Einzelaktionen (Variante A: Toast, die
-		 * Buchung läuft trotzdem) — (a) synthetischer Token-Aktor
-		 * (Buchung wirkt nur lokal am Spielstein), (b) Welt-Aktor
-		 * ohne verknüpften Spielstein in der aktiven Szene (Buchung
-		 * wirkt am Welt-Aktor, am Spielstein sichtbar nichts). */
-		if (actor.isToken) {
+		const worldActor = game.actors.get(actorId);
+		if (!worldActor) continue;
+		/* v1.5 (Rudolfs Option A „Token-First“, Testrunde v1.4 Punkt 4):
+		 * Der Tagesabschluss bucht den SZENEN-VERTRETER — Spielstein
+		 * vorhanden: dessen Aktor (verknüpft = Welt-Aktor-Daten, un-
+		 * verknüpft = der token-lokale Aktor mit der sichtbaren Ration,
+		 * konsistent mit den Einzelaktionen der v1.2-Variante A); ohne
+		 * Spielstein: den Welt-Aktor. Korrigiert zugleich die v1.4-
+		 * Warnung (der isToken-Zweig war toter Code, weil der Dialog
+		 * nur Welt-Aktor-Mitglieder listet; die id-basierte Spielstein-
+		 * Suche traf auch unverknüpfte Spielsteine, da der synthetische
+		 * Aktor dieselbe ID meldet) — verlässlicher Diskriminator ist
+		 * actorLink: unverknüpft = Buchung wirkt nur lokal am Spiel-
+		 * stein, kein Spielstein = Buchung wirkt am Welt-Aktor. */
+		const sceneToken = findSceneToken(worldActor);
+		const actor = sceneToken?.actor ?? worldActor;
+		if (sceneToken && sceneToken.document?.actorLink === false) {
 			ui.notifications.warn(F('TRAVEL.DAY_TOKEN_LOCAL_WARN', { name: actor.name }));
-		} else if (!canvas.tokens.placeables.some((t) => t.actor?.id === actor.id)) {
-			ui.notifications.warn(F('TRAVEL.DAY_TOKEN_NONE_WARN', { name: actor.name }));
+		} else if (!sceneToken) {
+			ui.notifications.warn(F('TRAVEL.DAY_TOKEN_NONE_WARN', { name: worldActor.name }));
 		}
 		// 1) SL-Korrekturen aus den Zählerzeilen als Basis schreiben
 		const flags = getTravelFlags(actor);
@@ -1144,6 +1188,13 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 			toughLoss,
 			enduring: hasEnduringMarch(actor),
 		});
+		/* v1.5 (Punkt 2): Hunger-Betroffene sammeln — Spieler-Besitzer
+		 * erhalten eine eigene Anfrage-Karte, GM-besessene Aktoren
+		 * (z. B. NSC-Bestie) laufen über die GM-Fallback-Taste der
+		 * Tageskarte (getOwnerPlayer filtert GM heraus). */
+		if (st.hunger) {
+			hungerRequests.push({ actorId, actor });
+		}
 	}
 
 	// 5) EINE Chat-Karte je Abschluss (Kap. 4.7: Gruppierung bei N Tagen)
@@ -1167,6 +1218,28 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 	const content = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/travel-day.hbs', cardData);
 	await postChat(content, { 'symbaroum.travelCard': cardData });
 
+	/* v1.5 (Punkt 2, je-Besitzer-Karte im Resist-Muster): Pro hunger-
+	 * betroffenem Aktor mit aktivem Spieler-Besitzer bekommt der
+	 * Spieler eine EIGENE Whisper-Karte mit Würfeln-Taste — die Karte
+	 * gehört dem Spieler, damit die Taste nach dem Klick verschwinden
+	 * kann (die Tageskarte gehört der SL, Fremde dürfen sie nicht
+	 * bearbeiten; genau deshalb ist der je-Besitzer-Weg der richtige).
+	 * GM-besessene Aktoren erhalten keine Karte: Die SL nutzt die
+	 * Tageskarten-Taste (GM-Fallback). */
+	for (const req of hungerRequests) {
+		const owners = await getOwnerPlayer(req.actor);
+		if (owners.length > 0) {
+			game.symbaroum.emit({
+				type: 'TravelHungerProbe',
+				data: {
+					targetUserId: owners[0].id,
+					actorId: req.actorId,
+					actorName: req.actor.name,
+				},
+			});
+		}
+	}
+
 	// 6) Zeitsprung (nur auf Wunsch — der Tageswechsel-Hook hat die Zeit
 	//    bereits bewegt, das Makro öffnet den Dialog VOR dem Sprung)
 	if (advance) {
@@ -1179,8 +1252,15 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
  * ---------------------------------------------------------------- */
 
 /** Strapazen-/Hunger-/Durst-Probe über die bestehende Wurf-Maschinerie. */
-async function rollTravelProbe(actorId, kind = null) {
-	const actor = game.actors.get(actorId);
+async function rollTravelProbe(actorRef, kind = null) {
+	/* v1.5: Akzeptiert Welt-Aktor-ID (Tageskarte) oder Aktor-Instanz
+	 * (Anfrage-Karte); Welt-Aktoren werden auf den SZENEN-VERTRETER
+	 * aufgelöst, damit Probe UND Malus-Buchung (recordHungerFailure)
+	 * bei unverknüpften Spielsteinen token-lokal laufen — konsistent
+	 * mit der Token-First-Tagesbuchung (Option A). */
+	const actor = typeof actorRef === 'string'
+		? resolveSceneRepresentative(game.actors.get(actorRef))
+		: actorRef;
 	if (!actor) return;
 	/* v1.4 (Rudolfs Punkt 5, rekonstruiert 08.11.): Die Hungerprobe
 	 * öffnet den Stärke-Würfeldialog MIT Hunger-Kontext — Titel
@@ -1683,6 +1763,15 @@ export async function setupTravelRuntime() {
 					await rollTravelProbe(btn.dataset.travelProbe, btn.dataset.kind ?? null);
 				});
 			});
+			// v1.5 (Rudolfs Entscheidung „Fallback nur für GM sichtbar“):
+			// Die Hungerprobe-Taste der Tageskarte ist SL-Fallback —
+			// Spieler würfeln über ihre EIGENE Anfrage-Karte (je-
+			// Besitzer-Muster, siehe TravelHungerProbe in completeTravel-
+			// Days). Nicht-GM sehen die Taste nicht (Muster data-
+			// travel-apply); Durst/Todesmarsch bleiben besitzer-geget.
+			if (!game.user.isGM) {
+				html.querySelectorAll('[data-travel-probe][data-kind="hunger"]').forEach((btn) => btn.remove());
+			}
 			// GM-Anwendungsknöpfe: nur für die SL sichtbar verdrahtet
 			if (game.user.isGM) {
 				html.querySelectorAll('[data-travel-apply]').forEach((btn) => {
@@ -1691,6 +1780,26 @@ export async function setupTravelRuntime() {
 			} else {
 				html.querySelectorAll('[data-travel-apply]').forEach((btn) => btn.remove());
 			}
+		}
+		// v1.5 (Punkt 2): Je-Besitzer-Anfrage-Karte „Hungerprobe" — der
+		// Besitzer würfelt SELBST (Karte gehört ihm, erzeugt auf seinem
+		// Client, siehe symbcomms.js TravelHungerProbe). Nach dem Klick
+		// verschwindet die Karte KOMPLETT (message.delete, bewusste
+		// Ausgestaltung) und der Stärke-Würfeldialog mit Hunger-Kontext
+		// öffnet; der Misserfolg buchtet über den Szenen-Vertreter
+		// konsistent zur Token-First-Tagesbuchung.
+		const hungerRequest = message.getFlag(FLAG_SCOPE, 'travelHungerRequest');
+		if (hungerRequest) {
+			html.querySelectorAll('[data-travel-hunger-request]').forEach((btn) => {
+				btn.addEventListener('click', async () => {
+					const world = game.actors.get(hungerRequest.actorId);
+					const actor = world ? resolveSceneRepresentative(world) : null;
+					if (!actor) return;
+					if (!game.user.isGM && !actor.isOwner) return;
+					await message.delete();
+					await rollTravelProbe(actor, 'hunger');
+				});
+			});
 		}
 		// v1.1: Aufforderungs-Karte „Vorräte auffüllen" — klickbar nur
 		// für Blattbesitzer und GM (der Spieler würfelt SELBST)

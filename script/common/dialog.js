@@ -1002,7 +1002,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             // S2.1 (P5+P9): chainData für die einheitliche Wurfzeile mit-
             // geben (freier Modifikator RAW + Segen-Zeilen; roll.js baut
             // daraus „+ 1 (Modifikator) + 1 (Archivar)").
-            game.symbaroum.api.rollAttribute(actor, attributeName, getTarget(), targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, { freeModifier: ecData.freeModifier ?? 0, boonLineChain: ecData.boonLineChain ?? [] }).then(async (roll) => {
+            game.symbaroum.api.rollAttribute(actor, attributeName, getTarget(), targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, { freeModifier: ecData.freeModifier ?? 0, boonLineChain: ecData.boonLineChain ?? [],
+              // v1.5 (Rudolfs Punkt 2): Titelzeile auf der Wurfkarte
+              // (roll.hbs introText) — nur bei Hunger-Kontext gesetzt
+              // („{Name} macht eine Hungerprobe!").
+              introText: ecData.travelHungerProbe ? game.i18n.format('TRAVEL.HUNGER_CARD_INTRO', { name: actor.name }) : null }).then(async (roll) => {
               // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe — bei MISserfolg
               // steigt der Stärke-Malus sofort um 1 (travel.js
               // recordHungerFailure; ersetzt die entfallene GM-Taste
