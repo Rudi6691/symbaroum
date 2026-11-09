@@ -1,3 +1,11 @@
+Version 40.1.13
+
+- Travel hunger rules v1.0/v1.1: the hunger strength penalty is baked into the attribute total with a locked hunger row in the attributes dialog; the travel-group context menu is registered at init, fixing the missing sidebar entry
+- Bonus-Tab-Submit v1: system.bonus form input is clamped to -10/+10 with NaN fallback and integer rounding on classic and modern item sheets
+- S4 collective fix: march and thirst probes run with travel context and automatic consequences (natural 20 accident card), natural healing per travel day with pace/hunger/thirst/nightmares blockers, temporary corruption decays by 1 per 15 minutes of world time outside combat
+- Nightmares healing flow: the silent marker blocker is replaced by a player-facing check-nightmares request card gating natural healing; the recordNightmaresFailed pipeline has been removed
+- No world migration required; existing worlds keep their data unchanged
+
 Version 40.1.12
 
 Poison engine (v1-v1.2):
