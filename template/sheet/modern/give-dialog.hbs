@@ -56,6 +56,33 @@
         <input id="give-quantity" class="m-give-quantity" type="number" min="1" max="{{item.max}}" value="1" data-tooltip="{{localize 'GIVE.QUANTITY_TOOLTIP'}}"/>
         <button type="button" class="m-eq-btn" data-dir="1" data-tooltip="{{localize "MODERN.QTY_INCREASE"}}"><i class="fas fa-caret-right"></i></button>
     </div>
+    {{else if item.rationItem}}
+    {{!-- v1.4 (Rudolfs Wunsch 1): Rations-Kapazitäts-Items bekommen ein
+         Radio „{Name Item}" (ganzes Item) / „Rationen" (nur Füllstand).
+         Default = Item; „Rationen" disabled, wenn der Füllstand 0 ist.
+         Der Rations-Modus blendet die Anzahl-Zeile ein (initial hidden,
+         transfer.js onRender schaltet um); Klemmung 1..rationMax. --}}
+    <fieldset class="m-ability-frame">
+        <legend class="m-ability-label">{{localize "GIVE.WHAT_LABEL"}}</legend>
+        <div class="m-give-vis">
+            <label class="lblfavour">
+                <input type="radio" name="give-kind" value="item" checked/>
+                {{item.name}}
+            </label>
+            <label class="lblfavour">
+                <input type="radio" name="give-kind" value="rations" {{#unless item.rationMax}}disabled{{/unless}}/>
+                {{localize "GIVE.RADIO_RATIONS"}}
+            </label>
+        </div>
+    </fieldset>
+    <div id="give-ration-row" class="hidden">
+        <label class="m-sec-label" for="give-ration-quantity">{{localize "GIVE.QUANTITY"}}</label>
+        <div class="m-eq-row">
+            <button type="button" class="m-eq-btn" data-ration-dir="-1" data-tooltip="{{localize "MODERN.QTY_DECREASE"}}"><i class="fas fa-caret-left"></i></button>
+            <input id="give-ration-quantity" class="m-give-quantity" type="number" min="1" max="{{item.rationMax}}" value="1" data-tooltip="{{localize 'GIVE.RATIONS_QUANTITY_TOOLTIP'}}"/>
+            <button type="button" class="m-eq-btn" data-ration-dir="1" data-tooltip="{{localize "MODERN.QTY_INCREASE"}}"><i class="fas fa-caret-right"></i></button>
+        </div>
+    </div>
     {{/if}}
     {{/if}}
 

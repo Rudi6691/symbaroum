@@ -703,7 +703,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		   angezeigt; einfache Zahl-Stapel mit Kapazität zeigen
 		   weiter „n / max“. */
 		const countDisplay = (rawItem) => {
-			const n = Math.max(1, Math.round(Number(rawItem?.system?.number ?? 1) || 1));
+			/* v1.4 (Rudolfs Anzeige-Meldung, 08.11.): Explizit vorhandene
+			 * Anzahl 0 zeigt „× 0“ (leerer Rations-Stapel im Ausrüstungs-
+			 * Tab), statt auf 1 zu klemmen — der Kampf-Tab-Favorit zeigte
+			 * die 0 schon richtig; fehlende/ungültige Anzahl bleibt 1
+			 * (normale Items ohne Anzahl-Feld). */
+			const raw = Number(rawItem?.system?.number);
+			const n = Number.isFinite(raw) ? Math.max(0, Math.round(raw)) : 1;
 			const max = Number(rawItem?.system?.maxNumber);
 			if (Number.isFinite(max) && max > 0) {
 				return isCapacityRationItem(rawItem) ? `${getRationCount(rawItem)} / ${max}` : `${n} / ${max}`;

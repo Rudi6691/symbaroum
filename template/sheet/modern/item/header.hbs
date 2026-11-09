@@ -111,12 +111,28 @@
                     </div>
                 </div>
                 {{/if}}
-                {{!-- S4 v1.3 (Rudolfs Kapazitätsmodell, Platzierung
-                      08.11.): Das v1.2-Kapazitätsfeld am Kopf ist ENTFALLEN
-                      — die Kapazität wohnt im Status-Tab unter der Ressourcen-
-                      Kategorie, „Anzahl Rationen“ auf dem Beschreibungs-Tab
-                      (beide mit Caret-Steppern; siehe tab-status.hbs und
-                      equipment.hbs). --}}
+                {{!-- S4 v1.4 (Rudolfs Wunsch 2, 08.11.): „Anzahl Rationen“
+                      zieht vom Beschreibungs-Tab ins Kopf-m-grid — Optik
+                      exakt wie das Anzahl-Feld (m-qty-field/m-possess-
+                      field-Klassen, kein eigenes CSS nötig). Nur bei
+                      Rations-Kategorie MIT Kapazität > 0 (Diskriminator
+                      modern.showRationCount in item.js); Caret-Stepper
+                      Min 0 / Max = Kapazität (Klemmung im Handler
+                      rationCountPlus/rationCountMinus). --}}
+                {{#if modern.showRationCount}}
+                <div class="m-inline-field m-qty-field m-possess-field m-rationcount-field">
+                    <label class="m-sec-label" for="{{id}}-system.rationCount" data-tooltip="{{localize "EQUIPMENT.RATIONCOUNT_HINT"}}">{{localize "EQUIPMENT.RATIONCOUNT"}}</label>
+                    <div class="m-qty">
+                        {{#if editable}}
+                        <button type="button" class="m-qty-btn" data-action="rationCountMinus" data-tooltip="{{localize 'MODERN.QTY_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
+                        {{/if}}
+                        <input id="{{id}}-system.rationCount" name="system.rationCount" type="number" min="0" step="1" max="{{modern.capacityDisplay}}" value="{{modern.rationCountDisplay}}" data-dtype="Number" data-tooltip="{{localize "EQUIPMENT.RATIONCOUNT_HINT"}}"/>
+                        {{#if editable}}
+                        <button type="button" class="m-qty-btn" data-action="rationCountPlus" data-tooltip="{{localize 'MODERN.QTY_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
+                        {{/if}}
+                    </div>
+                </div>
+                {{/if}}
             </div>
         </div>
         {{/if}}

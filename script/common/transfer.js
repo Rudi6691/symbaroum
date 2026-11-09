@@ -42,6 +42,7 @@
  */
 import { symbDialog } from './symbDialog.js';
 import { isStackableItem, findStackTarget } from './stacking.js';
+import { isCapacityRationItem, getRationCount } from './resources.js';
 import { getContainerChildren } from './container.js';
 import { formatCurrency } from './currency.js';
 import { getModernSheetEffectiveDesign } from './modernSheetConfig.js';
@@ -210,10 +211,25 @@ export function buildPayload(sourceActor, item, quantity) {
 	return { kind: 'item', items: [{ data, isRoot: true }], quantity: Math.max(1, Math.round(quantity || 1)) };
 }
 
+/**
+ * v1.4 (Rudolfs Wunsch 1): Rationen-Übergabe — der Payload trägt die
+ * Behälter-Vorlage (Kopie des Quell-Items) und die Rations-Anzahl.
+ * Die Ziel-Seite (applyAtTarget) füllt einen passenden Behälter bis
+ * zur Kapazität auf oder legt sonst eine Behälter-Kopie mit dem
+ * Füllstand an (Rudolfs Spez: „ohne passenden Rationenbehälter wird
+ * dieser kopiert und mit der eingestellten Anzahl Rationen gefüllt").
+ */
+export function buildRationsPayload(item, quantity) {
+	const data = item.toObject();
+	return { kind: 'rations', items: [{ data, isRoot: true }], quantity: Math.max(1, Math.round(quantity || 1)) };
+}
+
 // Loot v1: Wiederverwendung der Übergabe-Pipeline (exportiert).
 /** Einzeilige Beschreibung des Transferguts für Consent und Chat. */
-export function describeTransfer(sourceActor, item, quantity, money) {
+export function describeTransfer(sourceActor, item, quantity, money, rations = false) {
 	if (money != null) return formatCurrency(money);
+	// v1.4: Rationen-Übergabe — „N Rationen (Behältername)"
+	if (rations) return F('GIVE.RATIONS_DESC', { count: Math.max(1, Math.round(quantity || 1)), name: item.name });
 	if (item.type === 'container') {
 		const { childCount, money: containerMoney } = containerStats(sourceActor, item);
 		return `${item.name} — ${F('GIVE.CONTENTS', { count: childCount, money: formatCurrency(containerMoney) })}`;
@@ -238,6 +254,39 @@ export async function applyAtTarget(targetActor, payload) {
 		await targetActor.update({ 'system.currency': cur + Math.max(0, Math.round(payload.money || 0)) });
 		return;
 	}
+	/* v1.4 (Rudolfs Wunsch 1): Rationen-Übergabe — passenden Behälter
+	 * füllen (AP2-Stapel-Identität UND Rations-Kapazitäts-Item), bis
+	 * zur Kapazität; der Rest wird als Behälter-Kopie mit Rest-Füll-
+	 * stand angelegt (verlustfrei auch im Socket-Fall, wo Geber und
+	 * Ziel-Seite parallel buchen und keine Rückmeldung möglich ist —
+	 * bewusste Ausgestaltung, im Auslieferungsdoc §6 dokumentiert). */
+	if (payload.kind === 'rations') {
+		const template = payload.items?.[0]?.data;
+		if (!template) return;
+		const n = Math.max(1, Math.round(Number(payload.quantity) || 1));
+		let remaining = n;
+		const stack = findStackTarget(targetActor, template);
+		if (stack && isCapacityRationItem(stack)) {
+			const current = getRationCount(stack);
+			const capacity = Math.round(Number(stack.system?.maxNumber) || 0);
+			const fill = Math.max(0, Math.min(remaining, capacity - current));
+			if (fill > 0) {
+				await stack.update({ 'system.rationCount': current + fill });
+				remaining -= fill;
+			}
+		}
+		if (remaining > 0) {
+			const data = foundry.utils.duplicate(template);
+			delete data._id;
+			delete data.flags?.['symbaroum']?.favorite;
+			data.system = data.system ?? {};
+			data.system.number = 1;
+			data.system.rationCount = remaining;
+			if (data.system.container) delete data.system.container;
+			await targetActor.createEmbeddedDocuments('Item', [data]);
+		}
+		return;
+	}
 	const idMap = new Map();
 	let index = 0;
 	for (const entry of payload.items) {
@@ -252,8 +301,11 @@ export async function applyAtTarget(targetActor, payload) {
 			if (idMap.has(data.system.container)) data.system.container = idMap.get(data.system.container);
 			else delete data.system.container;
 		}
-		if (index === 0 && payload.kind === 'item') {
-			// Einzelnes (lose) Item: Merge mit vorhandenem Stapel am Ziel
+		if (index === 0 && payload.kind === 'item' && !isCapacityRationItem(data)) {
+			// Einzelnes (lose) Item: Merge mit vorhandenem Stapel am Ziel.
+			// v1.4 (P14): Rations-Kapazitäts-Items sind nicht stapelbar —
+			// sie werden IMMER als eigener Eintrag angelegt (Füllstand
+			// wandert mit, kein number-Verschmelzen).
 			const stack = findStackTarget(targetActor, data);
 			if (stack) {
 				const incoming = Math.max(1, Math.round(Number(data.system?.number ?? 1) || 1));
@@ -294,6 +346,17 @@ export async function removeFromSource(sourceActor, item, quantity, money) {
 	}
 }
 
+/**
+ * v1.4 (Rudolfs Wunsch 1): Rationen-Übergabe an der Quelle — das Item
+ * bleibt stehen (auch leer; v1.3-Prinzip „Kapazitäts-Quelle wird nie
+ * gelöscht"), nur der Füllstand sinkt um N (nie unter 0).
+ */
+export async function reduceRationCount(item, quantity) {
+	const current = getRationCount(item);
+	const take = Math.max(1, Math.round(quantity || 1));
+	await item.update({ 'system.rationCount': Math.max(0, current - take) });
+}
+
 /* ----------------------------------------------------------------
  *  Chat-Karte
  * ---------------------------------------------------------------- */
@@ -330,8 +393,14 @@ function dialogClasses(...extra) {
  */
 async function performTransfer(ctx) {
 	const { sourceActor, targetActor, targetUser, item, quantity, money, mode } = ctx;
-	const description = describeTransfer(sourceActor, item, quantity, money);
-	const payload = money != null ? { kind: 'money', money: Math.round(money) } : buildPayload(sourceActor, item, quantity);
+	const rations = ctx.giveKind === 'rations';
+	const description = describeTransfer(sourceActor, item, quantity, money, rations);
+	const payload =
+		money != null
+			? { kind: 'money', money: Math.round(money) }
+			: rations
+				? buildRationsPayload(item, quantity)
+				: buildPayload(sourceActor, item, quantity);
 	/* Brauen v1.2 (Rudolfs Testrunde 2, Freigabe): Rezepturen werden als
 	   KOPIE geteilt - Wissen verbreitet sich, das Original bleibt beim
 	   Geber. Der Diebstahl-Fall (komplette Entfernung) läuft bewusst über
@@ -341,7 +410,12 @@ async function performTransfer(ctx) {
 	const direct = game.user.isGM || !!targetActor.isOwner;
 	if (direct) {
 		await applyAtTarget(targetActor, payload);
-		if (!keepOriginal) await removeFromSource(sourceActor, item, quantity, money);
+		if (!keepOriginal) {
+			// v1.4: Rationen-Übergabe — Quelle behält das (evtl. leere)
+			// Item, nur der Füllstand sinkt (reduceRationCount).
+			if (rations) await reduceRationCount(item, quantity);
+			else await removeFromSource(sourceActor, item, quantity, money);
+		}
 	} else {
 		game.socket.emit('system.symbaroum', {
 			type: 'transferExecute',
@@ -355,7 +429,12 @@ async function performTransfer(ctx) {
 		// Löschen parallel zum Execute: beide Clients besitzen jeweils
 		// ihre Seite - der Geber-Client hat die Ownership an der Quelle.
 		// Rezepturen (keepOriginal) bleiben als Kopie beim Geber.
-		if (!keepOriginal) await removeFromSource(sourceActor, item, quantity, money);
+		// v1.4: Rationen-Übergabe — Quelle behält das (evtl. leere)
+		// Item, nur der Füllstand sinkt (reduceRationCount).
+		if (!keepOriginal) {
+			if (rations) await reduceRationCount(item, quantity);
+			else await removeFromSource(sourceActor, item, quantity, money);
+		}
 	}
 	await sendTransferCard({
 		sourceActor,
@@ -371,7 +450,7 @@ async function performTransfer(ctx) {
  * Startet die Übergabe aus dem Give-Dialog heraus (nach der
  * Empfänger-/Mengen-/Sichtbarkeits-Auswahl).
  */
-async function initiateTransfer({ sourceActor, targetActor, item, quantity, money, mode }) {
+async function initiateTransfer({ sourceActor, targetActor, item, quantity, money, mode, giveKind = 'item' }) {
 	const targetUser = resolveTargetUser(targetActor);
 	if (!targetUser) {
 		ui.notifications.warn(L('GIVE.NO_RECIPIENTS'));
@@ -385,6 +464,8 @@ async function initiateTransfer({ sourceActor, targetActor, item, quantity, mone
 		quantity,
 		money,
 		mode,
+		// v1.4: 'item' (ganzes Item) oder 'rations' (nur der Füllstand)
+		giveKind,
 		targetKind: targetActor.isToken ? 'token' : 'actor',
 		targetTokenId: targetActor.isToken ? targetActor.token?.id : null,
 	};
@@ -397,7 +478,7 @@ async function initiateTransfer({ sourceActor, targetActor, item, quantity, mone
 		return;
 	}
 	const tx = randomID();
-	const description = describeTransfer(sourceActor, item, quantity, money);
+	const description = describeTransfer(sourceActor, item, quantity, money, giveKind === 'rations');
 	pending.set(tx, ctx);
 	game.socket.emit('system.symbaroum', {
 		type: 'transferRequest',
@@ -542,8 +623,15 @@ export async function openGiveDialog(sourceActor, item) {
 		return;
 	}
 	const isContainer = item.type === 'container';
-	const stackable = !isContainer && isStackableItem(item);
+	/* v1.4 (Rudolfs Wunsch 1): Rations-Kapazitäts-Items bekommen im
+	 * Geben-Dialog ein Radio „{Name Item}“ / „Rationen“ — das ganze
+	 * Item ODER nur den Rations-Füllstand übergeben. Einfache Zahl-
+	 * Stapel (Rationen ohne Kapazität) und alles andere laufen
+	 * unverändert über das normale Mengenfeld. */
+	const rationItem = !isContainer && isCapacityRationItem(item);
+	const stackable = !isContainer && !rationItem && isStackableItem(item);
 	const max = Math.max(1, Math.round(Number(item.system?.number ?? 1) || 1));
+	const rationMax = rationItem ? Math.max(0, getRationCount(item)) : 0;
 	const html = await renderGiveDialog({
 		sourceName: sourceActor.name,
 		item: {
@@ -552,6 +640,8 @@ export async function openGiveDialog(sourceActor, item) {
 			stackable,
 			max,
 			isContainer,
+			rationItem,
+			rationMax,
 			summary: isContainer ? describeTransfer(sourceActor, item, 1, null) : null,
 		},
 		recipients,
@@ -567,10 +657,37 @@ export async function openGiveDialog(sourceActor, item) {
 		// Content-Element erreichen den Dialog nie). Klemmung analog dem
 		// A6v8-Anzahl-Dialog: 1..max. Nur bei stapelbaren Items - nur dann
 		// rendert das Template die m-eq-row mit den Buttons.
+		// v1.4 (Wunsch 1): Bei Rations-Kapazitäts-Items zusätzlich den
+		// Radio-Umschalter „{Name Item}“/„Rationen“ verdrahten - der
+		// Rations-Modus blendet #give-ration-row ein (Default „item“ =
+		// Zeile hidden) und klemmt die Rations-Anzahl auf 1..rationMax.
 		onRender: (element) => {
-			if (!stackable || !element?.querySelector?.('#give-quantity')) return;
+			if (!element?.querySelector) return;
+			if (rationItem) {
+				const rationRow = element.querySelector('#give-ration-row');
+				const rationInput = element.querySelector('#give-ration-quantity');
+				const kindRadios = element.querySelectorAll('input[name="give-kind"]');
+				const setRationMode = (active) => {
+					if (rationRow) rationRow.classList.toggle('hidden', !active);
+				};
+				kindRadios.forEach((radio) => {
+					radio.addEventListener('change', () => {
+						setRationMode(radio.value === 'rations' && radio.checked);
+					});
+				});
+				if (rationInput) {
+					element.querySelectorAll('.m-eq-btn[data-ration-dir]').forEach((btn) => {
+						btn.addEventListener('click', () => {
+							const dir = parseInt(btn.dataset.rationDir, 10) || 0;
+							const current = parseInt(rationInput.value, 10) || 1;
+							rationInput.value = Math.min(Math.max(1, rationMax), Math.max(1, current + dir));
+						});
+					});
+				}
+			}
+			if (!stackable || !element.querySelector('#give-quantity')) return;
 			const input = element.querySelector('#give-quantity');
-			element.querySelectorAll('.m-eq-btn').forEach((btn) => {
+			element.querySelectorAll('.m-eq-btn[data-dir]').forEach((btn) => {
 				btn.addEventListener('click', () => {
 					const dir = parseInt(btn.dataset.dir, 10) || 0;
 					const current = parseInt(input.value, 10) || 1;
@@ -583,18 +700,29 @@ export async function openGiveDialog(sourceActor, item) {
 				icon: '<i class="fas fa-gift"></i>',
 				label: L('GIVE.BUTTON'),
 				callback: async (html) => {
-					const { targetValue, vis } = readDialogSelection(html);
+					const { targetValue, vis, root } = readDialogSelection(html);
 					const targetActor = resolveRecipient(targetValue);
 					if (!targetActor) return;
+					/* v1.4 (Wunsch 1): Modus-Auswahl - nur Rations-Kapazitäts-
+					 * Items rendern das Radio; Default bleibt „item“. */
+					const giveKind = rationItem
+						? root.querySelector('input[name="give-kind"]:checked')?.value ?? 'item'
+						: 'item';
 					let quantity = 1;
-					if (stackable) {
-						quantity = parseInt(html[0].querySelector('#give-quantity')?.value, 10);
+					if (giveKind === 'rations') {
+						quantity = parseInt(root.querySelector('#give-ration-quantity')?.value, 10);
+						if (isNaN(quantity) || quantity < 1 || quantity > Math.max(1, rationMax)) {
+							ui.notifications.warn(L('GIVE.ERR_RATION_QUANTITY'));
+							return;
+						}
+					} else if (stackable) {
+						quantity = parseInt(root.querySelector('#give-quantity')?.value, 10);
 						if (isNaN(quantity) || quantity < 1 || quantity > max) {
 							ui.notifications.warn(L('GIVE.ERR_QUANTITY'));
 							return;
 						}
 					}
-					await initiateTransfer({ sourceActor, targetActor, item, quantity, mode: vis });
+					await initiateTransfer({ sourceActor, targetActor, item, quantity, mode: vis, giveKind });
 				},
 			},
 			cancel: {

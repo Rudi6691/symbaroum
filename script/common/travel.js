@@ -1005,6 +1005,18 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
 	for (const actorId of actorIds) {
 		const actor = game.actors.get(actorId);
 		if (!actor) continue;
+		/* v1.4 (Rudolfs Testrunde v1.3, P15 — seine Entscheidung
+		 * „beide Warnfälle“): Der Tagesabschluss warnt pro gebuchtem
+		 * Akteur wie die Einzelaktionen (Variante A: Toast, die
+		 * Buchung läuft trotzdem) — (a) synthetischer Token-Aktor
+		 * (Buchung wirkt nur lokal am Spielstein), (b) Welt-Aktor
+		 * ohne verknüpften Spielstein in der aktiven Szene (Buchung
+		 * wirkt am Welt-Aktor, am Spielstein sichtbar nichts). */
+		if (actor.isToken) {
+			ui.notifications.warn(F('TRAVEL.DAY_TOKEN_LOCAL_WARN', { name: actor.name }));
+		} else if (!canvas.tokens.placeables.some((t) => t.actor?.id === actor.id)) {
+			ui.notifications.warn(F('TRAVEL.DAY_TOKEN_NONE_WARN', { name: actor.name }));
+		}
 		// 1) SL-Korrekturen aus den Zählerzeilen als Basis schreiben
 		const flags = getTravelFlags(actor);
 		const edits = counterEdits?.[actorId] ?? null;
@@ -1167,10 +1179,38 @@ async function completeTravelDays({ days, actorIds, rationMode, mode, pace, terr
  * ---------------------------------------------------------------- */
 
 /** Strapazen-/Hunger-/Durst-Probe über die bestehende Wurf-Maschinerie. */
-async function rollTravelProbe(actorId) {
+async function rollTravelProbe(actorId, kind = null) {
 	const actor = game.actors.get(actorId);
 	if (!actor) return;
-	await prepareRollAttribute(actor, 'strong', null, null);
+	/* v1.4 (Rudolfs Punkt 5, rekonstruiert 08.11.): Die Hungerprobe
+	 * öffnet den Stärke-Würfeldialog MIT Hunger-Kontext — Titel
+	 * „Stärke - Hungerprobe“, Kontextzeile vor dem Modifikator und
+	 * automatische Stärke-Malus-Buchung bei Misserfolg (dialog.js);
+	 * die GM-Taste „Hunger-Probe scheitert“ ist entfallen. Durst-
+	 * und Todesmarsch-Proben laufen unverändert ohne Kontext. */
+	const ecData = { targetData: { hasTarget: false, leaderTarget: false, actor: {} } };
+	if (kind === 'hunger') ecData.travelHungerProbe = true;
+	await prepareRollAttribute(actor, 'strong', null, null, ecData);
+}
+
+/**
+ * v1.4 (Rudolfs Punkt 5): Fehlschlag der täglichen Hunger-Probe — der
+ * Stärke-Malus steigt sofort um 1 (automatisch aus der Wurfauswertung
+ * in dialog.js, ersetzt die entfallene GM-Taste „Hunger-Probe scheitert“).
+ * Stärke 0 (Wert inkl. Abzüge) → SL-Karte „Tod durch Verhungern“
+ * (kein Auto-Tod — die SL entscheidet, Muster applyTravelCardAction).
+ */
+export async function recordHungerFailure(actor) {
+	if (!actor) return;
+	const flags = getTravelFlags(actor);
+	flags.strengthLoss += 1;
+	await actor.update({ 'flags.symbaroum.travel': flags });
+	const strongTotal = Number(actor.system?.attributes?.strong?.total) || 0;
+	if (strongTotal - flags.strengthLoss <= 0) {
+		await postSystemCard(F('TRAVEL.CARD_DEATH_HUNGER', { name: actor.name }), actor);
+	} else {
+		ui.notifications.info(F('TRAVEL.APPLY_STRENGTH_LOSS', { name: actor.name }));
+	}
 }
 
 /** GM-Anwendung einer Karten-Aktion (kein Auto-Tod — SL entscheidet). */
@@ -1179,17 +1219,12 @@ async function applyTravelCardAction(dataset) {
 	if (!actor || !game.user.isGM) return;
 	switch (dataset.kind) {
 		case 'hungerFail': {
-			// Fehlschlag der täglichen Hunger-Probe: Stärke −1 (Flag-Helfer);
-			// Stärke 0 (Wert inkl. Abzüge) → SL-Karte „Tod durch Verhungern"
-			const flags = getTravelFlags(actor);
-			flags.strengthLoss += 1;
-			await actor.update({ 'flags.symbaroum.travel': flags });
-			const strongTotal = Number(actor.system?.attributes?.strong?.total) || 0;
-			if (strongTotal - flags.strengthLoss <= 0) {
-				await postSystemCard(F('TRAVEL.CARD_DEATH_HUNGER', { name: actor.name }), actor);
-			} else {
-				ui.notifications.info(F('TRAVEL.APPLY_STRENGTH_LOSS', { name: actor.name }));
-			}
+			// v1.4 (Rudolfs Punkt 5): Die Taste ist aus der Tageskarte
+			// ENTFALLEN (der Misserfolg bucht sich aus der Wurfaus-
+			// wertung selbst, dialog.js → recordHungerFailure). Der
+			// Case bleibt als Kompatibilität für Tageskarten, die
+			// vor v1.4 im Chat stehen.
+			await recordHungerFailure(actor);
 			break;
 		}
 		case 'deathFail': {
@@ -1643,7 +1678,9 @@ export async function setupTravelRuntime() {
 					const actor = game.actors.get(btn.dataset.travelProbe);
 					if (!actor) return;
 					if (!game.user.isGM && !actor.isOwner) return;
-					await rollTravelProbe(btn.dataset.travelProbe);
+					// v1.4: data-kind (hunger/thirst/march) aus der Tageskarte —
+					// nur die Hungerprobe öffnet den Dialog mit Hunger-Kontext.
+					await rollTravelProbe(btn.dataset.travelProbe, btn.dataset.kind ?? null);
 				});
 			});
 			// GM-Anwendungsknöpfe: nur für die SL sichtbar verdrahtet

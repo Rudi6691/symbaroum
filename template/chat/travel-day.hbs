@@ -56,15 +56,17 @@
             <div class="travel-day-actionrow">
                 <span class="travel-day-actionname"><img class="portrait" src="{{img}}"/> {{name}}</span>
                 {{#if state.hunger}}
-                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_HUNGER"}}</button>
-                <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="hungerFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_HUNGER_FAIL"}}</button>
+                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="hunger"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_HUNGER"}}</button>
+                {{!-- v1.4 (Rudolfs Punkt 5): GM-Taste „Hunger-Probe scheitert“ ENTFALLEN —
+                      der Misserfolg der Hungerprobe bucht den Stärke-Malus automatisch
+                      aus der Wurfauswertung (travel.js recordHungerFailure). --}}
                 {{/if}}
                 {{#if state.thirst}}
-                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_THIRST"}}</button>
+                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="thirst"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_THIRST"}}</button>
                 <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="thirstFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_THIRST_FAIL"}}</button>
                 {{/if}}
                 {{#if deathProbe}}
-                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_DEATHMARCH"}}</button>
+                <button type="button" class="travel-probe-button" data-travel-probe="{{id}}" data-kind="march"><i class="fas fa-dice"></i> {{localize "TRAVEL.CARD_PROBE_DEATHMARCH"}}</button>
                 <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="deathFail"><i class="fas fa-thumbs-down"></i> {{localize "TRAVEL.CARD_APPLY_DEATH_FAIL"}}</button>
                 <button type="button" class="travel-apply-button" data-travel-apply data-actor-id="{{id}}" data-kind="accident"><i class="fas fa-skull"></i> {{localize "TRAVEL.CARD_APPLY_ACCIDENT"}}</button>
                 {{/if}}

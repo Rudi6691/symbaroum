@@ -38,7 +38,7 @@
 import { getItemPriceBase } from "./currency.js";
 import { isInsideContainer } from "./container.js";
 // S4 v1.3 (Kapazitätsmodell): Rations-Helfer aus resources.js
-import { isCapacityRationItem, getRationCount } from "./resources.js";
+import { isCapacityRationItem } from "./resources.js";
 
 /* -------------------------------------------- */
 /*  Regel-Matrix                                 */
@@ -158,50 +158,20 @@ export async function mergeStackDrop(actor, sourceItem, containerId = null) {
 	}
 	const target = findStackTarget(actor, sourceItem, { containerId });
 	if (!target) return null;
-	/* S4 v1.3 (Rudolfs Meldung C, Punkt 12): Ist das ZIEL ein Rations-
-	 * Kapazitäts-Item, füllt der Merge RATIONEN auf (system.ration-
-	 * Count, Item-Anzahl bleibt unberührt — 1 Wasserschlauch bleibt
-	 * 1 Item): Ziel wird bis zur Kapazität aufgefüllt, der Überhang
-	 * bleibt am Quel-Item (eingebettete Quelle behält Rest-Rationen;
-	 * eine Kapazitäts-QUELLE wird NIE gelöscht — der leere Schlauch
-	 * bleibt als Item stehen; unverpackte Quelle = Kopie im Ziel-
-	 * Akteur, Muster splitStackItem). Einfache Quellen zahlen ihre
-	 * Anzahl als Rationen ein. Kein Kapazitäts-Ziel: v1.2-Logik. */
-	if (isCapacityRationItem(target)) {
-		const sourceCapacity = isCapacityRationItem(sourceItem);
-		const incomingRations = sourceCapacity
-			? getRationCount(sourceItem)
-			: Math.max(1, Math.round(Number(sourceItem.system?.number ?? 1) || 1));
-		const currentRations = getRationCount(target);
-		const capacity = Math.round(Number(target.system?.maxNumber));
-		const totalRations = currentRations + incomingRations;
-		const mergedRations = Math.max(currentRations, Math.min(totalRations, capacity));
-		const leftoverRations = totalRations - mergedRations;
-		await target.update({ "system.rationCount": mergedRations });
-		if (sourceCapacity) {
-			// Kapazitäts-Quelle: nie löschen, Rest-Rationen bleiben
-			// am (physischen) Item; Item-Anzahl bleibt unberührt
-			await sourceItem.update({ "system.rationCount": leftoverRations });
-		} else if (leftoverRations > 0) {
-			if (sourceParent instanceof Actor) {
-				await sourceItem.update({ "system.number": leftoverRations });
-			} else {
-				const data = sourceItem.toObject();
-				delete data._id;
-				if (data.flags?.symbaroum && "favorite" in data.flags.symbaroum) {
-					delete data.flags.symbaroum.favorite;
-				}
-				data.system = data.system ?? {};
-				data.system.number = leftoverRations;
-				if (containerId) data.system.container = containerId;
-				await actor.createEmbeddedDocuments("Item", [data]);
-			}
-		} else if (sourceParent instanceof Actor) {
-			await sourceParent.deleteEmbeddedDocuments("Item", [sourceItem.id]);
-		}
-		// Kosmetik v1: Merge-Toast bleibt dauerhaft ausgeblendet
-		return target;
-	}
+	/* S4 v1.4 (Rudolfs Testrunde v1.3, P14 — seine Entscheidung
+	 * „nicht stapelbar“): Rations-Kapazitäts-Items sind NICHT
+	 * stapelbar — weder als Merge-ZIEL noch als Merge-QUELLE. Ein
+	 * Behälter ist ein physisches Einzelobjekt; stapelbar ist sein
+	 * Inhalt (system.rationCount), nicht das Item. Der v1.3-Rations-
+	 * Merge ist damit ENTFERNT: Drops laufen immer in die Normal-
+	 * pfade (A15-Move bzw. Core-Kopie in den Drop-Handlern) und
+	 * legen das Item als eigenen Eintrag an. Das behebt auch die
+	 * stille Welt-Item-Mutation aus v1.3 (Sidebar-Drop schrieb den
+	 * Überhang per update auf das Verzeichnis-Item statt ein
+	 * Inventar-Item anzulegen — Rudolfs Punkt-14-Beobachtung). Der
+	 * bewusste Weg, Rationen zu übertragen, ist „Geben an →
+	 * Rationen“ (transfer.js, v1.4). */
+	if (isCapacityRationItem(sourceItem) || isCapacityRationItem(target)) return null;
 	// Anzahl-Semantik wie Behältersystem/Last: fehlende Anzahl = 1,
 	// Einzelheiten gerundet, nie unter 1.
 	const incoming = Math.max(1, Math.round(Number(sourceItem.system?.number ?? 1) || 1));

@@ -22,7 +22,7 @@ import { getDazedPenalty } from './elixirs.js';
 // Eigenschafts-Würfeldialog. Import-Zykel dialog.js ↔ travel.js ist
 // Laufzeit-sicher (beide Seiten nur Funktionsdeklarationen, Aufruf erst
 // zur Laufzeit — gleiche Prämisse wie item.js ↔ boon.js).
-import { getTravelTestFavour, getHungerPenalty } from './travel.js';
+import { getTravelTestFavour, getHungerPenalty, recordHungerFailure } from './travel.js';
 // Elixiere v1.5: Gift-Beschichtung - Bestandspruefung der Dosis-Stapel
 import { getItemCount } from './resources.js';
 
@@ -456,6 +456,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "poisonManualBonus": poisonManualBonus,
     // S4 v1.2: Hunger-Stärke-Malus für die gesperrte Dialog-Zeile
     "travelStrengthPenalty": travelStrengthPenalty,
+    // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe-Kontext — Kontextzeile
+    // vor dem Modifikator (dialog.hbs/dialog-modern.hbs)
+    "travelHungerProbe": !!(ecData.travelHungerProbe),
     "isArmorRoll" : armor !== null,
     "askImpeding" : askImpeding,
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
@@ -495,7 +498,10 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "boon_lines": boon_lines
   });
 
-  const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName);
+  // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe — Dialogtitel
+  // „Stärke - Hungerprobe“ (Suffix aus dem ecData-Kontext)
+  const baseDialogTitle = game.symbaroum.api.getAttributeLabel(actor, attributeName)
+    + (ecData.travelHungerProbe ? ' - ' + game.i18n.localize('TRAVEL.HUNGER_PROBE_TITLE') : '');
   const dialog = symbDialog({
     title: baseDialogTitle,
     content: dialoghtml,
@@ -996,7 +1002,16 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             // S2.1 (P5+P9): chainData für die einheitliche Wurfzeile mit-
             // geben (freier Modifikator RAW + Segen-Zeilen; roll.js baut
             // daraus „+ 1 (Modifikator) + 1 (Archivar)").
-            game.symbaroum.api.rollAttribute(actor, attributeName, getTarget(), targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, { freeModifier: ecData.freeModifier ?? 0, boonLineChain: ecData.boonLineChain ?? [] }).then((roll) => {resolve(roll)});
+            game.symbaroum.api.rollAttribute(actor, attributeName, getTarget(), targetAttributeName, favour, modifier, armor, weapon, advantage, damModifier, { freeModifier: ecData.freeModifier ?? 0, boonLineChain: ecData.boonLineChain ?? [] }).then(async (roll) => {
+              // S4 v1.4 (Rudolfs Punkt 5): Hungerprobe — bei MISserfolg
+              // steigt der Stärke-Malus sofort um 1 (travel.js
+              // recordHungerFailure; ersetzt die entfallene GM-Taste
+              // „Hunger-Probe scheitert“ auf der Tageskarte).
+              if (ecData?.travelHungerProbe && roll?.hasSucceed === false) {
+                await recordHungerFailure(actor);
+              }
+              resolve(roll);
+            });
           }
         },
       },

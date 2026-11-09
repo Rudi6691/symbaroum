@@ -7,6 +7,15 @@
         </select>
     </div>
   {{/if}}
+  {{!-- S4 v1.4 (Rudolfs Punkt 5): Hungerprobe-Kontextzeile VOR dem Modifikator
+        (Dialogtitel trägt „ - Hungerprobe“); bei Misserfolg bucht dialog.js
+        den Stärke-Malus automatisch (travel.js recordHungerFailure). --}}
+  {{#if travelHungerProbe}}
+  <div class="bonus">
+    <label title="{{localize "TRAVEL.HUNGER_PROBE_HINT"}}">{{localize "TRAVEL.HUNGER_PROBE_LABEL"}}</label>
+    <input type="text" value="{{localize "TRAVEL.HUNGER_PROBE_CONSEQUENCE"}}" data-dtype="Text" disabled/>
+  </div>
+  {{/if}}
   <div class="bonus">
     <label for="modifier-{{did}}">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="modifier-{{did}}" type="number" value="{{roll_defaults.modifier}}" data-dtype="Number"/>

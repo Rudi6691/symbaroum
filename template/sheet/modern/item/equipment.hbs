@@ -26,29 +26,9 @@
                     <span>{{alchemyLevelLabel}}</span>
                 </div>
                 {{/if}}
-                {{!-- S4 v1.3 (Rudolfs Kapazitätsmodell, Rudolfs Platzierung
-                    08.11.): „Anzahl Rationen“ (Füllstand system.rationCount)
-                    auf dem Beschreibungs-Tab — nur bei Rations-Kategorie MIT
-                    Kapazität > 0 (Kapazitäts-Item; Diskriminator in item.js,
-                    Rudolfs starke Zustimmung zur Kopplung an die Kapazität).
-                    Caret-Stepper: Min 0, Max = eingestellte Kapazität
-                    (Klemmung im Handler rationCountPlus/rationCountMinus);
-                    die Item-Anzahl (Kopf) bleibt entkoppelt — 1 Wasser-
-                    schlauch = 1 Item, verkauft/wiegt als 1. --}}
-                {{#if modern.showRationCount}}
-                <div class="m-inline-field m-rationcount-field">
-                    <label for="{{id}}-system.rationCount" data-tooltip="{{localize "EQUIPMENT.RATIONCOUNT_HINT"}}">{{localize "EQUIPMENT.RATIONCOUNT"}}</label>
-                    <div class="m-qty">
-                        {{#if editable}}
-                        <button type="button" class="m-qty-btn" data-action="rationCountMinus" data-tooltip="{{localize 'MODERN.QTY_DECREASE'}}"><i class="fas fa-caret-left"></i></button>
-                        {{/if}}
-                        <input id="{{id}}-system.rationCount" name="system.rationCount" type="number" min="0" step="1" max="{{modern.capacityDisplay}}" value="{{modern.rationCountDisplay}}" data-dtype="Number" data-tooltip="{{localize "EQUIPMENT.RATIONCOUNT_HINT"}}"/>
-                        {{#if editable}}
-                        <button type="button" class="m-qty-btn" data-action="rationCountPlus" data-tooltip="{{localize 'MODERN.QTY_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
-                        {{/if}}
-                    </div>
-                </div>
-                {{/if}}
+                {{!-- S4 v1.4 (Rudolfs Wunsch 2): „Anzahl Rationen“ ist vom
+                    Beschreibungs-Tab ins Kopf-m-grid gezogen (header.hbs,
+                    Optik wie das Anzahl-Feld) — dieser Block ist ENTFALLEN. --}}
                 <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
             </div>
         </div>
