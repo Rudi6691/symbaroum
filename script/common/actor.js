@@ -731,6 +731,18 @@ export class SymbaroumActor extends Actor {
 		}
 		this.system.health.toughness.max = toughMax + toughBonus;
 
+		// Hunger v1.1 (Testrunde 1, Punkt 7 — Rudolfs Freigabe
+		// „Variante 1"): Istwert wirksam auf das (ggf. durch den
+		// Hunger-Stärke-Malus gesenkte) Maximum klemmen — rein
+		// berechnet, NICHT persistiert (A-live wie der Malus selbst):
+		// nach dem Verzehren kehrt der alte Istwert zurück, es geht
+		// nichts verloren. Alle Konsumenten, die
+		// system.health.toughness.value lesen (Vitalanzeige, Heilung,
+		// Loot-Tod-Automatik), sehen den geklemmten Wert.
+		if (this.system.health.toughness.value > this.system.health.toughness.max) {
+			this.system.health.toughness.value = this.system.health.toughness.max;
+		}
+
 		this.system.hasNoPainThreshold = noPain;
 		if (noPain) {
 			this.system.health.toughness.threshold = 0;

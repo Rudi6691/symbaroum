@@ -34,7 +34,7 @@ import { registerResourceSettings } from './resources.js';
 // Settings (Master „Reiseregeln" + „Rationsverfolgung", symbaroumConfig-
 // GM-Seite) + Runtime-Hooks (updateWorldTime-Tageswechsel, Akteur-
 // Kontextmenü, Chat-Karten-Buttons, Buschwissen-Ertrag). Engine: travel.js.
-import { registerTravelSettings, setupTravelRuntime } from './travel.js';
+import { registerTravelSettings, setupTravelRuntime, registerTravelContextMenu } from './travel.js';
 // Munitionsverbrauch v1: Welt-Settings „Munitionsverbrauch“/„Bergungsoption“
 // (GM, world, Default AUS, Registration direkt nach den Ressourcen-Settings)
 // + Runtime-Hooks (Bergungs-Karte beim Kampfende, Bergungs-Button in der
@@ -110,6 +110,15 @@ Hooks.once('init', () => {
 
 	// A38: registriert <symbaroum-currency> als Custom Element und injiziert die zugehörigen Styles
 	initCurrency();
+
+	// Hunger/Reise v1.1-Gesamtfix (Rudolfs Freigabe 09.11.): Das
+	// Reisegruppen-Kontextmenü muss IM INIT registriert sein — Foundry
+	// V14 baut das Kontextmenü des Aktor-Verzeichnisses EINMALIG beim
+	// ersten App-Render auf (Dispatch VOR dem ready-Hook) und friert
+	// die Einträge ein; die bisherige Registrierung im ready kam damit
+	// immer zu spät und der Eintrag erschien nie. Root-Cause-Analyse
+	// in travel.js (registerTravelContextMenu).
+	registerTravelContextMenu();
 
 	game.symbaroum = {
 		config: SYMBAROUM,
@@ -632,8 +641,9 @@ Hooks.once('ready', () => {
 	registerLootRuntimeHooks();
 	// S4 „Tag/Reise/Ressourcen": Laufzeit-Hooks der Reise-Engine —
 	// updateWorldTime-Tageswechsel (Tag-Schlüssel-Vergleich, SL-Dialog,
-	// NIEMALS Auto-Abbuchung), Akteur-Kontextmenü (Reisegruppe-Flag),
-	// Chat-Karten-Buttons der Tageskarte + Buschwissen-Ertrag.
+	// NIEMALS Auto-Abbuchung), Chat-Karten-Buttons der Tageskarte +
+	// Buschwissen-Ertrag. (Das Akteur-Kontextmenü läuft separat IM
+	// INIT, siehe registerTravelContextMenu oben.)
 	setupTravelRuntime();
 	// Munitionsverbrauch v1.2: Bergen-Laufzeit ENTFERNT (Rudolfs Punkt-11-
 	// Entscheidung: Zaehler, preDeleteCombat-Karte, GM-Anwendungskarte,

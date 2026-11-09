@@ -1710,25 +1710,26 @@ export async function announceRationTracking({ on = true, masterOn = false, food
 }
 
 /* ----------------------------------------------------------------
- *  Runtime-Registrierung (hooks.js ruft setupTravelRuntime im ready)
+ *  Runtime-Registrierung (hooks.js ruft setupTravelRuntime im ready;
+ *  das Reisegruppen-Kontextmenü separat in registerTravelContextMenu,
+ *  das hooks.js bereits IM INIT aufruft — siehe Kommentar dort)
  * ---------------------------------------------------------------- */
 
-export async function setupTravelRuntime() {
-	// v1.1-Migration: den S4-v1-Sammelschalter EINMALIG auf die zwei
-	// getrennten Schalter überführen (rationTracking bleibt als interner
-	// Wert erhalten, Bestehende Welten verlieren ihren Zustand nicht)
-	try {
-		if (!game.settings.get('symbaroum', 'travelSplitMigrated')) {
-			if (game.settings.get('symbaroum', 'rationTracking')) {
-				await game.settings.set('symbaroum', 'foodTrackingEnabled', true);
-				await game.settings.set('symbaroum', 'waterTrackingEnabled', true);
-			}
-			await game.settings.set('symbaroum', 'travelSplitMigrated', true);
-		}
-	} catch (err) {}
-	// Tageswechsel-Engine: läuft auf JEDEM Client, verarbeitet nur der GM
-	Hooks.on('updateWorldTime', (worldTime) => handleWorldTimeUpdate(worldTime));
-
+/* ----------------------------------------------------------------
+ *  S4-Reisegruppen-Fix v1.1 (Root Cause siehe Diagnose R1–R6):
+ *  „Reisegruppe: Mitgliedschaft umschalten" erschien nie im Sidebar-
+ *  Kontextmenü, weil Foundry V14 das Kontextmenü des Aktor-Verzeich-
+ *  nisses EINMALIG beim ersten App-Render aufbaut (DocumentDirectory
+ *  _onFirstRender → _createContextMenu → Hook-Dispatch) und die
+ *  Einträge in der ContextMenu-Instanz EINGEFROREN werden. Der erste
+ *  Sidebar-Render läuft aber VOR dem ready-Hook (initializeUI ruft
+ *  ui.sidebar.render asynchron ohne await; ready feuert erst nach
+ *  canvas.initializing) — die bisherige Registrierung auf ready kam
+ *  damit IMMER zu spät. Fix: Registrierung auf INIT verlegen; L()/
+ *  Settings/game.user werden ohnehin erst im Hook-Dispatch zur
+ *  Laufzeit gebraucht, i18n ist da längst geladen.
+ * ---------------------------------------------------------------- */
+export function registerTravelContextMenu() {
 	// Mitgliedschafts-Flag per Kontextmenü am Akteure-Verzeichnis
 	// (Runde-3-Entscheidung statt Ordner; V13/14-Ersatz für das tote
 	// getActorDirectoryEntryContext — Hook-Name verifiziert am
@@ -1752,6 +1753,23 @@ export async function setupTravelRuntime() {
 			},
 		});
 	});
+}
+
+export async function setupTravelRuntime() {
+	// v1.1-Migration: den S4-v1-Sammelschalter EINMALIG auf die zwei
+	// getrennten Schalter überführen (rationTracking bleibt als interner
+	// Wert erhalten, Bestehende Welten verlieren ihren Zustand nicht)
+	try {
+		if (!game.settings.get('symbaroum', 'travelSplitMigrated')) {
+			if (game.settings.get('symbaroum', 'rationTracking')) {
+				await game.settings.set('symbaroum', 'foodTrackingEnabled', true);
+				await game.settings.set('symbaroum', 'waterTrackingEnabled', true);
+			}
+			await game.settings.set('symbaroum', 'travelSplitMigrated', true);
+		}
+	} catch (err) {}
+	// Tageswechsel-Engine: läuft auf JEDEM Client, verarbeitet nur der GM
+	Hooks.on('updateWorldTime', (worldTime) => handleWorldTimeUpdate(worldTime));
 
 	// Chat-Karten-Buttons der Tageskarte + Versorgungskarte
 	Hooks.on('renderChatMessageHTML', (message, html) => {
