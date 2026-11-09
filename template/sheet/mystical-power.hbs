@@ -129,7 +129,7 @@
                     <div class="action">
                         <label for="{{id}}-system.areaZone.shape">{{localize "AOE.FIELD_SHAPE"}}</label>
                         <select id="{{id}}-system.areaZone.shape" name="system.areaZone.shape">
-                            {{selectOptions aoe_shape_selection selected=aoe.shape labelAttr="label"}}
+                            {{selectOptions aoe_shape_selection selected=aoe.shape valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
                     <div class="action">
@@ -139,7 +139,7 @@
                     <div class="action">
                         <label for="{{id}}-system.areaZone.targeting" data-tooltip="{{localize "AOE.INFO_TARGETING"}}">{{localize "AOE.FIELD_TARGETING"}}</label>
                         <select id="{{id}}-system.areaZone.targeting" name="system.areaZone.targeting">
-                            {{selectOptions aoe_targeting_selection selected=aoe.targeting labelAttr="label"}}
+                            {{selectOptions aoe_targeting_selection selected=aoe.targeting valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
                     <p class="zone-hint">{{localize "AOE.INFO_SCALE"}}</p>
