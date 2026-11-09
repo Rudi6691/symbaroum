@@ -1,3 +1,22 @@
+Version 40.1.12
+
+Poison engine (v1-v1.2):
+- Grade-based poison damage with poisoner tiers (novice dose, adept scene coating, master upgrade), Poison Resilient boon, poison manual bonus
+- Persistent weapon coating: dose stays on the blade until a poisoning succeeds, auto-applies on later hits; scene-coat auto-apply per attack
+- Master poisoner: upgrades persistent dose coatings (+1 grade, B2 damage ladder) or grants favour on the coating test for strong doses
+- "No poison" permanently wipes persistent and scene coatings
+- Poison Manual +1 shown as fixed, non-editable line in both roll dialogs
+- Pending coat flag carries the dose grade (backward-compatible)
+
+S4 travel rules (v1-v1.5):
+- GM-gated master and ration-tracking settings, actor-flag travel group, world-time day-break dialog (never auto-deducts), 3.03a stage calculator with riding rows, forced-march/death-march consequences, enduring march boon, bushcraft yield provisioning, hunger/thirst favour presets and status chips, 3 GM macros
+- Split food/water tracking (macro chat announcement, legacy migration), members-only travel dialog, camp/rest mode, one-per-day bushcraft gate, yield booked as ration items (capacity, overflow, encumbrance preview, GM give buttons)
+- Stock chips beat counters: sheet stock chips with click-to-consume, supplied-state badge, x/y stock display with capacity-aware stack merge, ration capacity model (rationCount decoupled from item quantity)
+- Ration containers no longer stackable (drop always creates a new item); give dialog gains item/ration mode (ration-only transfer, container copy at target); hunger test opens the strength roll dialog and auto-books the strength loss on failure
+- Token-first day booking: resolves each member's active-scene token (unlinked tokens book locally, actorLink-based warnings); hunger request cards whispered to owning players (disappear after click, GM fallback button on the day card); roll card gains hunger test title line; give dialog quantity alignment fix
+
+No world migration - systemMigrationVersion stays 7.0.1; delivered world macros migrate ration data.
+
 Version 40.1.11
 
 * Scripted boons/burdens (S1-S2.1): fifteen W-type boons/burdens roll through the shared base engine - attribute-choice dialogs in the alchemy-menu design (single-instance, focus existing), bushcraft/enterprise yield rolls (yield credited to money, orientation button), real opposed tests for musician/cheat/bestial/mystical mark with the target's resist line on the result card, dark secret favour, addiction modifier prefill, musician calm/inspire with beast gate applying the calmed status effect via GM card (with alchemy chip and analyse trace), bestial conceal/intimidate, contact group selection incl. readable custom group text, round brackets for beast lore and contact titles, food/water ration resource categories; opt-in boon/burden context lines in every roll dialog (bonus and second chance with exclusive favour override, both dialog paths and themes), greenthumb line in the brew/analyse dialogs, augur hint chip on rituals; S2.1 polish: unified roll line with modifier chain, unlocked favour radios, level stepper with bonusValue fallback (bonus field display-only in the bonus tab), fire package (Fire-Forged protection, staff projectile elemental rune dropdown), boon-line badge, damage modifier repair, XP chips show total/available
