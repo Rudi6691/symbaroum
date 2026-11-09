@@ -1280,6 +1280,39 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		await this.item.update({ [name]: next });
 	}
 
+	/**
+	 * Bonus-Tab-Submit v1 (Rudolfs Rückstand aus den Itemsheets-Runden,
+	 * Freigabe 09.11.): Klemmung der Bonus-Felder für den Tastatur-/
+	 * Submit-Weg in BEIDEN Ansichten. Der Core-Submit verarbeitet alle
+	 * Formularfelder mit name-Attribut (form.submitOnChange = true in
+	 * DEFAULT_OPTIONS); der klassische Bonus-Tab (sheet/tab/bonus.hbs)
+	 * und der moderne (modern/item/tab-bonus.hbs) tragen beide name-
+	 * Attribute "system.bonus.*". Die v2.1-Grenzen -10/+10 wirkten bis-
+	 * her aber NUR im Stepper-Handler _onBonusAdjust: min/max am Input
+	 * ist für den Browser nur ein Hinweis, manuelle Tastatureingaben
+	 * (z.B. 42 oder -25) wurden ungefiltert gespeichert, und ein ge-
+	 * leertes Feld kann je nach dtype-Verarbeitung als NaN im Update
+	 * landen. Override des EINZIGEN zentralen Submit-Wegs (V14-Signatur
+	 * _prepareSubmitData(event, form, formData, updateData?) - Rückgabe
+	 * geht an document.update): jede system.bonus.*-Änderung wird wie
+	 * beim Stepper geklemmt, so dass Tastatur und Stepper identische
+	 * Grenzen haben: NaN/leer -> 0, Ganzzahl-Rundung, -10/+10.
+	 * Bewusst unberührt: system.bonusValue (Segen/Last-Stufe, beginnt
+	 * nicht mit "system.bonus."), alle Nicht-Bonus-Felder und die
+	 * Stepper selbst (eigene Klemmung in _onBonusAdjust).
+	 */
+	_prepareSubmitData(event, form, formData, updateData) {
+		const update = super._prepareSubmitData(event, form, formData, updateData);
+		if (update && typeof update === 'object') {
+			for (const key of Object.keys(update)) {
+				if (!key.startsWith('system.bonus.')) continue;
+				const value = Number(update[key]);
+				update[key] = Math.min(10, Math.max(-10, Number.isFinite(value) ? Math.round(value) : 0));
+			}
+		}
+		return update;
+	}
+
 	async sendToChat() {
 		const itemData = {};
 		itemData.system = foundry.utils.duplicate(this.item.system);
