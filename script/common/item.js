@@ -3628,12 +3628,13 @@ export async function modifierDialog(functionStuff) {
     hasRoll && !functionStuff.askCastingAttribute && functionStuff.castingAttributeName === "strong"
       ? getHungerPenalty(functionStuff.actor)
       : 0;
-  // S4 v1.2 (Rudolfs Testrunde 2): Der Hunger-Stärke-Malus ist
-  // UNVERÄNDERBAR — KEINE Vorbelegung des editierbaren Modifikator-
-  // Feldes mehr (functionStuff.modifier unangetastet), stattdessen
-  // gesperrte Dialog-Zeile (dialog2.hbs/dialog2-modern.hbs, Muster
-  // Gift-Handbuch-Bonus) + fixe Abziehung beim Submit (siehe unten).
-  // autoParams (Chat-Karte) bleibt wie gehabt.
+  // Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Stärke-Malus
+  // scheiternder Hungerproben steckt ab jetzt IM STÄRKE-GESAMTWERT
+  // (actor.js _computeSecondaryAttributes) — hier bleibt NUR die
+  // Anzeige (autoParams-Zeile + gesperrte Dialog-Zeile in
+  // dialog2.hbs/dialog2-modern.hbs mit dem Hinweis, dass der Wert
+  // bereits im Eigenschaftswert steckt). Die frühere fixe Abziehung
+  // beim Submit ist ENTFALLEN (hätte sonst doppelt abgezogen).
   if (travelStrengthPenalty > 0) {
     functionStuff.autoParams += game.i18n.format("TRAVEL.STRENGTH_AUTOPARAM", { penalty: travelStrengthPenalty }) + ", ";
   }
@@ -3917,12 +3918,11 @@ export async function modifierDialog(functionStuff) {
               functionStuff.boonLineChain.push({ boonName: line.boonName, bonus: line.bonus });
               functionStuff.modifier += line.bonus;
             }
-            // S4 v1.2: Hunger-Stärke-Malus UNVERÄNDERBAR — fixe Abziehung
-            // beim Submit (gesperrte Dialog-Zeile, kein editierbares Feld;
-            // autoParams steht bereits aus der Vorbelegung oben).
-            if (travelStrengthPenalty > 0) {
-              functionStuff.modifier += -travelStrengthPenalty;
-            }
+            // Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): KEINE
+            // Abziehung mehr — der Malus steckt bereits im Stärke-
+            // Gesamtwert und damit im Wurfziel; die frühere
+            // Subtraktion hier hätte doppelt abgezogen. Gesperrte
+            // Dialog-Zeile + autoParams sind reine Anzeige.
           }
 
           //Power/Ability has already been started and is maintained or chained

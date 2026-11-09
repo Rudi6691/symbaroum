@@ -4133,6 +4133,36 @@ Monster Codex Stuff
   box-shadow: none;
 }
 
+/* Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): gesperrte Hunger-
+   Hinweiszeile unter dem Attribut-Grid des klassischen Eigenschaften-
+   Dialogs — reine Textanzeige (kein disabled-Input, S2.1-Lernweis
+   Foundry-Dimming-Sackgasse); der Malus steckt bereits im Stärke-
+   Gesamtwert, die Zeile zeigt nur den Kontext. */
+.symbaroum.attributes .attHungerRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 4px;
+  padding: 2px 5px;
+  font-family: var(--font-text);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.symbaroum.attributes .attHungerRow .attHungerLabel {
+  font-weight: bold;
+}
+
+.symbaroum.attributes .attHungerRow .attHungerValue {
+  font-weight: bold;
+  color: #a3402f;
+}
+
+.symbaroum.attributes .attHungerRow .attHungerHint {
+  font-style: italic;
+  opacity: 0.85;
+}
+
 .symbaroum.attributes input[type=text],
 .symbaroum.attributes input[type=number] {
   background: var(--box-editable) repeat;
@@ -7325,6 +7355,38 @@ dialog.symb-dialog.modern-dialog .hint {
   width: 100%;
   box-sizing: border-box;
   text-align: center;
+}
+
+/* Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): gesperrte Hunger-
+   Hinweiszeile unter dem Attribut-Grid (modern) — reine Textanzeige
+   (kein disabled-Input, S2.1-Lernweis Foundry-Dimming-Sackgasse);
+   Theme nur ueber --m-*-Variablen, Sichtbarkeitsrahmen auf --m-muted
+   (css-Checkliste v1.0 Abschnitt 2), rem statt px. */
+.symbaroum.modern-attr-dialog .m-attr-hunger-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.5rem;
+  border: 0.05rem solid var(--m-muted);
+  border-radius: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--m-muted);
+}
+
+.symbaroum.modern-attr-dialog .m-attr-hunger-label {
+  font-weight: 600;
+  color: var(--m-ink);
+}
+
+.symbaroum.modern-attr-dialog .m-attr-hunger-value {
+  font-weight: 700;
+  color: var(--m-bad);
+}
+
+.symbaroum.modern-attr-dialog .m-attr-hunger-hint {
+  font-style: italic;
 }
 
 .symbaroum.modern-exp-dialog .m-exp-row,

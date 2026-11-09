@@ -542,9 +542,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		for (const [key, a] of Object.entries(live.attributes)) {
 			if (!a?.label) continue;
 			/* S4 v1.2 (Rudolfs Testrunde 2): Hunger-Stärke-Malus am
-			   Stärke-Chip — rote −X-Badge (sidebar.hbs) + Tooltip-Zeile.
-			   Der Malus selbst ist UNVERÄNDERBAR (gesperrte Dialog-Zeile
-			   in dialog.hbs/item.js, Muster „Waffenqualität“). */
+			   Stärke-Chip — rote −X-Badge (sidebar.hbs).
+			   Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Malus
+			   steckt ab jetzt im Stärke-Gesamt; die Aufschlüsselungs-
+			   Zeile „Hunger-Stärke-Malus(-X)“ trägt der Tooltip sich
+			   selbst aus a.msg (actor.js _computeSecondaryAttributes).
+			   Die frühere zusätzliche LABEL-Anhängung hier entfällt,
+			   sonst stünde der Malus im Chip-Tooltip doppelt. */
 			const hungerPenalty = key === 'strong' ? getHungerPenalty(this.actor) : 0;
 			const attrTooltip = a.msg ?? `${localize(a.label)}: ${a.total}`;
 			attributes.push({
@@ -554,9 +558,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				total: a.total,
 				modifier: a.modifier,
 				display: isNPC && showMods ? `${a.modifier > 0 ? '+' : ''}${a.modifier}` : String(a.total),
-				tooltip: hungerPenalty > 0
-					? `${attrTooltip} · ${localize('TRAVEL.STRENGTH_AUTOPARAM_LABEL')} −${hungerPenalty}`
-					: attrTooltip,
+				tooltip: attrTooltip,
 				hungerPenalty,
 			});
 		}
@@ -1714,6 +1716,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		const html = await foundry.applications.handlebars.renderTemplate(template, {
 			id: this.actor.id,
 			system: system,
+			/* Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Hunger-Malus
+			   für die gesperrte Hinweiszeile unter dem Attribut-Grid (reine
+			   Textanzeige, kein disabled-Input — S2.1-Lernweis Dimming-
+			   Sackgasse). Der Malus steckt bereits im Stärke-Gesamt des
+			   geklonten system-Kontexts (gleiche prepareDerivedData-Basis). */
+			hungerPenalty: getHungerPenalty(this.actor),
 		});
 		let title = game.i18n.localize('TITLE.ATTRIBUTES');
 		let dialog = symbDialog({

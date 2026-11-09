@@ -167,11 +167,13 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   if(travelFavour.forced) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(travelFavour.labelKey) + ', ';
   }
-  // S4 v1.2 (Rudolfs Testrunde 2): Der Hunger-Stärke-Malus ist
-  // UNVERÄNDERBAR — KEINE Vorbelegung des editierbaren Modifikator-
-  // Feldes mehr, stattdessen gesperrte Dialog-Zeile (dialog.hbs /
-  // dialog-modern.hbs, Muster Gift-Handbuch-Bonus) + fixe Abziehung
-  // beim Submit (siehe unten). autoParams (Chat-Karte) bleibt.
+  // Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Stärke-Malus
+  // scheiternder Hunger-Proben ist ab jetzt IM STÄRKE-GESAMTWERT
+  // enthalten (actor.js _computeSecondaryAttributes zieht ihn ab) —
+  // hier bleibt NUR die Anzeige (autoParams-Zeile + gesperrte
+  // Dialog-Zeile, die darauf hinweist, dass der Wert bereits im
+  // Eigenschaftswert steckt). Die frühere fixe Abziehung beim Submit
+  // ist ENTFALLEN (hätte sonst doppelt abgezogen).
   const travelStrengthPenalty = attributeName === 'strong' ? getHungerPenalty(actor) : 0;
   if(travelStrengthPenalty > 0) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.format('TRAVEL.STRENGTH_AUTOPARAM', { penalty: travelStrengthPenalty }) + ', ';
@@ -464,10 +466,12 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
     "groupName":"favour",
     "attri_mods" : attri_mods,
-    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty + travelStrengthPenalty) > 0 || travelFavour.forced
+    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 || travelFavour.forced
       ? { ...attri_defaults,
-          // S4 v1.2: travelStrengthPenalty bewusst NICHT mehr in der
-          // Vorbelegung (unveränderbar — gesperrte Zeile + fix beim Submit)
+          // Hunger-Paket v1: travelStrengthPenalty wirkt NICHT mehr über
+          // die roll_defaults (im Gesamtwert gebacken, s. Kommentar oben) —
+          // nur Benommen/Epilepsie vorbelegen (überschreibbar) und die
+          // Hunger/Durst-Gunst vorauswählen.
           ...(((elixirDazedPenalty + epilepsyPenalty) > 0)
             ? { modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty - epilepsyPenalty }
             : {}),
@@ -816,14 +820,11 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             }            
             attri_defaults.impeding = html[0].querySelector("#impeding-"+did).checked ? "checked":"";
           }
-          // S4 v1.2: Hunger-Stärke-Malus UNVERÄNDERBAR — fixe Abziehung
-          // beim Submit (gesperrte Dialog-Zeile statt editierbarer
-          // Vorbelegung; autoParams steht bereits aus der Vorbelegung).
-          if(travelStrengthPenalty > 0) {
-            modifier = modifier - travelStrengthPenalty;
-            ecData.modifier += -travelStrengthPenalty;
-            attri_defaults.modifier = modifier;
-          }
+          // Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): KEINE Abziehung
+          // mehr — der Malus steckt bereits im Stärke-Gesamtwert
+          // (actor.js _computeSecondaryAttributes) und damit im Wurfziel.
+          // Die frühere Subtraktion hier hätte doppelt abgezogen; die
+          // gesperrte Dialog-Zeile + autoParams sind reine Anzeige.
           if(askIgnoreArmor){
             ignoreArm = html[0].querySelector("#ignarm-"+did).checked;
             ecData.ignoreArm = ignoreArm;

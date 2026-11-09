@@ -3,6 +3,12 @@ import { prepareRollAttribute } from "../common/dialog.js";
 import { baseRoll } from "./roll.js";
 // A39 Belastungssystem: Last-Berechnung (optionale APG-Regeln)
 import { getEncumbranceData } from "./encumbrance.js";
+// Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Stärke-Malus
+// scheiternder Hungerproben wird in den GESAMTWERT gebacken (A-live:
+// strengthLoss-Flag bleibt alleinige Wahrheitsquelle, Reset über den
+// Reisetag-Dialog wirkt sofort, keine Vermischung mit temporaryMod).
+// Import zyklenfrei verifiziert: travel.js importiert nicht actor.js.
+import { getHungerPenalty } from "./travel.js";
 // Munitionsverbrauch v1: Pre-Flight in rollWeapon (Angriff ohne Munition
 // verweigern, Notification aus dem ammo-Modul - die volle Pruefung mit
 // Angriffsanzahl passiert im Wurf-Submit, script/common/dialog.js)
@@ -71,13 +77,25 @@ export class SymbaroumActor extends Actor {
 	_createCombat(system) {}
 
 	_computeSecondaryAttributes(system) {
+		// Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Stärke-Malus
+		// scheiternder Hungerproben ist ab jetzt im Gesamtwert gebacken —
+		// alle Stärkeproben (auch interne baseRoll-Kampfproben), die
+		// Widerstandsrichtung, der NPC-Modifikator und die abgeleiteten
+		// Werte (Zähigkeit max/Schmerzschwelle unten in dieser Methode,
+		// Traglast über getEncumbranceData) folgen automatisch. Die
+		// roll-seitigen Subtraktionen (dialog.js/item.js) sind entfallen,
+		// der Tod-durch-Hunger-Check in travel.js prüft jetzt schlicht
+		// strong.total <= 0.
+		const strongHungerPenalty = getHungerPenalty(this);
 		for (var aKey in system.attributes) {
 			// If there are corrupt attributes added, ignore this
 			if (!!!system.attributes[aKey].value || !!!system.attributes[aKey].label) continue;
 
 			system.attributes[aKey].bonus = system.bonus[aKey] ?? 0;
 
-			system.attributes[aKey].total = system.attributes[aKey].value + system.attributes[aKey].bonus + system.attributes[aKey].temporaryMod;
+			system.attributes[aKey].total =
+				system.attributes[aKey].value + system.attributes[aKey].bonus + system.attributes[aKey].temporaryMod -
+				(aKey === "strong" ? strongHungerPenalty : 0);
 			system.attributes[aKey].modifier = 10 - system.attributes[aKey].total;
 			if (this.system.isMonster) {
 				let modSign = "";
@@ -109,6 +127,12 @@ export class SymbaroumActor extends Actor {
 			}
 			if (system.attributes[aKey].temporaryMod != 0) {
 				system.attributes[aKey].msg += "<br />" + game.i18n.localize("ATTRIBUTE.MODIFIER") + "(" + system.attributes[aKey].temporaryMod.toString() + ")";
+			}
+			// Hunger-Paket v1: Hunger-Zeile im Aufschlüsselungs-Tooltip
+			// (deckt Chips, Modern-Dialog-Label-Tooltips und NSC-Hover ab;
+			// die gesperrte Zeile im Eigenschaften-Dialog rendert separat).
+			if (aKey === "strong" && strongHungerPenalty > 0) {
+				system.attributes[aKey].msg += "<br />" + game.i18n.localize("TRAVEL.STRENGTH_AUTOPARAM_LABEL") + "(-" + strongHungerPenalty.toString() + ")";
 			}
 		}
 

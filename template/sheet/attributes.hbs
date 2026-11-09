@@ -17,5 +17,18 @@
                 <input id="attr-{{key}}-total" type="number" value="{{attribute.total}}" disabled data-dtype="Number" />
             </div>
             {{/each}}
+            {{!-- Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): gesperrte
+                  Hinweiszeile unter dem Grid — reine Textanzeige (KEIN
+                  disabled-Input, S2.1-Lernweis Foundry-Dimming-Sackgasse),
+                  nur bei aktivem Hunger-Malus. Der Malus ist bereits im
+                  Stärke-Gesamtwert enthalten (actor.js zieht das Flag direkt
+                  ab); die Zeile ist reine Anzeige, nichts wird abgezogen. --}}
+            {{#if hungerPenalty}}
+            <div class="attHungerRow" title="{{localize "TRAVEL.STRENGTH_AUTOPARAM_HINT"}}">
+                <span class="attHungerLabel">{{localize "TRAVEL.STRENGTH_AUTOPARAM_LABEL"}}</span>
+                <span class="attHungerValue">-{{hungerPenalty}}</span>
+                <span class="attHungerHint">{{localize "TRAVEL.STRENGTH_ATTR_DIALOG_HINT"}}</span>
+            </div>
+            {{/if}}
         </div>
     </div>

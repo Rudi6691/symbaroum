@@ -1277,8 +1277,14 @@ async function rollTravelProbe(actorRef, kind = null) {
  * v1.4 (Rudolfs Punkt 5): Fehlschlag der täglichen Hunger-Probe — der
  * Stärke-Malus steigt sofort um 1 (automatisch aus der Wurfauswertung
  * in dialog.js, ersetzt die entfallene GM-Taste „Hunger-Probe scheitert“).
- * Stärke 0 (Wert inkl. Abzüge) → SL-Karte „Tod durch Verhungern“
- * (kein Auto-Tod — die SL entscheidet, Muster applyTravelCardAction).
+ * Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Malus ist ab jetzt
+ * IM Stärke-Gesamtwert gebacken (actor.js _computeSecondaryAttributes
+ * zieht das Flag direkt ab) — der Tod-Check prüft daher schlicht
+ * strong.total <= 0 (nach dem actor.update steht der neue Malus im
+ * frisch gerechneten Total; das frühere manuelle Abziehen des Zählers
+ * hier hätte doppelt abgezogen). Stärke 0 → SL-Karte „Tod durch
+ * Verhungern“ (kein Auto-Tod — die SL entscheidet, Muster
+ * applyTravelCardAction).
  */
 export async function recordHungerFailure(actor) {
 	if (!actor) return;
@@ -1286,7 +1292,7 @@ export async function recordHungerFailure(actor) {
 	flags.strengthLoss += 1;
 	await actor.update({ 'flags.symbaroum.travel': flags });
 	const strongTotal = Number(actor.system?.attributes?.strong?.total) || 0;
-	if (strongTotal - flags.strengthLoss <= 0) {
+	if (strongTotal <= 0) {
 		await postSystemCard(F('TRAVEL.CARD_DEATH_HUNGER', { name: actor.name }), actor);
 	} else {
 		ui.notifications.info(F('TRAVEL.APPLY_STRENGTH_LOSS', { name: actor.name }));
