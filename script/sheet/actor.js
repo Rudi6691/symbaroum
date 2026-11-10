@@ -1,4 +1,8 @@
 import { symbDialog } from '../common/symbDialog.js';
+// AoE v2.1 (Rudolfs Freigabe 10.11.): Auswahl-Dialog (Manuell | Zone
+// platzieren | Abbrechen) bei Spieler-Kraft-Aktivierung - siehe
+// _prepareActivateAbility; Engine und Gates in aoe.js.
+import { maybeZoneExecutionChoice } from '../common/aoe.js';
 // AP2 Stapeln (Merge-on-Drop): Identitätsprüfung + Merge vor A15-Move/Core-Kopie.
 import { mergeStackDrop } from '../common/stacking.js';
 // Loot v1.2 (Testrunde 1, Punkt 2): "Loot-Standards"-Header-Button am
@@ -353,6 +357,13 @@ export class SymbaroumActorSheet extends SymbaroumActorSheetBase {
 
 	async _prepareActivateAbility(div) {
 		const ability = this.actor.items.get(div.dataset.itemId);
+		/* AoE v2.1 (Rudolfs Freigabe 10.11.): Spieler mit aktivem
+		   Spieler-Platzierungs-Setting bekommen bei Kräften mit
+		   konfigurierter Zone den Auswahl-Dialog - GM und unkonfigurierte
+		   Kräfte laufen direkt durch (maybeZoneExecutionChoice gibt
+		   false zurück). */
+		const zoneChoice = await maybeZoneExecutionChoice(ability);
+		if (zoneChoice === 'zone' || zoneChoice === 'cancel') return;
 		await this.actor.usePower(ability);
 	}
 

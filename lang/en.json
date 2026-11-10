@@ -2439,7 +2439,7 @@
   "AOE.ERR_NO_POWER_AUTOMATION": "This power has no scripted automation – zone effect unavailable.",
   "AOE.ERR_NO_TOKENS": "No tokens in the area.",
   "AOE.ERR_SOURCE_GONE": "Source power or actor is no longer available.",
-  "AOE.FIELD_CONDITION": "Condition",
+  "AOE.FIELD_CONDITION": "Applies condition",
   "AOE.FIELD_CORRUPTION": "Corruption (formula)",
   "AOE.FIELD_DAMAGE": "Damage (formula)",
   "AOE.FIELD_DAMAGE_ROUND": "Damage per round (formula)",
@@ -2460,5 +2460,17 @@
   "AOE.SETTING_PLAYERS": "AoE: player placement",
   "AOE.SETTING_PLAYERS_HINT": "Players who own the item may place areas from their own mystical powers (zone tab).",
   "AOE.TRIGGER_ENTER": "On enter",
-  "AOE.TRIGGER_MANUAL": "Trigger button only"
+  "AOE.TRIGGER_MANUAL": "Trigger button only",
+  "AOE.BUTTON_ABORT": "Cancel",
+  "AOE.ABORT_MESSAGE": "Zone aborted (no effect)",
+  "AOE.ONESHOT_HINT": "One-time effect: mark targets yourself if needed (the first marked target is the primary target), then trigger. The zone disappears afterwards.",
+  "AOE.FIELD_TARGET_ORDER": "Target order",
+  "AOE.ORDER_MARKING": "Marking order",
+  "AOE.ORDER_NEAREST": "Nearest to center",
+  "AOE.ORDER_SCENE": "Scene order",
+  "AOE.INFO_TARGET_ORDER": "Determines which tokens in the zone are captured: With marking order, the triggerer's own target markers override the filter (the first marked target is the primary target); nearest to center sorts by distance to the zone center; scene order keeps the scene's order.",
+  "AOE.EXEC_TITLE": "{power} - Mode of execution",
+  "AOE.EXEC_HINT": "How should the power be executed?",
+  "AOE.EXEC_MANUAL": "Manual",
+  "AOE.EXEC_ZONE": "Place zone"
 }

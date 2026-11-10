@@ -16,6 +16,16 @@
  * Stufe 2b: Spieler-Platzierung (Setting-Gate + Item-Besitz), Runden-
  *   start-Wirkungen freier Zonen (Schaden/Korruption pro Runde).
  *
+ * v2.1 (Rudolfs Testrunde 1 + Freigabe 10.11.2026): Behavior-Typ-Fix
+ *   ('executeScript'), Klick-Verdrahtung der Zonen-Karten-Tasten (GM +
+ *   platzierender Spieler), lokalisiertes Condition-Dropdown, Augen-
+ *   blickliche Zonen als One-Shot-Zonen mit Zonen-Karte (keine Sofort-
+ *   wirkung mehr; Korruption mit der Auslösung), Zielwahl einstellbar
+ *   (Markierungsreihenfolge/Zonennähe/Szenenreihenfolge), Dispositions-
+ *   Filter rein (feindlich nur/freundlich nur, Neutrale nur bei 'Alle'),
+ *   manuelle Markierungen überschreiben Filter und Ordnung, Auswahl-
+ *   dialog bei Spieler-Kraft-Aktivierung (Zone-Tab wieder GM-only).
+ *
  * Architektur (Foundry V14, code-verifiziert):
  * - Regionen mit flags.core.MeasuredTemplate (Optik der klassischen
  *   Vorlage), Platzierung über canvas.regions.placeRegions().
@@ -88,6 +98,18 @@ export function mayPlaceZone(item) {
 	return playerPlacementEnabled() && !!item?.isOwner;
 }
 
+/**
+ * Darf der aktuelle Nutzer diese Laufzeit-Zone bedienen (Zonen-Karten-
+ * Tasten)? GM immer; sonst nur der platzierende Spieler bei aktivem
+ * Setting (v2.1: Spieler lösen ihre eigenen One-Shot-Zonen über die
+ * Auslöse-Taste selbst aus - ihre Markierung ist dann die Zielwahl).
+ */
+function _mayControlZone(aoe) {
+	if (!aoe) return false;
+	if (game.user.isGM) return true;
+	return playerPlacementEnabled() && !!aoe.userId && aoe.userId === game.user.id;
+}
+
 /* ---------------------------------------------------------------------
  * Zonen-Konfiguration (system.areaZone, additives template.json-Feld,
  * bonus-Muster: Template-Schlüssel = System-Unterobjekt)
@@ -114,7 +136,13 @@ export function getZoneConfig(item) {
 	const trigger = rawTrigger === 'enter' ? 'enter' : '';
 	const rawDuration = Math.round(Number(zone.duration));
 	const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : 0;
-	return { shape, size, targeting, mode, trigger, duration };
+	/* v2.1 (Rudolfs Testrunde-1-Entscheidung 2): Zielwahl-Ordnung der
+	   automatischen Auslesung - 'marking' = Default, 'nearest' = Zonen-
+	   nähe, 'scene' = Szenenreihenfolge. Eigene Markierungen des
+	   Auslösens überschreiben die Ordnung (siehe _resolveZoneTargets). */
+	const rawOrder = String(zone.targetOrder ?? '').trim();
+	const targetOrder = ['nearest', 'scene'].includes(rawOrder) ? rawOrder : 'marking';
+	return { shape, size, targeting, mode, trigger, duration, targetOrder };
 }
 
 /**
@@ -172,17 +200,18 @@ function _collectRegionTokens(region) {
 }
 
 /**
- * Zielfilter (targeting): Dispositions-Vergleich gegen den Wirker-Token
- * (bei freien Zonen gegen den zuerst gefundenen Token der Szene, im
- * Zweifel FRIENDLY als SL-Standardperspektive). 'all' lässt den Filter weg.
+ * Zielfilter (targeting) - v2.1 (Rudolfs Testrunde-1-Entscheidung 3):
+ * rein dispositional. 'enemies' = nur feindliche Token, 'allies' = nur
+ * freundliche; NEUTRALE Token greifen nur beim Filter 'Alle'. Der
+ * frühere Wirker-Vergleich (kleiner/größer als) zog neutrale Token auf
+ * die falsche Seite. 'all' lässt den Filter weg.
  */
 function _filterTargets(tokens, targeting, casterToken) {
 	if (targeting === 'all') return tokens;
-	const casterDisposition = casterToken?.disposition ?? CONST.TOKEN_DISPOSITIONS.FRIENDLY;
 	if (targeting === 'enemies') {
-		return tokens.filter((td) => (td.disposition ?? 0) < casterDisposition);
+		return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.HOSTILE);
 	}
-	return tokens.filter((td) => (td.disposition ?? 0) >= casterDisposition);
+	return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.FRIENDLY);
 }
 
 /** Minimal-HTML-Escaping für Namen in Karten. */
@@ -254,11 +283,14 @@ function _zoneRegionData(zone) {
 		'flags.core.MeasuredTemplate': true,
 		flags: { symbaroum: { aoe: zone } },
 	};
-	// Betreten-Trigger (dauerhafte Zonen): Script-Behavior mit TOKEN_ENTER
+	// Betreten-Trigger (dauerhafte Zonen): Script-Behavior mit TOKEN_ENTER.
+	// v2.1-Fix (Rudolfs Testrunde 1): der V14-RegionBehavior-Typ heißt
+	// 'executeScript' - 'script' ist keine gültige Typ-Kennung und ließ
+	// die Datamodel-Validierung die GESAMTE Region scheitern.
 	if (!zone.free && zone.mode === 'lasting' && zone.trigger === 'enter') {
 		regionData.behaviors = [
 			{
-				type: 'script',
+				type: 'executeScript',
 				system: { source: ZONE_ENTER_BEHAVIOR_SOURCE, events: [CONST.REGION_EVENTS.TOKEN_ENTER] },
 			},
 		];
@@ -272,6 +304,13 @@ function _zoneRegionData(zone) {
  * =================================================================== */
 
 /** Karten-Kontext einer Zone (RenderTemplate-Daten). */
+/** Lokalisiertes Label einer Condition-Id (StatusEffects tragen i18n-Keys). */
+function _conditionLabel(conditionId) {
+	const fx = CONFIG.statusEffects.find((e) => e.id === conditionId);
+	if (!fx) return conditionId;
+	return game.i18n.localize(fx.label ?? fx.name ?? conditionId);
+}
+
 async function _zoneCardContext(region) {
 	const aoe = region.flags.symbaroum.aoe;
 	const cfg = aoe.config;
@@ -292,8 +331,11 @@ async function _zoneCardContext(region) {
 		tokens.length > 0
 			? game.i18n.format('AOE.CHAT_TARGETS', { targets: tokens.map((td) => _escapeHtml(td.actor?.name ?? td.name ?? '')).join(', ') })
 			: localize('AOE.CHAT_NO_TARGETS');
-	const durationText =
-		aoe.remaining === null || aoe.remaining === 0
+	const isInstant = aoe.mode === 'instant';
+	// One-Shot-Zonen (v2.1, Rudolfs Entscheidung 1) haben keine Restdauer
+	const durationText = isInstant
+		? ''
+		: aoe.remaining === null || aoe.remaining === 0
 			? localize('AOE.DURATION_UNLIMITED')
 			: game.i18n.format('AOE.DURATION_REMAINING', { rounds: aoe.remaining });
 	let effectText = '';
@@ -304,19 +346,20 @@ async function _zoneCardContext(region) {
 		if (eff.damage) parts.push(game.i18n.format('AOE.EFFECT_DAMAGE', { formula: eff.damage }));
 		if (eff.damagePerRound) parts.push(game.i18n.format('AOE.EFFECT_DAMAGE_ROUND', { formula: eff.damagePerRound }));
 		if (eff.corruption) parts.push(game.i18n.format('AOE.EFFECT_CORRUPTION', { formula: eff.corruption }));
-		if (eff.condition) parts.push(game.i18n.format('AOE.EFFECT_CONDITION', { condition: eff.condition }));
+		if (eff.condition) parts.push(game.i18n.format('AOE.EFFECT_CONDITION', { condition: _conditionLabel(eff.condition) }));
 		effectText = parts.join(' · ');
 	}
 	return {
 		regionId: region.id,
 		sceneId: region.parent?.id,
 		name: _escapeHtml(aoe.regionName),
-		modeText: localize(aoe.mode === 'instant' ? 'AOE.MODE_INSTANT' : 'AOE.MODE_LASTING'),
+		modeText: localize(isInstant ? 'AOE.MODE_INSTANT' : 'AOE.MODE_LASTING'),
 		areaText,
 		durationText,
 		tokensText,
 		effectText,
-		showRound: !!(aoe.free && aoe.effect && (aoe.effect.damagePerRound || aoe.effect.corruptionPerRound)),
+		isInstant,
+		showRound: !!(aoe.free && !isInstant && aoe.effect && (aoe.effect.damagePerRound || aoe.effect.corruptionPerRound)),
 	};
 }
 
@@ -327,7 +370,7 @@ function _casterTokenOfZone(aoe) {
 	return fromUuidSync(uuid) ?? null;
 }
 
-/** Zonen-Karte anlegen (dauerhafte Zonen; Muster: ChatMessage mit Flag). */
+/** Zonen-Karte anlegen (One-Shot- und dauerhafte Zonen; Muster: ChatMessage mit Flag). */
 async function _postZoneCard(region) {
 	const context = await _zoneCardContext(region);
 	const content = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/aoe-zone-card.hbs', context);
@@ -366,17 +409,63 @@ async function _settleZoneCards(region, endText) {
  * Auslösung: Kraft-Zone (Ketten-Recycling) und freie Zone (Proben)
  * =================================================================== */
 
+/** Mittelpunkt der ersten Fläche (Ordnungs-Hilfe für 'nearest'). */
+function _regionCenter(region) {
+	const shape = region?.shapes?.[0];
+	if (!shape) return null;
+	let x = shape.x ?? shape.c?.x ?? 0;
+	let y = shape.y ?? shape.c?.y ?? 0;
+	if (shape.type === 'rectangle') {
+		x += (shape.width ?? shape.c?.width ?? 0) / 2;
+		y += (shape.height ?? shape.c?.height ?? 0) / 2;
+	}
+	return { x, y };
+}
+
+/** Distanz Token-Mitte zu einem Punkt ('nearest'-Ordnung). */
+function _tokenDistance(tokenDoc, center) {
+	const c = tokenDoc.object?.center ?? { x: tokenDoc.x ?? 0, y: tokenDoc.y ?? 0 };
+	return Math.hypot((c.x ?? 0) - (center.x ?? 0), (c.y ?? 0) - (center.y ?? 0));
+}
+
 /**
- * Zonen-Auslösung ausführen (GM-seitig; automatisch via Script-Behavior
- * oder manuell über die Auslöse-Taste der Zonen-Karte).
+ * Zielauswahl einer Auslösung (v2.1, Rudolfs Testrunde-1-Entscheidungen
+ * 2 + 4): Eigene Markierungen des Auslösers GEWINNEN - sie überstehen
+ * den Zielgruppen-Filter und geben die Reihenfolge vor (zuerst markiertes
+ * Ziel = Primärziel, die Ketten iterieren game.user.targets genau so).
+ * Ohne eigene Markierung: Auto-Auswahl über den Filter, geordnet nach
+ * der Zielwahl-Einstellung der Zone ('nearest' = Zonennähe; 'marking'
+ * und 'scene' = Szenenreihenfolge wie gesammelt).
+ */
+function _resolveZoneTargets(region, aoe) {
+	const regionTokens = _collectRegionTokens(region);
+	const regionIds = new Set(regionTokens.map((td) => td.id));
+	const userTargets = Array.from(game.user.targets)
+		.map((t) => t.document)
+		.filter((td) => regionIds.has(td.id));
+	if (userTargets.length > 0) return userTargets;
+	const tokens = _filterTargets(regionTokens, aoe.config.targeting, _casterTokenOfZone(aoe));
+	if (aoe.config.targetOrder === 'nearest') {
+		const center = _regionCenter(region);
+		if (center) {
+			return [...tokens].sort((a, b) => _tokenDistance(a, center) - _tokenDistance(b, center));
+		}
+	}
+	return tokens;
+}
+
+/**
+ * Zonen-Auslösung ausführen (GM oder platzierender Spieler; automatisch
+ * via Script-Behavior oder manuell über die Auslöse-Taste der Zonen-
+ * Karte). One-Shot-Zonen (augenblicklich, v2.1-Entscheidung 1) wirken
+ * einmal und verschwinden danach.
  * @param {RegionDocument} region
  * @param {object} [options] { manual: boolean }
  */
 async function _executeZoneTrigger(region, { manual = false } = {}) {
 	const aoe = region.flags?.symbaroum?.aoe;
 	if (!aoe) return;
-	const casterToken = _casterTokenOfZone(aoe);
-	const tokens = _filterTargets(_collectRegionTokens(region), aoe.config.targeting, casterToken);
+	const tokens = _resolveZoneTargets(region, aoe);
 	if (tokens.length === 0) {
 		if (manual) {
 			ui.notifications.info(game.i18n.localize('AOE.ERR_NO_TOKENS'));
@@ -388,6 +477,8 @@ async function _executeZoneTrigger(region, { manual = false } = {}) {
 	} else {
 		await _runPowerZone(region, tokens);
 	}
+	// One-Shot: augenblickliche Zonen endet mit der (ersten) Auslösung
+	if (aoe.mode === 'instant') await _endZone(region, 'trigger');
 }
 
 /** Kraft-Zone: bestehende Ketten-Automatik über executeZonePower (item.js). */
@@ -635,34 +726,41 @@ export async function aoeZoneEnter(regionId, tokenId) {
 	await _executeZoneTrigger(region, { manual: false });
 }
 
-/** Auslöse-Taste der Zonen-Karte (manuelle Auslösung). */
+/** Auslöse-Taste der Zonen-Karte (manuelle Auslösung; GM oder Zone-Besitzer). */
 export async function aoeTriggerZone(regionId, sceneId) {
-	if (!game.user?.isGM || !aoeEnabled()) return;
+	if (!aoeEnabled()) return;
 	const region = _getZoneRegion(regionId, sceneId);
-	if (!region) return;
+	if (!region || !_mayControlZone(region.flags?.symbaroum?.aoe)) return;
 	await _executeZoneTrigger(region, { manual: true });
 	await _updateZoneCards(region);
 }
 
 /** „Runde abschließen"-Taste (manueller Runden-Tick dieser Zone). */
 export async function aoeZoneRound(regionId, sceneId) {
-	if (!game.user?.isGM || !aoeEnabled()) return;
+	if (!aoeEnabled()) return;
 	const region = _getZoneRegion(regionId, sceneId);
-	if (!region) return;
+	if (!region || !_mayControlZone(region.flags?.symbaroum?.aoe)) return;
 	await _tickZone(region, 'manual');
 }
 
-/** Zone beenden (Enden-Taste): Region löschen, Karten stilllegen. */
+/** Zone beenden (Enden-/Abbrechen-Taste): Region löschen, Karten stilllegen. */
 export async function aoeEndZone(regionId, sceneId) {
-	if (!game.user?.isGM || !aoeEnabled()) return;
+	if (!aoeEnabled()) return;
 	const region = _getZoneRegion(regionId, sceneId);
-	if (!region) return;
+	if (!region || !_mayControlZone(region.flags?.symbaroum?.aoe)) return;
 	await _endZone(region, 'manual');
 }
 
 async function _endZone(region, source) {
-	await _settleZoneCards(region, game.i18n.localize('AOE.END_MESSAGE'));
-	await region.delete();
+	// Abbruch einer One-Shot-Zone ohne Auslösung = Abbruch ohne Wirkung
+	const aoe = region.flags?.symbaroum?.aoe;
+	const textKey = source === 'manual' && aoe?.mode === 'instant' ? 'AOE.ABORT_MESSAGE' : 'AOE.END_MESSAGE';
+	await _settleZoneCards(region, game.i18n.localize(textKey));
+	try {
+		await region.delete();
+	} catch (error) {
+		console.warn('Symbaroum AoE: region delete failed', error);
+	}
 }
 
 /* =====================================================================
@@ -699,11 +797,13 @@ export async function placeZoneFromItem(item) {
 		free: false,
 		mode: cfg.mode,
 		trigger: cfg.trigger,
-		remaining: cfg.mode === 'instant' ? 0 : cfg.duration > 0 ? cfg.duration : 0,
+		// One-Shot (augenblicklich): keine Restdauer, endet mit der Auslösung
+		remaining: cfg.mode === 'instant' ? null : cfg.duration > 0 ? cfg.duration : 0,
 		sourceItemUuid: item.uuid,
 		sourceActorUuid: actor?.uuid ?? null,
 		casterTokenUuid: casterToken?.document?.uuid ?? null,
-		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting },
+		userId: game.user.id,
+		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder },
 		metersPerField: 2,
 		regionName: game.i18n.format('AOE.REGION_NAME', { name: item.name, user: game.user.name }),
 	};
@@ -722,14 +822,15 @@ export async function placeZoneFromItem(item) {
 	}
 	if (!regions?.length) return; // Abbruch (Rechtsklick): kein Lärm, keine Karte
 	for (const region of regions) {
-		if (cfg.mode === 'instant') {
-			// Schlingranken-Muster: Wirkung sofort, Region danach weg
-			await _executeZoneTrigger(region, { manual: false });
-			await region.delete();
-		} else {
-			await _autoTargetRegion(region, cfg, casterToken);
-			await _postZoneCard(region);
-		}
+		/* v2.1 (Rudolfs Testrunde-1-Entscheidung 1): Augenblickliche
+		   Zonen wirken NICHT mehr sofort bei der Platzierung - sie sind
+		   One-Shot-Zonen mit Zonen-Karte: Ziele lassen sich markieren
+		   (Reihenfolge = Primärziel zuerst), die Auslöse-Taste wirkt
+		   einmal (voller Zauberwurf inkl. Korruption) und entfernt die
+		   Region danach. Dauerhafte Zonen unverändert (Karte + optional
+		   Betreten-Trigger). */
+		await _autoTargetRegion(region, cfg, casterToken);
+		await _postZoneCard(region);
 	}
 }
 
@@ -743,6 +844,52 @@ async function _autoTargetRegion(region, cfg, casterToken) {
 			first = false;
 		}
 	}
+}
+
+/**
+ * Auswahldialog bei Spieler-Kraft-Aktivierung (v2.1, Rudolfs Freigabe
+ * 10.11.): Bei aktivem Setting „AoE: Spieler-Platzierung" fragt der
+ * Aktivieren-Button einer Mystischen Kraft mit konfigurierter Zone,
+ * WIE die Kraft ausgeführt wird - „Manuell" (normaler Kraftdialog),
+ * „Zone platzieren" (Zonen-Platzierung inkl. Zonen-Karte) oder
+ * „Abbrechen". GM und alle unkonfigurierten Kräfte laufen ohne Dialog
+ * direkt durch (keine Reibung).
+ * @returns {Promise<boolean|string>} false = kein Dialog nötig (normal
+ *   weiter); 'manual' | 'zone' | 'cancel' = Dialog-Wahl des Spielers.
+ */
+export async function maybeZoneExecutionChoice(item) {
+	if (!item || item.type !== 'mysticalPower' || game.user.isGM) return false;
+	if (!aoeEnabled() || !playerPlacementEnabled() || !item.isOwner) return false;
+	if (!getZoneConfig(item)) return false;
+	return new Promise((resolve) => {
+		new Dialog({
+			title: game.i18n.format('AOE.EXEC_TITLE', { power: item.name }),
+			content: `<p>${game.i18n.localize('AOE.EXEC_HINT')}</p>`,
+			buttons: {
+				manual: {
+					icon: '<i class="fas fa-user"></i>',
+					label: game.i18n.localize('AOE.EXEC_MANUAL'),
+					callback: () => resolve('manual'),
+				},
+				zone: {
+					icon: '<i class="fas fa-draw-polygon"></i>',
+					label: game.i18n.localize('AOE.EXEC_ZONE'),
+					callback: () => {
+						placeZoneFromItem(item);
+						resolve('zone');
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: game.i18n.localize('DIALOG.CANCEL'),
+					callback: () => resolve('cancel'),
+				},
+			},
+			default: 'manual',
+			// ESC / Kopf-X ohne Tastenwahl = Abbruch
+			close: () => resolve('cancel'),
+		}).render(true);
+	});
 }
 
 /**
@@ -772,9 +919,14 @@ export async function placeFreeZone() {
 	const attrOptions =
 		`<option value="">${localize('AOE.RESIST_NONE')}</option>` +
 		game.symbaroum.config.attributes.map((a) => `<option value="${a}">${localize(`ATTRIBUTE.${a.toUpperCase()}`)}</option>`).join('');
+	// v2.1-Fix (Rudolfs Testrunde 1, Punkt 7): StatusEffects tragen in
+	// 'name' den i18n-KEY (Nebelball-Präzedenz Elixiere v1.2) - lokalisiert
+	// wird über 'label'
 	const conditionOptions =
 		`<option value="">${localize('AOE.CONDITION_NONE')}</option>` +
-		CONFIG.statusEffects.filter((e) => e.id).map((e) => `<option value="${e.id}">${e.name ?? e.id}</option>`).join('');
+		CONFIG.statusEffects.filter((e) => e.id)
+			.map((e) => `<option value="${e.id}">${game.i18n.localize(e.label ?? e.name ?? e.id)}</option>`)
+			.join('');
 	const content = `<p>${localize('AOE.FREE_HINT')}</p>
 <div class="form-group"><label>${localize('AOE.FREE_NAME')}</label><input type="text" id="aoe-free-name" value="${localize('AOE.FREE_DEFAULT_NAME')}"></div>
 <div class="form-group"><label>${localize('AOE.FIELD_SHAPE')}</label><select id="aoe-free-shape">${shapeOptions}</select></div>
@@ -818,7 +970,8 @@ async function _placeFreeZoneFromDialog(html) {
 		sourceItemUuid: null,
 		sourceActorUuid: null,
 		casterTokenUuid: null,
-		config: { shape, size, targeting: val('aoe-free-targeting') || 'all' },
+		userId: game.user.id,
+		config: { shape, size, targeting: val('aoe-free-targeting') || 'all', targetOrder: 'marking' },
 		effect: {
 			resistAttribute: val('aoe-free-resist'),
 			damage: val('aoe-free-damage'),
@@ -854,14 +1007,37 @@ async function _placeFreeZoneFromDialog(html) {
  * =================================================================== */
 
 export function registerAoeHooks() {
-	// Zonen-Karte: Tasten nur für GM sichtbar/schaltbar (Inhalt ist in der
-	// Nachricht gespeichert - das Verstecken passiert pro Client im Render).
+	// Zonen-Karte: Tasten für GM und Zone-Besitzer (Inhalt ist in der
+	// Nachricht gespeichert - Sichtbarkeit und Verdrahtung passieren
+	// pro Client im Render). v2.1-Fix (Rudolfs Testrunde 1, Punkt 6):
+	// die Tasten hatten KEINEN Klick-Dispatch - sie wurden für Nicht-GMs
+	// nur entfernt, der GM-Click-Handler fehlte komplett (stumm tot).
 	Hooks.on('renderChatMessageHTML', (message, html) => {
 		const card = message.flags?.symbaroum?.aoeZoneCard;
 		if (card) {
-			if (!game.user.isGM) {
+			const region = _getZoneRegion(card.regionId, card.sceneId);
+			const controllable = !!region && _mayControlZone(region.flags?.symbaroum?.aoe);
+			if (!controllable) {
 				html.querySelectorAll('[data-aoe-zone-action]').forEach((btn) => btn.remove());
+				return;
 			}
+			html.querySelectorAll('[data-aoe-zone-action]').forEach((btn) => {
+				if (btn.dataset.aoeHandled) return;
+				btn.dataset.aoeHandled = '1';
+				btn.addEventListener('click', async (event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					const action = btn.dataset.aoeZoneAction;
+					btn.disabled = true;
+					try {
+						if (action === 'trigger') await aoeTriggerZone(card.regionId, card.sceneId);
+						else if (action === 'round') await aoeZoneRound(card.regionId, card.sceneId);
+						else if (action === 'end') await aoeEndZone(card.regionId, card.sceneId);
+					} finally {
+						btn.disabled = false;
+					}
+				});
+			});
 			return;
 		}
 		// Anfragekarte freier Zonen: Würfel-Taste auf dem Client des

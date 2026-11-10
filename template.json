@@ -214,7 +214,8 @@
           "targeting": "",
           "mode": "lasting",
           "trigger": "",
-          "duration": 0
+          "duration": 0,
+          "targetOrder": "marking"
         }
       }
     },

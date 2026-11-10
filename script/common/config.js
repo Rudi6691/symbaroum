@@ -1962,3 +1962,24 @@ SYMBAROUM.AOE_TRIGGER_SELECTION = {
     label: "AOE.TRIGGER_ENTER",
   },
 };
+
+/* AoE v2.1 (Rudolfs Testrunde-1-Entscheidung 2, 10.11.): Zielwahl -
+   Ordnung der automatischen Zielauswahl einer Auslösung. 'marking'
+   (Default) = Szenenreihenfolge; EIGENE Markierungen des Auslösers
+   überschreiben Filter und Ordnung ohnehin (zuerst markiertes Ziel =
+   Primärziel), 'nearest' = Zonennähe (vom Flächenzentrum nach außen),
+   'scene' = Szenenreihenfolge. */
+SYMBAROUM.AOE_TARGET_ORDER_SELECTION = {
+  marking: {
+    id: "marking",
+    label: "AOE.ORDER_MARKING",
+  },
+  nearest: {
+    id: "nearest",
+    label: "AOE.ORDER_NEAREST",
+  },
+  scene: {
+    id: "scene",
+    label: "AOE.ORDER_SCENE",
+  },
+};

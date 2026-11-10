@@ -155,10 +155,19 @@
                             {{selectOptions aoe_trigger_selection selected=aoe.trigger valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
+                    {{!-- AoE v2.1 (Rudolfs Testrunde-1-Entscheidung 2, 10.11.): Zielwahl-Ordnung; das Dauer-Feld entfällt bei Augenblicklich (One-Shot-Zonen haben keine Restdauer). --}}
+                    <div class="action">
+                        <label for="{{id}}-system.areaZone.targetOrder" data-tooltip="{{localize "AOE.INFO_TARGET_ORDER"}}">{{localize "AOE.FIELD_TARGET_ORDER"}}</label>
+                        <select id="{{id}}-system.areaZone.targetOrder" name="system.areaZone.targetOrder">
+                            {{selectOptions aoe_target_order_selection selected=aoe.targetOrder valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    {{#unless aoeIsInstant}}
                     <div class="action">
                         <label for="{{id}}-system.areaZone.duration" data-tooltip="{{localize "AOE.INFO_DURATION"}}">{{localize "AOE.FIELD_DURATION"}}</label>
                         <input id="{{id}}-system.areaZone.duration" name="system.areaZone.duration" type="number" min="0" value="{{aoe.duration}}"/>
                     </div>
+                    {{/unless}}
                     <p class="zone-hint">{{localize "AOE.INFO_SCALE"}}</p>
                     <p class="zone-hint">{{localize "AOE.INFO_DEFAULTS"}}</p>
                     {{#if aoeCanPlace}}

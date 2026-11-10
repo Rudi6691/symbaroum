@@ -30,7 +30,10 @@ import { resolveItemTraditions, knownTraditionSelection, isForbiddenKnowledge, q
 // Tab auf Mystische-Kraft-Blättern (Form/Größe/Ziele, additive Felder
 // system.areaZone) + Platzier-Action placeZone (Template-Platzierung mit
 // Auto-Targeting, Engine aoe.js).
-import { aoeEnabled, playerPlacementEnabled, getZoneConfig, placeZoneFromItem } from '../common/aoe.js';
+// AoE v2.1 (Rudolfs Freigabe 10.11.): Spieler erreichen die Platzierung
+// über den AUSWAHL-DIALOG der Kraft-Aktivierung (maybeZoneExecutionChoice
+// in aoe.js) - der Zone-Tab ist wieder GM-only.
+import { aoeEnabled, getZoneConfig, placeZoneFromItem, maybeZoneExecutionChoice } from '../common/aoe.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -88,6 +91,13 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				if (!this.item.isOwned) {
 					return;
 				}
+				/* AoE v2.1 (Rudolfs Freigabe 10.11.): Spieler mit
+				   aktivem Spieler-Platzierungs-Setting bekommen bei
+				   Kräften mit konfigurierter Zone den Auswahl-Dialog
+				   (Manuell | Zone platzieren | Abbrechen) - GM und
+				   unkonfigurierte Kräfte laufen direkt durch. */
+				const zoneChoice = await maybeZoneExecutionChoice(this.item);
+				if (zoneChoice === 'zone' || zoneChoice === 'cancel') return;
 				this.item.actor.usePower(this.item);
 			},
 			/* Alchemie Modul 3 v1.1 (Rudolfs Testrunde P2a + Freigabe
@@ -672,10 +682,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   Setting + aktiver Szene + konfigurierter Form; die blockiert-
 		   Ursache wird als fertiger Text mitgegeben (keine Template-Logik,
 		   A6-Lernweis: Booleans/Strings in JS vorbereiten). */
-		/* AoE Stufe 2b (Freigabe 2a+2b, 09.11.2026): Zone-Tab zusätzlich
-		   für Spieler mit aktivem Setting + Item-Besitz */
-		context.showAoeZoneTab =
-			this.item.type === 'mysticalPower' && (game.user.isGM || (playerPlacementEnabled() && this.item.isOwner));
+		/* AoE v2.1 (Rudolfs Freigabe 10.11.): Zone-Tab wieder GM-only -
+		   Spieler platzieren über den Auswahl-Dialog der Kraft-
+		   Aktivierung (maybeZoneExecutionChoice), nicht über den Tab. */
+		context.showAoeZoneTab = this.item.type === 'mysticalPower' && !!game.user.isGM;
 		if (context.showAoeZoneTab) {
 			const zoneCfg = getZoneConfig(this.item);
 			const zone = this.item.system?.areaZone ?? {};
@@ -692,12 +702,22 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				mode: zoneCfg?.mode ?? 'lasting',
 				trigger: zoneCfg?.trigger ?? '',
 				duration: zoneCfg?.duration ?? 0,
+				/* v2.1: Zielwahl-Ordnung der automatischen Auslesung */
+				targetOrder: zoneCfg?.targetOrder ?? 'marking',
 			};
+			/* v2.1: Augenblickliche Zonen haben keine Dauer (One-Shot) -
+			   das Template blendet das Dauer-Feld deshalb aus */
+			context.aoeIsInstant = (zoneCfg?.mode ?? 'lasting') === 'instant';
 			context.aoe_mode_selection = Object.values(game.symbaroum.config.AOE_MODE_SELECTION).map((c) => ({
 				id: c.id,
 				label: game.i18n.localize(c.label),
 			}));
 			context.aoe_trigger_selection = Object.values(game.symbaroum.config.AOE_TRIGGER_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			}));
+			/* v2.1 (Rudolfs Testrunde-1-Entscheidung 2): Zielwahl-Ordnung */
+			context.aoe_target_order_selection = Object.values(game.symbaroum.config.AOE_TARGET_ORDER_SELECTION).map((c) => ({
 				id: c.id,
 				label: game.i18n.localize(c.label),
 			}));

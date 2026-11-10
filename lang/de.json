@@ -2439,7 +2439,7 @@
   "AOE.ERR_NO_POWER_AUTOMATION": "Diese Kraft hat keine Skript-Automatik – Zonen-Wirkung nicht möglich.",
   "AOE.ERR_NO_TOKENS": "Keine Token in der Fläche.",
   "AOE.ERR_SOURCE_GONE": "Quell-Kraft oder -Aktor ist nicht mehr verfügbar.",
-  "AOE.FIELD_CONDITION": "Condition",
+  "AOE.FIELD_CONDITION": "Bewirkt Zustand",
   "AOE.FIELD_CORRUPTION": "Korruption (Formel)",
   "AOE.FIELD_DAMAGE": "Schaden (Formel)",
   "AOE.FIELD_DAMAGE_ROUND": "Schaden pro Runde (Formel)",
@@ -2460,5 +2460,17 @@
   "AOE.SETTING_PLAYERS": "AoE: Spieler-Platzierung",
   "AOE.SETTING_PLAYERS_HINT": "Spieler mit Item-Besitz dürfen Flächen aus ihren eigenen Mystischen Kräften platzieren (Zone-Tab).",
   "AOE.TRIGGER_ENTER": "Beim Betreten",
-  "AOE.TRIGGER_MANUAL": "Nur Auslöse-Taste"
+  "AOE.TRIGGER_MANUAL": "Nur Auslöse-Taste",
+  "AOE.BUTTON_ABORT": "Abbrechen",
+  "AOE.ABORT_MESSAGE": "Zone abgebrochen (ohne Wirkung)",
+  "AOE.ONESHOT_HINT": "Einmalige Wirkung: Ziele bei Bedarf selbst markieren (zuerst markiertes Ziel ist das Primärziel), dann Auslösen. Die Zone verschwindet danach.",
+  "AOE.FIELD_TARGET_ORDER": "Zielwahl",
+  "AOE.ORDER_MARKING": "Markierungsreihenfolge",
+  "AOE.ORDER_NEAREST": "Nächstes zum Zentrum",
+  "AOE.ORDER_SCENE": "Szenenreihenfolge",
+  "AOE.INFO_TARGET_ORDER": "Bestimmt, welche Token in der Zone erfasst werden: Bei Markierungsreihenfolge überschreiben eigene Zielmarkierungen des Auslösers den Filter (zuerst markiertes Ziel ist das Primärziel); Nächstes zum Zentrum sortiert nach Entfernung zum Zonenmittelpunkt; Szenenreihenfolge behält die Reihenfolge der Szene bei.",
+  "AOE.EXEC_TITLE": "{power} - Art der Ausführung",
+  "AOE.EXEC_HINT": "Wie soll die Kraft ausgeführt werden?",
+  "AOE.EXEC_MANUAL": "Manuell",
+  "AOE.EXEC_ZONE": "Zone platzieren"
 }

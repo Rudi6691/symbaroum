@@ -1,28 +1,38 @@
-{{!-- AoE Stufe 2a (Freigabe 2a+2b, 09.11.2026): Zonen-Karte einer plat-
-      zierten dauerhaften Zone - Bedienzentrum (Auslösen/Runde abschlie-
-      ßen/Zone beenden) und Live-Status (Restdauer, erfasste Token,
-      Wirkung). Rendering via foundry.applications.handlebars.renderTemplate
-      (travel-Muster, kein preloadHandlebarsTemplates nötig). Die Karte
-      wird beim Platzieren erzeugt (aoe.js _postZoneCard, ChatMessage-Flag
-      symbaroum.aoeZoneCard) und nach jeder Auslösung/Runde aktualisiert;
-      die Tasten (data-aoe-zone-action) werden im renderChatMessageHTML-
-      Hook für Nicht-GMs entfernt und rufen die System-API
-      (game.symbaroum.api.aoeTriggerZone/aoeZoneRound/aoeEndZone) auf dem
-      GM auf. --}}
+{{!-- AoE v2.1 (Rudolfs Testrunde-1-Entscheidungen, 10.11.2026): Zonen-
+      Karte als Bedienzentrum - Auslösen/Runde abschließen/Beenden bzw.
+      bei Augenblicklich (One-Shot) Auslösen/Abbrechen. Rendering via
+      foundry.applications.handlebars.renderTemplate (travel-Muster, kein
+      preloadHandlebarsTemplates nötig). Die Karte wird beim Platzieren
+      erzeugt (aoe.js _postZoneCard, ChatMessage-Flag symbaroum.aoeZoneCard)
+      und nach jeder Auslösung/Runde aktualisiert; die Tasten (data-aoe-
+      zone-action) sind nur für GM und den platzierenden Spieler sichtbar
+      (renderChatMessageHTML) und rufen die System-API (game.symbaroum.api.
+      aoeTriggerZone/aoeZoneRound/aoeEndZone) auf. --}}
 <div class="symbaroum chat aoe-card aoe-zone-card" data-aoe-region="{{regionId}}" data-aoe-scene="{{sceneId}}">
     <div class="aoe-card-line">
         <i class="fas fa-draw-polygon"></i><b>{{name}}</b>
     </div>
+    {{#if durationText}}
     <div class="aoe-card-detail">{{modeText}} &middot; {{areaText}} &middot; {{durationText}}</div>
+    {{else}}
+    <div class="aoe-card-detail">{{modeText}} &middot; {{areaText}}</div>
+    {{/if}}
     <div class="aoe-card-detail">{{tokensText}}</div>
     {{#if effectText}}
     <div class="aoe-card-detail">{{effectText}}</div>
+    {{/if}}
+    {{#if isInstant}}
+    <div class="aoe-card-detail">{{localize "AOE.ONESHOT_HINT"}}</div>
     {{/if}}
     <div class="aoe-card-buttons">
         <button type="button" class="aoe-zone-btn" data-aoe-zone-action="trigger"><i class="fas fa-bolt"></i> {{localize "AOE.BUTTON_TRIGGER"}}</button>
         {{#if showRound}}
         <button type="button" class="aoe-zone-btn" data-aoe-zone-action="round"><i class="fas fa-hourglass-half"></i> {{localize "AOE.BUTTON_ROUND"}}</button>
         {{/if}}
+        {{#if isInstant}}
+        <button type="button" class="aoe-zone-btn aoe-zone-end" data-aoe-zone-action="end"><i class="fas fa-times-circle"></i> {{localize "AOE.BUTTON_ABORT"}}</button>
+        {{else}}
         <button type="button" class="aoe-zone-btn aoe-zone-end" data-aoe-zone-action="end"><i class="fas fa-times-circle"></i> {{localize "AOE.BUTTON_END"}}</button>
+        {{/if}}
     </div>
 </div>
