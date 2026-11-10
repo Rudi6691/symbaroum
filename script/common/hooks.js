@@ -49,7 +49,7 @@ import { registerAmmoSettings } from './ammo.js';
 // „Flächeneffekte (AoE)“ (GM, world, Default AN) + Template-Platzierung
 // mit Auto-Targeting aus dem Kraft-Item - Engine: aoe.js, Datenmodell
 // system.areaZone (template.json, additives Feld).
-import { registerAoeSettings } from './aoe.js';
+import { registerAoeSettings, registerAoeHooks } from './aoe.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
@@ -587,6 +587,11 @@ Hooks.once('init', () => {
 	// den Reise-Settings registriert (gleiche Foundry-Einstellungsliste,
 	// Reihenfolge = Registrierungsreihenfolge).
 	registerAoeSettings();
+	// AoE Stufe 2 (Freigabe 2a+2b, 09.11.2026): Chat-Karten-Tasten der
+	// Zonen-Karte (Ausl�sen/Runde abschlie�en/Zone beenden, GM-only),
+	// Widerstands-Anfragekarten freier Zonen und der Runden-Dispatcher
+	// (Combat-Runde im Kampf, sonst 900 s Weltzeit) - ein Hook-Ort
+	registerAoeHooks();
 
 	// Traditionen v1: Bekannte Traditionen der Welt (Array von Traditions-
 	// Ids, config:false — gepflegt über den eigenen Konfigurations-Dialog

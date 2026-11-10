@@ -11582,3 +11582,50 @@ html body dialog.symb-dialog.chain-confirm.modern-dialog .symbaroum.dialog p.lbl
   font-size: 0.8rem;
   margin-top: 0.25rem;
 }
+
+/* AoE Stufe 2 (Freigabe 2a+2b, 09.11.2026): Zonen-Karte (Bedienzentrum
+   dauerhafter Zonen) - Tastenleiste im travel-probe-button-Muster
+   (Chat-Kontext, statische Fallback-Farben), Enden-Taste abgesetzt. */
+.symbaroum.aoe-card .aoe-card-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.symbaroum.aoe-card button.aoe-zone-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0.0625rem solid #726e5c;
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.symbaroum.aoe-card button.aoe-zone-btn:hover {
+  border-color: #b2925e;
+}
+
+.symbaroum.aoe-card button.aoe-zone-end {
+  border-color: #8a4a4a;
+  color: #b48585;
+}
+
+.symbaroum.aoe-card button.aoe-zone-end:hover {
+  border-color: #a85252;
+}
+
+/* Widerstands-Anfragekarte freier Zonen (Muster S4.2 travel-probe-
+   request, travel-day-card-Styling greift automatisch): nach dem
+   Würfeln Taste sperren und Karte stilllegen (aoe-resist-done). */
+.symbaroum.chat.travel-day-card.aoe-resist-request button.travel-probe-button[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.symbaroum.chat.travel-day-card.aoe-resist-done {
+  opacity: 0.75;
+}

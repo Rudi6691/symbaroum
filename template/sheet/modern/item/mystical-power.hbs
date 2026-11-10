@@ -112,6 +112,25 @@
                         </select>
                     </div>
                 </div>
+                <div class="m-row m-zone-row">
+                    {{!-- AoE Stufe 2a (Freigabe 2a+2b, 09.11.2026): Wirkungsmodus (augenblicklich wirkt bei Platzierung wie Schlingranken, dauerhaft = Zone mit Karte), Betreten-Trigger und Dauer in Runden (0 = unbegrenzt). --}}
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.areaZone.mode" data-tooltip="{{localize "AOE.INFO_MODE"}}">{{localize "AOE.FIELD_MODE"}}</label>
+                        <select id="{{id}}-system.areaZone.mode" name="system.areaZone.mode">
+                            {{selectOptions aoe_mode_selection selected=aoe.mode valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.areaZone.trigger" data-tooltip="{{localize "AOE.INFO_TRIGGER"}}">{{localize "AOE.FIELD_TRIGGER"}}</label>
+                        <select id="{{id}}-system.areaZone.trigger" name="system.areaZone.trigger">
+                            {{selectOptions aoe_trigger_selection selected=aoe.trigger valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.areaZone.duration" data-tooltip="{{localize "AOE.INFO_DURATION"}}">{{localize "AOE.FIELD_DURATION"}}</label>
+                        <input id="{{id}}-system.areaZone.duration" name="system.areaZone.duration" type="number" min="0" value="{{aoe.duration}}"/>
+                    </div>
+                </div>
                 <p class="m-zone-hint">{{localize "AOE.INFO_SCALE"}}</p>
                 <p class="m-zone-hint">{{localize "AOE.INFO_DEFAULTS"}}</p>
                 {{#if aoeCanPlace}}

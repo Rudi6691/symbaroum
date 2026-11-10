@@ -14,6 +14,10 @@ import {
 } from './container.js';
 // AP2 Stapeln (Merge-on-Drop): öffentliche Stapel-API
 import { isStackableItem, getStackKey, findStackTarget, mergeStackDrop, splitStackItem } from './stacking.js';
+// AoE Stufe 2 (Freigabe 2a+2b, 09.11.2026): öffentliche Zonen-API für
+// Script-Behaviors (aoeZoneEnter), Zonen-Karten-Tasten und Makros (freie
+// Zone platzieren) - siehe aoe.js
+import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone } from './aoe.js';
 
 export class SymbaroumAPI
 {
@@ -60,6 +64,13 @@ export class SymbaroumAPI
         this.findStackTarget = findStackTarget;
         this.mergeStackDrop = mergeStackDrop;
         this.splitStackItem = splitStackItem;
+        // AoE Stufe 2: Zonen-API (Script-Behavior aoeZoneEnter, Zonen-Karte
+        // aoeTriggerZone/aoeZoneRound/aoeEndZone, Makro placeFreeZone)
+        this.aoeZoneEnter = aoeZoneEnter;
+        this.aoeTriggerZone = aoeTriggerZone;
+        this.aoeEndZone = aoeEndZone;
+        this.aoeZoneRound = aoeZoneRound;
+        this.aoePlaceFreeZone = placeFreeZone;
     }
 
 

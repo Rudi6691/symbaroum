@@ -8329,3 +8329,89 @@ async function preDialogLayonHands(functionStuff) {
     },
   });
 }
+
+/* =====================================================================
+ * AoE Stufe 2a (Rudolfs Freigabe 2a+2b, 09.11.2026): programmatischer
+ * Kraftwurf fuer Zonen-Ausloesungen (dauerhafte Kraft-Zonen via Ausloese-
+ * taste/Betreten-Trigger, augenblickliche Zonen direkt nach der Platzie-
+ * rung). Spiegel von actor.js usePower OHNE Dialog: die Ausloesung wuerfelt
+ * wie die Ketten-Follow-ups (favour 0/modifier 0, auto) - Rudolfs v6-
+ * Entscheidung; einzige Abweichung zum normalen Wirken ist die Korruption
+ * (suppressCorruption bei dauerhaften Zonen: das Wirken samt Korruption
+ * gehoert zur Platzierung, die Ausloesung kostet nichts - Zu-3-Antwort).
+ *
+ * Ketten-Recycling: die Regionstoken werden als Nutzerziele markiert
+ * (td.object.setTarget, Stufe-1-Muster) - die Ketten-Result-Funktionen
+ * (drainingGlyphResult, chainSequenceResult, banishingSealChainResult,
+ * ...) iterieren game.user.targets und laufen daher unverändert weiter.
+ * Wirkattribut-Alternativen und Resolute-Schadensreduktions-Alternativen
+ * des Primärziels werden wie in usePower angewendet.
+ * =================================================================== */
+export async function executeZonePower(actor, ability, targetTokens, { suppressCorruption = true } = {}) {
+  if (!actor || !ability || !Array.isArray(targetTokens) || targetTokens.length === 0) return;
+  const specificStuff = actor.system?.combat?.combatMods?.abilities?.[ability.id];
+  if (!specificStuff?.isScripted) {
+    ui.notifications.warn(game.i18n.localize("AOE.ERR_NO_POWER_AUTOMATION"));
+    return;
+  }
+  const stuff = foundry.utils.deepClone(specificStuff);
+  // Wirkattribut-Alternativen wie usePower (höchstes Attribut gewinnt)
+  if (Array.isArray(stuff.attributes) && stuff.attributes.length > 0) {
+    let castingAttribute = stuff.castingAttributeName;
+    let castingAttributeValue = actor.system.attributes[castingAttribute].total;
+    let autoParams = "";
+    for (let base of stuff.attributes) {
+      let alternateValue = actor.system.attributes[base.attribute].total;
+      if (castingAttributeValue < alternateValue) {
+        castingAttribute = base.attribute;
+        castingAttributeValue = alternateValue;
+        autoParams = base.label + ", ";
+      }
+    }
+    stuff.castingAttributeName = castingAttribute;
+    stuff.autoParams = (stuff.autoParams ?? "") + autoParams;
+  }
+  const api = game.symbaroum.api;
+  const actingToken = api.getActorToken(actor) ?? actor.getActiveTokens?.()[0] ?? null;
+  // Zonenziele als Nutzerziele markieren (Ketten lesen game.user.targets)
+  let first = true;
+  for (const tokenDoc of targetTokens) {
+    tokenDoc.object?.setTarget(true, { releaseOthers: first });
+    first = false;
+  }
+  const placeables = Array.from(game.user.targets);
+  // Primärziel + multipleTargets-Aufbau wie usePower/preDialogBanishingSeal
+  stuff.targetData = buildGlyphTargetData(placeables[0] ?? targetTokens[0], stuff.targetResistAttribute ?? null);
+  if (stuff.multipleTargets) {
+    stuff.targets = placeables.map((t) => buildGlyphTargetData(t, stuff.targetResistAttribute ?? null));
+    stuff.chainTargets = stuff.targets.slice(1);
+  }
+  // Resolute-Schadensreduktionen des Primärziels (Alternativ-Attribut) wie usePower
+  if (
+    stuff.targetData.hasTarget &&
+    stuff.targetData.actor.system.combat.damageReductions.length &&
+    stuff.targetResistAttribute === "resolute"
+  ) {
+    for (let i = 0; i < stuff.targetData.actor.system.combat.damageReductions.length; i++) {
+      if (stuff.targetData.actor.system.combat.damageReductions[i].type === game.symbaroum.config.TYPE_ALT_RESIST_ATTR_RESOLUTE) {
+        let resistributeValue = stuff.targetData.actor.system.attributes["resolute"].total;
+        let alternateValue =
+          stuff.targetData.actor.system.attributes[stuff.targetData.actor.system.combat.damageReductions[i].attribute].total;
+        if (resistributeValue < alternateValue) {
+          stuff.targetData.resistAttributeName = stuff.targetData.actor.system.combat.damageReductions[i].attribute;
+          stuff.targetData.autoParams += stuff.targetData.actor.system.combat.damageReductions[i].label + ", ";
+        }
+      }
+    }
+  }
+  const fsDefault = await ability.getFunctionStuffDefault(actor, actingToken);
+  const functionStuff = Object.assign({}, fsDefault, stuff);
+  // Ausloesung wuerfelt wie Ketten-Follow-ups: kein Vorteil, keine Modifikatoren
+  functionStuff.hasAdvantage = false;
+  functionStuff.favour = 0;
+  functionStuff.modifier = 0;
+  functionStuff.isMaintained = false;
+  // Dauerhafte Zonen: Ausloesung ohne erneute Korruptionsbuchung
+  if (suppressCorruption) functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  await buildRolls(functionStuff);
+}

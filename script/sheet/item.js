@@ -30,7 +30,7 @@ import { resolveItemTraditions, knownTraditionSelection, isForbiddenKnowledge, q
 // Tab auf Mystische-Kraft-Blättern (Form/Größe/Ziele, additive Felder
 // system.areaZone) + Platzier-Action placeZone (Template-Platzierung mit
 // Auto-Targeting, Engine aoe.js).
-import { aoeEnabled, getZoneConfig, placeZoneFromItem } from '../common/aoe.js';
+import { aoeEnabled, playerPlacementEnabled, getZoneConfig, placeZoneFromItem } from '../common/aoe.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -672,7 +672,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   Setting + aktiver Szene + konfigurierter Form; die blockiert-
 		   Ursache wird als fertiger Text mitgegeben (keine Template-Logik,
 		   A6-Lernweis: Booleans/Strings in JS vorbereiten). */
-		context.showAoeZoneTab = this.item.type === 'mysticalPower' && !!game.user.isGM;
+		/* AoE Stufe 2b (Freigabe 2a+2b, 09.11.2026): Zone-Tab zusätzlich
+		   für Spieler mit aktivem Setting + Item-Besitz */
+		context.showAoeZoneTab =
+			this.item.type === 'mysticalPower' && (game.user.isGM || (playerPlacementEnabled() && this.item.isOwner));
 		if (context.showAoeZoneTab) {
 			const zoneCfg = getZoneConfig(this.item);
 			const zone = this.item.system?.areaZone ?? {};
@@ -682,7 +685,22 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				shape: zoneCfg?.shape ?? '',
 				size: zoneCfg?.size ?? Math.max(1, Math.round(Number(zone.size) || 0) || 1),
 				targeting: zoneCfg?.targeting ?? 'all',
+				/* AoE Stufe 2a (Freigabe 2a+2b, 09.11.2026): Wirkungsmodus
+				   (augenblicklich | dauerhaft), Betreten-Trigger und Dauer
+				   in Runden (0 = unbegrenzt) - getZoneConfig-Kanonik wie
+				   oben, Defaults dauerhaft/ohne Trigger/unbegrenzt */
+				mode: zoneCfg?.mode ?? 'lasting',
+				trigger: zoneCfg?.trigger ?? '',
+				duration: zoneCfg?.duration ?? 0,
 			};
+			context.aoe_mode_selection = Object.values(game.symbaroum.config.AOE_MODE_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			}));
+			context.aoe_trigger_selection = Object.values(game.symbaroum.config.AOE_TRIGGER_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			}));
 			context.aoe_shape_selection = Object.values(game.symbaroum.config.AOE_SHAPE_SELECTION).map((c) => ({
 				id: c.id,
 				label: game.i18n.localize(c.label),

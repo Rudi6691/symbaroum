@@ -1931,3 +1931,34 @@ SYMBAROUM.AOE_TARGETING_SELECTION = {
     label: "AOE.TARGETING_ENEMIES",
   },
 };
+
+/* AoE v2 (Freigabe 2a+2b, 09.11.2026): Wirkungsmodus und Ausloese-Steuerung
+   der dauerhaften Zone. Modus "instant" (Schlingranken-Muster: Wirkung
+   entfaltet sich bei der Platzierung, Region verschwindet sofort) vs.
+   "lasting" (Glyphe-Muster: Region bleibt, wirkt bei Ausloesung). Bei
+   "lasting" entscheidet der Trigger: "enter" = automatische Ausloesung
+   beim Betreten durch ein Zielgruppen-Token (Region-Script-Behavior,
+   TOKEN_ENTER), "" = nur die Ausloese-Taste der Zonen-Karte; die Taste
+   selbst gibt es im Modus "lasting" immer (Rudolfs Antwort zu Frage 1:
+   "beides konfigurierbar"). */
+SYMBAROUM.AOE_MODE_SELECTION = {
+  instant: {
+    id: "instant",
+    label: "AOE.MODE_INSTANT",
+  },
+  lasting: {
+    id: "lasting",
+    label: "AOE.MODE_LASTING",
+  },
+};
+
+SYMBAROUM.AOE_TRIGGER_SELECTION = {
+  "": {
+    id: "",
+    label: "AOE.TRIGGER_MANUAL",
+  },
+  enter: {
+    id: "enter",
+    label: "AOE.TRIGGER_ENTER",
+  },
+};

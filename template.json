@@ -69,8 +69,7 @@
             "permanent": 0,
             "temporary": 0,
             "threshold": 0,
-
-            "value":0,
+            "value": 0,
             "longterm": 0
           }
         }
@@ -97,12 +96,11 @@
         "experience": {
           "current": 0,
           "total": 0,
-
           "spent": 0,
           "available": 0,
           "artifactrr": 0
         }
-      }      
+      }
     },
     "player": {
       "templates": [
@@ -202,9 +200,8 @@
         }
       },
       "artifact": {
-        "isArtifact" : false,
-        "power": {
-        }
+        "isArtifact": false,
+        "power": {}
       },
       "traditions": {
         "traditions": "",
@@ -215,9 +212,9 @@
           "shape": "",
           "size": 0,
           "targeting": "",
+          "mode": "lasting",
           "trigger": "",
-          "action": "",
-          "duration": ""
+          "duration": 0
         }
       }
     },
@@ -354,7 +351,7 @@
       "qualities": {
         "bastard": false,
         "returning": false,
-        "blunt": false,        
+        "blunt": false,
         "short": false,
         "unwieldy": false,
         "wrecking": false,
@@ -420,7 +417,7 @@
       "description": "",
       "reference": "",
       "cost": "",
-      "number" : 1,
+      "number": 1,
       "state": "other"
     },
     "artifact": {
