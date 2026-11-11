@@ -2476,5 +2476,14 @@
   "AOE.EXEC_HINT": "How should the power be executed?",
   "AOE.EXEC_MANUAL": "Manual",
   "AOE.EXEC_ZONE": "Place zone",
-  "AOE.WARN_OUTSIDE_ZONE": "The token is outside the area of effect. It cannot be targeted."
+  "AOE.WARN_OUTSIDE_ZONE": "The token is outside the area of effect. It cannot be targeted.",
+  "AOE.CHAT_ZONE_INTRO": "{actorname} affects {targetname}",
+  "AOE.CHAT_PROBE_LINE": "Zone attribute ({zone}) ← {attr} ({value})",
+  "AOE.CHAT_ZONE_TITLE": "{zone} affects {target}",
+  "AOE.CHAT_ROLL_LINE": "Roll: {roll} against target {target}",
+  "AOE.CHAT_RESIST_OK": "resisted",
+  "AOE.CHAT_RESIST_LOST": "effect takes hold",
+  "AOE.ERR_ZONE_NO_SHAPE": "Warning: This power has a zone configured (size, trigger or duration), but no shape is selected in the zone tab. The execution dialog will therefore be skipped. Please pick a shape in the zone tab.",
+  "AOE.FREE_ZONEATTR_HINT": "Zone attribute:",
+  "AOE.FREE_FAVOUR_HINT": "Zone favour: The zone's favour is mirrored onto the entering tokens' rolls (zone favour = the token rolls with ill favour, i.e. worse d20s)."
 }

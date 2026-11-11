@@ -3899,6 +3899,18 @@ export async function modifierDialog(functionStuff) {
               if (f.checked) fvalue = parseInt(f.value, 10);
             }
             functionStuff.favour += fvalue;
+            /* AoE v2.4 (Rudolfs Testrunde 4, Entscheidungen a+b): Bei der
+               ZONEN-AKTIVIERUNG laufen die reinen DIALOG-Werte (Modifikator
+               + Gunst, ohne die ziel-spezifischen Zusätze wie Segenszeilen
+               oder Resolute-Schadensreduktionen des Primärziels) als
+               SNAPSHOT mit - buildRolls schreibt sie in die Region-Flags
+               (aoe.snapshot) und jede Folge-Auslösung (Betreten, erneute
+               Auslöse-Taste, Maintain-Runde) würfelt die Ziel-Token da-
+               gegen, ohne neuen Dialog. */
+            if (functionStuff.zoneActivation) {
+              functionStuff.zoneDialogModifier = modifierCustom;
+              functionStuff.zoneDialogFavour = fvalue;
+            }
             // Segen & Lasten S2.1 (P6): Kontext-Zeilen auswerten — Bonus-Zeilen
             // addieren auf functionStuff.modifier (DIALOG-Feld setzt den
             // Startwert, Zeilen laufen additiv dazu) UND wandern mit
@@ -4371,8 +4383,53 @@ export async function modifierDialog(functionStuff) {
   }
 }
 
+/* AoE v2.4 (Rudolfs Testrunde 4, Entscheidung a+b): Snapshot der Zonen-
+   Aktivierung in die Region-Flags schreiben (aoe.activated + aoe.snap-
+   shot). Läuft in buildRolls - dort stehen die finalen Werte des
+   Standard-Würfeldialogs. zoneDialogModifier/zoneDialogFavour gibt
+   modifierDialog direkt nach dem Feld-Read mit (freier Modifikator ohne
+   ziel-spezifische Zusätze - der Snapshot gilt für ALLE künftigen
+   Proben der Zonen-Instanz). One-Shot-Zonen (mode instant) enden nach
+   der Aktivierung über endAfter (cancel der Dialoge lässt die Zone
+   stehen - buildRolls lief nie). */
+async function captureZoneActivationSnapshot(functionStuff) {
+  try {
+    const { regionId, sceneId, endAfter } = functionStuff.zoneActivation;
+    const scene = game.scenes.get(sceneId) ?? game.scenes.viewed ?? null;
+    const region = scene?.regions?.get(regionId) ?? null;
+    const aoe = region?.flags?.symbaroum?.aoe;
+    if (!region || !aoe || aoe.free) return;
+    aoe.activated = true;
+    const attributeName = functionStuff.castingAttributeName;
+    const attributeValue = Number(functionStuff.actor?.system?.attributes?.[attributeName]?.total);
+    aoe.snapshot = {
+      attributeName,
+      attributeValue: Number.isFinite(attributeValue) ? attributeValue : 10,
+      modifier: Number(functionStuff.zoneDialogModifier ?? functionStuff.modifier) || 0,
+      favour: Number(functionStuff.zoneDialogFavour ?? functionStuff.favour) || 0,
+    };
+    await region.setFlag('symbaroum', 'aoe', aoe);
+    if (endAfter) {
+      await game.symbaroum.api?.aoeConcludeInstantZone?.(regionId, sceneId);
+    }
+  } catch (error) {
+    console.warn('Symbaroum AoE: activation snapshot capture failed', error);
+  }
+}
+
 export async function buildRolls(functionStuff) {
   game.symbaroum.log("...buildRolls", ...arguments);
+
+  /* AoE v2.4 (Rudolfs Testrunde 4, Entscheidungen a+b): Zonen-AKTIVIE-
+     RUNG - buildRolls läuft hier mit den finalen Werten (Dialog-Modi-
+     fikator/Gunst stehen in functionStuff). Der Snapshot (Wirkattributs-
+     wert + Dialog-Modifikator + Dialog-Gunst) wird in die Region-Flags
+     geschrieben und markiert die Zone als aktiviert (aoe.activated):
+     jede Folge-Auslösung würfelt die Ziel-Token gegen diesen Snapshot
+     statt die Kraft neu zu wirken (kein Dialog, keine Korruption mehr). */
+  if (functionStuff?.zoneActivation?.regionId) {
+    await captureZoneActivationSnapshot(functionStuff);
+  }
 
   if (functionStuff.casting === game.symbaroum.config.CASTING_NOT && !functionStuff.isMaintained) {
     // A25 stage 4: a CASTING_NOT power can define its own result function
@@ -8348,6 +8405,18 @@ async function preDialogLayonHands(functionStuff) {
   });
 }
 
+/* AoE v2.4 (Rudolfs Testrunde 4, Entscheidung g): Bei Zonen-FOLGE-Aus-
+   lösungen (Betreten, Maintain-Runde, erneute Auslöse-Taste) steht die
+   ZONE als Quelle auf der Ergebnis-Karte statt des Wirkers - Name und
+   Intro-Zeile werden auf die Zone umgebogen (die Standard-Karte zeigt
+   Ziel + Icon, Probenwerte und Würfelergebnis wie gehabt; als Icon
+   führt die Zone das Kraft-Icon mit). */
+function _applyZoneCardSource(functionStuff, zoneSourceName) {
+  functionStuff.actingCharName = zoneSourceName;
+  functionStuff.introText = "AOE.CHAT_ZONE_INTRO";
+  if (functionStuff.abilityImg) functionStuff.actingCharImg = functionStuff.abilityImg;
+}
+
 /* =====================================================================
  * AoE Stufe 2a (Rudolfs Freigabe 2a+2b, 09.11.2026): programmatischer
  * Kraftwurf fuer Zonen-Ausloesungen (dauerhafte Kraft-Zonen via Ausloese-
@@ -8365,7 +8434,12 @@ async function preDialogLayonHands(functionStuff) {
  * Wirkattribut-Alternativen und Resolute-Schadensreduktions-Alternativen
  * des Primärziels werden wie in usePower angewendet.
  * =================================================================== */
-export async function executeZonePower(actor, ability, targetTokens, { suppressCorruption = true } = {}) {
+export async function executeZonePower(
+  actor,
+  ability,
+  targetTokens,
+  { suppressCorruption = true, zoneActivation = null, zoneSourceName = '', presetRollData = null, zoneApplyDirect = false } = {}
+) {
   if (!actor || !ability || !Array.isArray(targetTokens) || targetTokens.length === 0) return;
   const specificStuff = actor.system?.combat?.combatMods?.abilities?.[ability.id];
   if (!specificStuff?.isScripted) {
@@ -8437,5 +8511,36 @@ export async function executeZonePower(actor, ability, targetTokens, { suppressC
   functionStuff.isMaintained = false;
   // Dauerhafte Zonen: Ausloesung ohne erneute Korruptionsbuchung
   if (suppressCorruption) functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
-  await buildRolls(functionStuff);
+  /* AoE v2.4 (Rudolfs Testrunde 4, Sammel-Fix):
+     - zoneActivation (AKTIVIERUNG der Zonen-Instanz, Entscheidung a):
+       voller Kraftwurf MIT Standard-Würfeldialog (Modifikator/Gunst
+       einstellbar - "sonst können keine Modifikatoren und Gunst ein-
+       gestellt werden"), Korruption 1x nach Kraftregeln (je-Ziel-Kosten
+       der Aktivierung inklusive, Folge-Auslösungen TEMPCORRUPTION_NONE).
+       Der Kategorie-Pre-Dialog (Bannsiegel) läuft wie beim manuellen
+       Wirken VOR dem Würfeldialog (Entscheidung i - im Zonen-Pfad fehlte
+       er komplett, sealCategoryId blieb immer undefiniert). buildRolls
+       schreibt den Aktivierungs-Snapshot in die Region-Flags.
+     - presetRollData / zoneApplyDirect (FOLGE-Auslösungen: Betreten,
+       Maintain-Runde, erneute Auslöse-Taste): die Probe wurde bereits
+       gegen den Snapshot gewürfelt (baseRoll im Resist-Modus, aoe.js)
+       bzw. die Kraft ist unwiderstehlich - hier läuft nur noch die
+       Ergebnis-Funktion, mit der ZONE als Karten-Quelle statt dem
+       Wirker (Entscheidung g, _applyZoneCardSource). */
+  if (zoneActivation) {
+    functionStuff.zoneActivation = zoneActivation;
+    if (functionStuff.confirmDialog) {
+      await confirmPowerDialog(functionStuff);
+    } else if (functionStuff.preDialogFunction) {
+      await functionStuff.preDialogFunction(functionStuff);
+    } else {
+      await modifierDialog(functionStuff);
+    }
+  } else if (presetRollData !== null || zoneApplyDirect) {
+    if (zoneSourceName) _applyZoneCardSource(functionStuff, zoneSourceName);
+    const resultFunction = getPowerResultFunction(functionStuff);
+    await resultFunction(presetRollData, functionStuff);
+  } else {
+    await buildRolls(functionStuff);
+  }
 }

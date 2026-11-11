@@ -41,11 +41,18 @@
   </div>
   {{!-- v2.3 (Punkt 11): Modifikator + Gunst wie der Untersuchungs-Dialog
       (Standard-Würfeldialog-Muster) - wirken auf die Widerstands-Probe
-      der Zonen-Opfer, gespeichert in eff.modifier/eff.favour. --}}
+      der Zonen-Opfer, gespeichert in eff.modifier/eff.favour.
+      v2.4 (Rudolfs Klärungsrunde): Der Modifikator gehört zur ZONE - das
+      ZONENATTRIBUT ist 10 - Modifikator (exakt die Umkehrung der
+      Symbaroum-Widerstandskonvertierung), der Live-Hinweis zeigt ihn
+      während der Eingabe; das Widerstands-Attribut-Dropdown wählt das
+      Attribut, auf das der ZIEL-Token würfelt. Die Gunst gehört ebenfalls
+      zur Zone und spiegelt sich auf den Token-Wurf (siehe Favor-Hinweis). --}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="aoe-free-modifier">{{localize "DIALOG.MODIFIER"}}</label>
     <input id="aoe-free-modifier" type="number" value="0"/>
   </div>
+  <p class="aoe-free-hint">{{localize "AOE.FREE_ZONEATTR_HINT"}} <b id="aoe-free-zoneattr-value">10</b></p>
   {{#if renderModern}}
   <fieldset class="m-ability-frame">
     <legend class="m-ability-label">{{localize "DIALOG.FAVOUR_LEGEND"}}</legend>
@@ -80,6 +87,7 @@
     </label>
   </div>
   {{/if}}
+  <p class="aoe-free-hint">{{localize "AOE.FREE_FAVOUR_HINT"}}</p>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="aoe-free-damage">{{localize "AOE.FIELD_DAMAGE"}}</label>
     <input id="aoe-free-damage" type="text" placeholder="1d6"/>

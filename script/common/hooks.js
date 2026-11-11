@@ -49,7 +49,7 @@ import { registerAmmoSettings } from './ammo.js';
 // „Flächeneffekte (AoE)“ (GM, world, Default AN) + Template-Platzierung
 // mit Auto-Targeting aus dem Kraft-Item - Engine: aoe.js, Datenmodell
 // system.areaZone (template.json, additives Feld).
-import { registerAoeSettings, registerAoeHooks } from './aoe.js';
+import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor } from './aoe.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
@@ -587,11 +587,13 @@ Hooks.once('init', () => {
 	// den Reise-Settings registriert (gleiche Foundry-Einstellungsliste,
 	// Reihenfolge = Registrierungsreihenfolge).
 	registerAoeSettings();
-	// AoE Stufe 2 (Freigabe 2a+2b, 09.11.2026): Chat-Karten-Tasten der
-	// Zonen-Karte (Ausl�sen/Runde abschlie�en/Zone beenden, GM-only),
-	// Widerstands-Anfragekarten freier Zonen und der Runden-Dispatcher
-	// (Combat-Runde im Kampf, sonst 900 s Weltzeit) - ein Hook-Ort
-	registerAoeHooks();
+	// AoE v2.4 (Rudolfs Testrunde 4, Entscheidung e): registerAoeHooks
+	// läuft jetzt TOP-LEVEL (direkt vor dem A29-Maintain-Reminder weiter
+	// unten) - der AoE-Zonen-Tick muss VOR dem Reminder-Scan ausgeführt
+	// werden, damit eine ablaufende Zone ihre Symbole räumt, BEVOR der
+	// Reminder sie sieht (v2.3 registrierte den Tick erst im init-Hook
+	// und der Reminder scannte zuerst - Maintain-Dialog nach dem
+	// Zonen-Ende).
 
 	// Traditionen v1: Bekannte Traditionen der Welt (Array von Traditions-
 	// Ids, config:false — gepflegt über den eigenen Konfigurations-Dialog
@@ -1345,6 +1347,26 @@ function a29ShowReminderDialog(actor, abilityRef, targetCount) {
 			ui.notifications.warn(game.i18n.localize('A29.REMINDER_NO_ITEM'));
 			return;
 		}
+		/* AoE v2.4 (Rudolfs Testrunde 4, Entscheidung c): Ist der Wirker
+		   über DIESE Kraft der Ursprung einer aktiven ZONE, läuft statt
+		   des normalen presetMaintain-Flows die ZONEN-Maintain-Runde:
+		   ALLE Zonen-Token widerstehen (Zonen-Scan statt A23-Symbol-
+		   Scan, auch bisher widerstandene Token werden neu geprüft),
+		   kostenlos, gegen den Aktivierungs-Snapshot. Deren Ausführung
+		   braucht GM-Rechte an fremden Token - ein Spieler-Client
+		   (Reminder via Socket, G1) schickt die Antwort an den GM, wie
+		   beim Abort-Weg. */
+		if (aoeFindZoneRegionFor(actor.id, abilityItem.system?.reference)) {
+			if (game.user.isGM) {
+				aoeMaintainZoneRound(actor, abilityItem.system?.reference);
+			} else {
+				game.socket.emit('system.symbaroum', {
+					type: 'a29MaintainZoneRound',
+					data: { actorId: actor.id, abilityRef: abilityItem.system?.reference },
+				});
+			}
+			return;
+		}
 		// G2 (b): the regular roll dialog, preset to maintaining (F12 radio)
 		actor.usePower(abilityItem, { presetMaintain: true });
 	};
@@ -1400,8 +1422,26 @@ function a29SocketHandler(message) {
 	} else if (message.type === 'a29MaintainReminderAnswer' && game.user.isActiveGM && message.data?.answer === 'no') {
 		const actor = game.actors.get(message.data.actorId);
 		if (actor) a29AbortMaintainPower(actor, message.data.abilityRef);
+	} else if (message.type === 'a29MaintainZoneRound' && game.user.isActiveGM) {
+		/* AoE v2.4 (Entscheidung c): Spieler hat im Reminder „Ja" gewählt,
+		   der Wirker ist Zonen-Ursprung - der GM-Client führt die ZONEN-
+		   Maintain-Runde aus (alle Zonen-Token widerstehen, gegen den
+		   Aktivierungs-Snapshot). Item-Suche im Zonen-Instanz-Muster
+		   (system.reference statt id), so wie im Reminder-Pfad. */
+		const actor = game.actors.get(message.data.actorId);
+		if (actor) {
+			const abilityItem = a29FindAbilityItem(actor, message.data.abilityRef);
+			if (abilityItem) aoeMaintainZoneRound(actor, message.data.abilityRef);
+		}
 	}
 }
+
+/* AoE v2.4 (Rudolfs Testrunde 4, Entscheidung e): Die AoE-Hooks (Zonen-
+   Tick inkl.) registrieren sich TOP-LEVEL VOR dem A29-Reminder - Foundry
+   führt updateCombat-Listener in Registrierungsreihenfolge aus, der
+   Zonen-Tick beendet abgelaufene Zonen (inkl. Symbol-Räumung) also
+   RECHTZEITIG, bevor der Reminder-Scan hier die Maintain-Symbole sieht. */
+registerAoeHooks();
 
 Hooks.on('updateCombat', async (combat, changed) => {
 	if (!game.user.isActiveGM) return;

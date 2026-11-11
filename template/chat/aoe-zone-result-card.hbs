@@ -1,0 +1,27 @@
+{{!-- AoE v2.4 (Rudolfs Testrunde 4, Punkt 9 + neuer Punkt, 11.11.2026):
+      Standard-Ergebniskarte je Ziel für Zonen-Wirkungen (freie Zonen und
+      Kraft-Zonen-Folge-Auslösungen): Titel „{Zone} wirkt auf {Ziel + Icon}",
+      danach die Probenwerte („Zonenattribut ({Wert}) ← Widerstands-Attribut
+      ({Wert})"), das Würfelergebnis (W20-Span im System-Look) und die
+      Wirkung. Öffentliche Karte (keine Flüster-Mini-Karte mehr). Rendering
+      via foundry.applications.handlebars.renderTemplate (aoe-Muster), alle
+      Strings werden in aoe.js zusammengesetzt (i18n + _escapeHtml), das
+      Template bleibt dumb. Styling: aoe-card-Klassen der Zonen-Karte
+      (css/symbaroum.css, unverändert), das Ziel-Icon läuft inline. --}}
+<div class="symbaroum chat aoe-card aoe-zone-result-card">
+    <div class="aoe-card-line">
+        <i class="fas fa-draw-polygon"></i><b>{{titleText}}</b>
+    </div>
+    {{#if targetImg}}
+    <div class="aoe-card-detail"><img class="aoe-result-target-img" src="{{targetImg}}" style="width: 1.6rem; height: 1.6rem; border: 0; vertical-align: middle; border-radius: 0.2rem;" alt=""/></div>
+    {{/if}}
+    {{#if probeText}}
+    <div class="aoe-card-detail">{{probeText}}</div>
+    {{/if}}
+    {{#if rollText}}
+    <div class="aoe-card-detail">{{{rollText}}}</div>
+    {{/if}}
+    {{#each outcomeLines}}
+    <div class="aoe-card-detail">{{{this}}}</div>
+    {{/each}}
+</div>
