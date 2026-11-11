@@ -1085,7 +1085,21 @@ export class SymbaroumActor extends Actor {
 				specificStuff.targetData = { hasTarget: false };
 			} else if (specificStuff.getTarget) {
 				try {
-					specificStuff.targetData = getTarget(specificStuff.targetResistAttribute);
+					/* AoE v2.2 (Rudolfs Entscheidung 2): Aufrechterhalten
+					   ist multi-zielfähig - der A29-Erinnerungsflow
+					   (hooks.js, presetMaintain) darf mehrere markierte
+					   Ziele mitbringen: das zuerst markierte Ziel ist das
+					   Primärziel des Dialog-Tests, die übrigen gehaltenen
+					   Ziele läuft die A23-Kette über ihre Szenen-Suche
+					   (maintainChainResult). Ohne presetMaintain bleibt
+					   der Erstsprich strikt einzeln (RAW). */
+					if (options?.presetMaintain) {
+						const marked = Array.from(game.user.targets);
+						if (marked.length === 0) throw game.i18n.localize("ABILITY_ERROR.TARGET");
+						specificStuff.targetData = getTargets(specificStuff.targetResistAttribute, marked.length)[0];
+					} else {
+						specificStuff.targetData = getTarget(specificStuff.targetResistAttribute);
+					}
 				} catch (error) {
 					if (specificStuff.targetMandatory) {
 						ui.notifications.error(error);
@@ -1251,8 +1265,14 @@ export function getTarget(targetAttributeName) {
 
 export function getTargets(targetAttributeName, maxTargets = 1) {
 	let targets = Array.from(game.user.targets);
-	if (targets.length == 0 || targets.length > maxTargets) {
+	if (targets.length == 0) {
 		throw game.i18n.localize("ABILITY_ERROR.TARGET");
+	}
+	/* AoE v2.2 (Rudolfs Testrunde 2): „zu viele Ziele" bekommt eine
+	   eigene Meldung - der alte Einheitstext („Du musst ein Ziel
+	   auswählen") war bei mehreren markierten Zielen irreführend. */
+	if (targets.length > maxTargets) {
+		throw game.i18n.format("ABILITY_ERROR.TARGET_MANY", { max: maxTargets });
 	}
 	let targetsData = [];
 	for (let target of targets) {

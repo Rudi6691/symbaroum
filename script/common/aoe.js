@@ -26,6 +26,21 @@
  *   manuelle Markierungen überschreiben Filter und Ordnung, Auswahl-
  *   dialog bei Spieler-Kraft-Aktivierung (Zone-Tab wieder GM-only).
  *
+ * v2.2 (Rudolfs Testrunde 2 + 4 Detail-Entscheidungen + Freigabe
+ *   10.11.2026, Sammel-Fix): der Betreten-Trigger liest das Execute-
+ *   Script-Ereignis korrekt aus (Event GROSS, Token via Event.data.token)
+ *   und löst zusätzlich EINMAL den Anfangsbestand bei der Platzierung
+ *   aus (Entscheidung 1), Aufrechterhalten ist multi-zielfähig
+ *   (actor.js usePower, Entscheidung 2), die Zonen-Karte zeigt einen
+ *   Auslöse-Vermerk (Runde/Weltzeit, Entscheidung 3), der Auswahl-
+ *   dialog gilt jetzt auch für den GM (Entscheidung 4), beide AoE-
+ *   Dialoge laufen über symbDialog im modernen Design (P4/P11),
+ *   'nearest' sortiert robust (offizielles shape.center bevorzugt,
+ *   Array/Collection-sicher, P9), der Combat-Runden-Takt toleriert eine
+ *   fehlende scene-Referenz (P13), und die Zielmarkierung bleibt in den
+ *   aktiven Zonen-Fenstern auf Token INNERHALB der Zone beschränkt -
+ *   reaktives Undo + Warnmeldung (Baustein 9).
+ *
  * Architektur (Foundry V14, code-verifiziert):
  * - Regionen mit flags.core.MeasuredTemplate (Optik der klassischen
  *   Vorlage), Platzierung über canvas.regions.placeRegions().
@@ -47,6 +62,9 @@
  *   sonst 900-Sekunden-Weltzeit (Muster Korruptions-Abbau S4), keine
  *   zweite Uhr. Nur die aktive Szene tickt.
  * =================================================================== */
+
+import { symbDialog } from './symbDialog.js';
+import { modernDialogClasses, isModernDialogActive } from './modernSheetConfig.js';
 
 /* Welt-Settings (Registrierung im init-Hook, hooks.js - direkt unter den
  * Reise-Settings). aoeZonesEnabled: Gate für alles (Default AN,
@@ -252,13 +270,21 @@ function _ownerUser(actor) {
 
 /* Single-GM-Muster (offizielle Foundry-Empfehlung für Execute-Script-
  * Behaviors, die auf allen Clients laufen): nur der aktive GM löst die
- * System-API aus. token/event werden defensiv gelesen (Script- und
- * Makro-Behavior liefern dieselben Daten, Stand Doku V12-V14). */
+ * System-API aus.
+ * v2.2-Fix (Rudolfs Testrunde 2, P2): der Execute-SCRIPT-Behavior-Scope
+ * liefert das Ereignis als Event GROSS (Event.data.token) - die kleinen
+ * Variablen token/actor füllt NUR das Execute-MACRO-Behavior (offizieller
+ * Scene-Regions-Artikel). Der frühere Quelltext las das kleine event/token
+ * und brach deshalb still ab (NIE eine Auto-Auslösung).
+ * Defensive Kette: Event GROSS zuerst, danach die Makro-Behavior-
+ * Fallbacks token/event - der Browser-Global 'Event' (DOM-Konstruktor)
+ * trägt kein data.token und fällt dadurch harmlos durch. */
 const ZONE_ENTER_BEHAVIOR_SOURCE = [
 	'if (!game.users.activeGM?.isSelf) return;',
 	'const r = (typeof region !== "undefined") ? region : null;',
-	'const ev = (typeof event !== "undefined") ? event : null;',
-	'const t = (typeof token !== "undefined" && token) || ev?.token || null;',
+	'const ev = (typeof Event !== "undefined") ? Event : null;',
+	'const mk = (typeof token !== "undefined") ? token : null;',
+	'const t = ev?.data?.token ?? ev?.token ?? mk ?? null;',
 	'const rid = r?.id ?? r?.document?.id ?? null;',
 	'const tid = t?.document?.id ?? t?.id ?? null;',
 	'if (!rid || !tid) return;',
@@ -349,6 +375,8 @@ async function _zoneCardContext(region) {
 		if (eff.condition) parts.push(game.i18n.format('AOE.EFFECT_CONDITION', { condition: _conditionLabel(eff.condition) }));
 		effectText = parts.join(' · ');
 	}
+	// v2.2 (Rudolfs Entscheidung 3): Vermerk der letzten Auslösung
+	const triggeredText = aoe.lastTriggered ? _lastTriggeredText(aoe.lastTriggered) : '';
 	return {
 		regionId: region.id,
 		sceneId: region.parent?.id,
@@ -358,6 +386,7 @@ async function _zoneCardContext(region) {
 		durationText,
 		tokensText,
 		effectText,
+		triggeredText,
 		isInstant,
 		showRound: !!(aoe.free && !isInstant && aoe.effect && (aoe.effect.damagePerRound || aoe.effect.corruptionPerRound)),
 	};
@@ -368,6 +397,23 @@ function _casterTokenOfZone(aoe) {
 	const uuid = aoe?.casterTokenUuid;
 	if (!uuid) return null;
 	return fromUuidSync(uuid) ?? null;
+}
+
+/**
+ * Auslöse-Vermerk (v2.2, Rudolfs Entscheidung 3): im Kampf „Runde X",
+ * sonst die Spielwelt-Uhrzeit (HH:MM) zum Auslösezeitpunkt.
+ */
+function _lastTriggeredText(trig) {
+	if (!trig) return '';
+	if (Number(trig.round) > 0) {
+		return game.i18n.format('AOE.TRIGGERED_ROUND', { round: trig.round });
+	}
+	const seconds = Math.max(0, Math.round(Number(trig.worldTime) || 0));
+	const day = 86400;
+	const clock = ((seconds % day) + day) % day;
+	const hh = String(Math.floor(clock / 3600)).padStart(2, '0');
+	const mm = String(Math.floor((clock % 3600) / 60)).padStart(2, '0');
+	return game.i18n.format('AOE.TRIGGERED_WORLD', { time: `${hh}:${mm}` });
 }
 
 /** Zonen-Karte anlegen (One-Shot- und dauerhafte Zonen; Muster: ChatMessage mit Flag). */
@@ -409,10 +455,40 @@ async function _settleZoneCards(region, endText) {
  * Auslösung: Kraft-Zone (Ketten-Recycling) und freie Zone (Proben)
  * =================================================================== */
 
-/** Mittelpunkt der ersten Fläche (Ordnungs-Hilfe für 'nearest'). */
+/**
+ * Erste Fläche einer Region, Array/Collection-sicher. v2.2-Fix (Rudolfs
+ * Testrunde 2, P9): RegionDocument#shapes kann je nach Core-Stand als
+ * Array ODER als Collection vorliegen - der frühere Direktzugriff
+ * shapes[0] war im Collection-Fall undefined und die 'nearest'-Sortierung
+ * fiel still weg (Szenenreihenfolge statt Zonennähe).
+ */
+function _firstRegionShape(region) {
+	const shapes = region?.shapes;
+	if (!shapes) return null;
+	if (Array.isArray(shapes)) return shapes[0] ?? null;
+	// Collection (contents-Array wie foundry.utils.Collection)
+	if (Array.isArray(shapes.contents)) return shapes.contents[0] ?? null;
+	// generische Iterablen (Map/Set/Collection): erstes Element
+	if (typeof shapes?.[Symbol.iterator] === 'function') {
+		for (const shape of shapes) return shape ?? null;
+	}
+	return null;
+}
+
+/**
+ * Mittelpunkt der ersten Fläche (Ordnungs-Hilfe für 'nearest').
+ * v2.2 (P9): bevorzugt die offizielle Geometrie-Eigenschaft center der
+ * Shape-Datenmodelle (BaseShapeData#center, V14) und fällt auf die
+ * manuelle Berechnung zurück (x/y = Ursprung; Rechteck-Origin ist die
+ * Ecke, Kreis/Kegel tragen das Zentrum in x/y).
+ */
 function _regionCenter(region) {
-	const shape = region?.shapes?.[0];
+	const shape = _firstRegionShape(region);
 	if (!shape) return null;
+	const center = shape.center;
+	if (center && Number.isFinite(center.x) && Number.isFinite(center.y)) {
+		return { x: center.x, y: center.y };
+	}
 	let x = shape.x ?? shape.c?.x ?? 0;
 	let y = shape.y ?? shape.c?.y ?? 0;
 	if (shape.type === 'rectangle') {
@@ -472,11 +548,32 @@ async function _executeZoneTrigger(region, { manual = false } = {}) {
 		}
 		return;
 	}
-	if (aoe.free) {
-		await _runFreeZone(region, tokens);
-	} else {
-		await _runPowerZone(region, tokens);
+	/* v2.2 (Baustein 9, Rudolfs Freigabe 10.11.): während der Ausführung
+	   einer DAUERHAFTEN Zone gilt die Ziel-Beschränkung für den Auslöser
+	   - nur Token innerhalb der Zone sind anwählbar (reaktives Undo +
+	   Warnung, siehe targetToken-Hook). Einmal-Zonen sind über ihre
+	   GESAMTE Standzeit beschränkt (Fenster offen ab der Platzierung,
+	   siehe placeZoneFromItem, und wird erst mit dem Zonen-Ende
+	   geschlossen). */
+	const enforceWindow = aoe.mode !== 'instant';
+	if (enforceWindow) _openTargetWindow(region);
+	try {
+		if (aoe.free) {
+			await _runFreeZone(region, tokens);
+		} else {
+			await _runPowerZone(region, tokens);
+		}
+	} finally {
+		if (enforceWindow) _closeTargetWindow(region.id);
 	}
+	/* v2.2 (Rudolfs Entscheidung 3): Auslöse-Vermerk - im Kampf die
+	   Combat-Runde, sonst die Weltzeit (Karte zeigt beides als
+	   „zuletzt ausgelöst: ..." über _lastTriggeredText). */
+	aoe.lastTriggered = {
+		round: game.combat?.active && game.combat.round > 0 ? game.combat.round : 0,
+		worldTime: Math.round(game.time?.worldTime ?? 0),
+	};
+	await region.setFlag('symbaroum', 'aoe', aoe);
 	// One-Shot: augenblickliche Zonen endet mit der (ersten) Auslösung
 	if (aoe.mode === 'instant') await _endZone(region, 'trigger');
 }
@@ -724,6 +821,8 @@ export async function aoeZoneEnter(regionId, tokenId) {
 	const filtered = _filterTargets([tokenDoc], aoe.config.targeting, _casterTokenOfZone(aoe));
 	if (filtered.length === 0) return;
 	await _executeZoneTrigger(region, { manual: false });
+	// v2.2: Karte nach der Auto-Auslösung aktualisieren (Auslöse-Vermerk)
+	await _updateZoneCards(region);
 }
 
 /** Auslöse-Taste der Zonen-Karte (manuelle Auslösung; GM oder Zone-Besitzer). */
@@ -752,6 +851,8 @@ export async function aoeEndZone(regionId, sceneId) {
 }
 
 async function _endZone(region, source) {
+	// v2.2 (Baustein 9): Ziel-Fenster der Zone schließen
+	_closeTargetWindow(region.id);
 	// Abbruch einer One-Shot-Zone ohne Auslösung = Abbruch ohne Wirkung
 	const aoe = region.flags?.symbaroum?.aoe;
 	const textKey = source === 'manual' && aoe?.mode === 'instant' ? 'AOE.ABORT_MESSAGE' : 'AOE.END_MESSAGE';
@@ -831,6 +932,23 @@ export async function placeZoneFromItem(item) {
 		   Betreten-Trigger). */
 		await _autoTargetRegion(region, cfg, casterToken);
 		await _postZoneCard(region);
+		/* v2.2 (Baustein 9, Rudolfs Freigabe 10.11.): Einmal-Zonen
+		   beschränken die Zielmarkierung ihres Besitzers über die
+		   GESAMTE Standzeit - Platzierung bis Auslösen/Abbrechen (kurze,
+		   intensive Phase; andere User bleiben uneingeschränkt). */
+		if (zone.mode === 'instant') _openTargetWindow(region);
+		/* v2.2 (Rudolfs Entscheidung 1): Betreten-Trigger MIT Anfangs-
+		   bestand - steht bei der Platzierung bereits mindestens ein
+		   filterpassendes Token in der Fläche, löst die Zone EINMAL
+		   automatisch aus (derselbe Pfad wie das spätere Betreten; nur
+		   dauerhafte Betreten-Zonen, Einmal-Zonen bleiben One-Shot). */
+		if (zone.mode === 'lasting' && zone.trigger === 'enter') {
+			const standing = _filterTargets(_collectRegionTokens(region), cfg.targeting, casterToken);
+			if (standing.length > 0) {
+				await _executeZoneTrigger(region, { manual: false });
+				await _updateZoneCards(region);
+			}
+		}
 	}
 }
 
@@ -847,48 +965,72 @@ async function _autoTargetRegion(region, cfg, casterToken) {
 }
 
 /**
- * Auswahldialog bei Spieler-Kraft-Aktivierung (v2.1, Rudolfs Freigabe
- * 10.11.): Bei aktivem Setting „AoE: Spieler-Platzierung" fragt der
- * Aktivieren-Button einer Mystischen Kraft mit konfigurierter Zone,
- * WIE die Kraft ausgeführt wird - „Manuell" (normaler Kraftdialog),
- * „Zone platzieren" (Zonen-Platzierung inkl. Zonen-Karte) oder
- * „Abbrechen". GM und alle unkonfigurierten Kräfte laufen ohne Dialog
- * direkt durch (keine Reibung).
+ * Auswahldialog bei Kraft-Aktivierung (v2.1, Rudolfs Freigabe 10.11.).
+ * v2.2 (Rudolfs Entscheidung 4): der Dialog gilt jetzt AUCH für den GM -
+ * derselbe Dreitasten-Dialog inklusive Abbrechen wie für Spieler (der
+ * Zone-Tab bleibt GM-only). v2.2 (P11, Rudolfs Design-Wunsch): beide
+ * AoE-Dialoge laufen über symbDialog im modernen Design
+ * (modernDialogClasses, Alchemie-/Brau-Dialog-Optik) statt des
+ * klassischen V1-Dialogs.
+ * Bei konfigurierter Zone fragt der Aktivieren-Button einer Mystischen
+ * Kraft, WIE die Kraft ausgeführt wird - „Manuell" (normaler Kraft-
+ * dialog), „Zone platzieren" (Zonen-Platzierung inkl. Zonen-Karte) oder
+ * „Abbrechen". Unkonfigurierte Kräfte und deaktivierte AoE laufen ohne
+ * Dialog direkt durch (keine Reibung).
  * @returns {Promise<boolean|string>} false = kein Dialog nötig (normal
- *   weiter); 'manual' | 'zone' | 'cancel' = Dialog-Wahl des Spielers.
+ *   weiter); 'manual' | 'zone' | 'cancel' = Dialog-Wahl des Nutzers.
  */
 export async function maybeZoneExecutionChoice(item) {
-	if (!item || item.type !== 'mysticalPower' || game.user.isGM) return false;
-	if (!aoeEnabled() || !playerPlacementEnabled() || !item.isOwner) return false;
+	if (!item || item.type !== 'mysticalPower') return false;
+	if (!aoeEnabled()) return false;
 	if (!getZoneConfig(item)) return false;
+	// GM immer berechtigt; Spieler nur bei aktivem Setting + Besitz (2b)
+	if (!game.user.isGM && (!playerPlacementEnabled() || !item.isOwner)) return false;
+	const modern = isModernDialogActive();
+	const content = `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}"><p>${game.i18n.localize('AOE.EXEC_HINT')}</p></div>`;
 	return new Promise((resolve) => {
-		new Dialog({
+		let settled = false;
+		const settle = (value) => {
+			if (settled) return;
+			settled = true;
+			resolve(value);
+		};
+		const dialog = symbDialog({
 			title: game.i18n.format('AOE.EXEC_TITLE', { power: item.name }),
-			content: `<p>${game.i18n.localize('AOE.EXEC_HINT')}</p>`,
+			content,
+			classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
 			buttons: {
 				manual: {
 					icon: '<i class="fas fa-user"></i>',
 					label: game.i18n.localize('AOE.EXEC_MANUAL'),
-					callback: () => resolve('manual'),
+					callback: () => settle('manual'),
 				},
 				zone: {
 					icon: '<i class="fas fa-draw-polygon"></i>',
 					label: game.i18n.localize('AOE.EXEC_ZONE'),
 					callback: () => {
 						placeZoneFromItem(item);
-						resolve('zone');
+						settle('zone');
 					},
 				},
 				cancel: {
 					icon: '<i class="fas fa-times"></i>',
 					label: game.i18n.localize('DIALOG.CANCEL'),
-					callback: () => resolve('cancel'),
+					callback: () => settle('cancel'),
 				},
 			},
 			default: 'manual',
-			// ESC / Kopf-X ohne Tastenwahl = Abbruch
-			close: () => resolve('cancel'),
-		}).render(true);
+			width: 460,
+		});
+		// ESC / Kopf-X ohne Tastenwahl = Abbruch. Das close-Event feuert
+		// auch nach einer Tastenwahl - der settled-Guard lässt die
+		// Promise bei der ersten Entscheidung (Taste) stehen.
+		try {
+			dialog.addEventListener('close', () => settle('cancel'));
+		} catch (error) {
+			// close-Listener nicht verfügbar: Dialog ohne ESC-Fallback
+			console.warn('Symbaroum AoE: execution dialog close listener unavailable', error);
+		}
 	});
 }
 
@@ -898,6 +1040,10 @@ export async function maybeZoneExecutionChoice(item) {
  * Korruption-Formel, Condition-Dropdown - leer = keine Wirkung), dann
  * interaktive Platzierung. Ursprungsanwendungsfall: Rudolfs
  * Korruptionszone mit Willenskraftprobe.
+ * v2.2 (Rudolfs Testrunde 2, P4): der Dialog läuft über symbDialog im
+ * modernen Design (modernDialogClasses, Alchemie-/Brau-Dialog-Muster:
+ * eigenes Template aoe-free-zone-dialog.hbs mit renderModern-Zweigen)
+ * statt des klassischen V1-Dialogs.
  */
 export async function placeFreeZone() {
 	if (!game.user?.isGM) return;
@@ -910,37 +1056,37 @@ export async function placeFreeZone() {
 		return;
 	}
 	const localize = (key) => game.i18n.localize(key);
-	const shapeOptions = Object.values(game.symbaroum.config.AOE_SHAPE_SELECTION)
-		.map((c) => `<option value="${c.id}">${localize(c.label)}</option>`)
-		.join('');
-	const targetingOptions = Object.values(game.symbaroum.config.AOE_TARGETING_SELECTION)
-		.map((c) => `<option value="${c.id}">${localize(c.label)}</option>`)
-		.join('');
-	const attrOptions =
-		`<option value="">${localize('AOE.RESIST_NONE')}</option>` +
-		game.symbaroum.config.attributes.map((a) => `<option value="${a}">${localize(`ATTRIBUTE.${a.toUpperCase()}`)}</option>`).join('');
 	// v2.1-Fix (Rudolfs Testrunde 1, Punkt 7): StatusEffects tragen in
 	// 'name' den i18n-KEY (Nebelball-Präzedenz Elixiere v1.2) - lokalisiert
-	// wird über 'label'
-	const conditionOptions =
-		`<option value="">${localize('AOE.CONDITION_NONE')}</option>` +
-		CONFIG.statusEffects.filter((e) => e.id)
-			.map((e) => `<option value="${e.id}">${game.i18n.localize(e.label ?? e.name ?? e.id)}</option>`)
-			.join('');
-	const content = `<p>${localize('AOE.FREE_HINT')}</p>
-<div class="form-group"><label>${localize('AOE.FREE_NAME')}</label><input type="text" id="aoe-free-name" value="${localize('AOE.FREE_DEFAULT_NAME')}"></div>
-<div class="form-group"><label>${localize('AOE.FIELD_SHAPE')}</label><select id="aoe-free-shape">${shapeOptions}</select></div>
-<div class="form-group"><label>${localize('AOE.FIELD_SIZE')}</label><input type="number" id="aoe-free-size" min="1" value="3"></div>
-<div class="form-group"><label>${localize('AOE.FIELD_TARGETING')}</label><select id="aoe-free-targeting">${targetingOptions}</select></div>
-<div class="form-group"><label>${localize('AOE.FIELD_RESIST')}</label><select id="aoe-free-resist">${attrOptions}</select></div>
-<div class="form-group"><label>${localize('AOE.FIELD_DAMAGE')}</label><input type="text" id="aoe-free-damage" placeholder="1d6"></div>
-<div class="form-group"><label>${localize('AOE.FIELD_DAMAGE_ROUND')}</label><input type="text" id="aoe-free-dpr" placeholder="1d4"></div>
-<div class="form-group"><label>${localize('AOE.FIELD_CORRUPTION')}</label><input type="text" id="aoe-free-corruption" placeholder="1d4"></div>
-<div class="form-group"><label>${localize('AOE.FIELD_CONDITION')}</label><select id="aoe-free-condition">${conditionOptions}</select></div>
-<div class="form-group"><label>${localize('AOE.FIELD_DURATION')}</label><input type="number" id="aoe-free-duration" min="0" value="0"></div>`;
-	new Dialog({
+	// wird über 'label'. v2.2: Option-Daten in JS vorbereitet (CSS-
+	// Checkliste), das Template rendert sie über den selectOptions-Helper
+	// (Brau-Dialog-Muster).
+	const shapeOptions = Object.values(game.symbaroum.config.AOE_SHAPE_SELECTION).map((c) => ({ id: c.id, label: localize(c.label) }));
+	const targetingOptions = Object.values(game.symbaroum.config.AOE_TARGETING_SELECTION).map((c) => ({ id: c.id, label: localize(c.label) }));
+	const attrOptions = [
+		{ id: '', label: localize('AOE.RESIST_NONE') },
+		...game.symbaroum.config.attributes.map((a) => ({ id: a, label: localize(`ATTRIBUTE.${a.toUpperCase()}`) })),
+	];
+	const conditionOptions = [
+		{ id: '', label: localize('AOE.CONDITION_NONE') },
+		...CONFIG.statusEffects
+			.filter((e) => e.id)
+			.map((e) => ({ id: e.id, label: game.i18n.localize(e.label ?? e.name ?? e.id) })),
+	];
+	const modern = isModernDialogActive();
+	const content = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/aoe-free-zone-dialog.hbs', {
+		renderModern: modern,
+		freeName: localize('AOE.FREE_DEFAULT_NAME'),
+		shapeOptions,
+		targetingOptions,
+		attrOptions,
+		conditionOptions,
+	});
+	symbDialog({
 		title: localize('AOE.FREE_TITLE'),
 		content,
+		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+		width: 440,
 		buttons: {
 			place: {
 				icon: '<i class="fas fa-draw-polygon"></i>',
@@ -949,7 +1095,7 @@ export async function placeFreeZone() {
 			},
 		},
 		default: 'place',
-	}).render(true);
+	});
 }
 
 async function _placeFreeZoneFromDialog(html) {
@@ -1002,11 +1148,79 @@ async function _placeFreeZoneFromDialog(html) {
 }
 
 /* =====================================================================
+ * v2.2 Baustein 9 (Rudolfs Anfrage + Freigabe 10.11.): Zielmarkierung
+ * auf die Zone beschränken - reaktives Undo + Warnung
+ * =================================================================== */
+
+/* Offene Ziel-Fenster: regionId -> { userId, sceneId }. Ein Fenster
+ * beschränkt die Zielmarkierungen seines Besitzers (pro Client wird nur
+ * der eigene User geprüft) auf Token INNERHALB der Zone - Fenster für
+ * eine Einmal-Zone steht deren gesamte Standzeit (placeZoneFromItem
+ * bis Auslösen/Abbrechen), das Fenster einer dauerhaften Zone nur
+ * während der Kettenausführung (_executeZoneTrigger). Andere User und
+ * Fenster-lose Zeiten sind nie eingeschränkt. */
+const _zoneTargetWindows = new Map();
+
+/** Ziel-Fenster einer Zone öffnen (Baustein 9). */
+function _openTargetWindow(region) {
+	if (!region?.id) return;
+	_zoneTargetWindows.set(region.id, { userId: game.user.id, sceneId: region.parent?.id ?? null });
+}
+
+/** Ziel-Fenster schließen (Zonen-Ende / Ende der Kettenausführung). */
+function _closeTargetWindow(regionId) {
+	if (regionId) _zoneTargetWindows.delete(regionId);
+}
+
+/**
+ * Liegt der Token in IRGENDEINEM offenen Fenster des eigenen Users?
+ * Die Innenraum-Prüfung läuft LIVE gegen die Region (Token können die
+ * Zone betreten/verlassen); tote Fenster (Region gelöscht) räumen sich
+ * bei der Prüfung selbst ab.
+ */
+function _tokenInsideAnyOpenZone(tokenId) {
+	for (const [regionId, win] of _zoneTargetWindows) {
+		if (win.userId !== game.user.id) continue;
+		const region = _getZoneRegion(regionId, win.sceneId);
+		if (!region) {
+			_zoneTargetWindows.delete(regionId);
+			continue;
+		}
+		if (_collectRegionTokens(region).some((td) => td.id === tokenId)) return true;
+	}
+	return false;
+}
+
+/* =====================================================================
  * Hooks: Chat-Karten-Tasten + Runden-Dispatcher (Registrierung über
  * registerAoeHooks in hooks.js - alle AoE-Listener an einem Ort)
  * =================================================================== */
 
 export function registerAoeHooks() {
+	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im
+	// aktiven Zonen-Fenster auf Token INNERHALB der Zone beschränken.
+	// Der targetToken-Hook ist per Hooks.callAll geschaltet (Signatur
+	// void) - eine Markierung lässt sich NICHT verhindern, nur rückgängig
+	// machen: Außen-Markierungen werden sofort wieder entfernt und mit
+	// Rudolfs Warntext quittiert (kosmetischer Nebeneffekt: der Ziel-Pip
+	// flackert kurz auf). Das eigene Undo feuert targetToken erneut mit
+	// targeted=false und wird ignoriert (keine Rekursion). Pro Client
+	// nur der eigene User; Fenster siehe _openTargetWindow.
+	Hooks.on('targetToken', (user, token, targeted) => {
+		if (!targeted) return;
+		if (user?.id !== game.user?.id) return;
+		if (_zoneTargetWindows.size === 0) return;
+		const tokenId = token?.document?.id ?? token?.id;
+		if (!tokenId) return;
+		if (_tokenInsideAnyOpenZone(tokenId)) return;
+		try {
+			token.setTarget(false);
+		} catch (error) {
+			console.warn('Symbaroum AoE: target undo failed', error);
+		}
+		ui.notifications.warn(game.i18n.localize('AOE.WARN_OUTSIDE_ZONE'));
+	});
+
 	// Zonen-Karte: Tasten für GM und Zone-Besitzer (Inhalt ist in der
 	// Nachricht gespeichert - Sichtbarkeit und Verdrahtung passieren
 	// pro Client im Render). v2.1-Fix (Rudolfs Testrunde 1, Punkt 6):
@@ -1063,7 +1277,13 @@ export function registerAoeHooks() {
 		if (!Number.isFinite(newRound) || newRound <= 0) return;
 		const last = _lastCombatRound.get(combat.id) ?? 0;
 		_lastCombatRound.set(combat.id, newRound);
-		if (combat.scene?.id !== game.scenes.viewed?.id) return;
+		/* v2.2-Fix (Rudolfs Testrunde 2, P13): combat.scene ist doku-
+		   belegt („reference to the Scene document"), im LIVE-Fork aber
+		   ungenutzt. Robust: fehlt die Referenz, läuft der Takt WEITER
+		   (aoeRoundTick filtert ohnehin auf die aktive Szene); nur eine
+		   Combat-Referenz auf eine ANDERE Szene bremst den Takt. */
+		const combatSceneId = combat.scene?.id ?? combat.parent?.id ?? null;
+		if (combatSceneId && combatSceneId !== game.scenes.viewed?.id) return;
 		if (newRound > last) aoeRoundTick('combat');
 	});
 	Hooks.on('deleteCombat', (combat) => _lastCombatRound.delete(combat.id));

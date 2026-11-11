@@ -1,0 +1,59 @@
+{{!-- AoE v2.2 (Rudolfs Testrunde 2, P4 - Rudolfs Design-Wunsch): Konfigurations-
+      dialog der freien Zone im modernen Dialog-Design - symbDialog mit
+      modernDialogClasses, Optik am Alchemie-/Brau-Dialog (brew-dialog.hbs-
+      Muster): renderModern-Zweige, Zeilen modern als m-roll-row, klassisch
+      als attribute, Option-Daten per selectOptions-Helper. Rendering via
+      foundry.applications.handlebars.renderTemplate (kein Partial, kein
+      preloadHandlebarsTemplates-Eintrag nötig). Feld-IDs unverändert zum
+      v2.1-Dialog (aoe-free-*), _placeFreeZoneFromDialog liest sie weiter. --}}
+<div class="symbaroum symb-aoe{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
+  <p class="aoe-free-hint">{{localize "AOE.FREE_HINT"}}</p>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-name">{{localize "AOE.FREE_NAME"}}</label>
+    <input id="aoe-free-name" type="text" value="{{freeName}}"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-shape">{{localize "AOE.FIELD_SHAPE"}}</label>
+    <select id="aoe-free-shape">
+      {{selectOptions shapeOptions valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-size">{{localize "AOE.FIELD_SIZE"}}</label>
+    <input id="aoe-free-size" type="number" min="1" value="3"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-targeting">{{localize "AOE.FIELD_TARGETING"}}</label>
+    <select id="aoe-free-targeting">
+      {{selectOptions targetingOptions valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-resist">{{localize "AOE.FIELD_RESIST"}}</label>
+    <select id="aoe-free-resist">
+      {{selectOptions attrOptions valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-damage">{{localize "AOE.FIELD_DAMAGE"}}</label>
+    <input id="aoe-free-damage" type="text" placeholder="1d6"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-dpr">{{localize "AOE.FIELD_DAMAGE_ROUND"}}</label>
+    <input id="aoe-free-dpr" type="text" placeholder="1d4"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-corruption">{{localize "AOE.FIELD_CORRUPTION"}}</label>
+    <input id="aoe-free-corruption" type="text" placeholder="1d4"/>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-condition">{{localize "AOE.FIELD_CONDITION"}}</label>
+    <select id="aoe-free-condition">
+      {{selectOptions conditionOptions valueAttr="id" labelAttr="label"}}
+    </select>
+  </div>
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-duration">{{localize "AOE.FIELD_DURATION"}}</label>
+    <input id="aoe-free-duration" type="number" min="0" value="0"/>
+  </div>
+</div>

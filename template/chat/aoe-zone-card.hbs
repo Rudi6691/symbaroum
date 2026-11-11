@@ -21,6 +21,11 @@
     {{#if effectText}}
     <div class="aoe-card-detail">{{effectText}}</div>
     {{/if}}
+    {{!-- AoE v2.2 (Rudolfs Entscheidung 3): Vermerk der letzten
+          Auslösung (Kampf = „Runde X", sonst Spielwelt-Uhrzeit) --}}
+    {{#if triggeredText}}
+    <div class="aoe-card-detail">{{triggeredText}}</div>
+    {{/if}}
     {{#if isInstant}}
     <div class="aoe-card-detail">{{localize "AOE.ONESHOT_HINT"}}</div>
     {{/if}}

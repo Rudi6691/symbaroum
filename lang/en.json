@@ -81,6 +81,7 @@
   "ABILITY_LABEL.WIZARDRY": "Wizardry",
   "ABILITY_LABEL.WRESTLING": "Wrestling",
   "ABILITY_ERROR.TARGET": "Choose one target",
+  "ABILITY_ERROR.TARGET_MANY": "Too many targets marked (maximum {max}).",
   "ABILITY_BERSERKER.CHAT_ACTIVATE": "{actorname} enters Berserker rage.",
   "ABILITY_BERSERKER.CHAT_DEACTIVATE": "{actorname} calms down and quits berserker rage.",
   "ABILITY_BERSERKER.CHAT_RESULT_DEACTIVATE": "Combat stats revert to normal.",
@@ -2461,6 +2462,8 @@
   "AOE.SETTING_PLAYERS_HINT": "Players who own the item may place areas from their own mystical powers (zone tab).",
   "AOE.TRIGGER_ENTER": "On enter",
   "AOE.TRIGGER_MANUAL": "Trigger button only",
+  "AOE.TRIGGERED_ROUND": "last triggered: round {round}",
+  "AOE.TRIGGERED_WORLD": "last triggered: {time}",
   "AOE.BUTTON_ABORT": "Cancel",
   "AOE.ABORT_MESSAGE": "Zone aborted (no effect)",
   "AOE.ONESHOT_HINT": "One-time effect: mark targets yourself if needed (the first marked target is the primary target), then trigger. The zone disappears afterwards.",
@@ -2472,5 +2475,6 @@
   "AOE.EXEC_TITLE": "{power} - Mode of execution",
   "AOE.EXEC_HINT": "How should the power be executed?",
   "AOE.EXEC_MANUAL": "Manual",
-  "AOE.EXEC_ZONE": "Place zone"
+  "AOE.EXEC_ZONE": "Place zone",
+  "AOE.WARN_OUTSIDE_ZONE": "The token is outside the area of effect. It cannot be targeted."
 }

@@ -81,6 +81,7 @@
   "ABILITY_LABEL.WIZARDRY": "Magierwissen",
   "ABILITY_LABEL.WRESTLING": "Ringen",
   "ABILITY_ERROR.TARGET": "Du musst ein Ziel auswählen.",
+  "ABILITY_ERROR.TARGET_MANY": "Zu viele Ziele markiert (maximal {max}).",
   "ABILITY_BERSERKER.CHAT_ACTIVATE": "{actorname} wird von der Berserkerwut erfasst.",
   "ABILITY_BERSERKER.CHAT_DEACTIVATE": "{actorname} beruhigt sich und die Berserkerwut verfliegt .",
   "ABILITY_BERSERKER.CHAT_RESULT_DEACTIVATE": "Die im Kampf verwendeten Eigenschaften werden zurückgesetzt.",
@@ -2461,6 +2462,8 @@
   "AOE.SETTING_PLAYERS_HINT": "Spieler mit Item-Besitz dürfen Flächen aus ihren eigenen Mystischen Kräften platzieren (Zone-Tab).",
   "AOE.TRIGGER_ENTER": "Beim Betreten",
   "AOE.TRIGGER_MANUAL": "Nur Auslöse-Taste",
+  "AOE.TRIGGERED_ROUND": "zuletzt ausgelöst: Runde {round}",
+  "AOE.TRIGGERED_WORLD": "zuletzt ausgelöst: {time}",
   "AOE.BUTTON_ABORT": "Abbrechen",
   "AOE.ABORT_MESSAGE": "Zone abgebrochen (ohne Wirkung)",
   "AOE.ONESHOT_HINT": "Einmalige Wirkung: Ziele bei Bedarf selbst markieren (zuerst markiertes Ziel ist das Primärziel), dann Auslösen. Die Zone verschwindet danach.",
@@ -2472,5 +2475,6 @@
   "AOE.EXEC_TITLE": "{power} - Art der Ausführung",
   "AOE.EXEC_HINT": "Wie soll die Kraft ausgeführt werden?",
   "AOE.EXEC_MANUAL": "Manuell",
-  "AOE.EXEC_ZONE": "Zone platzieren"
+  "AOE.EXEC_ZONE": "Zone platzieren",
+  "AOE.WARN_OUTSIDE_ZONE": "Token liegt außerhalb des Wirkbereichs. Nicht anwählbar."
 }
