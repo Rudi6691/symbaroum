@@ -2485,5 +2485,6 @@
   "AOE.CHAT_RESIST_LOST": "effect takes hold",
   "AOE.ERR_ZONE_NO_SHAPE": "Warning: This power has a zone configured (size, trigger or duration), but no shape is selected in the zone tab. The execution dialog will therefore be skipped. Please pick a shape in the zone tab.",
   "AOE.FREE_ZONEATTR_HINT": "Zone attribute:",
-  "AOE.FREE_FAVOUR_HINT": "Zone favour: The zone's favour is mirrored onto the entering tokens' rolls (zone favour = the token rolls with ill favour, i.e. worse d20s)."
+  "AOE.FREE_FAVOUR_HINT": "Zone favour: The zone's favour is mirrored onto the entering tokens' rolls (zone favour = the token rolls with ill favour, i.e. worse d20s).",
+  "AOE.CASTER_LINE": "Originator: {name}"
 }

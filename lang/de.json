@@ -2485,5 +2485,6 @@
   "AOE.CHAT_RESIST_LOST": "Wirkung greift",
   "AOE.ERR_ZONE_NO_SHAPE": "Warnung: Diese Kraft hat eine Zone konfiguriert (Größe, Auslöser oder Dauer), aber im Zone-Tab ist keine Form gewählt. Der Ausführungsdialog wird daher übersprungen. Bitte im Zone-Tab eine Form wählen.",
   "AOE.FREE_ZONEATTR_HINT": "Zonenattribut:",
-  "AOE.FREE_FAVOUR_HINT": "Gunst der Zone: Die Gunst der Zone spiegelt sich auf die Würfe der eintretenden Token (Gunst der Zone = Token würfelt mit Missgunst, also schlechtere W20)."
+  "AOE.FREE_FAVOUR_HINT": "Gunst der Zone: Die Gunst der Zone spiegelt sich auf die Würfe der eintretenden Token (Gunst der Zone = Token würfelt mit Missgunst, also schlechtere W20).",
+  "AOE.CASTER_LINE": "Auslöser: {name}"
 }

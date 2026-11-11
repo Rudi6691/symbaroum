@@ -617,6 +617,18 @@ Hooks.once('init', () => {
 		type: TraditionsKnownConfig,
 		restricted: true,
 	});
+	/* AoE v2.5 (Baustein h - Weltzeit-A29-Reminder): technischer Marker
+	   fuer den 15-Minuten-Weltzeit-Takt des Maintain-Reminders ausserhalb
+	   aktiver Kämpfe (letzte abgearbeitete 15-Min-Marke in Sekunden
+	   Weltzeit). Kein config: true - reine interne Buchhaltung. */
+	game.settings.register('symbaroum', 'a29LastWorldtimeReminder', {
+		name: 'A29 last world-time maintain reminder',
+		hint: 'Technical marker for the 15-minute world-time maintain reminder.',
+		scope: 'world',
+		type: Number,
+		default: 0,
+		config: false,
+	});
 
 	game.symbaroum.macros = new SymbaroumMacros();
 
@@ -1460,6 +1472,45 @@ Hooks.on('updateCombat', async (combat, changed) => {
 			game.socket.emit('system.symbaroum', { type: 'a29MaintainReminder', data: { userId: owner.id, actorId: actor.id, abilityRef: group.abilityRef, targetCount: group.targets } });
 		} else {
 			a29ShowReminderDialog(actor, group.abilityRef, group.targets);
+		}
+	}
+});
+
+/* AoE v2.5 (Baustein h - Weltzeit-Maintain-Reminder, Rudolfs Entschei-
+   dung 4): Der A29-Reminder lief bisher NUR im Kampftracker (update-
+   Combat). Ohne aktiven Kampf aber altert die Welt weiter (Szene-/
+   Weltzeit-Takt, Amboss-Modul & Co. feuern updateWorldTime), gehaltene
+   Kräfte altern aber mit - der Spieler erfuhr es erst beim nächsten
+   Kampf. Dieser Sweep läuft daher alle 15 Minuten WELTZEIT, sobald KEIN
+   Kampf aktiv ist (im Kampf gewinnt der Kampftracker-Takt, hier steht
+   ein Frueh-Return). Reminder-basiert wie der Kampftracker: der eigen-
+   tuemliche Spieler entscheidet (Socket a29MaintainReminder), der GM ist
+   Fallback. Guard-Key pro 15-Min-Marke + Akteur + Kraft verhindert
+   Doppelausloesungen. */
+Hooks.on('updateWorldTime', async (worldTime) => {
+	if (!game.user.isActiveGM) return;
+	if (game.combat?.active) return;
+	const SLICE = 15 * 60;
+	const mark = Math.floor(Number(worldTime ?? 0) / SLICE);
+	const last = Number(game.settings.get('symbaroum', 'a29LastWorldtimeReminder') ?? 0);
+	if (mark <= last) return;
+	game.settings.set('symbaroum', 'a29LastWorldtimeReminder', mark);
+	const seen = new Set();
+	for (const token of canvas.tokens?.placeables ?? []) {
+		const actor = token?.actor;
+		if (!actor || seen.has(actor.id)) continue;
+		seen.add(actor.id);
+		const groups = a29ScanMaintainedPowers(actor);
+		for (const group of groups.values()) {
+			const guardKey = `worldtime:${mark}:${actor.id}:${group.abilityRef}`;
+			if (a29ReminderGuard.has(guardKey)) continue;
+			a29ReminderGuard.add(guardKey);
+			const owner = game.users?.find((user) => user.active && !user.isGM && actor.testUserPermission(user, 'OWNER'));
+			if (owner) {
+				game.socket.emit('system.symbaroum', { type: 'a29MaintainReminder', data: { userId: owner.id, actorId: actor.id, abilityRef: group.abilityRef, targetCount: group.targets } });
+			} else {
+				a29ShowReminderDialog(actor, group.abilityRef, group.targets);
+			}
 		}
 	}
 });

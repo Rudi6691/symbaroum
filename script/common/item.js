@@ -4407,13 +4407,46 @@ async function captureZoneActivationSnapshot(functionStuff) {
       attributeValue: Number.isFinite(attributeValue) ? attributeValue : 10,
       modifier: Number(functionStuff.zoneDialogModifier ?? functionStuff.modifier) || 0,
       favour: Number(functionStuff.zoneDialogFavour ?? functionStuff.favour) || 0,
+      /* v2.5 (Baustein d - Bannsiegel-Kategorie im Snapshot): die
+         Kateogrie-Auswahl des Aktivierungsdialogs (Bannsiegel-Pfade)
+         wandert mit in den Snapshot, damit Folge-Ausloesungen (Betreten,
+         Maintain-Runde, Ausloese-Taste) dieselbe Kategorie verwenden,
+         ohne dass der Spieler erneut gefragt wird oder die Kategorie im
+         Folge-Pfad undefiniert bleibt (Rudolfs Testrunde 5, Punkt 12a). */
+      sealCategoryId: functionStuff.sealCategoryId ?? null,
     };
     await region.setFlag('symbaroum', 'aoe', aoe);
+    /* v2.5 (Baustein a - In-Flight-Guard): erst NACH dem Snapshot ist die
+       Aktivierung abgeschlossen - die Guard-Map in aoe.js wird freigegeben
+       (ENTER-Events, die während des Dialogs hereinschossen, laufen ab
+       jetzt wieder normal in den Aktivierungs-/Snapshot-Pfad). */
+    await game.symbaroum.api?.aoeZoneActivationCompleted?.(regionId, sceneId);
     if (endAfter) {
       await game.symbaroum.api?.aoeConcludeInstantZone?.(regionId, sceneId);
     }
   } catch (error) {
     console.warn('Symbaroum AoE: activation snapshot capture failed', error);
+  }
+}
+
+/* v2.5 (Baustein e - Rueckbau der Zielmarkierungen): executeZonePower
+   markiert die Zonenziele mit setTarget (sichtbare Fadenkreuze). Bei
+   Zonen-Ausloesungen bleiben diese Markierungen nach der Ausfuehrung
+   stehen - der Rueckbau fehlte komplett (Rudolfs Testrunde 5, Punkt 13).
+   Dieser Helper entfernt die Markierungen aller zoneChainTargets-Ids
+   einmalig, OHNE die Markierungen anderer Nutzer anzutasten
+   (releaseOthers: false). Aufruf nach jedem resultFunction-Return im
+   Zonen-Pfad (buildRolls und executeZonePower preset-Zweig). Ohne
+   zoneChainTargets ist der Helper wirkungslos - normale Wuerfe
+   behalten ihr Foundry-Standard-Verhalten. */
+function releaseZoneTargets(functionStuff) {
+  const ids = functionStuff?.zoneChainTargets;
+  if (!ids || ids.size === 0) return;
+  const scene = game.scenes.viewed;
+  if (!scene) return;
+  for (const tokenId of ids) {
+    const tokenDoc = scene.tokens.get(tokenId) ?? scene.getEmbeddedDocument('Token', tokenId);
+    tokenDoc?.object?.setTarget(false, { releaseOthers: false });
   }
 }
 
@@ -4436,7 +4469,11 @@ export async function buildRolls(functionStuff) {
     // (Black Breath rolls d4/d6 against the total corruption) - every
     // other CASTING_NOT power keeps the standard result without a roll
     const resultFunction = getPowerResultFunction(functionStuff);
-    return await resultFunction(null, functionStuff);
+    const res = await resultFunction(null, functionStuff);
+    /* v2.5 (Baustein e): Zielmarkierungen der Zonen-Ausfuehrung nach
+       dem Ergebnis freigeben (nur Zonen-Pfade mit zoneChainTargets). */
+    releaseZoneTargets(functionStuff);
+    return res;
   }
   let isWeaponRoll = functionStuff.combat;
   let rollData = [];
@@ -4477,7 +4514,11 @@ export async function buildRolls(functionStuff) {
     return await attackResult(rollData, functionStuff);
   } else {
     const resultFunction = getPowerResultFunction(functionStuff);
-    return await resultFunction(rollData, functionStuff);
+    const res = await resultFunction(rollData, functionStuff);
+    /* v2.5 (Baustein e): Zielmarkierungen der Zonen-Ausfuehrung nach
+       dem Ergebnis freigeben (nur Zonen-Pfade mit zoneChainTargets). */
+    releaseZoneTargets(functionStuff);
+    return res;
   }
 }
 
@@ -4621,6 +4662,21 @@ function zoneChainDone(functionStuff, handled) {
   return true;
 }
 
+/* v2.5 (Baustein b - Mehrziel-Aktivierung ohne Kettendialog): Bei
+   Zonen-Ausloesungen (executeZonePower) stehen alle Ziele von Anfang an
+   fest und werden automatisch in Zielwahl-Reihenfolge abgearbeitet.
+   Dieser Wrapper unterdrueckt daher die 'Weiteres Ziel?'-Bestaetigung
+   fuer ALLE call-sites, sobald zoneChainTargets gesetzt ist: es
+   bleiben noch unhandled Ziele uebrig, wird true geliefert (Kette
+   laeuft weiter, ganz ohne Dialog); ist die Kette durch, liefert false
+   (zoneChainDone-Guard greift ohnehin). Ohne zoneChainTargets (normales
+   Wirken) verhaelt sich der Helper 1:1 wie glyphNextTargetConfirmation
+   - der Kettendialog bleibt dort unberuehrt. */
+async function zoneChainContinue(functionStuff, questionKey) {
+  if (functionStuff?.zoneChainTargets?.size > 0) return true;
+  return glyphNextTargetConfirmation(functionStuff, questionKey);
+}
+
 function chainTargetConfirmation(functionStuff, target, damageDice) {
   return new Promise((resolve) => {
     const key =
@@ -4735,7 +4791,7 @@ async function banishingSealChainResult(rollData, functionStuff) {
   const handled = new Set([functionStuff.targetData.tokenId]);
   const savedCorruption = functionStuff.corruption;
   functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
-  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET"))) {
+  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET"));
@@ -4899,7 +4955,7 @@ async function priosBurningGlassResult(rollData, functionStuff) {
   const savedCorruption = functionStuff.corruption;
   functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
   const handled = new Set([functionStuff.targetData.tokenId]);
-  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET"))) {
+  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET"));
@@ -5084,7 +5140,7 @@ async function holyAuraResult(rollData, functionStuff) {
   // loop 1 - damage (every level): abominations, undead and thoroughly
   // corrupt creatures (A36V test round: the corrupt evaluation joins the
   // two category flags - isThoroughlyCorruptTarget with the Abso. fallback)
-  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ENEMY"))) {
+  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ENEMY"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
@@ -5135,7 +5191,7 @@ async function holyAuraResult(rollData, functionStuff) {
   // (A35 heal resource, ticks at the START of the ally's own turn)
   let allyCorruption = 0;
   if (functionStuff.powerLvl.level > 1) {
-    while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY"))) {
+    while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY"))) {
       const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
       if (!nextToken) {
         ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
@@ -5303,7 +5359,7 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
   const handled = new Set([functionStuff.targetData.tokenId]);
   // v2.3 zoneChainDone: alle Zonenziele abgearbeitet = kein Dialog mehr
-  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff))) {
+  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET"));
@@ -5368,7 +5424,7 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   // opts.followUpsFree turns that on per power, everything else keeps A20
   if (opts.followUpsFree === true) functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
   const handled = new Set([functionStuff.targetData.tokenId]);
-  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
+  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
@@ -5501,7 +5557,7 @@ async function levitateChainResult(rollData, functionStuff) {
 async function blackbreathChainResult(rollData, functionStuff) {
   if (functionStuff.powerLvl.level < 3) return;
   const handled = new Set([functionStuff.targetData.tokenId]);
-  while (!functionStuff.blackbreathHealed && !zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
+  while (!functionStuff.blackbreathHealed && !zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
@@ -8438,7 +8494,7 @@ export async function executeZonePower(
   actor,
   ability,
   targetTokens,
-  { suppressCorruption = true, zoneActivation = null, zoneSourceName = '', presetRollData = null, zoneApplyDirect = false } = {}
+  { suppressCorruption = true, zoneActivation = null, zoneSourceName = '', presetRollData = null, zoneApplyDirect = false, zoneExtras = null } = {}
 ) {
   if (!actor || !ability || !Array.isArray(targetTokens) || targetTokens.length === 0) return;
   const specificStuff = actor.system?.combat?.combatMods?.abilities?.[ability.id];
@@ -8498,6 +8554,15 @@ export async function executeZonePower(
   }
   const fsDefault = await ability.getFunctionStuffDefault(actor, actingToken);
   const functionStuff = Object.assign({}, fsDefault, stuff);
+  /* v2.5 (Baustein d - Bannsiegel-Kategorie bei Folge-Ausloesungen): der
+     Aktivierungs-Snapshot hat die Kategorie des Aktivierungsdialogs fest-
+     gehalten (captureZoneActivationSnapshot); aoe.js reicht sie als
+     zoneExtras.sealCategoryId durch. Ohne sie blieb die Kategorie im
+     Folge-Pfad undefiniert (Rudolfs Testrunde 5, Punkt 12a: sealCategory-
+     Filter liefen ins Leere). */
+  if (zoneExtras?.sealCategoryId !== undefined && zoneExtras.sealCategoryId !== null) {
+    functionStuff.sealCategoryId = zoneExtras.sealCategoryId;
+  }
   // v2.3 (Rudolfs Testrunde 3, Punkt 7 - Kettendialog-Auto-Ende): die
   // Zonenziele als Token-Id-Menge mitfuehren - zoneChainDone ueberspringt
   // die 'Weiteres Ziel?'-Bestaetigung, sobald die Kette alle abgearbeitet
@@ -8540,6 +8605,10 @@ export async function executeZonePower(
     if (zoneSourceName) _applyZoneCardSource(functionStuff, zoneSourceName);
     const resultFunction = getPowerResultFunction(functionStuff);
     await resultFunction(presetRollData, functionStuff);
+    /* v2.5 (Baustein e): Zielmarkierungen nach der Zonen-Ausfuehrung
+       freigeben - sie blieben sonst als Fadenkreuze stehen (Rudolfs
+       Testrunde 5, Punkt 13). */
+    releaseZoneTargets(functionStuff);
   } else {
     await buildRolls(functionStuff);
   }

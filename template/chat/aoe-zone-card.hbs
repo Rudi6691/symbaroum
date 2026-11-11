@@ -12,6 +12,12 @@
     <div class="aoe-card-line">
         <i class="fas fa-draw-polygon"></i><b>{{name}}</b>
     </div>
+    {{!-- AoE v2.5 (Baustein i - Auslöser-Name auf der Zonen-Karte):
+          Zeile unter dem Zonen-Namen, wer die Zone gewirkt hat
+          (casterText aus aoe.js _zoneCardContext, AOE.CASTER_LINE). --}}
+    {{#if casterText}}
+    <div class="aoe-card-detail">{{casterText}}</div>
+    {{/if}}
     {{#if durationText}}
     <div class="aoe-card-detail">{{modeText}} &middot; {{areaText}} &middot; {{durationText}}</div>
     {{else}}
@@ -30,7 +36,15 @@
     <div class="aoe-card-detail">{{localize "AOE.ONESHOT_HINT"}}</div>
     {{/if}}
     <div class="aoe-card-buttons">
+        {{!-- AoE v2.5 (Baustein c - Rudolfs Testrunde 5, P8): die
+              Auslöse-Taste verschwindet nach der Aktivierung bei ALLEN
+              dauerhaften Zonen - Markierungszonen aktivieren genau EINMAL
+              (Snapshot), danach treiben Betreten/Maintain-Runde die Zone
+              gegen den Snapshot. Einmal-Zonen (instant) enden ohnehin
+              mit der Aktivierung. --}}
+        {{#unless isActivated}}
         <button type="button" class="aoe-zone-btn" data-aoe-zone-action="trigger"><i class="fas fa-bolt"></i> {{localize "AOE.BUTTON_TRIGGER"}}</button>
+        {{/unless}}
         {{#if showRound}}
         <button type="button" class="aoe-zone-btn" data-aoe-zone-action="round"><i class="fas fa-hourglass-half"></i> {{localize "AOE.BUTTON_ROUND"}}</button>
         {{/if}}

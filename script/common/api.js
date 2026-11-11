@@ -17,7 +17,7 @@ import { isStackableItem, getStackKey, findStackTarget, mergeStackDrop, splitSta
 // AoE Stufe 2 (Freigabe 2a+2b, 09.11.2026): öffentliche Zonen-API für
 // Script-Behaviors (aoeZoneEnter), Zonen-Karten-Tasten und Makros (freie
 // Zone platzieren) - siehe aoe.js
-import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone, aoeMaintainZoneRound, aoeConcludeInstantZone } from './aoe.js';
+import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone, aoeMaintainZoneRound, aoeConcludeInstantZone, aoeZoneActivationCompleted } from './aoe.js';
 
 export class SymbaroumAPI
 {
@@ -76,6 +76,10 @@ export class SymbaroumAPI
         // (Kraft mit targetOrder=marking + instant endet nach Aktivierung).
         this.aoeMaintainZoneRound = aoeMaintainZoneRound;
         this.aoeConcludeInstantZone = aoeConcludeInstantZone;
+        // AoE v2.5: Freigabe der In-Flight-Guards nach abgeschlossener
+        // Zonen-Aktivierung (item.js captureZoneActivationSnapshot ruft
+        // diesen Hook-on nach dem Region-Flag-Write; siehe aoe.js).
+        this.aoeZoneActivationCompleted = aoeZoneActivationCompleted;
     }
 
 

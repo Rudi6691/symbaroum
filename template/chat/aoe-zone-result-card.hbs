@@ -1,27 +1,31 @@
-{{!-- AoE v2.4 (Rudolfs Testrunde 4, Punkt 9 + neuer Punkt, 11.11.2026):
+{{!-- AoE v2.5 (Baustein j, Rudolfs Entscheidung 3, 11.11.2026): GROSSE
       Standard-Ergebniskarte je Ziel für Zonen-Wirkungen (freie Zonen und
-      Kraft-Zonen-Folge-Auslösungen): Titel „{Zone} wirkt auf {Ziel + Icon}",
-      danach die Probenwerte („Zonenattribut ({Wert}) ← Widerstands-Attribut
-      ({Wert})"), das Würfelergebnis (W20-Span im System-Look) und die
-      Wirkung. Öffentliche Karte (keine Flüster-Mini-Karte mehr). Rendering
-      via foundry.applications.handlebars.renderTemplate (aoe-Muster), alle
-      Strings werden in aoe.js zusammengesetzt (i18n + _escapeHtml), das
-      Template bleibt dumb. Styling: aoe-card-Klassen der Zonen-Karte
-      (css/symbaroum.css, unverändert), das Ziel-Icon läuft inline. --}}
-<div class="symbaroum chat aoe-card aoe-zone-result-card">
-    <div class="aoe-card-line">
-        <i class="fas fa-draw-polygon"></i><b>{{titleText}}</b>
+      Kraft-Zonen-Folge-Auslösungen), Struktur der Kraft-Ergebniskarten
+      (template/chat/ability.hbs): introImg-Header mit Auslöser-Aktor und
+      Ziel-Icon, targetText (Probenwerte), subText (Zonenname) und
+      finalTxt-Blöcke (Würfelergebnis, Wirkung). Die ZONE ist der
+      Auslöser-Aktor; als Header-Icon führt sie ein Polygon-Glyph in der
+      Zonenfarbe (SVG-Data-URI aus aoe.js _zoneGlyphDataUri - freie Zonen
+      haben kein Item-Bild). Öffentliche Karte (keine Flüster-Mini-Karte).
+      Rendering via foundry.applications.handlebars.renderTemplate
+      (aoe-Muster); alle Strings werden in aoe.js zusammengesetzt (i18n +
+      _escapeHtml), das Template bleibt dumb. Styling: ability-Klassen
+      (css/symbaroum.css, unverändert). --}}
+<div class="symbaroum chat ability aoe-zone-result-card">
+    <div class="foreground">
+        <div class="introImg" style="background-image: url('{{zoneImg}}')">
+            <div class="introTxt">{{titleText}}</div>
+            {{#if targetImg}}
+            <div class="introImg" style="background-image: url('{{targetImg}}')"></div>
+            {{/if}}
+            <div class="targetText">{{probeText}}</div>
+        </div>
+        <div class="subText">{{zoneName}}</div>
+        {{#if rollText}}
+        <div class="finalTxt"><p>{{{rollText}}}</p></div>
+        {{/if}}
+        {{#each outcomeLines}}
+        <div class="finalTxt"><p>{{{this}}}</p></div>
+        {{/each}}
     </div>
-    {{#if targetImg}}
-    <div class="aoe-card-detail"><img class="aoe-result-target-img" src="{{targetImg}}" style="width: 1.6rem; height: 1.6rem; border: 0; vertical-align: middle; border-radius: 0.2rem;" alt=""/></div>
-    {{/if}}
-    {{#if probeText}}
-    <div class="aoe-card-detail">{{probeText}}</div>
-    {{/if}}
-    {{#if rollText}}
-    <div class="aoe-card-detail">{{{rollText}}}</div>
-    {{/if}}
-    {{#each outcomeLines}}
-    <div class="aoe-card-detail">{{{this}}}</div>
-    {{/each}}
 </div>

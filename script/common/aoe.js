@@ -351,6 +351,14 @@ const ZONE_ENTER_BEHAVIOR_SOURCE = [
 	'if (!game.users.activeGM?.isSelf) return;',
 	'const r = (typeof region !== "undefined") ? region : null;',
 	'const ev = (typeof event !== "undefined") ? event : null;',
+	/* v2.5 (Rudolfs Testrunde 5, P16-Root-Cause): Foundry feuert TOKEN_ENTER
+	   auch, wenn das Behavior AKTIV wird (Region-Platzierung) - dann steht
+	   moved === false im Event (nur echte BEWEGUNG hat moved === true,
+	   Foundry-Issue #10518 / CONST.REGION_EVENTS-Doku). Ohne diesen Check
+	   feuert die Zone beim Platzieren fuer jede bereits STEHENDE Token
+	   ein zweites Mal (v2.4-Befund: 3 Wuerfeldialoge + 3x Korruption
+	   bei 2 stehenden Zielen, v2.3-Befund: die 4x/2x/2x-Mehrfachproben). */
+	'if (ev?.data?.moved === false) return;',
 	'const mk = (typeof token !== "undefined") ? token : null;',
 	'const t = ev?.data?.token ?? ev?.token ?? mk ?? null;',
 	'const rid = r?.id ?? r?.document?.id ?? null;',
@@ -454,6 +462,14 @@ async function _zoneCardContext(region) {
 	}
 	// v2.2 (Rudolfs Entscheidung 3): Vermerk der letzten Auslösung
 	const triggeredText = aoe.lastTriggered ? _lastTriggeredText(aoe.lastTriggered) : '';
+	/* v2.5 (Rudolfs Testrunde 5, Punkte 12a + 15): Auslöser-Zeile (Name
+	   des Wirkers aus den Flags - auch wenn der GM ausführt) und
+	   Aktiviert-Zustand (nach der Aktivierung verschwindet die
+	   „Auslösen"-Taste, nur „Zone beenden" bleibt). */
+	const casterActor = aoe.sourceActorUuid ? fromUuidSync(aoe.sourceActorUuid) : null;
+	const casterText = casterActor?.name
+		? game.i18n.format('AOE.CASTER_LINE', { name: _escapeHtml(casterActor.name) })
+		: '';
 	return {
 		regionId: region.id,
 		sceneId: region.parent?.id,
@@ -464,6 +480,8 @@ async function _zoneCardContext(region) {
 		tokensText,
 		effectText,
 		triggeredText,
+		casterText,
+		isActivated: !!aoe.activated,
 		isInstant,
 		showRound: !!(aoe.free && !isInstant && aoe.effect && (aoe.effect.damagePerRound || aoe.effect.corruptionPerRound)),
 	};
@@ -518,6 +536,16 @@ async function _postZoneCard(region) {
  *  Spieler-Client darf eine GM-Karte nicht löschen), bleibt die alte
  *  Karte stehen und es entsteht keine Doppel-Karte. */
 async function _updateZoneCards(region) {
+	/* v2.5 (Testrunde 5, zu 16): je Region serialisiert - konkurrierende
+	   Delete+Recreate-Läufe (Mehrfach-Aktivierung) erzeugten den
+	   „ChatMessage does not exist"-Socket-Fehler. */
+	const previous = _zoneCardQueue.get(region.id) ?? Promise.resolve();
+	const run = previous.catch(() => {}).then(() => _updateZoneCardsNow(region));
+	_zoneCardQueue.set(region.id, run.catch(() => {}));
+	await run;
+}
+
+async function _updateZoneCardsNow(region) {
 	const context = await _zoneCardContext(region);
 	const content = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/aoe-zone-card.hbs', context);
 	const sceneId = region.parent?.id;
@@ -542,10 +570,18 @@ async function _updateZoneCards(region) {
 /** Zonen-Karten nach dem Ende der Zone still deaktivieren. */
 async function _settleZoneCards(region, endText) {
 	const sceneId = region.parent?.id;
+	/* v2.5 (Rudolfs Testrunde 5, Punkt 15): die Ende-Karte nennt den
+	   AUSLÖSER der Zone mit Namen (auch wenn der GM beendet) - die Zone
+	   führt ihn in ihren Flags mit. */
+	const casterActor = region.flags?.symbaroum?.aoe?.sourceActorUuid ? fromUuidSync(region.flags.symbaroum.aoe.sourceActorUuid) : null;
+	const casterLine =
+		casterActor?.name
+			? `<div class="aoe-card-detail">${_escapeHtml(game.i18n.format('AOE.CASTER_LINE', { name: casterActor.name }))}</div>`
+			: '';
 	for (const message of game.messages ?? []) {
 		const card = message.flags?.symbaroum?.aoeZoneCard;
 		if (card?.regionId === region.id && (card.sceneId === sceneId || !card.sceneId)) {
-			await message.update({ content: `<div class="symbaroum aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region.name)}</b></div><div class="aoe-card-detail">${_escapeHtml(endText)}</div></div>` });
+			await message.update({ content: `<div class="symbaroum aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region.name)}</b></div><div class="aoe-card-detail">${_escapeHtml(endText)}</div>${casterLine}</div>` });
 		}
 	}
 }
@@ -628,7 +664,21 @@ function _resolveZoneTargets(region, aoe, { auto = false } = {}) {
 		if (userTargets.length > 0) return userTargets;
 	}
 	const tokens = _filterTargets(regionTokens, aoe.config.targeting, _casterTokenOfZone(aoe));
-	if (aoe.config.targetOrder === 'nearest') {
+	return _sortZoneTokens(region, tokens);
+}
+
+/**
+ * Zielwahl-Sortierung einer Zone (v2.5, Rudolfs Testrunde 5, P5-Kommentar
+ * + Entscheidung 1): 'nearest' sortiert nach Distanz zum Zonenmittelpunkt
+ * (aufsteigend) - jetzt als gemeinsamer Helper fuer ALLE Ausfuehrungs-
+ * pfade (Anfangsbestand/Ausloesung via _resolveZoneTargets, Maintain-
+ * Runde, Folge-Proben), vorher sortierte nur der Trigger-Pfad und die
+ * Maintain-Runde lief in Szenenreihenfolge los ("hat zwei Mal mit dem
+ * entferntesten Token begonnen").
+ */
+function _sortZoneTokens(region, tokens) {
+	const aoe = region?.flags?.symbaroum?.aoe;
+	if (aoe?.config?.targetOrder === 'nearest') {
 		const center = _regionCenter(region);
 		if (center) {
 			return [...tokens].sort((a, b) => _tokenDistance(a, center) - _tokenDistance(b, center));
@@ -648,6 +698,16 @@ function _resolveZoneTargets(region, aoe, { auto = false } = {}) {
 async function _executeZoneTrigger(region, { manual = false, enteringTokenId = null } = {}) {
 	const aoe = region.flags?.symbaroum?.aoe;
 	if (!aoe) return;
+	/* v2.5 (Rudolfs Testrunde 5, P16): In-Flight-Guard - waehrend der
+	   AKTIVIERUNGSDIALOG offen ist, keine zweite Ausloesung derselben
+	   Region stapeln (jede wuerde einen eigenen Dialog + 1x Korruption
+	   buchen). Nach 5 Minuten ohne Aktivierungs-Abschluss gilt der
+	   Eintrag als verwaist (Dialog abgebrochen) und raeumt sich selbst. */
+	const inFlightSince = _zoneActivationInFlight.get(region.id);
+	if (inFlightSince !== undefined) {
+		if (Date.now() - inFlightSince > 5 * 60 * 1000) _zoneActivationInFlight.delete(region.id);
+		else return;
+	}
 	/* v2.4 (Rudolfs Testrunde 4, Zonenmodell): BETRETEN trifft NUR den
 	   Eintretenden - die frühere Voll-Auslösung über ALLE Zonen-Token
 	   je Betreten (inkl. Korruption je Auslösung + Kettendialog, Wurzel
@@ -714,6 +774,10 @@ async function _runPowerZone(region, tokens) {
 		   dem Würfeldialog (Entscheidung i). Danach ist die Instanz
 		   aktiviert: jede Folge-Auslösung würfelt gegen den Snapshot,
 		   kostenlos (Entscheidung b). */
+		/* v2.5 (Testrunde 5, P16): In-Flight-Marke setzen - der Dialog
+		   laeuft asynchron, bis zum Abschluss (aoeZoneActivationCompleted
+		   aus captureZoneActivationSnapshot) keine weitere Ausloesung. */
+		_zoneActivationInFlight.set(region.id, Date.now());
 		await executeZonePower(actor, item, tokens, {
 			suppressCorruption: false,
 			zoneActivation: { regionId: region.id, sceneId: region.parent?.id, endAfter: aoe.mode === 'instant' },
@@ -738,13 +802,19 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 	const specificStuff = actor.system?.combat?.combatMods?.abilities?.[item.id] ?? {};
 	const resistAttribute = specificStuff.targetResistAttribute ?? null;
 	const snapshot = aoe.snapshot ?? null;
+	/* v2.5 (Rudolfs Testrunde 5, 12a): die bei der AKTIVIERUNG gewaehlte
+	   Bannsiegel-Kategorie (Monsterkategorie) gehoert zum Aktivierungs-
+	   Snapshot - ohne das Restore an jede Folge-Ausloesung waere der
+	   Kategorie-Filter der Kraft wirkungslos ("alle Token muessen
+	   widerstehen"). */
+	const zoneExtras = snapshot?.sealCategoryId ? { sealCategoryId: snapshot.sealCategoryId } : null;
 	for (const tokenDoc of tokens) {
 		const tokenActor = tokenDoc.actor;
 		if (!tokenActor) continue;
 		/* Kein Snapshot bzw. keine Probe konfiguriert (z. B. unwider-
 		   stehliche Kräfte): Wirkung direkt, weiterhin ohne Kosten. */
 		if (!snapshot || !snapshot.attributeName || !resistAttribute || specificStuff.notResisted) {
-			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName: region.name, zoneApplyDirect: true });
+			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName: region.name, zoneApplyDirect: true, zoneExtras });
 			continue;
 		}
 		/* Snapshot-Probe im Resist-Modus (Anathema-Muster A24-F2): der
@@ -759,7 +829,7 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 		if (rollData[0].trueActorSucceeded) {
 			/* Die Zone setzt sich durch: Wirkung über die Kraft-Automatik,
 			   Zone als Karten-Quelle (Entscheidung g). */
-			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName: region.name, presetRollData: rollData });
+			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName: region.name, presetRollData: rollData, zoneExtras });
 		} else {
 			await _postZoneProbeResistCard(region, tokenDoc, snapshot, resistAttribute, rollData[0]);
 			if (maintainRound) await _removeZoneSymbols(region, actor, item, tokenDoc);
@@ -988,6 +1058,14 @@ async function _applyFreeZoneEffect(region, tokenDoc, eff, cardLines = null) {
  * auf {Ziel + Icon}", darunter Probenwerte, Würfelergebnis und Wirkung.
  * Öffentliche Karte (Standard-Verhalten der Ergebnis-Karten, keine
  * Flüster-Karte mehr).
+ * v2.5 (Rudolfs Testrunde 5, P9-Kommentar + Rudolfs Entscheidung 3): die
+ * Karte läuft in der GROSSEN Optik der Kraft-Ergebniskarten (Struktur
+ * template/chat/ability.hbs: introImg-Header mit Auslöser-Aktor + Icon,
+ * targetText, subText, finalTxt-Blöcke) - die ZONE ist der Auslöser-
+ * Aktor, als Header-Icon führt sie ein Polygon-Glyph in der Zonenfarbe
+ * mit (freie Zonen haben kein Item-Bild). Gilt für freie Zonen UND die
+ * Widerstands-Karten der Kraft-Zonen-Folge-Auslösungen (einheitliches
+ * Kartenbild: Wirkung = Standard-Kraftkarte, Widerstand = diese Karte).
  */
 async function _postZoneResultCard(region, tokenDoc, { probeText = '', rollText = '', outcomeLines = [] } = {}) {
 	const targetName = tokenDoc?.actor?.name ?? tokenDoc?.name ?? '';
@@ -1001,12 +1079,25 @@ async function _postZoneResultCard(region, tokenDoc, { probeText = '', rollText 
 		probeText,
 		rollText,
 		outcomeLines,
+		zoneName: _escapeHtml(region?.name ?? ''),
+		zoneImg: _zoneGlyphDataUri(region),
 	};
 	const content = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/aoe-zone-result-card.hbs', context);
 	await ChatMessage.create({
 		speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
 		content,
 	});
+}
+
+/**
+ * Header-Glyph der Zone (v2.5): Polygon-SVG in der Zonenfarbe als Daten-
+ * URI - die große Ergebnis-Karte zeigt die Zone als Auslöser-Aktor mit
+ * eigenem Icon (freie Zonen haben kein Item-Bild).
+ */
+function _zoneGlyphDataUri(region) {
+	const color = region?.color ?? '#7aa2c4';
+	const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><polygon points='32,4 60,22 50,60 14,60 4,22' fill='${color}' fill-opacity='0.9'/><circle cx='32' cy='30' r='10' fill='#ffffff' fill-opacity='0.35'/></svg>`;
+	return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 /**
@@ -1057,6 +1148,27 @@ async function _freeZoneRequestCard(region, tokenDoc, owner, eff) {
  * =================================================================== */
 
 const _lastCombatRound = new Map();
+
+/* v2.5 (Rudolfs Testrunde 5, P16): In-Flight-Guard der Zonen-AKTIVIERUNG.
+   Der Standard-Wuerfeldialog ist asynchron - waehrend er offen ist, ist
+   aoe.activated noch nicht gesetzt, und eine zweite Ausloesung (z. B.
+   ein hineinlaufendes Token) wuerde eine ZWEITE Aktivierung mit eigenem
+   Dialog + erneuter Korruption stapeln. Ausloesungen derselben Region
+   werden deshalb bis zum Abschluss der Aktivierung uebersprungen
+   (Freigabe durch aoeZoneActivationCompleted, siehe unten). Nach 5 Min
+   ohne Abschluss gilt der Eintrag als verwaist (Dialog abgebrochen) und
+   wird stillgerecht ignoriert. Nur Client-lokal: die Aktivierung laeuft
+   auf dem Client des Ausloesers, Betreten-Events auf dem GM - bei
+   Spieler platzierten Zonen bleibt der GM-Seite der Guard verborgen
+   (dokumentierte Grenze, seltener Doppel-Aktivierungs-Fall). */
+const _zoneActivationInFlight = new Map();
+
+/* v2.5 (Rudolfs Testrunde 5, zu 16): Serialisierung der Zonen-Karten-
+   Updates. Konkurrierende Delete+Recreate-Läufe derselben Region
+   (Mehrfach-Aktivierung aus Testrunde 5) liessen einen Client eine
+   bereits geloeschte ChatMessage fetchen ("ChatMessage ... does not
+   exist"). Jede Region aktualisiert ihre Karte jetzt strikt nacheinander. */
+const _zoneCardQueue = new Map();
 
 /**
  * Runden-Tick aller Zonen der aktiven Szene (GM-seitig): Rundenwirkungen
@@ -1176,6 +1288,8 @@ export async function aoeEndZone(regionId, sceneId) {
 async function _endZone(region, source) {
 	// v2.2 (Baustein 9): Ziel-Fenster der Zone schließen
 	_closeTargetWindow(region.id);
+	// v2.5: In-Flight-Marke der Aktivierung mitraeumen (verwaister Dialog)
+	_zoneActivationInFlight.delete(region.id);
 	// Abbruch einer One-Shot-Zone ohne Auslösung = Abbruch ohne Wirkung
 	const aoe = region.flags?.symbaroum?.aoe;
 	/* v2.3 (Rudolfs Testrunde 3): Beim Beenden der Zone werden auch die
@@ -1305,7 +1419,14 @@ export async function placeZoneFromItem(item) {
 		   NICHTS automatisch vor - die eigene Markierung ist die Ziel-
 		   auswahl (kein Vormarkieren). */
 		const isMarkingZone = zone.mode === 'lasting' && cfg.targetOrder === 'marking';
-		if (!isMarkingZone) {
+		/* v2.5 (Rudolfs Testrunde 5, P13): KEIN Auto-Vormarkieren mehr
+		   bei DAUERHAFTEN Zonen - die Zone wirkt automatisch über den
+		   Aktivierungs-Snapshot, stehende Ziel-Markierungen stören
+		   (Rudolfs Frage „Können die Token in der Zone unmarkiert
+		   bleiben?" - sie können). One-Shot-Zonen behalten die Vor-
+		   markierung als Zielwahl-UI (Auslöse-Taste wirkt auf die
+		   Markierungen), Markierungszonen markieren nie (unverändert). */
+		if (zone.mode === 'instant') {
 			await _autoTargetRegion(region, cfg, casterToken);
 		}
 		await _postZoneCard(region);
@@ -1835,9 +1956,13 @@ export async function aoeMaintainZoneRound(actor, abilityRef) {
 	const item = aoe.sourceItemUuid ? (await fromUuid(aoe.sourceItemUuid)) : null;
 	if (!item || !aoe.activated) return false;
 	const tokens = _filterTargets(_collectRegionTokens(region), aoe.config.targeting, _casterTokenOfZone(aoe));
+	/* v2.5 (Rudolfs Testrunde 5, P5-Kommentar): Zielwahl-Sortierung jetzt
+	   auch in der Maintain-Runde (vorher Szenenreihenfolge - "hat zwei Mal
+	   mit dem entferntesten Token begonnen"). */
+	const ordered = _sortZoneTokens(region, tokens);
 	/* Kostenpflichtig ist nur die Aktivierung (Entscheidung a): die
 	   Maintain-Runde ist KOSTENLOS (Entscheidung c). */
-	await _runPowerZoneProbes(region, actor, item, tokens, { maintainRound: true });
+	await _runPowerZoneProbes(region, actor, item, ordered, { maintainRound: true });
 	return true;
 }
 
@@ -1848,4 +1973,19 @@ export async function aoeConcludeInstantZone(regionId, sceneId) {
 	const region = _getZoneRegion(regionId, sceneId);
 	if (!region) return;
 	await _endZone(region, 'trigger');
+}
+
+/**
+ * Abschluss der Zonen-AKTIVIERUNG (v2.5, Rudolfs Testrunde 5): Called aus
+ * captureZoneActivationSnapshot (item.js), sobald der Standard-Würfeldialog
+ * wirklich abgeschlossen wurde. Raeumt die In-Flight-Marke (frei fuer
+ * kuenftige Ausloesungen - bis dahin wurden sie gestapelt, P16) und
+ * aktualisiert die Zonen-Karte (die „Auslösen"-Taste verschwindet nach
+ * der Aktivierung, der Auslöser-Name erscheint - 12a + 15).
+ */
+export async function aoeZoneActivationCompleted(regionId, sceneId) {
+	_zoneActivationInFlight.delete(regionId);
+	const region = _getZoneRegion(regionId, sceneId);
+	if (!region) return;
+	await _updateZoneCards(region);
 }
