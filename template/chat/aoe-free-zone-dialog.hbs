@@ -5,7 +5,12 @@
       als attribute, Option-Daten per selectOptions-Helper. Rendering via
       foundry.applications.handlebars.renderTemplate (kein Partial, kein
       preloadHandlebarsTemplates-Eintrag nötig). Feld-IDs unverändert zum
-      v2.1-Dialog (aoe-free-*), _placeFreeZoneFromDialog liest sie weiter. --}}
+      v2.1-Dialog (aoe-free-*), _placeFreeZoneFromDialog liest sie weiter.
+      v2.3 (Rudolfs Testrunde 3, Punkte 3+4+11): Neues Feld „Auslösen“
+      (Nur Auslöse-Taste / Beim Betreten), Modifikator-Feld + Gunst-Block
+      (Untersuchen-Dialog-Muster, investigate-dialog.hbs) zwischen
+      Widerstands-Attribut und Schaden - _probeAuto würfelt beide,
+      die Spieler-Anfragekarte übergibt sie an baseRoll. --}}
 <div class="symbaroum symb-aoe{{#if renderModern}} modern-roll-dialog{{else}} dialog{{/if}}">
   <p class="aoe-free-hint">{{localize "AOE.FREE_HINT"}}</p>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
@@ -34,6 +39,47 @@
       {{selectOptions attrOptions valueAttr="id" labelAttr="label"}}
     </select>
   </div>
+  {{!-- v2.3 (Punkt 11): Modifikator + Gunst wie der Untersuchungs-Dialog
+      (Standard-Würfeldialog-Muster) - wirken auf die Widerstands-Probe
+      der Zonen-Opfer, gespeichert in eff.modifier/eff.favour. --}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-modifier">{{localize "DIALOG.MODIFIER"}}</label>
+    <input id="aoe-free-modifier" type="number" value="0"/>
+  </div>
+  {{#if renderModern}}
+  <fieldset class="m-ability-frame">
+    <legend class="m-ability-label">{{localize "DIALOG.FAVOUR_LEGEND"}}</legend>
+    <div class="m-give-vis">
+      <label class="lblfavour">
+        <input type="radio" name="aoe-free-favour" value="0" checked/>
+        {{localize "DIALOG.FAVOUR_NORMAL"}}
+      </label>
+      <label class="lblfavour">
+        <input type="radio" name="aoe-free-favour" value="1"/>
+        {{localize "DIALOG.FAVOUR_FAVOUR"}}
+      </label>
+      <label class="lblfavour">
+        <input type="radio" name="aoe-free-favour" value="-1"/>
+        {{localize "DIALOG.FAVOUR_DISFAVOUR"}}
+      </label>
+    </div>
+  </fieldset>
+  {{else}}
+  <div class="favour">
+    <label class="lblfavour">
+      <input type="radio" name="aoe-free-favour" value="0" checked/>
+      {{localize "DIALOG.FAVOUR_NORMAL"}}
+    </label>
+    <label class="lblfavour">
+      <input type="radio" name="aoe-free-favour" value="1"/>
+      {{localize "DIALOG.FAVOUR_FAVOUR"}}
+    </label>
+    <label class="lblfavour">
+      <input type="radio" name="aoe-free-favour" value="-1"/>
+      {{localize "DIALOG.FAVOUR_DISFAVOUR"}}
+    </label>
+  </div>
+  {{/if}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="aoe-free-damage">{{localize "AOE.FIELD_DAMAGE"}}</label>
     <input id="aoe-free-damage" type="text" placeholder="1d6"/>
@@ -55,5 +101,16 @@
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="aoe-free-duration">{{localize "AOE.FIELD_DURATION"}}</label>
     <input id="aoe-free-duration" type="number" min="0" value="0"/>
+  </div>
+  {{!-- v2.3 (Rudolfs Testrunde 3, Punkte 3+4): „Auslösen“ - Beim Betreten
+      hängt die freie Zone ans Token-Betreten-Verhalten (aoeZoneEnter führt
+      die VOLLLE Auslösung aus, konsistent mit Kraft-Zonen und
+      Anfangsbestand), die Voreinstellung bleibt die reine Auslöse-Taste. --}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-trigger">{{localize "AOE.FIELD_TRIGGER"}}</label>
+    <select id="aoe-free-trigger">
+      <option value="">{{localize "AOE.TRIGGER_MANUAL"}}</option>
+      <option value="enter">{{localize "AOE.TRIGGER_ENTER"}}</option>
+    </select>
   </div>
 </div>

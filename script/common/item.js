@@ -4547,6 +4547,23 @@ function getPowerResultFunction(functionStuff) {
   }
 }
 
+/* v2.3 (Rudolfs Testrunde 3, Punkt 7 - Kettendialog-Auto-Ende): Bei
+   Zonen-Ausloesungen (executeZonePower) stehen ALLE Zonenziele von Anfang
+   an fest (functionStuff.zoneChainTargets, Token-Ids). Sobald die Kette
+   jeden von ihnen abgearbeitet hat, springt dieser Guard die 'Weiteres
+   Ziel?'-Bestaetigung UEBER - der Dialog fragte sonst nach dem letzten
+   Zonenziel ins Leere (Rudolfs Testrunde-3-Befund). Ohne zoneChainTargets
+   (normales Wirken) ist der Guard wirkungslos; der chainResult-for-loop
+   iteriert die Ziele ohnehin ohne Dialog und braucht keinen Guard. */
+function zoneChainDone(functionStuff, handled) {
+  const zoneTargets = functionStuff?.zoneChainTargets;
+  if (!zoneTargets || zoneTargets.size === 0) return false;
+  for (const tokenId of zoneTargets) {
+    if (!handled?.has(tokenId)) return false;
+  }
+  return true;
+}
+
 function chainTargetConfirmation(functionStuff, target, damageDice) {
   return new Promise((resolve) => {
     const key =
@@ -4661,7 +4678,7 @@ async function banishingSealChainResult(rollData, functionStuff) {
   const handled = new Set([functionStuff.targetData.tokenId]);
   const savedCorruption = functionStuff.corruption;
   functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
-  while (await glyphNextTargetConfirmation(functionStuff, "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET")) {
+  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET"));
@@ -4825,7 +4842,7 @@ async function priosBurningGlassResult(rollData, functionStuff) {
   const savedCorruption = functionStuff.corruption;
   functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
   const handled = new Set([functionStuff.targetData.tokenId]);
-  while (await glyphNextTargetConfirmation(functionStuff, "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET")) {
+  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_PRIOSBURNINGGLASS.CHAT_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_PRIOSBURNINGGLASS.CHAT_NO_NEW_TARGET"));
@@ -5010,7 +5027,7 @@ async function holyAuraResult(rollData, functionStuff) {
   // loop 1 - damage (every level): abominations, undead and thoroughly
   // corrupt creatures (A36V test round: the corrupt evaluation joins the
   // two category flags - isThoroughlyCorruptTarget with the Abso. fallback)
-  while (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ENEMY")) {
+  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ENEMY"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
@@ -5061,7 +5078,7 @@ async function holyAuraResult(rollData, functionStuff) {
   // (A35 heal resource, ticks at the START of the ally's own turn)
   let allyCorruption = 0;
   if (functionStuff.powerLvl.level > 1) {
-    while (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY")) {
+    while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY"))) {
       const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
       if (!nextToken) {
         ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
@@ -5228,7 +5245,8 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.activelyMaintainedTargetEffect = [];
   functionStuff.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
   const handled = new Set([functionStuff.targetData.tokenId]);
-  while (await glyphNextTargetConfirmation(functionStuff)) {
+  // v2.3 zoneChainDone: alle Zonenziele abgearbeitet = kein Dialog mehr
+  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET"));
@@ -5293,7 +5311,7 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   // opts.followUpsFree turns that on per power, everything else keeps A20
   if (opts.followUpsFree === true) functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
   const handled = new Set([functionStuff.targetData.tokenId]);
-  while (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET")) {
+  while (!zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
@@ -5426,7 +5444,7 @@ async function levitateChainResult(rollData, functionStuff) {
 async function blackbreathChainResult(rollData, functionStuff) {
   if (functionStuff.powerLvl.level < 3) return;
   const handled = new Set([functionStuff.targetData.tokenId]);
-  while (!functionStuff.blackbreathHealed && (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
+  while (!functionStuff.blackbreathHealed && !zoneChainDone(functionStuff, handled) && (await glyphNextTargetConfirmation(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
     if (!nextToken) {
       ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
@@ -8406,6 +8424,12 @@ export async function executeZonePower(actor, ability, targetTokens, { suppressC
   }
   const fsDefault = await ability.getFunctionStuffDefault(actor, actingToken);
   const functionStuff = Object.assign({}, fsDefault, stuff);
+  // v2.3 (Rudolfs Testrunde 3, Punkt 7 - Kettendialog-Auto-Ende): die
+  // Zonenziele als Token-Id-Menge mitfuehren - zoneChainDone ueberspringt
+  // die 'Weiteres Ziel?'-Bestaetigung, sobald die Kette alle abgearbeitet
+  // hat (siehe Helper nahe chainTargetConfirmation). Normales Wirken ohne
+  // Zone setzt das Feld nie, alle Ketten laufen dann unveraendert.
+  functionStuff.zoneChainTargets = new Set(targetTokens.map((td) => td.id));
   // Ausloesung wuerfelt wie Ketten-Follow-ups: kein Vorteil, keine Modifikatoren
   functionStuff.hasAdvantage = false;
   functionStuff.favour = 0;

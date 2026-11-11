@@ -41,6 +41,38 @@
  *   aktiven Zonen-Fenstern auf Token INNERHALB der Zone beschränkt -
  *   reaktives Undo + Warnmeldung (Baustein 9).
  *
+ * v2.3 (Rudolfs Testrunde 3 + 4 Entscheidungen + Freigabe 11.11.2026,
+ *   Sammel-Fix): P2-Endgültig - die V14-RUNTIME liefert dem Execute-
+ *   Script-Behavior das Ereignis als 'event' KLEIN (new AsyncFunction
+ *   ("scene","region","behavior","event"), Token in event.data.token);
+ *   der offizielle Scene-Regions-Artikel behauptet 'Event' GROSS und ist
+ *   damit FALSCH (Runtime-Spiegel verifiziert, execute-script.mjs). Der
+ *   Betreten-Trigger gilt jetzt auch für FREIE Zonen (neues Dialogfeld
+ *   'Auslösen', Entscheidung 4). P9: Automatische Auslösungen (Betreten,
+ *   Anfangsbestand, Rundentakt) nutzen NUR die Zielwahl-Einstellung -
+ *   der Markierungs-Override bleibt der manuellen Auslöse-Taste
+ *   vorbehalten (Entscheidung 3; executeZonePower markiert die Ziele
+ *   und die stehen gebliebenen Markierungen überschoben sonst still
+ *   die Ordnung). Kosten analog ohne Zone (Entscheidung 5: Jede Zonen-
+ *   Auslösung bucht die Korruption der Kraftkonfiguration; Würfe
+ *   bleiben auto wie bisher - Rudolfs Freigabe 'Korruption ohne
+ *   Würfeldialog'). Dauer-Timing (Entscheidung 6): Im Kampf baut die
+ *   Restdauer am INNITIATIVE-ZUG des Auslösers ab (Sprünge über
+ *   Runden verbrauchen nichts mehr); Auslöser nicht im Kampf (auch
+ *   freie Zonen ohne Wirker) -> Rundenwechsel wie gehabt. Kettendialog
+ *   endet automatisch, wenn alle vorgemerkten Zonen-Ziele durchlaufen
+ *   sind (zoneChainTargets in item.js). Effekt-Karten tragen den
+ *   Zonen-Namen (Region wird durchgereicht statt des generischen
+ *   'Freie Zone platzieren'-Titels). Widerstands-Proben zeigen ihr
+ *   Ergebnis auch bei Erfolg (geflüsterte Karte - Weltzeit-Diagnose).
+ *   Freie Zone: Modifikator + Gunst-Block (Untersuchen-Dialog-Muster)
+ *   zwischen Widerstands-Attribut und Schaden. Auswahldialog-Tasten
+ *   vertikal (Brew-Menü-Rezept). Zonen-Karte rutscht bei jedem Update
+ *   ans Chat-Ende (timestamp bump). Bei 'Zone beenden' werden die von
+ *   der Zone gesetzten Zustände gelöscht (Kraft-Zonen über die
+ *   Maintain-Symbol-Verfolgung flagData.caster/ability, freie Zonen
+ *   über die mitgeführte Token-Liste).
+ *
  * Architektur (Foundry V14, code-verifiziert):
  * - Regionen mit flags.core.MeasuredTemplate (Optik der klassischen
  *   Vorlage), Platzierung über canvas.regions.placeRegions().
@@ -50,10 +82,11 @@
  * - Kraft-Zonen lösen die BESTEHENDE Ketten-Automatik aus
  *   (executeZonePower in item.js: Regionstoken als Nutzerziele,
  *   buildRolls; die Ketten iterieren game.user.targets). Daraus folgt:
- *   Auslösungen würfeln wie Ketten-Follow-ups (auto), Korruption wird
- *   bei dauerhaften Zonen unterdrückt (Rudolfs Zu-3-Antwort: Auslösung
- *   würfelt nur die Zielproben - das Wirken samt Korruption gehört zur
- *   Platzierung/dem normalen Kraftwirken).
+ *   Auslösungen würfeln wie Ketten-Follow-ups (auto). v2.3 (Rudolfs
+ *   Testrunde 3): Die Korruption wird NICHT mehr unterdrückt - jede
+ *   Zonen-Auslösung bucht die Korruption der Kraftkonfiguration,
+ *   analog zum Wirken ohne Zone ('Wir haben hier nur visuell
+ *   dargestellte Wirkungsbereiche der Kräfte').
  * - Freie Zonen (kein Quell-Item): NSC würfeln automatisch, SC erhalten
  *   eine geflüsterte Anfragekarte (Muster S4.2 travel-probe-request)
  *   mit Würfel-Taste; der Wurf + die Wirkung laufen auf dem Client des
@@ -271,18 +304,22 @@ function _ownerUser(actor) {
 /* Single-GM-Muster (offizielle Foundry-Empfehlung für Execute-Script-
  * Behaviors, die auf allen Clients laufen): nur der aktive GM löst die
  * System-API aus.
- * v2.2-Fix (Rudolfs Testrunde 2, P2): der Execute-SCRIPT-Behavior-Scope
- * liefert das Ereignis als Event GROSS (Event.data.token) - die kleinen
- * Variablen token/actor füllt NUR das Execute-MACRO-Behavior (offizieller
- * Scene-Regions-Artikel). Der frühere Quelltext las das kleine event/token
- * und brach deshalb still ab (NIE eine Auto-Auslösung).
- * Defensive Kette: Event GROSS zuerst, danach die Makro-Behavior-
- * Fallbacks token/event - der Browser-Global 'Event' (DOM-Konstruktor)
- * trägt kein data.token und fällt dadurch harmlos durch. */
+ * v2.3-ENDGÜLTIGER Fix (Rudolfs Testrunde 3, P2): die V14-RUNTIME baut
+ * den Execute-Script-Scope als
+ *   new AsyncFunction("scene", "region", "behavior", "event", source)
+ * auf - das Ereignis heißt 'event' KLEIN und das Token steckt in
+ * event.data.token (RegionTokenEnterExitEventData). Der offizielle
+ * Scene-Regions-Artikel behauptet 'Event' GROSS mit Event.data.token
+ * und ist damit FALSCH (Runtime-Spiegel verifiziert: execute-script.mjs).
+ * Der v2.2-Versuch (Event GROSS + Makro-Fallbacks) las den Browser-
+ * DOM-Global 'Event' (Konstruktor ohne data.token) und brach still ab.
+ * Defensive Kette: event klein zuerst (event?.data?.token), dann
+ * event?.token als Festival-Alternative, zuletzt der Makro-Fallback
+ * 'token' (füllt NUR das Execute-MACRO-Behavior, schadet hier nicht). */
 const ZONE_ENTER_BEHAVIOR_SOURCE = [
 	'if (!game.users.activeGM?.isSelf) return;',
 	'const r = (typeof region !== "undefined") ? region : null;',
-	'const ev = (typeof Event !== "undefined") ? Event : null;',
+	'const ev = (typeof event !== "undefined") ? event : null;',
 	'const mk = (typeof token !== "undefined") ? token : null;',
 	'const t = ev?.data?.token ?? ev?.token ?? mk ?? null;',
 	'const rid = r?.id ?? r?.document?.id ?? null;',
@@ -313,7 +350,11 @@ function _zoneRegionData(zone) {
 	// v2.1-Fix (Rudolfs Testrunde 1): der V14-RegionBehavior-Typ heißt
 	// 'executeScript' - 'script' ist keine gültige Typ-Kennung und ließ
 	// die Datamodel-Validierung die GESAMTE Region scheitern.
-	if (!zone.free && zone.mode === 'lasting' && zone.trigger === 'enter') {
+	// v2.3 (Rudolfs Entscheidung 4): FREIE Zonen mit dem neuen Dialogfeld
+	// 'Auslösen: Beim Betreten' bekommen dasselbe Behavior (vorher schloss
+	// die Bedingung zone.free aus - der Betreten-Auslöser war für freie
+	// Zonen nie vorgesehen, Rudolfs Testrunde 3 meldete das als fehlend).
+	if (zone.mode === 'lasting' && zone.trigger === 'enter') {
 		regionData.behaviors = [
 			{
 				type: 'executeScript',
@@ -427,7 +468,11 @@ async function _postZoneCard(region) {
 	});
 }
 
-/** Alle offenen Zonen-Karten der Region aktualisieren (Inhalt neu rendern). */
+/** Alle offenen Zonen-Karten der Region aktualisieren (Inhalt neu rendern).
+ *  v2.3 (Rudolfs Testrunde 3): message.update mit neuem timestamp - ein
+ *  reines Content-Update ließ Foundry die Karte an ihrer ALTEN Chat-
+ *  Position stehen (Update fand statt, war aber nur schwer auffindbar);
+ *  der timestamp-Bump sortiert die aktualisierte Karte ans Chat-Ende. */
 async function _updateZoneCards(region) {
 	const context = await _zoneCardContext(region);
 	const content = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/aoe-zone-card.hbs', context);
@@ -435,7 +480,7 @@ async function _updateZoneCards(region) {
 	for (const message of game.messages ?? []) {
 		const card = message.flags?.symbaroum?.aoeZoneCard;
 		if (card?.regionId === region.id && (card.sceneId === sceneId || !card.sceneId)) {
-			await message.update({ content });
+			await message.update({ content, timestamp: Date.now() });
 		}
 	}
 }
@@ -512,14 +557,22 @@ function _tokenDistance(tokenDoc, center) {
  * Ohne eigene Markierung: Auto-Auswahl über den Filter, geordnet nach
  * der Zielwahl-Einstellung der Zone ('nearest' = Zonennähe; 'marking'
  * und 'scene' = Szenenreihenfolge wie gesammelt).
+ * v2.3 (Rudolfs Testrunde 3, P9 + Entscheidung 3): Bei AUTOMATISCHEN
+ * Auslösungen (Betreten-Trigger, Anfangsbestand) wird der Markierungs-
+ * Override ÜBERSPRUNG ({ auto: true }) - executeZonePower markiert die
+ * Zonen-Ziele per setTarget und räumt sie nicht ab; stehen gebliebene
+ * Markierungen hätten sonst die konfigurierte Zielwahl still über-
+ * schrieben. Der Override gilt weiterhin für die MANUELLE Auslöse-Taste.
  */
-function _resolveZoneTargets(region, aoe) {
+function _resolveZoneTargets(region, aoe, { auto = false } = {}) {
 	const regionTokens = _collectRegionTokens(region);
 	const regionIds = new Set(regionTokens.map((td) => td.id));
-	const userTargets = Array.from(game.user.targets)
-		.map((t) => t.document)
-		.filter((td) => regionIds.has(td.id));
-	if (userTargets.length > 0) return userTargets;
+	if (!auto) {
+		const userTargets = Array.from(game.user.targets)
+			.map((t) => t.document)
+			.filter((td) => regionIds.has(td.id));
+		if (userTargets.length > 0) return userTargets;
+	}
 	const tokens = _filterTargets(regionTokens, aoe.config.targeting, _casterTokenOfZone(aoe));
 	if (aoe.config.targetOrder === 'nearest') {
 		const center = _regionCenter(region);
@@ -541,7 +594,8 @@ function _resolveZoneTargets(region, aoe) {
 async function _executeZoneTrigger(region, { manual = false } = {}) {
 	const aoe = region.flags?.symbaroum?.aoe;
 	if (!aoe) return;
-	const tokens = _resolveZoneTargets(region, aoe);
+	// v2.3 (P9, Rudolfs Entscheidung 3): Automatik ohne Markierungs-Override
+	const tokens = _resolveZoneTargets(region, aoe, { auto: !manual });
 	if (tokens.length === 0) {
 		if (manual) {
 			ui.notifications.info(game.i18n.localize('AOE.ERR_NO_TOKENS'));
@@ -588,10 +642,13 @@ async function _runPowerZone(region, tokens) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_SOURCE_GONE'));
 		return;
 	}
-	// Dauerhafte Zonen: Auslösung ohne erneute Korruptionsbuchung (Wirken
-	// samt Korruption gehört zur Platzierung/dem normalen Kraftwirken);
-	// augenblickliche Zonen wirken als vollständiger Zauberwurf.
-	await executeZonePower(actor, item, tokens, { suppressCorruption: aoe.mode !== 'instant' });
+	// v2.3 (Rudolfs Testrunde 3, Entscheidung 5 'Kosten analog ohne
+	// Zone'): Jede Zonen-Auslösung bucht die Korruption der Kraft-
+	// konfiguration (suppressCorruption: false) - Zonen sind nur visuell
+	// dargestellte Wirkungsbereiche, der Ablauf der Kosten ist derselbe
+	// wie beim Wirken ohne Zone. Die Würfe bleiben auto wie bisher
+	// (Rudolfs Freigabe: 'Korruption ohne Würfeldialog').
+	await executeZonePower(actor, item, tokens, { suppressCorruption: false });
 }
 
 /**
@@ -609,27 +666,36 @@ async function _runFreeZone(region, tokens) {
 		const actor = tokenDoc.actor;
 		if (!actor) continue;
 		if (!resistOn) {
-			await _applyFreeZoneEffect(tokenDoc, eff, null);
+			await _applyFreeZoneEffect(region, tokenDoc, eff, null);
 			continue;
 		}
 		const owner = _ownerUser(actor);
 		if (owner && game.settings.get('symbaroum', 'playerResistButton')) {
 			await _freeZoneRequestCard(region, tokenDoc, owner, eff);
 		} else {
-			const probe = await _probeAuto(actor, eff.resistAttribute);
+			const probe = await _probeAuto(actor, eff.resistAttribute, { modifier: eff.modifier, favour: eff.favour });
 			if (probe.success) {
 				await _postFreeZoneResult(region, tokenDoc, eff, { resisted: true });
 			} else {
-				await _applyFreeZoneEffect(tokenDoc, eff, probe);
+				await _applyFreeZoneEffect(region, tokenDoc, eff, probe);
 			}
 		}
 	}
 }
 
-/** Automatische Attribut-Probe (Symbaroum: d20 <= Attribut, 1 misslingt, 20 gelingt). */
-async function _probeAuto(actor, attributeName) {
-	const total = Number(actor.system?.attributes?.[attributeName]?.total ?? 10);
-	const roll = await new Roll('1d20').evaluate();
+/**
+ * Automatische Widerstands-Probe (d20 gegen Attribut, 1/Patzer misslingt,
+ * 20 gelingt immer). v2.3 (Rudolfs Testrunde 3): Modifikator + Gunst aus
+ * dem freie-Zonen-Dialog (Untersuchen-Dialog-Muster) - der Modifikator
+ * verschiebt den Widerstands-Wert des Tokens, Gunst 1 = bessere der
+ * zwei W20 (Erfolg-wenn-kleiner-gleich: die niedrigere gewinnt),
+ * Missgunst -1 = schlechtere der zwei W20.
+ */
+async function _probeAuto(actor, attributeName, { modifier = 0, favour = 0 } = {}) {
+	const base = Number(actor.system?.attributes?.[attributeName]?.total);
+	const total = (Number.isFinite(base) ? base : 10) + (Number(modifier) || 0);
+	const dice = favour === 1 ? '2d20kl' : favour === -1 ? '2d20kh' : '1d20';
+	const roll = await new Roll(dice).evaluate();
 	const result = roll.total;
 	let success;
 	if (result === 20) success = true;
@@ -648,7 +714,7 @@ async function _probeAuto(actor, attributeName) {
  * Läuft bewusst auf dem Client des Ausführenden (GM oder besitzender
  * Spieler) - beide dürfen den Ziel-Aktor aktualisieren.
  */
-async function _applyFreeZoneEffect(tokenDoc, eff, probe) {
+async function _applyFreeZoneEffect(region, tokenDoc, eff, probe) {
 	const actor = tokenDoc.actor;
 	const applied = [];
 	let damageTotal = 0;
@@ -687,13 +753,23 @@ async function _applyFreeZoneEffect(tokenDoc, eff, probe) {
 	if (eff.condition) {
 		try {
 			await actor.addCondition(eff.condition);
-			applied.push(game.i18n.format('AOE.EFFECT_CONDITION', { condition: eff.condition }));
+			/* v2.3 (Rudolfs Testrunde 3): die von der Zone gesetzte
+			   Condition mit Token-Id in den Region-Flags MITFÜHREN -
+			   'Zone beenden' löscht sie automatisch wieder (freie
+			   Zonen; Kraft-Zonen laufen über die Maintain-Symbol-
+			   Verfolgung in _endZone). */
+			if (region?.flags?.symbaroum?.aoe) {
+				const aoe = region.flags.symbaroum.aoe;
+				aoe.appliedConditionTokens = { ...(aoe.appliedConditionTokens ?? {}), [tokenDoc.id]: eff.condition };
+				await region.setFlag('symbaroum', 'aoe', aoe);
+			}
+			applied.push(game.i18n.format('AOE.EFFECT_CONDITION', { condition: _conditionLabel(eff.condition) }));
 		} catch (error) {
 			console.warn('Symbaroum AoE: condition failed', error);
 		}
 	}
 	if (applied.length === 0) applied.push(game.i18n.localize('AOE.EFFECT_NONE'));
-	await _postFreeZoneResult(null, tokenDoc, eff, { resisted: false, applied: applied.join(' · '), probe });
+	await _postFreeZoneResult(region, tokenDoc, eff, { resisted: false, applied: applied.join(' · '), probe });
 }
 
 /** Ergebnis-Karte einer freien Zonen-Wirkung (Flüster an die Ausführenden). */
@@ -785,10 +861,18 @@ async function _tickZone(region, source) {
 				const actor = tokenDoc.actor;
 				if (!actor) continue;
 				if (eff.resistAttribute) {
-					const probe = await _probeAuto(actor, eff.resistAttribute);
-					if (probe.success) continue;
+					/* v2.3 (Rudolfs Testrunde 3, Weltzeit-Diagnose): Der
+					   Probeerfolg war STUMM (keine Karte) - im Weltzeit-
+					   Takt sah es aus, als würde der Rundenschaden nie
+					   automatisch auslösen. Der Erfolg zeigt jetzt dieselbe
+					   'widersteht'-Karte wie die Erstauslösung. */
+					const probe = await _probeAuto(actor, eff.resistAttribute, { modifier: eff.modifier, favour: eff.favour });
+					if (probe.success) {
+						await _postFreeZoneResult(region, tokenDoc, eff, { resisted: true });
+						continue;
+					}
 				}
-				await _applyFreeZoneEffect(tokenDoc, { damage: eff.damagePerRound ?? '', corruption: eff.corruptionPerRound ?? '', condition: '' }, null);
+				await _applyFreeZoneEffect(region, tokenDoc, { damage: eff.damagePerRound ?? '', corruption: eff.corruptionPerRound ?? '', condition: '' }, null);
 			}
 		}
 	}
@@ -807,7 +891,8 @@ async function _tickZone(region, source) {
  * Öffentliche Zonen-API (Behavior, Zonen-Karte, Makro)
  * ===================================================================== */
 
-/** Script-Behavior-Einstieg (TOKEN_ENTER, Single-GM): automatische Auslösung. */
+/** Script-Behavior-Einstieg (TOKEN_ENTER, Single-GM): automatische Auslösung.
+ *  v2.3: gilt für Kraft-Zonen UND freie Zonen mit 'Auslösen: Beim Betreten'. */
 export async function aoeZoneEnter(regionId, tokenId) {
 	if (!game.user?.isGM || !aoeEnabled()) return;
 	const region = _getZoneRegion(regionId);
@@ -855,6 +940,53 @@ async function _endZone(region, source) {
 	_closeTargetWindow(region.id);
 	// Abbruch einer One-Shot-Zone ohne Auslösung = Abbruch ohne Wirkung
 	const aoe = region.flags?.symbaroum?.aoe;
+	/* v2.3 (Rudolfs Testrunde 3): Beim Beenden der Zone werden auch die
+	   von IHR gesetzten Zustände wieder entfernt - bislang blieben die
+	   Symbole auf den Token kleben, obwohl die Zone weg war. Freie
+	   Zonen führen ihre Conditions selbst mit (Token-Id → Condition-Id
+	   in aoe.appliedConditionTokens, siehe _applyFreeZoneEffect).
+	   Kraft-Zonen scannen die Szenen-Token nach dem flagData-Autoren-
+	   marker (caster + ability, Muster maintainChainResult): nur
+	   Symbole DIESES Akteurs aus DIESEM Kraft-Item werden gelöscht -
+	   Symbole anderer Wirker oder Dritter bleiben unberührt. */
+	const scene = region.parent ?? null;
+	if (aoe) {
+		if (aoe.free) {
+			for (const [tokenId, conditionId] of Object.entries(aoe.appliedConditionTokens ?? {})) {
+				const target = scene?.tokens?.get(tokenId)?.actor ?? null;
+				if (target?.hasCondition?.(conditionId)) {
+					try {
+						await target.removeCondition(conditionId);
+					} catch (error) {
+						console.warn('Symbaroum AoE: removeCondition on zone end failed', error);
+					}
+				}
+			}
+		} else {
+			const actor = aoe.sourceActorUuid ? fromUuidSync(aoe.sourceActorUuid) : null;
+			const item = aoe.sourceItemUuid ? fromUuidSync(aoe.sourceItemUuid) : null;
+			const abilityRef = item?.reference ?? null;
+			if (actor && abilityRef) {
+				const cfg = actor.system?.combat?.combatMods?.abilities?.[item.id] ?? {};
+				const effects = [...(cfg.addTargetEffect ?? []), ...(cfg.activelyMaintainedTargetEffect ?? [])];
+				for (const tokenDoc of scene ? scene.tokens.contents : []) {
+					const target = tokenDoc.actor;
+					if (!target?.hasCondition) continue;
+					for (const effect of effects) {
+						const existing = target.hasCondition(effect.id);
+						const flagData = existing?.getFlag?.(game.system.id, 'flagData');
+						if (existing && flagData?.caster === actor.id && flagData?.ability === abilityRef) {
+							try {
+								await target.removeCondition(effect.id);
+							} catch (error) {
+								console.warn('Symbaroum AoE: removeCondition on zone end failed', error);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	const textKey = source === 'manual' && aoe?.mode === 'instant' ? 'AOE.ABORT_MESSAGE' : 'AOE.END_MESSAGE';
 	await _settleZoneCards(region, game.i18n.localize(textKey));
 	try {
@@ -1019,7 +1151,26 @@ export async function maybeZoneExecutionChoice(item) {
 					callback: () => settle('cancel'),
 				},
 			},
-			default: 'manual',
+			// v2.3 (P9-Rückmeldung, Rudolfs Wunsch): Tasten vertikal unter-
+		// statt nebeneinander - Brew-Menü-Rezept (footer flex column,
+		// Breite als wichtiges Inline-Style gegen die System-CSS-
+		// Regel width:auto !important, siehe brewing.js-Kommentar)
+		onRender: (element) => {
+			const btns = element?.querySelectorAll?.('footer button');
+			if (!btns || btns.length === 0) return;
+			const footer = btns[0].closest('footer') ?? btns[0].parentElement;
+			if (footer) {
+				footer.style.display = 'flex';
+				footer.style.flexDirection = 'column';
+				footer.style.gap = '0.25rem';
+			}
+			for (const b of btns) {
+				b.style.boxSizing = 'border-box';
+				b.style.setProperty('width', '100%', 'important');
+				b.style.setProperty('align-self', 'stretch', 'important');
+			}
+		},
+		default: 'manual',
 			width: 460,
 		});
 		// ESC / Kopf-X ohne Tastenwahl = Abbruch. Das close-Event feuert
@@ -1107,11 +1258,21 @@ async function _placeFreeZoneFromDialog(html) {
 	}
 	const size = Math.max(1, Math.round(Number(val('aoe-free-size')) || 1));
 	const duration = Math.max(0, Math.round(Number(val('aoe-free-duration')) || 0));
+	/* v2.3 (Rudolfs Entscheidung 3+4, Testrunde 3): Neues Dialogfeld
+	   „Auslösen" - 'enter' hängt die freie Zone ans Betreten-Verhalten
+	   (aoeZoneEnter führt die VOLLE Auslösung aus, konsistent mit
+	   Kraft-Zonen und Anfangsbestand), Leerstring = nur Auslöse-Taste.
+	   v2.3 (Punkt 11): Modifikator + Gunst aus dem Dialog in eff -
+	   _probeAuto (Auto-Takt) und die Spieler-Anfragekarte würfeln damit. */
+	const trigger = val('aoe-free-trigger') === 'enter' ? 'enter' : '';
+	const modifier = Number(val('aoe-free-modifier')) || 0;
+	const favourInput = html.querySelector('input[name="aoe-free-favour"]:checked');
+	const favour = Number(favourInput?.value ?? 0) || 0;
 	const zone = {
 		level: 2,
 		free: true,
 		mode: 'lasting',
-		trigger: '',
+		trigger,
 		remaining: duration,
 		sourceItemUuid: null,
 		sourceActorUuid: null,
@@ -1124,6 +1285,8 @@ async function _placeFreeZoneFromDialog(html) {
 			damagePerRound: val('aoe-free-dpr'),
 			corruption: val('aoe-free-corruption'),
 			condition: val('aoe-free-condition'),
+			modifier,
+			favour,
 		},
 		metersPerField: 2,
 		regionName: val('aoe-free-name') || game.i18n.localize('AOE.FREE_DEFAULT_NAME'),
@@ -1270,21 +1433,47 @@ export function registerAoeHooks() {
 		}
 	});
 
-	// Combat-Takt: Rundenwechsel der aktiven Kampfleitung = Zonen-Runde
-	Hooks.on('updateCombat', (combat, changed) => {
+	/* Combat-Takt. v2.3 (Rudolfs Entscheidung 6, Testrunde 3):
+	   Der Dauer-Abbau läuft am INITIATIVE-ZUG des AUSLÖSERS - die Zone
+	   wird genau dann eine Runde älter, wenn der Kampfzug ihres Auslösers
+	   beginnt. Sprünge über Runden (Auslöser zieht nicht) verbrauchen
+	   NICHTS. Der alte Rundenwechsel-Takt bleibt als FÜR jene Zonen,
+	   deren Auslöser nicht im Kampf ist (freie Zonen, casterTokenUuid
+	   null, aus dem Kampf genommene Auslöser). */
+	Hooks.on('updateCombat', async (combat, changed) => {
 		if (!game.user?.isGM || !aoeEnabled()) return;
-		const newRound = Number(changed?.round ?? NaN);
-		if (!Number.isFinite(newRound) || newRound <= 0) return;
-		const last = _lastCombatRound.get(combat.id) ?? 0;
-		_lastCombatRound.set(combat.id, newRound);
-		/* v2.2-Fix (Rudolfs Testrunde 2, P13): combat.scene ist doku-
-		   belegt („reference to the Scene document"), im LIVE-Fork aber
-		   ungenutzt. Robust: fehlt die Referenz, läuft der Takt WEITER
-		   (aoeRoundTick filtert ohnehin auf die aktive Szene); nur eine
-		   Combat-Referenz auf eine ANDERE Szene bremst den Takt. */
 		const combatSceneId = combat.scene?.id ?? combat.parent?.id ?? null;
 		if (combatSceneId && combatSceneId !== game.scenes.viewed?.id) return;
-		if (newRound > last) aoeRoundTick('combat');
+		const newRound = Number(changed?.round ?? NaN);
+		const roundChange = Number.isFinite(newRound) && newRound > 0 && newRound > (_lastCombatRound.get(combat.id) ?? 0);
+		if (Number.isFinite(newRound) && newRound > 0) _lastCombatRound.set(combat.id, newRound);
+		const active = combat.turns?.[combat.turn] ?? null;
+		const scene = game.scenes.viewed;
+		if (!scene) return;
+		const zones = [...(scene.regions ?? [])].filter((r) => !!r.flags?.symbaroum?.aoe && r.flags.symbaroum.aoe.mode !== 'instant');
+		// Sicherheitsnetz: jede Zone pro updateCombat-Event max. 1 Tick
+		const ticked = new Set();
+		for (const region of zones) {
+			if (ticked.has(region.id)) continue;
+			const aoe = region.flags.symbaroum.aoe;
+			const casterDoc = aoe.casterTokenUuid ? fromUuidSync(aoe.casterTokenUuid) : null;
+			const combatant = casterDoc ? combat.combatants.find((c) => c.tokenId === casterDoc.id) : null;
+			let tick = false;
+			if (combatant) {
+				// Auslöser im Kampf: genau sein eigener Zug-Wechsel tickt
+				tick = combatant.id === active?.id;
+			} else {
+				// Fallback: Rundenwechsel (wie vor v2.3)
+				tick = roundChange;
+			}
+			if (!tick) continue;
+			ticked.add(region.id);
+			try {
+				await _tickZone(region, 'combat');
+			} catch (error) {
+				console.warn('Symbaroum AoE: zone tick failed', error);
+			}
+		}
 	});
 	Hooks.on('deleteCombat', (combat) => _lastCombatRound.delete(combat.id));
 
@@ -1311,13 +1500,13 @@ async function _handleFreeZoneResist(sceneId, regionId, tokenId, button) {
 	if (!actor) return;
 	const eff = aoe.effect ?? {};
 	if (!eff.resistAttribute) {
-		await _applyFreeZoneEffect(tokenDoc, eff, null);
+		await _applyFreeZoneEffect(region, tokenDoc, eff, null);
 	} else {
-		const probe = await _probeAuto(actor, eff.resistAttribute);
+		const probe = await _probeAuto(actor, eff.resistAttribute, { modifier: eff.modifier, favour: eff.favour });
 		if (probe.success) {
 			await _postFreeZoneResult(region, tokenDoc, eff, { resisted: true });
 		} else {
-			await _applyFreeZoneEffect(tokenDoc, eff, probe);
+			await _applyFreeZoneEffect(region, tokenDoc, eff, probe);
 		}
 	}
 	button.disabled = true;
