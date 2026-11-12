@@ -162,6 +162,19 @@ export function registerAoeSettings() {
 		default: 0,
 		config: false,
 	});
+	/* v2.6 (Rudolfs Testrunde 6, P13a): MARKEN-Zähler statt der relativen
+	   Restlaufzeit - semantisch floor(Weltzeit/900), initialisiert bei der
+	   Hook-Registrierung auf die aktuelle Marke OHNE Tick (kein Sofort-Tick
+	   nach F5). 0 = noch nie initialisiert (Welten unter 15 Min Weltzeit
+	   ticken erstmals bei Weltzeit 900). */
+	game.settings.register('symbaroum', 'aoeLastRoundMark', {
+		name: 'AoE last world-time round mark',
+		hint: 'Technical marker (15-minute world-time mark) for the zone round tick.',
+		scope: 'world',
+		type: Number,
+		default: 0,
+		config: false,
+	});
 }
 
 /** Setting-Gate für alle AoE-Interaktionen (Blatt-Button + Platzierung). */
@@ -808,13 +821,38 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 	   Kategorie-Filter der Kraft wirkungslos ("alle Token muessen
 	   widerstehen"). */
 	const zoneExtras = snapshot?.sealCategoryId ? { sealCategoryId: snapshot.sealCategoryId } : null;
+	/* v2.6 (Rudolfs Testrunde 6, P11a + Rudolfs Entscheidung „Caster als
+	   Karten-Aktor"): Folge-Auslösungen zeigen den AUSLÖSER als Wirkenden
+	   (Name + Porträt) statt der Zone - die Aktivierungskarte zeigte den
+	   Wirker, die Maintain/Betreten-Karten liefen auf den Regionsnamen
+	   („{Kraft} [GM]"), der Auslöser verschwand hinter dem GM-Namen.
+	   Die Zone bleibt über den Regionsnamen (jetzt mit Auslöser-Namen)
+	   auf der Karte benannt. */
+	const zoneSourceName = actor?.name ?? region.name;
+	const zoneSourceImg = actor?.img ?? null;
 	for (const tokenDoc of tokens) {
 		const tokenActor = tokenDoc.actor;
 		if (!tokenActor) continue;
+		/* v2.6 (Testrunde 6, P7, Rudolfs Entscheidung „A36V-Manuell-
+		   Verhalten konsistent"): Novize + Fehlkategorie = Warnung +
+		   Skip schon VOR der Snapshot-Probe (kein Test, keine Karte,
+		   keine Wirkung) - Adept/Master würfeln weiter (Kartenschaden,
+		   kein Bann; sealPrimaryMismatch setzt der Primär-Check in
+		   executeZonePower). Ohne gewählte Kategorie bleibt der Check
+		   aus (SL-Buchhaltung, A36V). */
+		if (
+			item?.system?.reference === 'banishingseal' &&
+			zoneExtras?.sealCategoryId &&
+			Number(item?.getLevel?.()?.level ?? 1) <= 1 &&
+			game.symbaroum.config.getCreatureCategory(tokenActor) !== zoneExtras.sealCategoryId
+		) {
+			ui.notifications.warn(game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE', { targetname: tokenActor.name }));
+			continue;
+		}
 		/* Kein Snapshot bzw. keine Probe konfiguriert (z. B. unwider-
 		   stehliche Kräfte): Wirkung direkt, weiterhin ohne Kosten. */
 		if (!snapshot || !snapshot.attributeName || !resistAttribute || specificStuff.notResisted) {
-			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName: region.name, zoneApplyDirect: true, zoneExtras });
+			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName, zoneSourceImg, zoneApplyDirect: true, zoneExtras });
 			continue;
 		}
 		/* Snapshot-Probe im Resist-Modus (Anathema-Muster A24-F2): der
@@ -828,10 +866,10 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 		];
 		if (rollData[0].trueActorSucceeded) {
 			/* Die Zone setzt sich durch: Wirkung über die Kraft-Automatik,
-			   Zone als Karten-Quelle (Entscheidung g). */
-			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName: region.name, presetRollData: rollData, zoneExtras });
+			   AUSLÖSER als Karten-Quelle (v2.6, Rudolfs Entscheidung). */
+			await executeZonePower(actor, item, [tokenDoc], { suppressCorruption: true, zoneSourceName, zoneSourceImg, presetRollData: rollData, zoneExtras });
 		} else {
-			await _postZoneProbeResistCard(region, tokenDoc, snapshot, resistAttribute, rollData[0]);
+			await _postZoneProbeResistCard(region, tokenDoc, snapshot, resistAttribute, rollData[0], actor);
 			if (maintainRound) await _removeZoneSymbols(region, actor, item, tokenDoc);
 		}
 	}
@@ -1067,10 +1105,15 @@ async function _applyFreeZoneEffect(region, tokenDoc, eff, cardLines = null) {
  * Widerstands-Karten der Kraft-Zonen-Folge-Auslösungen (einheitliches
  * Kartenbild: Wirkung = Standard-Kraftkarte, Widerstand = diese Karte).
  */
-async function _postZoneResultCard(region, tokenDoc, { probeText = '', rollText = '', outcomeLines = [] } = {}) {
+async function _postZoneResultCard(region, tokenDoc, { probeText = '', rollText = '', outcomeLines = [], actorName = null, actorImg = null } = {}) {
 	const targetName = tokenDoc?.actor?.name ?? tokenDoc?.name ?? '';
+	/* v2.6 (Rudolfs Testrunde 6, P11a, Entscheidung „Caster als Karten-
+	   Akteur"): Kraft-Zonen-Folge-Karten (Betreten/Maintain) zeigen den
+	   AUSLÖSER als Titel-Aktor (Name + Porträt statt Zonen-Glyph); ohne
+	   Override (freie Zonen, P13 grün) bleibt die Zone der Akteur. Die
+	   Zone bleibt in beiden Fällen als subText benannt. */
 	const titleText = game.i18n.format('AOE.CHAT_ZONE_TITLE', {
-		zone: _escapeHtml(region?.name ?? ''),
+		zone: _escapeHtml(actorName ?? region?.name ?? ''),
 		target: _escapeHtml(targetName),
 	});
 	const context = {
@@ -1080,7 +1123,7 @@ async function _postZoneResultCard(region, tokenDoc, { probeText = '', rollText 
 		rollText,
 		outcomeLines,
 		zoneName: _escapeHtml(region?.name ?? ''),
-		zoneImg: _zoneGlyphDataUri(region),
+		zoneImg: actorImg ?? _zoneGlyphDataUri(region),
 	};
 	const content = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/aoe-zone-result-card.hbs', context);
 	await ChatMessage.create({
@@ -1107,7 +1150,7 @@ function _zoneGlyphDataUri(region) {
  * Resist-Modus (rollData), die Probenzeile zeigt das effektive Zonen-
  * attribut (Snapshot-Wirkattributswert + Dialog-Modifikator).
  */
-async function _postZoneProbeResistCard(region, tokenDoc, snapshot, resistAttribute, rollData) {
+async function _postZoneProbeResistCard(region, tokenDoc, snapshot, resistAttribute, rollData, actor = null) {
 	/* baseRoll-Resist-Modus: doBaseRoll läuft aus der Perspektive des
 	   VERTEIDIGERS - actingAttributeValue = Widerstands-Total des
 	   Tokens, diceTarget = dessen Zielschwelle, trueActorSucceeded =
@@ -1116,7 +1159,9 @@ async function _postZoneProbeResistCard(region, tokenDoc, snapshot, resistAttrib
 	const resistValue = Number.isFinite(Number(rollData?.actingAttributeValue)) ? Number(rollData.actingAttributeValue) : 10;
 	const probeText = _zoneProbeText(zoneAttribute, resistAttribute, resistValue);
 	const rollText = _zoneRollText(Number(rollData?.diceResult ?? 0), Number(rollData?.diceTarget ?? 10), rollData?.trueActorSucceeded === false);
-	await _postZoneResultCard(region, tokenDoc, { probeText, rollText, outcomeLines: [] });
+	/* v2.6 (P11a): AUSLÖSER als Karten-Aktor (Name + Porträt) statt
+	   Zonen-Glyph - die Zone bleibt als subText benannt. */
+	await _postZoneResultCard(region, tokenDoc, { probeText, rollText, outcomeLines: [], actorName: actor?.name ?? null, actorImg: actor?.img ?? null });
 }
 
 /**
@@ -1219,7 +1264,21 @@ async function _tickZone(region, source) {
 		}
 	}
 	// Restdauer: null/0 = unbegrenzt (läuft bis zur Enden-Taste)
-	if (aoe.remaining === null || aoe.remaining === 0) return;
+	/* v2.6 (Rudolfs Testrunde 6, P10): die Zonen-Karte wird jetzt bei
+	   JEDEM Runden-Tick aktualisiert (Delete+Recreate ans Chat-Ende) -
+	   auch für UNBEGRENZTE Zonen (Restdauer 0/null): vorher lief das
+	   frühe Return VOR dem Karten-Update, die Karte stand still (Runde-
+	   Taste, Kampf-Tick und Weltzeit-Tick). Der Auslöse-Vermerk zählt
+	   den Tick als Runden-Aktualisierung (Kampf = Runde, sonst Weltzeit). */
+	aoe.lastTriggered = {
+		round: game.combat?.active && game.combat.round > 0 ? game.combat.round : 0,
+		worldTime: Math.round(game.time?.worldTime ?? 0),
+	};
+	if (aoe.remaining === null || aoe.remaining === 0) {
+		await region.setFlag('symbaroum', 'aoe', aoe);
+		await _updateZoneCards(region);
+		return;
+	}
 	aoe.remaining = Math.max(0, aoe.remaining - 1);
 	if (aoe.remaining === 0) {
 		await _endZone(region, source);
@@ -1390,7 +1449,12 @@ export async function placeZoneFromItem(item) {
 		userId: game.user.id,
 		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder },
 		metersPerField: 2,
-		regionName: game.i18n.format('AOE.REGION_NAME', { name: item.name, user: game.user.name }),
+		/* v2.6 (Rudolfs Testrunde 6, P12): der Zonen-Name nennt den
+		   AUSLÖSER (den Kraft besitzenden Akteur) statt des platzieren-
+		   den USERS - bei GM-Platzierung stand sonst „[GM]" im Namen
+		   und damit auf jeder Zonen-/Ende-/Ergebniskarte. Freie Zonen
+		   (kein Akteur) behalten den platzierenden Nutzer. */
+		regionName: game.i18n.format('AOE.REGION_NAME', { name: item.name, user: actor?.name ?? game.user.name }),
 	};
 	const regionData = _zoneRegionData(zone);
 	if (!regionData) {
@@ -1880,13 +1944,24 @@ export function registerAoeHooks() {
 	Hooks.on('deleteCombat', (combat) => _lastCombatRound.delete(combat.id));
 
 	// Weltzeit-Takt (ohne laufenden Combat): 900 Sekunden = 1 Zonen-Runde
+	/* v2.6 (Rudolfs Testrunde 6, P13a): MARKEN-MODELL wie der A29-Weltzeit-
+	   Reminder (hooks.js): floor(Weltzeit/900). Vorher nutzte der Tick
+	   RELATIVE 900-s-Intervalle (Differenz zur Weltzeit des letzten Ticks)
+	   - kleine Zeitsprünge über eine 15-Min-Marke feuerten den Reminder
+	   OHNE Zonen-Runde (Rudolfs Befund: „Weltzeit triggert keine Runde
+	   nach 15 Minuten"), große Sprünge tickten mehrfach ins Leere. Bei
+	   der Registrierung wird die Marke initialisiert, ohne zu ticken. */
+	const _initMark = Math.floor(Number(game.time?.worldTime ?? 0) / 900);
+	if (!(Number(game.settings.get('symbaroum', 'aoeLastRoundMark')) || 0) && _initMark > 0) {
+		game.settings.set('symbaroum', 'aoeLastRoundMark', _initMark);
+	}
 	Hooks.on('updateWorldTime', (worldTime) => {
 		if (!game.user?.isGM || !aoeEnabled()) return;
 		if (game.combat?.active) return;
-		const last = Number(game.settings.get('symbaroum', 'aoeLastRoundTime')) || 0;
-		const now = Number(worldTime) || 0;
-		if (now - last < 900) return;
-		game.settings.set('symbaroum', 'aoeLastRoundTime', now);
+		const mark = Math.floor((Number(worldTime) || 0) / 900);
+		const last = Number(game.settings.get('symbaroum', 'aoeLastRoundMark')) || 0;
+		if (mark <= last) return;
+		game.settings.set('symbaroum', 'aoeLastRoundMark', mark);
 		aoeRoundTick('worldtime');
 	});
 }
@@ -1963,6 +2038,16 @@ export async function aoeMaintainZoneRound(actor, abilityRef) {
 	/* Kostenpflichtig ist nur die Aktivierung (Entscheidung a): die
 	   Maintain-Runde ist KOSTENLOS (Entscheidung c). */
 	await _runPowerZoneProbes(region, actor, item, ordered, { maintainRound: true });
+	/* v2.6 (Rudolfs Testrunde 6, P10): die Maintain-Runde aktualisiert
+	   die Zonen-Karte (Delete+Recreate ans Chat-Ende) + Auslöse-Vermerk
+	   (Kampf = Runde, sonst Weltzeit) - vorher geschah an der Karte
+	   GAR NICHTS, sie wanderte nie ans Chat-Ende. */
+	aoe.lastTriggered = {
+		round: game.combat?.active && game.combat.round > 0 ? game.combat.round : 0,
+		worldTime: Math.round(game.time?.worldTime ?? 0),
+	};
+	await region.setFlag('symbaroum', 'aoe', aoe);
+	await _updateZoneCards(region);
 	return true;
 }
 

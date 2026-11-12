@@ -3844,7 +3844,18 @@ export async function modifierDialog(functionStuff) {
           // the PRIMARY target is re-checked against the category chosen in
           // the seal dialog. Novice + mismatch: warning, no roll. Adept/
           // Master: the seal runs anyway (see banishingSealPrimaryCategoryCheck)
-          if (!banishingSealPrimaryCategoryCheck(functionStuff)) return;
+          if (!banishingSealPrimaryCategoryCheck(functionStuff)) {
+            /* v2.6 (Rudolfs Testrunde 6, P7-UX): eine BLOCKIERTE Zonen-
+               AKTIVIERUNG (Novize + Fehlkategorie) gibt die In-Flight-
+               Marke SOFORT frei und räumt die Zonen-Markierungen ab -
+               vorher blieb die Auslöse-Taste 5 Min still unbenutzbar
+               (Staleness) und die Markierungen standen als Fadenkreuze. */
+            if (functionStuff.zoneActivation?.regionId) {
+              game.symbaroum.api?.aoeZoneActivationCompleted?.(functionStuff.zoneActivation.regionId, functionStuff.zoneActivation.sceneId);
+            }
+            releaseZoneTargets(functionStuff);
+            return;
+          }
           if (functionStuff.askWeapon) {
             let wepID = html[0].querySelector("#weapon")[0].value;
             functionStuff.weapon = functionStuff.actor.items.find((item) => item.id == wepID);
@@ -8462,15 +8473,21 @@ async function preDialogLayonHands(functionStuff) {
 }
 
 /* AoE v2.4 (Rudolfs Testrunde 4, Entscheidung g): Bei Zonen-FOLGE-Aus-
-   lösungen (Betreten, Maintain-Runde, erneute Auslöse-Taste) steht die
+   lösungen (Betreten, Maintain-Runde, erneute Auslöse-Taste) stand die
    ZONE als Quelle auf der Ergebnis-Karte statt des Wirkers - Name und
-   Intro-Zeile werden auf die Zone umgebogen (die Standard-Karte zeigt
+   Intro-Zeile werden umgebogen (die Standard-Karte zeigt
    Ziel + Icon, Probenwerte und Würfelergebnis wie gehabt; als Icon
-   führt die Zone das Kraft-Icon mit). */
-function _applyZoneCardSource(functionStuff, zoneSourceName) {
+   führt die Zone das Kraft-Icon mit).
+   v2.6 (Rudolfs Testrunde 6, P11a, Rudolfs Entscheidung „Caster als
+   Karten-Aktor"): die Folge-Karten zeigen den AUSLÖSER als Wirkenden -
+   Name UND Porträt des Auslösers (zoneSourceImg) statt des Kraft-Icons;
+   die Zone bleibt über ihren Regionsnamen (jetzt mit Auslöser-Namen)
+   benannt. Ohne zoneSourceImg (Fallback) bleibt das Kraft-Icon. */
+function _applyZoneCardSource(functionStuff, zoneSourceName, zoneSourceImg = null) {
   functionStuff.actingCharName = zoneSourceName;
   functionStuff.introText = "AOE.CHAT_ZONE_INTRO";
-  if (functionStuff.abilityImg) functionStuff.actingCharImg = functionStuff.abilityImg;
+  if (zoneSourceImg) functionStuff.actingCharImg = zoneSourceImg;
+  else if (functionStuff.abilityImg) functionStuff.actingCharImg = functionStuff.abilityImg;
 }
 
 /* =====================================================================
@@ -8494,7 +8511,7 @@ export async function executeZonePower(
   actor,
   ability,
   targetTokens,
-  { suppressCorruption = true, zoneActivation = null, zoneSourceName = '', presetRollData = null, zoneApplyDirect = false, zoneExtras = null } = {}
+  { suppressCorruption = true, zoneActivation = null, zoneSourceName = '', zoneSourceImg = null, presetRollData = null, zoneApplyDirect = false, zoneExtras = null } = {}
 ) {
   if (!actor || !ability || !Array.isArray(targetTokens) || targetTokens.length === 0) return;
   const specificStuff = actor.system?.combat?.combatMods?.abilities?.[ability.id];
@@ -8602,7 +8619,22 @@ export async function executeZonePower(
       await modifierDialog(functionStuff);
     }
   } else if (presetRollData !== null || zoneApplyDirect) {
-    if (zoneSourceName) _applyZoneCardSource(functionStuff, zoneSourceName);
+    if (zoneSourceName) _applyZoneCardSource(functionStuff, zoneSourceName, zoneSourceImg);
+    /* v2.6 (Rudolfs Testrunde 6, P7, Rudolfs Entscheidung „A36V-Manuell-
+       Verhalten konsistent"): der Kategorie-Check des PRIMÄRZIELS lief
+       NUR im Aktivierungspfad (Roll-Button des Würfeldialogs) - im
+       Folge-Pfad (Betreten/Maintain/erneute Auslöse-Taste) war seal-
+       PrimaryMismatch NIE gesetzt, nicht-passende Ziele wurden VOLL
+       gebannt (Probe + Wirkung + Fliehen-Karte). Jetzt läuft banishing-
+       SealPrimaryCategoryCheck (mit der via zoneExtras restaurierten
+       sealCategoryId) VOR der Ergebnis-Funktion: Novize + Fehlkategorie
+       = Warnung + Skip (keine Wirkung, Markierungen frei), Adept/Master
+       = Probe + Kartenschaden, kein Bann - exakt wie das manuelle
+       Wirken. */
+    if (!banishingSealPrimaryCategoryCheck(functionStuff)) {
+      releaseZoneTargets(functionStuff);
+      return;
+    }
     const resultFunction = getPowerResultFunction(functionStuff);
     await resultFunction(presetRollData, functionStuff);
     /* v2.5 (Baustein e): Zielmarkierungen nach der Zonen-Ausfuehrung
