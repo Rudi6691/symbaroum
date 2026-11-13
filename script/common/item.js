@@ -5505,6 +5505,13 @@ async function drainingGlyphResult(rollData, functionStuff) {
   // the follow-ups belong to one casting: no further corruption, no maintain
   functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
   functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  /* v2.9 (Rudolfs Testrunde 8, Befund 5b: „Zahl der Ziele im Maintain-
+     Dialog immer 1"): Die Glyphe ist auf jeder Stufe maintain-fähig,
+     also tragen auch ihre Follow-up-Marker das maintained-Flag (die
+     A29-Erinnerung zählt dann alle gebundenen Ziele). Die maintain-
+     Konfiguration (MAINTAIN_NOT) bleibt unangetastet, damit A20-Kosten
+     und Recast-Semantik der Follow-ups exakt gleich bleiben. */
+  functionStuff.followUpMaintainedMarker = savedMaintain !== game.symbaroum.config.MAINTAIN_NOT;
   functionStuff.activelyMaintainedTargetEffect = [];
   functionStuff.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
   const handled = new Set([functionStuff.targetData.tokenId]);
@@ -5536,6 +5543,7 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.maintain = savedMaintain;
   functionStuff.activelyMaintainedTargetEffect = savedMaintainedEffect;
   functionStuff.addTargetEffect = savedAddTargetEffect;
+  functionStuff.followUpMaintainedMarker = false;
   /* v2.8 (Glyphe-Meister-Heilung): nach Durchlauf der Opfer-Zielkette -
      Wahl des Empfängers durch den Mystiker (nur Meisterstufe, nur mit
      mindestens einem betroffenen Opfer). */
@@ -5574,6 +5582,18 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   const savedCorruption = functionStuff.corruption;
   // follow-ups pay corruption per target (A20); maintain stays with the primary target
   functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  /* v2.9 (Rudolfs Testrunde 8, Befunde 5a/5c: „Zahl der Ziele im
+     Maintain-Dialog immer 1"): Maintain-FÄHIGE Kräfte markieren auch
+     ihre Ketten-Follow-up-Symbole als maintained - die A29-Erinnerung
+     zählt dann alle gebundenen Ziele statt nur das Primärziel. Der
+     Marker greift NUR hier im Follow-up-Kontext; die maintain-Konfigu-
+     ration (MAINTAIN_NOT) bleibt unangetastet, damit A20-Kosten und
+     Recast-Semantik der Follow-ups exakt gleich bleiben. Kräfte OHNE
+     Maintain auf der gewirkten Stufe (Blendend Novize/Meister, Kampf-
+     symbol Novize) bekommen das Flag NICHT - ihre Symbole sind Ein-
+     Runden- bzw. bis-Heilung-Wirkungen und dürfen die A29-Erinnerung
+     nie auslösen. */
+  functionStuff.followUpMaintainedMarker = savedMaintain !== game.symbaroum.config.MAINTAIN_NOT;
   // A25 stage 3: symbolist powers (Blinding Symbol) cost their corruption
   // ONCE per application - the chain follow-ups are free (Rudolf, 22.10.);
   // opts.followUpsFree turns that on per power, everything else keeps A20
@@ -5609,6 +5629,7 @@ async function chainSequenceResult(rollData, functionStuff, opts) {
   }
   functionStuff.maintain = savedMaintain;
   functionStuff.corruption = savedCorruption;
+  functionStuff.followUpMaintainedMarker = false;
 }
 
 async function anathemaChainResult(rollData, functionStuff) {
@@ -8392,7 +8413,9 @@ export async function standardPowerResult(rollData, functionStuff) {
           addEffect: effect,
           effectDuration: 1,
           ...(functionStuff.targetEffectTurnEnd === true ? { turnEnd: true } : {}),
-          ...(functionStuff.maintain !== game.symbaroum.config.MAINTAIN_NOT ? { maintained: true } : {}),
+          ...((functionStuff.maintain !== game.symbaroum.config.MAINTAIN_NOT || functionStuff.followUpMaintainedMarker === true)
+            ? { maintained: true }
+            : {}),
           ...(functionStuff.ability?.reference === "markoftorment" && functionStuff.powerLvl.level > 1 ? { attackerFavour: true } : {}),
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,
@@ -8451,7 +8474,9 @@ export async function standardPowerResult(rollData, functionStuff) {
           tokenId: functionStuff.targetData.tokenId,
           addEffect: effect,
           effectDuration: 1,
-          ...(functionStuff.maintain !== game.symbaroum.config.MAINTAIN_NOT ? { maintained: true } : {}),
+          ...((functionStuff.maintain !== game.symbaroum.config.MAINTAIN_NOT || functionStuff.followUpMaintainedMarker === true)
+            ? { maintained: true }
+            : {}),
           ...(functionStuff.ability?.reference === "markoftorment" && functionStuff.powerLvl.level > 1 ? { attackerFavour: true } : {}),
           casterId: functionStuff.actor.id,
           abilityRef: functionStuff.ability?.reference,

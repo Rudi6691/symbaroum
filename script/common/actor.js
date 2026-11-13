@@ -1093,10 +1093,26 @@ export class SymbaroumActor extends Actor {
 					   Ziele läuft die A23-Kette über ihre Szenen-Suche
 					   (maintainChainResult). Ohne presetMaintain bleibt
 					   der Erstsprich strikt einzeln (RAW). */
+					/* v2.9 (Rudolfs Testrunde 8, Befunde 5a/5b/5c, Rudolfs
+					   Fix-Wahl „Primärziel automatisch aus Maintain-
+					   Symbolen"): Der Maintain braucht KEIN markiertes
+					   Ziel mehr - ohne Markierung wird das Primärziel
+					   des Dialog-Tests automatisch aus den eigenen
+					   Maintain-Symbolen gewählt (Szenen-Scan, Muster
+					   a29ScanMaintainedPowers). Die Markierung behält
+					   Vorrang (v2.2-Multi-Mark-Semantik); der Fehler
+					   bleibt nur, wenn gar kein Maintain-Symbol
+					   existiert (dann hätte der A29-Reminder ohnehin
+					   nicht feuern dürfen). */
 					if (options?.presetMaintain) {
 						const marked = Array.from(game.user.targets);
-						if (marked.length === 0) throw game.i18n.localize("ABILITY_ERROR.TARGET");
-						specificStuff.targetData = getTargets(specificStuff.targetResistAttribute, marked.length)[0];
+						if (marked.length > 0) {
+							specificStuff.targetData = getTargets(specificStuff.targetResistAttribute, marked.length)[0];
+						} else {
+							const fallback = getMaintainedTargetData(this, ability?.system?.reference, specificStuff.targetResistAttribute);
+							if (!fallback) throw game.i18n.localize("ABILITY_ERROR.TARGET");
+							specificStuff.targetData = fallback;
+						}
 					} else {
 						specificStuff.targetData = getTarget(specificStuff.targetResistAttribute);
 					}
@@ -1298,6 +1314,50 @@ export function getTargets(targetAttributeName, maxTargets = 1) {
 		});
 	}
 	return targetsData;
+}
+
+/* v2.9 (Rudolfs Testrunde 8, Fix „Maintain ohne Zielmarkierung"):
+   Szenen-Scan nach eigenen Maintain-Symbolen der Kraft - ein Symbol
+   zählt nur mit ALLEN drei Flag-Bedingungen (maintained === true,
+   caster === Wirker, ability === Kraft-Referenz), exakt wie der
+   A29-Erinnerungs-Scan (a29ScanMaintainedPowers). Das erste gebundene
+   Ziel wird als targetData für den Maintain-Dialog-Test aufbereitet,
+   in derselben Form wie ein getTargets-Eintrag (der Dialog und die
+   A23-Kette behandeln es damit wie ein markiertes Primärziel; die
+   übrigen gebundenen Ziele läuft die Kette über ihre Szenen-Suche).
+   Ohne eigenes Maintain-Symbol: null (Aufrufer zeigt dann den
+   Standard-Fehler). */
+export function getMaintainedTargetData(caster, abilityRef, targetAttributeName) {
+	if (!caster || !abilityRef) return null;
+	for (const token of canvas.tokens?.placeables ?? []) {
+		const targetActor = token?.actor;
+		if (!targetActor) continue;
+		for (const effect of targetActor.effects) {
+			const flagData = effect.getFlag(game.system.id, "flagData");
+			if (flagData?.maintained !== true) continue;
+			if (flagData.caster !== caster.id) continue;
+			if (flagData.ability !== abilityRef) continue;
+			let autoParams = "";
+			let leaderTarget = false;
+			const leaderEffect = targetActor.hasCondition("eye");
+			if (leaderEffect) {
+				leaderTarget = true;
+				autoParams += game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_LEADER");
+			}
+			return {
+				hasTarget: true,
+				token: token,
+				actor: targetActor,
+				name: token.name,
+				tokenId: token.id,
+				resistAttributeName: targetAttributeName,
+				leaderTarget: leaderTarget,
+				autoParams: autoParams,
+				isCorrupted: game.symbaroum.config.isThoroughlyCorruptTarget(targetActor),
+			};
+		}
+	}
+	return null;
 }
 
 export function markScripted(item) {
