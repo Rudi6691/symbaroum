@@ -1913,6 +1913,27 @@ SYMBAROUM.AOE_SHAPE_SELECTION = {
   },
 };
 
+/* AoE v2.8 (Rudolfs Grundsatz-Festlegung 13.11. - RAW-Bewertung der
+   Symbolik-Kräfte, "Manuell = Master"): diese fünf Referenzen sind
+   SWEEP-KRAFT-ZONEN - die Zone ist reine ZIELWAHL-AUTOMATIK: Auslöse-
+   Taste -> Kette bzw. unabhängige Proben über die Master-Automatik ->
+   sofortiges Zonen-Ende (Bannsiegel-Präzedenz v2.7). Für sie sind
+   Wirkungsmodus, Betreten-Trigger und Dauer außer Kraft (getZoneConfig
+   erzwingt Augenblicklich/ohne Trigger); Zonen-Maintain-Runde, Be-
+   tretens-Auslösung und Snapshot-Folgeproben entfallen damit von selbst
+   (stillgelegt, nicht zurückgebaut - freie Zonen und andere Kraft-Zonen
+   behalten die Dauerhaft-Maschinerie vollständig). Kein Krafttext dieser
+   fünf koppelt ein Gebiet an die Wirkungsdauer - die Wirkungen laufen über
+   die manuelle Maschinerik weiter (Ein-Runde über A34, Maintain über A23,
+   bis-Heilung über Heilung/SL). */
+SYMBAROUM.SWEEP_ZONE_POWERS = [
+  "banishingseal",
+  "battlesymbol",
+  "blindingsymbol",
+  "drainingglyph",
+  "markoftorment",
+];
+
 /* AoE Stufe 1: Zielfilter des Auto-Targeting — 'all' = alle sichtbaren
    Token in der Fläche, 'enemies'/'allies' = Dispositions-Vergleich gegen
    den Wirker-Token (kleiner/groß-gleich der Wirker-Disposition; ohne

@@ -238,10 +238,16 @@ export function getZoneConfig(item) {
 	/* v2.7 (Testrunde 7, P14): 'neutral' (nur Neutrale) und 'notallied'
 	   (alles außer Verbündete) ergänzen die bestehenden Filter. */
 	const targeting = ['enemies', 'allies', 'neutral', 'notallied'].includes(rawTargeting) ? rawTargeting : 'all';
+	/* v2.8 (Rudolfs Grundsatz-Festlegung 13.11.): die fünf Sweep-Kräfte
+	   (config.SWEEP_ZONE_POWERS) sind reine Zielwahl-Automatik - Modus
+	   AUGENBLICKLICH erzwungen, Betreten-Trigger aus, Dauer bedeutungslos.
+	   Die Konfiguration im Zone-Tab bleibt editierbar, wirkt für diese
+	   Referenzen aber nicht (Hinweistext AOE.INFO_SWEEP im Tab). */
+	const isSweepPower = game.symbaroum.config.SWEEP_ZONE_POWERS.includes(String(item?.system?.reference ?? ''));
 	const rawMode = String(zone.mode ?? '').trim();
-	const mode = rawMode === 'instant' ? 'instant' : 'lasting';
+	const mode = isSweepPower || rawMode === 'instant' ? 'instant' : 'lasting';
 	const rawTrigger = String(zone.trigger ?? '').trim();
-	const trigger = rawTrigger === 'enter' ? 'enter' : '';
+	const trigger = !isSweepPower && rawTrigger === 'enter' ? 'enter' : '';
 	const rawDuration = Math.round(Number(zone.duration));
 	const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : 0;
 	/* v2.1 (Rudolfs Testrunde-1-Entscheidung 2): Zielwahl-Ordnung der
@@ -801,6 +807,28 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 	   für einen neuen Auslöse-Versuch stehen. */
 }
 
+/* v2.8 (Rudolfs Festlegung 13.11.): Aktivierungskosten einer Kraft-Zone
+   traditionsgerecht bestimmen. Die A16-Engine (getItemModifierSymbolism)
+   setzt für Mystiker der Tradition Symbolismus bei Kräften ihrer Tradi-
+   tion den Kostenmodus corr1 (1 Punkt); jeder andere zahlt die Standard-
+   Kraftkorruption 1W4. Der Leerbstands-Pfad bucht ohne Wurfdialog direkt
+   über die GM-Karte, deshalb wird die Kostenbestimmung hier nachgebaut:
+   corr1 -> 1, corrnone -> 0, alles andere (corrnormal/Default) -> 1W4-
+   Wurf. (Die normale Aktivierung läuft dagegen über den Standard-Dialog
+   und bucht über actor.getCorruption mit demselben Modus.) */
+async function _powerZoneActivationCorruption(actor, item) {
+	const mode = actor?.system?.combat?.combatMods?.abilities?.[item?.id]?.corruption ?? null;
+	if (mode === game.symbaroum.config.TEMPCORRUPTION_NONE) return 0;
+	if (mode === game.symbaroum.config.TEMPCORRUPTION_ONE) return 1;
+	try {
+		const roll = await new Roll('1d4').evaluate();
+		return roll.total ?? 0;
+	} catch (error) {
+		console.warn('Symbaroum AoE: activation corruption roll failed', error);
+		return 0;
+	}
+}
+
 /** Kraft-Zone: Aktivierung (voller Wurf mit Würfeldialog, Korruption 1x)
  *  oder Folge-Auslösung (Snapshot-Proben je Ziel, kostenlos). */
 async function _runPowerZone(region, tokens) {
@@ -838,14 +866,19 @@ async function _runPowerZone(region, tokens) {
 		}
 		if (isSealActivation && activationTokens.length === 0) {
 			/* Kosten + Ende: Korruptionsbuchung des Wirkers über die
-			   GM-Karte (Muster Kampfautomatisierung), dann Zone beenden. */
+			   GM-Karte (Muster Kampfautomatisierung), dann Zone beenden.
+			   v2.8 (Rudolfs Festlegung 13.11.): die Kosten sind TRADITIONS-
+			   GERECHT statt pauschal 1 - 1 temporäre Korruption gilt nur
+			   für Mystiker der Tradition Symbolismus (A16-Engine), alle
+			   anderen würfeln die Standard-Kraftkorruption 1W4. */
 			const { createModifyTokenChatButton } = await import('./roll.js');
+			const corruptionChange = await _powerZoneActivationCorruption(actor, item);
 			await createModifyTokenChatButton([
 				{
 					tokenId: _casterTokenOfZone(aoe)?.id ?? null,
 					actorId: actor.id,
-					corruptionChange: 1,
-					label: game.i18n.localize('POWER_BANISHINGSEAL.INFO_NO_VALID_TARGETS'),
+					corruptionChange,
+					label: game.i18n.format('POWER_BANISHINGSEAL.INFO_NO_VALID_TARGETS_COST', { count: corruptionChange }),
 				},
 			]);
 			ui.notifications.info(game.i18n.localize('POWER_BANISHINGSEAL.INFO_NO_VALID_TARGETS'));
@@ -1448,11 +1481,15 @@ async function _endZone(region, source) {
 			const actor = aoe.sourceActorUuid ? fromUuidSync(aoe.sourceActorUuid) : null;
 			const item = aoe.sourceItemUuid ? fromUuidSync(aoe.sourceItemUuid) : null;
 			const abilityRef = item?.reference ?? null;
-			/* v2.7 (Testrunde 7, Rudolfs Spec Schritt 5/7): beim Ende einer
-			   Bannsiegel-Zone bleiben die gesetzten Bannsiegel-Symbole auf
-			   den Token stehen - der SL verwaltet sie manuell. Alle
-			   anderen Kraft-Zonen räumen ihre Symbole weiter auf. */
-			if (actor && abilityRef && abilityRef !== 'banishingseal') {
+			/* v2.8 (Rudolfs Grundsatz-Festlegung 13.11. - Verallgemeine-
+			   rung der v2.7-Bannsiegel-Ausnahme): beim Ende einer SWEEP-
+			   KRAFT-ZONE (config.SWEEP_ZONE_POWERS) bleiben die gesetzten
+			   Symbole auf den Token stehen - die Wirkungen hängen an den
+			   Opfern, nicht am Gebiet: Ein-Runde-Symbole endet die A34-
+			   Zugende-Engine, Maintain-Symbole die manuelle A23-Kette,
+			   bis-Heilung bleibt SL-Verwaltung. Alle anderen Kraft-Zonen
+			   räumen ihre Symbole weiter auf. */
+			if (actor && abilityRef && !game.symbaroum.config.SWEEP_ZONE_POWERS.includes(abilityRef)) {
 				const cfg = actor.system?.combat?.combatMods?.abilities?.[item.id] ?? {};
 				const effects = [...(cfg.addTargetEffect ?? []), ...(cfg.activelyMaintainedTargetEffect ?? [])];
 				for (const tokenDoc of scene ? scene.tokens.contents : []) {

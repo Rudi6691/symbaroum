@@ -708,6 +708,14 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			/* v2.1: Augenblickliche Zonen haben keine Dauer (One-Shot) -
 			   das Template blendet das Dauer-Feld deshalb aus */
 			context.aoeIsInstant = (zoneCfg?.mode ?? 'lasting') === 'instant';
+			/* AoE v2.8 (Rudolfs Grundsatz-Festlegung 13.11.): Sweep-Kraft-
+			   Zone (config.SWEEP_ZONE_POWERS) - der Tab zeigt den Hinweis,
+			   dass Wirkungsmodus, Betreten-Trigger und Dauer für diese
+			   Kraft außer Kraft sind (getZoneConfig erzwingt Augenblick-
+			   lich; die Zone ist reine Zielwahl-Automatik). */
+			context.aoeIsSweepPower = game.symbaroum.config.SWEEP_ZONE_POWERS.includes(
+				String(this.item.system?.reference ?? '')
+			);
 			context.aoe_mode_selection = Object.values(game.symbaroum.config.AOE_MODE_SELECTION).map((c) => ({
 				id: c.id,
 				label: game.i18n.localize(c.label),

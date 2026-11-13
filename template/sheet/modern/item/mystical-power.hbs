@@ -144,6 +144,10 @@
                 </div>
                 <p class="m-zone-hint">{{localize "AOE.INFO_SCALE"}}</p>
                 <p class="m-zone-hint">{{localize "AOE.INFO_DEFAULTS"}}</p>
+                {{!-- AoE v2.8: Sweep-Kraft (Rudolfs Grundsatz-Festlegung 13.11.) - Modus/Trigger/Dauer außer Kraft --}}
+                {{#if aoeIsSweepPower}}
+                <p class="m-zone-hint">{{localize "AOE.INFO_SWEEP"}}</p>
+                {{/if}}
                 {{#if aoeCanPlace}}
                 <button type="button" class="m-zone-place" data-action="placeZone"><i class="fas fa-draw-polygon"></i> {{localize "AOE.PLACE_BUTTON"}}</button>
                 {{else if aoeBlockedReason}}

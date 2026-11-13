@@ -2425,10 +2425,24 @@ export class SymbaroumItem extends Item {
     base.introTextMaintain = game.i18n.localize("POWER_BLINDINGSYMBOL.CHAT_INTRO_M");
     base.resultTextSuccess = game.i18n.localize("POWER_BLINDINGSYMBOL.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_BLINDINGSYMBOL.CHAT_FAILURE");
-    if (base.powerLvl.level === 3) {
-      base.finalTextSucceed = game.i18n.localize("POWER_BLINDINGSYMBOL.UNTIL_HEALED");
+    /* v2.8 (RAW-Bewertung 13.11., Vault-APG-Text): der NOVIZE blendet nur
+       EINE RUNDE ("bevor sie automatisch wieder sehen können") - das
+       blind-Symbol läuft jetzt über die A34-Zugende-Engine wie beim
+       Kampfsymbol-Novizen (targetEffectTurnEnd, Wirkungsdauer = bis zum
+       Ende des eigenen Zugs, kein Maintain, keine A29-Erinnerung). Der
+       Adept hält mit [Wille-Schaden] gegen, der Meister blendet bis
+       Heilung - beide behalten das aktiv aufrechterhaltene Symbol
+       (P26-fix2: nur der Adept trägt den Maintain-Marker). */
+    if (base.powerLvl.level === 1) {
+      base.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "blind"))];
+      base.targetEffectTurnEnd = true;
+      base.finalTextSucceed = game.i18n.localize("POWER_BLINDINGSYMBOL.CHAT_NOVICE");
+    } else {
+      base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "blind"))];
+      if (base.powerLvl.level === 3) {
+        base.finalTextSucceed = game.i18n.localize("POWER_BLINDINGSYMBOL.UNTIL_HEALED");
+      }
     }
-    base.activelyMaintainedTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "blind"))];
     // A25 stage 2: the runes trigger a chain of blindings on EVERY level (the
     // APG novice text already describes the chain). Deliberately NO chain flag:
     // the flag's only runtime effect is showing the casting/maintain dropdown,
@@ -5394,9 +5408,94 @@ function buildGlyphTargetData(targetToken, resistAttributeName) {
   };
 }
 
+/* v2.8 (Rudolfs Festlegung 13.11. - Glyphe-Meister-Heilung): RAW heilt
+   der Effekt auf Meisterstufe "den Mystiker ODER einen Verbündeten" um
+   1W4 Zähigkeit je Runde, solange die Glyphe aufrechterhalten wird
+   (Vault-APG-Text). Rudolfs Ideal-Design: WAHL DURCH DEN MYSTIKER nach
+   Durchlauf der Opfer-Zielkette (Initialzauber über drainingGlyphResult
+   UND je Maintain-Runde, siehe maintainChainResult) - ist KEIN Opfer-
+   Ziel betroffen, gibt es keine Heilung. Abbruch oder "Keine Heilung"
+   beendet ohne Buchung; die Heilung selbst läuft als Eintrag der SL-
+   Anwenden-Karte (toughnessChange, Muster Ketten-Rundenschaden A25 F8).
+   Empfänger: der Wirker oder ein befreundetes Token der Szene
+   (Szenen-Scan, Dispositions-Vergleich wie die Zonen-Zielfilter). */
+async function drainingGlyphMasterHeal(functionStuff, affectedTargets) {
+  if (functionStuff.ability?.reference !== "drainingglyph") return;
+  if (functionStuff.powerLvl?.level !== 3) return;
+  if (!affectedTargets || affectedTargets < 1) return;
+  const caster = functionStuff.actor;
+  if (!caster) return;
+  const seen = new Set();
+  const allies = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const actor = token?.actor;
+    if (!actor || token.document?.hidden) continue;
+    if ((token.document?.disposition ?? 0) !== CONST.TOKEN_DISPOSITIONS.FRIENDLY) continue;
+    if (actor.id === caster.id || seen.has(actor.id)) continue;
+    seen.add(actor.id);
+    allies.push({ actor, tokenId: token.document.id });
+  }
+  const escapeHtml = (text) => String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const optionsHtml =
+    `<option value="">${escapeHtml(game.i18n.localize("POWER_DRAININGGLYPH.DIALOG_MASTER_HEAL_NONE"))}</option>` +
+    `<option value="self" selected>${escapeHtml(
+      game.i18n.format("POWER_DRAININGGLYPH.DIALOG_MASTER_HEAL_CASTER", { name: caster.name })
+    )}</option>` +
+    allies.map((ally) => `<option value="${ally.actor.id}">${escapeHtml(ally.actor.name)}</option>`).join("");
+  const chosen = await new Promise((resolve) => {
+    symbDialog({
+      title: game.i18n.localize("POWER_DRAININGGLYPH.DIALOG_MASTER_HEAL_TITLE"),
+      content: `<p>${escapeHtml(game.i18n.localize("POWER_DRAININGGLYPH.DIALOG_MASTER_HEAL_QUESTION"))}</p>
+        <select id="glyph-master-heal-target" style="width: 100%">${optionsHtml}</select>`,
+      classes: isModernDialogActive() ? modernDialogClasses("modern-glyph-heal-dialog") : [],
+      buttons: {
+        apply: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("POWER_BANISHINGSEAL.BUTTON_APPLY"),
+          callback: (html) => {
+            resolve(html[0].querySelector("#glyph-master-heal-target")?.value ?? "");
+          },
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.CANCEL"),
+          callback: () => resolve(""),
+        },
+      },
+      default: "apply",
+    });
+  });
+  if (!chosen) return;
+  const healRoll = await new Roll("1d4").evaluate();
+  let targetActor = caster;
+  let tokenId = functionStuff.tokenId ?? null;
+  if (chosen !== "self") {
+    const ally = allies.find((a) => a.actor.id === chosen);
+    if (!ally) return;
+    targetActor = ally.actor;
+    tokenId = ally.tokenId;
+  }
+  await createModifyTokenChatButton([
+    {
+      tokenId,
+      actorId: targetActor.id,
+      toughnessChange: healRoll.total,
+      label: game.i18n.format("POWER_DRAININGGLYPH.CHAT_MASTER_HEAL_APPLIED", {
+        castername: functionStuff.actingCharName ?? caster.name,
+        targetname: targetActor.name,
+        count: healRoll.total,
+      }),
+    },
+  ]);
+}
+
 async function drainingGlyphResult(rollData, functionStuff) {
   // primary target: standard behaviour (chat, damage, corruption, maintain)
   await standardPowerResult(rollData, functionStuff);
+  /* v2.8 (Glyphe-Meister-Heilung): zählen, wie viele Opfer die Glyphe
+     tatsächlich betroffen hat (gelungene Proben der Zielkette) - die
+     Meister-Heilung läuft nur mit mindestens einem betroffenen Opfer. */
+  let affectedTargets = rollData?.[0]?.trueActorSucceeded === true ? 1 : 0;
   // advantage (+1d4 damage) applies to the first attack only
   functionStuff.hasAdvantage = false;
   const savedCorruption = functionStuff.corruption;
@@ -5431,11 +5530,16 @@ async function drainingGlyphResult(rollData, functionStuff) {
     ];
     // one independent test per target: a failure does not end the sequence
     await standardPowerResult(rollDataNext, functionStuff);
+    if (rollDataNext[0]?.trueActorSucceeded === true) affectedTargets++;
   }
   functionStuff.corruption = savedCorruption;
   functionStuff.maintain = savedMaintain;
   functionStuff.activelyMaintainedTargetEffect = savedMaintainedEffect;
   functionStuff.addTargetEffect = savedAddTargetEffect;
+  /* v2.8 (Glyphe-Meister-Heilung): nach Durchlauf der Opfer-Zielkette -
+     Wahl des Empfängers durch den Mystiker (nur Meisterstufe, nur mit
+     mindestens einem betroffenen Opfer). */
+  await drainingGlyphMasterHeal(functionStuff, affectedTargets);
 }
 
 /* A19 Kette (chain): from Adept level on, Anathema, Brimstone Cascade and
@@ -5765,11 +5869,17 @@ async function maintainChainResult(rollData, functionStuff) {
   const flagDataArray = [];
   const rolls = [];
   const lines = [];
+  /* v2.8 (Glyphe-Meister-Heilung): Zähler der weiterhin gebundenen Ziele -
+     die Meister-Heilung der Schwächenden Glyphe (1W4, Empfängerwahl des
+     Mystikers) läuft NACH der Maintain-Kette, aber nur, solange mindestens
+     ein Opfer weiterhin betroffen ist. */
+  let heldTargets = 0;
 
   // A24-3 (test round 2): the marked target is part of the chain - its dialog
   // test shows up in the summary card like every other maintained target
   if (markedHasOwn) {
     const holds = rollData?.[0]?.trueActorSucceeded !== false;
+    if (holds) heldTargets++;
     lines.push(
       `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: markedName })}</p>`
     );
@@ -5824,6 +5934,7 @@ async function maintainChainResult(rollData, functionStuff) {
     );
     rolls.push(...(roll.rolls ?? []));
     const holds = roll.trueActorSucceeded;
+    if (holds) heldTargets++;
     lines.push(
       `<p>${game.i18n.format(holds ? "POWER.MAINTAIN_CHAIN_HOLDS" : "POWER.MAINTAIN_CHAIN_BREAKS", { targetname: token.name })}</p>`
     );
@@ -5853,6 +5964,13 @@ async function maintainChainResult(rollData, functionStuff) {
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
+  }
+  /* v2.8 (Glyphe-Meister-Heilung): nach der Maintain-Runde der Glyphe -
+     Wahl des Empfängers durch den Mystiker (nur Meisterstufe, nur mit
+     mindestens einem weiterhin gebundenen Opfer; der Helper prüft Referenz
+     und Stufe selbst nach). */
+  if (functionStuff.ability?.reference === "drainingglyph") {
+    await drainingGlyphMasterHeal(functionStuff, heldTargets);
   }
 }
 
@@ -8476,10 +8594,14 @@ async function preDialogBanishingSeal(functionStuff) {
           if (!banishingSealPrimaryCategoryCheck(functionStuff)) {
             return;
           }
-          /* v2.7 (Musterablauf v1.1, Schritt 4): das Wirken kostet
-             1 temporäre Korruption (TEMPCORRUPTION_ONE), unabhängig von
-             der Stufen-Default-Konfiguration des Kraft-Setups. */
-          functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
+          /* v2.8 (Rudolfs Festlegung 13.11., ersetzt den v2.7-Schritt-4-
+             Hardcode): das Wirken kostet TRADITIONSGERECHT - 1 temporäre
+             Korruption (TEMPCORRUPTION_ONE) gilt NUR für Mystiker der
+             Tradition Symbolismus; die A16-Engine (getItemModifier-
+             Symbolism) setzt corr1 im combatMods-Setup genau für sie.
+             Der Hardcode wird NICHT mehr gesetzt: alle anderen Wirker
+             zahlen die Standard-Kraftkorruption 1W4 (Modus aus dem
+             Setup, getCorruption würfelt). Manuell = Master. */
           modifierDialog(functionStuff);
         },
       },
@@ -8669,11 +8791,12 @@ export async function executeZonePower(
        PLATZIERUNG im Zonen-Flag (aoe.sealCategoryId, oben via zoneExtras
        restauriert) - der Kategorie-Dialog läuft hier NICHT mehr (vorher
        je Aktivierung mit Vorbelegung des jeweiligen Primärziels,
-       Rudolfs P2-Befund). Die Aktivierung kostet exakt 1 temporäre
-       Korruption (TEMPCORRUPTION_ONE), unabhängig von der Stufen-Default-
-       Konfiguration. */
+       Rudolfs P2-Befund).
+       v2.8 (Rudolfs Festlegung 13.11.): der Kosten-Hardcode (v2.7:
+       pauschal TEMPCORRUPTION_ONE) ist ENTFALLEN - die Kosten bestimmt
+       die Standard-Engine aus dem combatMods-Setup (A16: Symbolisten
+       1 Punkt, alle anderen 1W4), wie im manuellen Wirkpfad. */
     if (functionStuff.ability?.reference === "banishingseal") {
-      functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
       await modifierDialog(functionStuff);
     } else if (functionStuff.confirmDialog) {
       await confirmPowerDialog(functionStuff);
