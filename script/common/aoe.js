@@ -175,6 +175,17 @@ export function registerAoeSettings() {
 		default: 0,
 		config: false,
 	});
+	/* v2.7 (Testrunde 7, HAUPTBEFUND, Rudolfs v2.6-Befunde P2d/P8/P12):
+	   Initialisierung der Marke HIER, nach der Registrierung. Vorher lief
+	   sie TOP-LEVEL in registerAoeHooks (Modul-Evaluierung von hooks.js)
+	   VOR dieser Registrierung - game.settings.get warf, die hooks.js-
+	   Evaluierung brach ab, alle Hooks dahinter registrierten sich nie.
+	   Ohne Tick (kein Sofort-Tick nach F5); 0 = noch nie initialisiert
+	   (Welten unter 15 Min Weltzeit ticken erstmals bei Weltzeit 900). */
+	const _initMark = Math.floor(Number(game.time?.worldTime ?? 0) / 900);
+	if (!(Number(game.settings.get('symbaroum', 'aoeLastRoundMark')) || 0) && _initMark > 0) {
+		game.settings.set('symbaroum', 'aoeLastRoundMark', _initMark);
+	}
 }
 
 /** Setting-Gate für alle AoE-Interaktionen (Blatt-Button + Platzierung). */
@@ -224,7 +235,9 @@ export function getZoneConfig(item) {
 	const rawSize = Math.round(Number(zone.size));
 	const size = Number.isFinite(rawSize) && rawSize >= 1 ? rawSize : 1;
 	const rawTargeting = String(zone.targeting ?? '').trim();
-	const targeting = ['enemies', 'allies'].includes(rawTargeting) ? rawTargeting : 'all';
+	/* v2.7 (Testrunde 7, P14): 'neutral' (nur Neutrale) und 'notallied'
+	   (alles außer Verbündete) ergänzen die bestehenden Filter. */
+	const targeting = ['enemies', 'allies', 'neutral', 'notallied'].includes(rawTargeting) ? rawTargeting : 'all';
 	const rawMode = String(zone.mode ?? '').trim();
 	const mode = rawMode === 'instant' ? 'instant' : 'lasting';
 	const rawTrigger = String(zone.trigger ?? '').trim();
@@ -300,11 +313,20 @@ function _collectRegionTokens(region) {
  * freundliche; NEUTRALE Token greifen nur beim Filter 'Alle'. Der
  * frühere Wirker-Vergleich (kleiner/größer als) zog neutrale Token auf
  * die falsche Seite. 'all' lässt den Filter weg.
+ * v2.7 (Testrunde 7, P14): 'neutral' = nur neutrale Token,
+ * 'notallied' = alles außer Verbündete (Feinde UND Neutrale) - der
+ * Bannsiegel-Fall für neutrale Untote/Abominationen in Davokar.
  */
 function _filterTargets(tokens, targeting, casterToken) {
 	if (targeting === 'all') return tokens;
 	if (targeting === 'enemies') {
 		return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.HOSTILE);
+	}
+	if (targeting === 'neutral') {
+		return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.NEUTRAL);
+	}
+	if (targeting === 'notallied') {
+		return tokens.filter((td) => (td.disposition ?? 0) !== CONST.TOKEN_DISPOSITIONS.FRIENDLY);
 	}
 	return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.FRIENDLY);
 }
@@ -729,7 +751,18 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 		enteringTokenId !== null
 			? [region.parent?.tokens?.get(enteringTokenId)].filter((td) => !!td?.actor && !td.hidden)
 			: _resolveZoneTargets(region, aoe, { auto: !manual });
-	if (tokens.length === 0) {
+	/* v2.7 (Testrunde 7, Rudolfs Schritt 7 wörtlich + Musterablauf v1.1):
+	   Bannsiegel-Zonen laufen auch mit LEEREM Anfangsbestand in die
+	   AKTIVIERUNG - die Aktivierung kostet 1 temporäre Korruption und
+	   beendet die Zone sofort, wenn kein gültiges Ziel übrig bleibt
+	   (Kosten auch bei leerem Bestand). Nur der manuelle/automatische
+	   AUSLÖSE-Pfad (kein Betreten): dort läuft die Aktivierung gegen
+	   den Anfangsbestand. Alle anderen Kräfte behalten den generischen
+	   Guard (keine Token in der Fläche, erneuter Versuch möglich). */
+	const isSealZone =
+		!aoe.free &&
+		(aoe.sourceItemUuid ? fromUuidSync(aoe.sourceItemUuid)?.system?.reference : null) === 'banishingseal';
+	if (tokens.length === 0 && !(isSealZone && enteringTokenId === null)) {
 		if (manual) {
 			ui.notifications.info(game.i18n.localize('AOE.ERR_NO_TOKENS'));
 		}
@@ -780,20 +813,53 @@ async function _runPowerZone(region, tokens) {
 		return;
 	}
 	if (!aoe.activated) {
-		/* v2.4 (Rudolfs Testrunde 4, Entscheidung a): AKTIVIERUNG = voller
-		   Kraftwurf MIT Standard-Würfeldialog (Modifikator/Gunst), Korruption
-		   1x nach Kraftregeln (je-Ziel-Kosten dieser Auslösung inklusive);
-		   der Bannsiegel-Kategorie-Dialog läuft im Zonen-Pfad jetzt VOR
-		   dem Würfeldialog (Entscheidung i). Danach ist die Instanz
-		   aktiviert: jede Folge-Auslösung würfelt gegen den Snapshot,
-		   kostenlos (Entscheidung b). */
+		/* v2.7 (Testrunde 7, Rudolfs korrigierter Ablauf-Spec Schritt 2/7
+		   + Musterablauf v1.1): die Bannsiegel-Kategorie steht seit der
+		   PLATZIERUNG im Zonen-Flag (aoe.sealCategoryId) - der Aktivierungs-
+		   pfad filtert den Anfangsbestand gegen diese gespeicherte Kategorie
+		   (Warnung je übersprungenem Token, das erste gültige Ziel wird
+		   Primärziel des Würfeldialogs) und läuft bei leerem Rest mit
+		   Kosten + sofortigem Zonen-Ende statt ins Leere (Schritt 7
+		   wörtlich: 1 temporäre Korruption auch bei leerem Bestand).
+		   Ohne gewählte Kategorie (null) bleibt der Filter aus. */
+		let activationTokens = tokens;
+		const isSealActivation = String(item.system?.reference ?? '') === 'banishingseal';
+		if (isSealActivation && aoe.sealCategoryId) {
+			activationTokens = [];
+			for (const tokenDoc of tokens) {
+				if (tokenDoc?.actor && game.symbaroum.config.getCreatureCategory(tokenDoc.actor) !== aoe.sealCategoryId) {
+					ui.notifications.warn(
+						game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH', { targetname: tokenDoc.actor.name })
+					);
+					continue;
+				}
+				activationTokens.push(tokenDoc);
+			}
+		}
+		if (isSealActivation && activationTokens.length === 0) {
+			/* Kosten + Ende: Korruptionsbuchung des Wirkers über die
+			   GM-Karte (Muster Kampfautomatisierung), dann Zone beenden. */
+			const { createModifyTokenChatButton } = await import('./roll.js');
+			await createModifyTokenChatButton([
+				{
+					tokenId: _casterTokenOfZone(aoe)?.id ?? null,
+					actorId: actor.id,
+					corruptionChange: 1,
+					label: game.i18n.localize('POWER_BANISHINGSEAL.INFO_NO_VALID_TARGETS'),
+				},
+			]);
+			ui.notifications.info(game.i18n.localize('POWER_BANISHINGSEAL.INFO_NO_VALID_TARGETS'));
+			await _endZone(region, 'trigger');
+			return;
+		}
 		/* v2.5 (Testrunde 5, P16): In-Flight-Marke setzen - der Dialog
 		   laeuft asynchron, bis zum Abschluss (aoeZoneActivationCompleted
 		   aus captureZoneActivationSnapshot) keine weitere Ausloesung. */
 		_zoneActivationInFlight.set(region.id, Date.now());
-		await executeZonePower(actor, item, tokens, {
+		await executeZonePower(actor, item, activationTokens, {
 			suppressCorruption: false,
 			zoneActivation: { regionId: region.id, sceneId: region.parent?.id, endAfter: aoe.mode === 'instant' },
+			zoneExtras: aoe.sealCategoryId ? { sealCategoryId: aoe.sealCategoryId } : null,
 		});
 		return;
 	}
@@ -820,7 +886,13 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 	   Snapshot - ohne das Restore an jede Folge-Ausloesung waere der
 	   Kategorie-Filter der Kraft wirkungslos ("alle Token muessen
 	   widerstehen"). */
-	const zoneExtras = snapshot?.sealCategoryId ? { sealCategoryId: snapshot.sealCategoryId } : null;
+	/* v2.7 (Testrunde 7, Rudolfs Schritt 2): die Kategorie gilt für die
+	   GESAMTE Wirkdauer - Primärquelle ist die bei der PLATZIERUNG
+	   gewählte Kategorie (aoe.sealCategoryId); der Aktivierungs-
+	   Snapshot bleibt Fallback für v2.5/v2.6-Zonen ohne Platzierungs-
+	   Kategorie. */
+	const sealCategoryId = aoe.sealCategoryId ?? snapshot?.sealCategoryId ?? null;
+	const zoneExtras = sealCategoryId ? { sealCategoryId } : null;
 	/* v2.6 (Rudolfs Testrunde 6, P11a + Rudolfs Entscheidung „Caster als
 	   Karten-Aktor"): Folge-Auslösungen zeigen den AUSLÖSER als Wirkenden
 	   (Name + Porträt) statt der Zone - die Aktivierungskarte zeigte den
@@ -833,20 +905,19 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 	for (const tokenDoc of tokens) {
 		const tokenActor = tokenDoc.actor;
 		if (!tokenActor) continue;
-		/* v2.6 (Testrunde 6, P7, Rudolfs Entscheidung „A36V-Manuell-
-		   Verhalten konsistent"): Novize + Fehlkategorie = Warnung +
-		   Skip schon VOR der Snapshot-Probe (kein Test, keine Karte,
-		   keine Wirkung) - Adept/Master würfeln weiter (Kartenschaden,
-		   kein Bann; sealPrimaryMismatch setzt der Primär-Check in
-		   executeZonePower). Ohne gewählte Kategorie bleibt der Check
-		   aus (SL-Buchhaltung, A36V). */
+		/* v2.7 (Testrunde 7, stufenunabhängig): Fehlkategorie = Warnung +
+		   Skip VOR der Snapshot-Probe (kein Test, keine Karte, keine
+		   Wirkung) - für ALLE Stufen, der A36V-Kartenschaden-Pfad für
+		   Adept/Master entfällt (sealPrimaryMismatch gibt es nicht mehr,
+		   Rudolfs v2.7-Spec: „Warnung und Abbruch" ohne Stufen-
+		   unterschied). Ohne gewählte Kategorie bleibt der Check aus
+		   (SL-Buchhaltung). */
 		if (
 			item?.system?.reference === 'banishingseal' &&
 			zoneExtras?.sealCategoryId &&
-			Number(item?.getLevel?.()?.level ?? 1) <= 1 &&
 			game.symbaroum.config.getCreatureCategory(tokenActor) !== zoneExtras.sealCategoryId
 		) {
-			ui.notifications.warn(game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE', { targetname: tokenActor.name }));
+			ui.notifications.warn(game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH', { targetname: tokenActor.name }));
 			continue;
 		}
 		/* Kein Snapshot bzw. keine Probe konfiguriert (z. B. unwider-
@@ -1377,7 +1448,11 @@ async function _endZone(region, source) {
 			const actor = aoe.sourceActorUuid ? fromUuidSync(aoe.sourceActorUuid) : null;
 			const item = aoe.sourceItemUuid ? fromUuidSync(aoe.sourceItemUuid) : null;
 			const abilityRef = item?.reference ?? null;
-			if (actor && abilityRef) {
+			/* v2.7 (Testrunde 7, Rudolfs Spec Schritt 5/7): beim Ende einer
+			   Bannsiegel-Zone bleiben die gesetzten Bannsiegel-Symbole auf
+			   den Token stehen - der SL verwaltet sie manuell. Alle
+			   anderen Kraft-Zonen räumen ihre Symbole weiter auf. */
+			if (actor && abilityRef && abilityRef !== 'banishingseal') {
 				const cfg = actor.system?.combat?.combatMods?.abilities?.[item.id] ?? {};
 				const effects = [...(cfg.addTargetEffect ?? []), ...(cfg.activelyMaintainedTargetEffect ?? [])];
 				for (const tokenDoc of scene ? scene.tokens.contents : []) {
@@ -1418,6 +1493,68 @@ async function _endZone(region, source) {
  * Platzierung (Ketten-Automatik) und verschwinden danach; dauerhafte
  * Zonen bekommen Auto-Targeting + Zonen-Karte.
  */
+/**
+ * Kategorie-Dialog der Bannsiegel-Zone (v2.7, Rudolfs korrigierter
+ * Ablauf-Spec Schritt 2 + Musterablauf v1.1): DIE Kategorie-Wahl der
+ * Wirkdauer - läuft EINMAL bei der PLATZIERUNG (RAW: „Upon creation, the
+ * mystic must choose what type of creature will be affected"), nicht je
+ * Aktivierung (vorher: Dialog bei jeder Aktivierung mit Vorbelegung des
+ * jeweiligen Primärziels, Rudolfs P2-Befund aus Testrunde 7). Keine
+ * Vorbelegung - bei der Platzierung existiert noch kein Ziel. Die leere
+ * Wahl „keine Kategorie" hält wie im manuellen Wirk-Dialog alle
+ * Kategorie-Checks der Zone deaktiviert (SL-Buchhaltung). Abbruch des
+ * Dialogs = keine Platzierung.
+ */
+function _sealZoneCategoryDialog(item) {
+	return new Promise((resolve) => {
+		const emptyLabel = game.i18n.localize('AOE.SEAL_ZONE_NO_CATEGORY');
+		const categoryOptions =
+			`<option value="">${emptyLabel}</option>` +
+			Object.values(game.symbaroum.config.CREATURE_CATEGORY_SELECTION)
+				.map((category) => `<option value="${category.id}">${game.i18n.localize(category.label)}</option>`)
+				.join('');
+		let settled = false;
+		const settle = (value) => {
+			if (settled) return;
+			settled = true;
+			resolve(value);
+		};
+		const dialog = symbDialog({
+			title: item.name,
+			content: `<p>${game.i18n.localize('POWER_BANISHINGSEAL.DIALOG_TYPE')}</p>
+				<p class="zone-hint">${game.i18n.localize('POWER_BANISHINGSEAL.ZONE_DIALOG_HINT')}</p>
+				<select id="creatureCategory" style="width: 100%">${categoryOptions}</select>
+				<input type="text" id="creatureSubtype" style="width: 100%">`,
+			// P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern
+			classes: isModernDialogActive() ? modernDialogClasses('modern-seal-category-dialog') : [],
+			buttons: {
+				cast: {
+					icon: '<i class="fas fa-check"></i>',
+					label: game.i18n.localize('POWER_BANISHINGSEAL.BUTTON_APPLY'),
+					callback: (html) => {
+						settle({
+							categoryId: html[0].querySelector('#creatureCategory').value,
+							subtype: html[0].querySelector('#creatureSubtype').value.trim(),
+						});
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: game.i18n.localize('BUTTON.CANCEL'),
+					callback: () => settle(null),
+				},
+			},
+			default: 'cast',
+		});
+		// ESC / Kopf-X ohne Tastenwahl = Abbruch (keine Platzierung)
+		try {
+			dialog.addEventListener('close', () => settle(null));
+		} catch (error) {
+			console.warn('Symbaroum AoE: seal category dialog close listener unavailable', error);
+		}
+	});
+}
+
 export async function placeZoneFromItem(item) {
 	if (!item) return;
 	if (!mayPlaceZone(item)) return;
@@ -1436,6 +1573,20 @@ export async function placeZoneFromItem(item) {
 	}
 	const casterToken = _resolveCasterToken(item);
 	const actor = item.actor ?? null;
+	/* v2.7 (Testrunde 7, Rudolfs korrigierter Ablauf-Spec Schritt 2):
+	   Bannsiegel-Zonen fragen die Kreaturen-Kategorie EINMAL vor der
+	   Platzierung ab und speichern sie für die GESAMTE Wirkdauer im
+	   Zonen-Flag (aoe.sealCategoryId). Aktivierung und jede Folge-
+	   Auslösung prüfen gegen diese gespeicherte Kategorie - der
+	   Kategorie-Dialog läuft NICHT mehr bei der Aktivierung. */
+	let sealCategoryId = null;
+	let sealSubtype = '';
+	if (String(item.system?.reference ?? '') === 'banishingseal') {
+		const sealChoice = await _sealZoneCategoryDialog(item);
+		if (!sealChoice) return;
+		sealCategoryId = sealChoice.categoryId || null;
+		sealSubtype = sealChoice.subtype ?? '';
+	}
 	const zone = {
 		level: 2,
 		free: false,
@@ -1446,6 +1597,11 @@ export async function placeZoneFromItem(item) {
 		sourceItemUuid: item.uuid,
 		sourceActorUuid: actor?.uuid ?? null,
 		casterTokenUuid: casterToken?.document?.uuid ?? null,
+		/* v2.7 (Testrunde 7, P13): bei Platzierung gewählte Bannsiegel-
+		   Kreaturen-Kategorie, gilt für die gesamte Wirkdauer. null =
+		   „keine Kategorie" (alle Kategorie-Checks aus, SL-Buchhaltung). */
+		sealCategoryId,
+		sealSubtype,
 		userId: game.user.id,
 		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder },
 		metersPerField: 2,
@@ -1949,12 +2105,16 @@ export function registerAoeHooks() {
 	   RELATIVE 900-s-Intervalle (Differenz zur Weltzeit des letzten Ticks)
 	   - kleine Zeitsprünge über eine 15-Min-Marke feuerten den Reminder
 	   OHNE Zonen-Runde (Rudolfs Befund: „Weltzeit triggert keine Runde
-	   nach 15 Minuten"), große Sprünge tickten mehrfach ins Leere. Bei
-	   der Registrierung wird die Marke initialisiert, ohne zu ticken. */
-	const _initMark = Math.floor(Number(game.time?.worldTime ?? 0) / 900);
-	if (!(Number(game.settings.get('symbaroum', 'aoeLastRoundMark')) || 0) && _initMark > 0) {
-		game.settings.set('symbaroum', 'aoeLastRoundMark', _initMark);
-	}
+	   nach 15 Minuten"), große Sprünge tickten mehrfach ins Leere.
+	   v2.7 (Testrunde 7, HAUPTBEFUND): Die Marken-Initialisierung lief hier
+	   TOP-LEVEL bei der Modul-Evaluierung von hooks.js - VOR der Setting-
+	   Registrierung im init-Hook (registerAoeSettings). game.settings.get
+	   WIRFT für unregistrierte Settings: Die hooks.js-Evaluierung brach an
+	   dieser Stelle ab und ALLE Top-Level-Registrierungen dahinter waren
+	   tot (GM-Anwendungstasten = P2d, i18n-Config = P12, dieser Weltzeit-
+	   Tick selbst = P8, A29-Reminder, deleteCombat). Die Initialisierung
+	   steht jetzt am ENDE von registerAoeSettings, direkt nach der
+	   Registrierung - unverändert ohne Tick (kein Sofort-Tick nach F5). */
 	Hooks.on('updateWorldTime', (worldTime) => {
 		if (!game.user?.isGM || !aoeEnabled()) return;
 		if (game.combat?.active) return;

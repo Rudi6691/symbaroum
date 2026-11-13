@@ -5,15 +5,53 @@ export class SymbaroumCommsListener
     {
         if(game.user.isGM && comData.type === "GMMessage")
         {
-            const html = await foundry.applications.handlebars.renderTemplate("systems/symbaroum/template/chat/applyEffectsButton.hbs");
+            /* v2.7 (Testrunde 7, Rudolfs v2.7-Spec „EINE GM-Karte pro
+               Vorgang"): sichtbare Eintrags-Liste über der Anwenden-Taste -
+               jeder Eintrag nennt Ziel + Wirkung, damit der SL sieht, was
+               die Karte anwendet (vorher stand nur der pauschale Text).
+               Beschreibung je Eintrag: label-Feld bevorzugt (z. B. der
+               Schadensfall-Text des Bannsiegels), sonst Zusatz-Symbol,
+               Entfernen, Temporäre Korruption oder Schaden/Heilung. */
+            const entries = (comData.data ?? []).map((flagData) => {
+                const tokenName = flagData.tokenId
+                    ? canvas.tokens?.objects?.children?.find((t) => t.id === flagData.tokenId)?.name
+                    : null;
+                const name =
+                    tokenName ??
+                    (flagData.actorId ? game.actors?.get(flagData.actorId)?.name : null) ??
+                    "";
+                let description = flagData.label ?? "";
+                if (!description) {
+                    if (flagData.addEffect) {
+                        description = game.i18n.localize(flagData.addEffect.label ?? "");
+                    } else if (flagData.removeEffect) {
+                        description =
+                            game.i18n.localize(flagData.removeEffect.label ?? "") +
+                            " (" + game.i18n.localize("AOE.GMCARD_REMOVE") + ")";
+                    } else if (flagData.corruptionChange != null) {
+                        const value = Math.round(Number(flagData.corruptionChange) || 0);
+                        description = game.i18n.format("AOE.GMCARD_CORRUPTION", {
+                            count: (value > 0 ? "+" : "") + value,
+                        });
+                    } else if (flagData.toughnessChange != null) {
+                        const value = Math.round(Number(flagData.toughnessChange) || 0);
+                        description = game.i18n.format(
+                            value < 0 ? "AOE.GMCARD_DAMAGE" : "AOE.GMCARD_HEALING",
+                            { count: Math.abs(value) }
+                        );
+                    }
+                }
+                return { name: name, description: description };
+            });
+            const html = await foundry.applications.handlebars.renderTemplate("systems/symbaroum/template/chat/applyEffectsButton.hbs", { entries });
             const flagKey = `flags.${game.system.id}.applyEffects`;
             const chatData = {
                 speaker: ChatMessage.getSpeaker({alias:game.i18n.localize("DIALOG.SYSTEM_MESSAGE")}),
                 whisper: [game.user],
-                content: html             
+                content: html
             };
             chatData[flagKey] = comData.data;
-            return ChatMessage.create(chatData);            
+            return ChatMessage.create(chatData);
         }
         else if(comData.type === "ResistRoll" && comData.data.targetUserId === game.userId)
         {

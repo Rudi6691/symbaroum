@@ -6,6 +6,8 @@ import {
   getAttributeValue,
   getOwnerPlayer,
   createModifyTokenChatButton,
+  beginGmCardCollection,
+  flushGmCardCollection,
   createResistRollChatButton,
   getRollResultLevelKey,
 } from "./roll.js";
@@ -3840,22 +3842,13 @@ export async function modifierDialog(functionStuff) {
         icon: '<i class="fas fa-check"></i>',
         label: game.i18n.localize("BUTTON.ROLL"),
         callback: async (html) => {
-          // A36V test round 3 (Rudolf, 25.10.): banishing seal - on "Würfeln"
-          // the PRIMARY target is re-checked against the category chosen in
-          // the seal dialog. Novice + mismatch: warning, no roll. Adept/
-          // Master: the seal runs anyway (see banishingSealPrimaryCategoryCheck)
-          if (!banishingSealPrimaryCategoryCheck(functionStuff)) {
-            /* v2.6 (Rudolfs Testrunde 6, P7-UX): eine BLOCKIERTE Zonen-
-               AKTIVIERUNG (Novize + Fehlkategorie) gibt die In-Flight-
-               Marke SOFORT frei und räumt die Zonen-Markierungen ab -
-               vorher blieb die Auslöse-Taste 5 Min still unbenutzbar
-               (Staleness) und die Markierungen standen als Fadenkreuze. */
-            if (functionStuff.zoneActivation?.regionId) {
-              game.symbaroum.api?.aoeZoneActivationCompleted?.(functionStuff.zoneActivation.regionId, functionStuff.zoneActivation.sceneId);
-            }
-            releaseZoneTargets(functionStuff);
-            return;
-          }
+          /* v2.7 (Testrunde 7, Rudolfs Schritt 2): die Bannsiegel-Kategorie-
+             Prüfung läuft jetzt bei der WAHL (preDialogBanishingSeal bzw.
+             Zonen-Platzierung), NICHT mehr erst beim „Würfeln" - ein
+             blockierter Wurf mit nachträglicher In-Flight-Freigabe gehört
+             der Vergangenheit an. Der v2.6-Check-Block (Novize + Fehl-
+             kategorie + Zonen-Activ-In-Flight-Cleanup) ist damit tot und
+             entfernt. */
           if (functionStuff.askWeapon) {
             let wepID = html[0].querySelector("#weapon")[0].value;
             functionStuff.weapon = functionStuff.actor.items.find((item) => item.id == wepID);
@@ -4754,30 +4747,61 @@ async function staffProjectileChainResult(rollData, functionStuff) {
   return chainResult(rollData, functionStuff, (index) => dice[Math.min(index, dice.length - 1)]);
 }
 
-/* A36V test round 3/4 (Rudolf, 25.10.): the seal dialog's category choice is
-   re-checked against the PRIMARY target when the roll is confirmed (the
-   chain already checks its own follow-up targets, see
-   banishingSealChainResult). Novice: warning and NO roll - at that level the
-   seal does not affect creatures of other types. Adept/Master: NO
-   notification (Rudolf, round 4) - the roll runs, and on a SUCCESSFUL roll
-   the mismatched target only takes the card damage (1d4 / 1d8, SL-applied,
-   see CHAT_ADEPT / CHAT_MASTER) and is NOT banished: sealPrimaryMismatch
-   tells banishingSealChainResult to keep it off the fleeing card. An empty
-   dialog selection ("no category") keeps the check disabled (SL judgement,
-   unchanged). */
+/* v2.7 (Testrunde 7, Rudolfs Schritt 2, stufenunabhängig): Prüfung der
+   gewählten Kategorie gegen ein Ziel bei der WAHL (manueller Wirk-Dialog
+   gegen das Primärziel). Fehlkategorie = Warnung + Abbruch - für ALLE
+   Stufen, ohne den v2.6-Adept/Master-Kartenschaden-Pfad (sealPrimaryMismatch
+   entfällt komplett, Rudolfs v2.7-Spec „Warnung und Abbruch"). Eine leere
+   Wahl („keine Kategorie") hält den Check deaktiviert (SL-Buchhaltung). */
 function banishingSealPrimaryCategoryCheck(functionStuff) {
-  functionStuff.sealPrimaryMismatch = false;
   if (functionStuff.ability?.reference !== "banishingseal" || !functionStuff.sealCategoryId) return true;
   const primaryActor = functionStuff.targetData?.actor ?? functionStuff.targetData?.token?.actor;
   if (!primaryActor) return true;
   if (game.symbaroum.config.getCreatureCategory(primaryActor) === functionStuff.sealCategoryId) return true;
   const targetname = functionStuff.targetData?.name ?? primaryActor.name ?? "";
-  if ((functionStuff.powerLvl?.level ?? 1) <= 1) {
-    ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.WARN_CATEGORY_NOVICE", { targetname: targetname }));
-    return false;
+  ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH", { targetname: targetname }));
+  return false;
+}
+
+/* v2.7 (Testrunde 7, Rudolfs RAW-Bestätigung, Musterablauf v1.1 Schritt 9):
+   Schadensfall der misslungenen Bann-Probe gegen ein Ziel des GEWÄHLTten
+   Typs: Novize KEIN Schaden (die Kraft endet), Adept 1W4 / Meister 1W8
+   Schaden, ignoriert Rüstung (toughnessChange, SL-Anwenden-Karte). */
+async function banishingSealDamageCard(functionStuff, targetData) {
+  const level = functionStuff.powerLvl?.level ?? 1;
+  const dice = level >= 3 ? "1d8" : "1d4";
+  const damageRoll = await new Roll(dice).evaluate();
+  await createModifyTokenChatButton([
+    {
+      tokenId: targetData?.tokenId,
+      actorId: targetData?.actor?.id,
+      toughnessChange: -damageRoll.total,
+      label: game.i18n.format("POWER_BANISHINGSEAL.CHAT_DAMAGE", { dice: dice, total: damageRoll.total }),
+    },
+  ]);
+  return damageRoll.total;
+}
+
+/* v2.7: Ausgang einer misslungenen Bann-Probe im Ketten-Kontext. Rückgabe:
+   'continue' (Kette läuft weiter), 'end' (Kette endet), 'zoneEnded' (Kette
+   endet, die Zone wurde bereits beendet).
+   - Manuell: die Kette ENDET (RAW „until a test fails"); Adept/Meister
+     nehmen vorher die Schadenskarte.
+   - Zonen-Batch (Aktivierung, zoneActivation gesetzt): Novize endet
+     Kette UND Zone (Rudolfs Schritt 9: Kraft + Zone enden), Adept/Meister
+     laufen mit Schadenskarte weiter. */
+async function banishingSealFailedProbe(functionStuff, targetData) {
+  const level = functionStuff.powerLvl?.level ?? 1;
+  const isZoneBatch = !!functionStuff.zoneActivation?.regionId;
+  if (level > 1) {
+    await banishingSealDamageCard(functionStuff, targetData);
+    return isZoneBatch ? "continue" : "end";
   }
-  functionStuff.sealPrimaryMismatch = true;
-  return true;
+  if (isZoneBatch) {
+    await game.symbaroum.api?.aoeEndZone?.(functionStuff.zoneActivation.regionId, functionStuff.zoneActivation.sceneId);
+    return "zoneEnded";
+  }
+  return "end";
 }
 
 async function banishingSealChainResult(rollData, functionStuff) {
@@ -4785,69 +4809,85 @@ async function banishingSealChainResult(rollData, functionStuff) {
   // multi-selection made BEFORE the casting - after the primary target's
   // card a glyph-style confirmation asks for the next target (fresh
   // targeting per target, the Brennglas pattern he asked for), every
-  // follow-up is its own opposed test, a miss ends the sequence (as
-  // before), and the follow-ups cost no further corruption (one casting).
-  // Targets that fell to the seal flee: each gets the Verängstigt symbol
-  // via ONE GM apply card ("Kreaturen, die fliehen müssen, bekommen
-  // Verängstigt") - the combat tracker stays untouched, the SL removes
-  // fleeing combatants manually (Rudolf's choice).
-  await standardPowerResult(rollData, functionStuff);
-  if (!rollData?.[0]?.trueActorSucceeded) return;
-  // A36V test round 4 (Rudolf, 25.10.): a MISMATCHED primary target at
-  // Adept/Master is NOT banished - on the successful roll it only takes the
-  // card damage (SL-applied, CHAT_ADEPT/CHAT_MASTER), so it stays off the
-  // fleeing card (banishingSealPrimaryCategoryCheck sets the flag)
-  const fleeing = [];
-  if (!functionStuff.sealPrimaryMismatch) fleeing.push(functionStuff.targetData.tokenId);
-  const handled = new Set([functionStuff.targetData.tokenId]);
-  const savedCorruption = functionStuff.corruption;
-  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
-  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET"))) {
-    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
-    if (!nextToken) {
-      ui.notifications.warn(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET"));
-      break;
+  // follow-up is its own opposed test, and the follow-ups cost no further
+  // corruption (one casting). Targets that fell to the seal flee: each gets
+  // the Verängstigt symbol via ONE GM apply card - the combat tracker stays
+  // untouched, the SL removes fleeing combatants manually (Rudolf's choice).
+  /* v2.7 (Testrunde 7, Rudolfs v2.7-Spec „EINE GM-Karte pro Vorgang"):
+     der Sammel-Modus hält ALLE GM-Anwendungseinträge des Vorgangs -
+     Korruption + Bannsiegel-Symbol je Standardkarte, Schadenskarten des
+     v2.7-RAW-Schadensfalls, Verängstigt am Ende - zurück und versendet
+     sie als EINE GM-Anwenden-Karte mit sichtbarer Liste (Testrunde 7,
+     P2d: zwei getrennte GM-Karten je Vorgang). */
+  beginGmCardCollection();
+  try {
+    await standardPowerResult(rollData, functionStuff);
+    const fleeing = [];
+    if (rollData?.[0]?.trueActorSucceeded) {
+      fleeing.push(functionStuff.targetData.tokenId);
+    } else {
+      /* v2.7 (Schadensfall, RAW): misslingt die Probe gegen das Ziel des
+         gewählten Typs endet der Novize ohne Schaden, Adept/Meister
+         nehmen die Schadenskarte; manuell endet die Kette, im Zonen-Batch
+         läuft sie für Adept/Meister weiter. */
+      if ((await banishingSealFailedProbe(functionStuff, functionStuff.targetData)) !== "continue") return;
     }
-    handled.add(nextToken.id);
-    // A36V test rounds 2-4 (Rudolf, 25.10.): the chain honours the category
-    // chosen in the seal dialog. Novice: warning + skip (the seal does not
-    // affect other types at that level). Adept/Master: NO notification -
-    // the follow-up target gets its own opposed test, and on success only
-    // takes the card damage (SL) WITHOUT being banished; the chain
-    // continues either way. An empty dialog selection ("no category")
-    // disables the check (SL judgement).
-    const chainCategoryMismatch =
-      functionStuff.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== functionStuff.sealCategoryId;
-    if (chainCategoryMismatch && (functionStuff.powerLvl?.level ?? 1) <= 1) {
-      ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
-      continue;
+    const handled = new Set([functionStuff.targetData.tokenId]);
+    const savedCorruption = functionStuff.corruption;
+    functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+    while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_BANISHINGSEAL.CHAT_NEXT_TARGET"))) {
+      const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+      if (!nextToken) {
+        /* v2.7 (Rudolfs Schritt 8): „kein neues Ziel" trotz Bestätigung =
+           Warnung + Dialog-NEUSTART (continue) statt Abbruch - die
+           Bestätigungsfrage fragt erneut, bis ein Ziel markiert oder
+           abgebrochen wird. */
+        ui.notifications.warn(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_NEW_TARGET"));
+        continue;
+      }
+      handled.add(nextToken.id);
+      /* v2.7 (Testrunde 7, stufenunabhängig): Fehlkategorie in der Kette =
+         Warnung + Überspringen für ALLE Stufen (der v2.6-Adept/Master-
+         Wurf mit Kartenschaden entfällt, Rudolfs „Warnung und Abbruch"
+         ohne Stufenunterschied). Eine leere Kategorie-Wahl hält den
+         Check aus (SL-Buchhaltung). */
+      if (functionStuff.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== functionStuff.sealCategoryId) {
+        ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
+        continue;
+      }
+      functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+      const rollDataNext = [
+        await baseRoll(
+          functionStuff.actor,
+          functionStuff.castingAttributeName,
+          nextToken.actor,
+          functionStuff.targetResistAttribute,
+          functionStuff.favour,
+          functionStuff.modifier,
+          false
+        ),
+      ];
+      await standardPowerResult(rollDataNext, functionStuff);
+      if (!rollDataNext[0].trueActorSucceeded) {
+        /* v2.7 (Schadensfall je Folge-Probe): Novize beendet Kette und
+           (im Zonen-Batch) die Zone, Adept/Meister nehmen die Schadens-
+           karte und laufen im Zonen-Batch weiter (manuell: Ende, RAW
+           „until a test fails"). */
+        if ((await banishingSealFailedProbe(functionStuff, functionStuff.targetData)) !== "continue") break;
+        continue;
+      }
+      fleeing.push(nextToken.id);
     }
-    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
-    const rollDataNext = [
-      await baseRoll(
-        functionStuff.actor,
-        functionStuff.castingAttributeName,
-        nextToken.actor,
-        functionStuff.targetResistAttribute,
-        functionStuff.favour,
-        functionStuff.modifier,
-        false
-      ),
-    ];
-    await standardPowerResult(rollDataNext, functionStuff);
-    if (!rollDataNext[0].trueActorSucceeded) break;
-    // A36V test round 4 (Rudolf, 25.10.): a mismatched follow-up at Adept/
-    // Master takes the card damage on this success (SL) but is NOT banished -
-    // no Verängstigt entry; the chain keeps going
-    if (!chainCategoryMismatch) fleeing.push(nextToken.id);
-  }
-  functionStuff.corruption = savedCorruption;
-  if (fleeing.length > 0) {
-    // core status 'fear' (V14 id, German "Verängstigt" via SYMBAROUM.STATUS_FEAR);
-    // dual access like actor.js addCondition - .find over the array, then the id key
-    const fearEffect = CONFIG.statusEffects.find((e) => e.id === "fear") ?? CONFIG.statusEffects["fear"];
-    await createModifyTokenChatButton(fleeing.map((tokenId) => ({ tokenId: tokenId, addEffect: foundry.utils.duplicate(fearEffect) })));
-    ui.notifications.info(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_FLEEING_INFO"));
+    functionStuff.corruption = savedCorruption;
+    if (fleeing.length > 0) {
+      // core status 'fear' (V14 id, German "Verängstigt" via SYMBAROUM.STATUS_FEAR);
+      // dual access like actor.js addCondition - .find over the array, then the id key
+      const fearEffect = CONFIG.statusEffects.find((e) => e.id === "fear") ?? CONFIG.statusEffects["fear"];
+      await createModifyTokenChatButton(fleeing.map((tokenId) => ({ tokenId: tokenId, addEffect: foundry.utils.duplicate(fearEffect) })));
+      ui.notifications.info(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_FLEEING_INFO"));
+    }
+  } finally {
+    await flushGmCardCollection();
   }
 }
 
@@ -8427,6 +8467,19 @@ async function preDialogBanishingSeal(functionStuff) {
             typeLabel = typeLabel.length ? typeLabel + ", " + subtype : subtype;
           }
           if (typeLabel.length) functionStuff.autoParams += "(" + typeLabel + "), ";
+          /* v2.7 (Testrunde 7, Rudolfs Schritt 2, stufenunabhängig): die
+             Kategorie-Prüfung läuft bei der WAHL gegen das Primärziel -
+             bei Fehlkategorie Warnung + Abbruch VOR dem Würfeldialog
+             (kein Würfeln mehr gegen ein falsches Ziel, der v2.6-Prüf-
+             punkt im Roll-Button entfällt damit). Ohne gewählte Kategorie
+             bleibt der Check aus (SL-Buchhaltung). */
+          if (!banishingSealPrimaryCategoryCheck(functionStuff)) {
+            return;
+          }
+          /* v2.7 (Musterablauf v1.1, Schritt 4): das Wirken kostet
+             1 temporäre Korruption (TEMPCORRUPTION_ONE), unabhängig von
+             der Stufen-Default-Konfiguration des Kraft-Setups. */
+          functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
           modifierDialog(functionStuff);
         },
       },
@@ -8611,7 +8664,18 @@ export async function executeZonePower(
        Wirker (Entscheidung g, _applyZoneCardSource). */
   if (zoneActivation) {
     functionStuff.zoneActivation = zoneActivation;
-    if (functionStuff.confirmDialog) {
+    /* v2.7 (Testrunde 7, Rudolfs Schritt 2/4 + Musterablauf v1.1):
+       Bannsiegel-Zonen tragen ihre Kreaturen-Kategorie seit der
+       PLATZIERUNG im Zonen-Flag (aoe.sealCategoryId, oben via zoneExtras
+       restauriert) - der Kategorie-Dialog läuft hier NICHT mehr (vorher
+       je Aktivierung mit Vorbelegung des jeweiligen Primärziels,
+       Rudolfs P2-Befund). Die Aktivierung kostet exakt 1 temporäre
+       Korruption (TEMPCORRUPTION_ONE), unabhängig von der Stufen-Default-
+       Konfiguration. */
+    if (functionStuff.ability?.reference === "banishingseal") {
+      functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
+      await modifierDialog(functionStuff);
+    } else if (functionStuff.confirmDialog) {
       await confirmPowerDialog(functionStuff);
     } else if (functionStuff.preDialogFunction) {
       await functionStuff.preDialogFunction(functionStuff);

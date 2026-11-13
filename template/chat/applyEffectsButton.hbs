@@ -1,6 +1,13 @@
 <div class="symbaroum chat ability">
     <div class="foreground">
         <p>{{localize "CHAT.GMTEXT_BUTTON"}}</p>
+        {{#if entries}}
+        <ul class="gmcard-entries">
+            {{#each entries}}
+            <li><b>{{name}}</b>: {{description}}</li>
+            {{/each}}
+        </ul>
+        {{/if}}
         <p> <button id="applyEffect">{{localize "CHAT.APPLY_BUTTON"}}</button></p>
     </div>
 </div>

@@ -1916,7 +1916,9 @@ SYMBAROUM.AOE_SHAPE_SELECTION = {
 /* AoE Stufe 1: Zielfilter des Auto-Targeting — 'all' = alle sichtbaren
    Token in der Fläche, 'enemies'/'allies' = Dispositions-Vergleich gegen
    den Wirker-Token (kleiner/groß-gleich der Wirker-Disposition; ohne
-   Wirker-Token gilt die freundliche Standard-Perspektive der SL). */
+   Wirker-Token gilt die freundliche Standard-Perspektive der SL).
+   v2.7 (Rudolfs Testrunde 7, P14): 'neutral' = nur neutrale Token,
+   'notallied' = alles außer Verbündete (Feinde UND Neutrale). */
 SYMBAROUM.AOE_TARGETING_SELECTION = {
   all: {
     id: "all",
@@ -1929,6 +1931,14 @@ SYMBAROUM.AOE_TARGETING_SELECTION = {
   enemies: {
     id: "enemies",
     label: "AOE.TARGETING_ENEMIES",
+  },
+  neutral: {
+    id: "neutral",
+    label: "AOE.TARGETING_NEUTRAL",
+  },
+  notallied: {
+    id: "notallied",
+    label: "AOE.TARGETING_NOT_ALLIED",
   },
 };
 

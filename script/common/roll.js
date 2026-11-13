@@ -593,9 +593,39 @@ To apply temporary corruption on the token
     corruptionChange: {number}   the value to add to temporary corruption
 }
 */
+/* v2.7 (Testrunde 7, Rudolfs v2.7-Spec „EINE GM-Karte pro Vorgang"):
+   Sammel-Modus für GM-Anwendungskarten. beginGmCardCollection hält ALLE
+   createModifyTokenChatButton-Aufrufe eines Vorgangs (z. B. Bannsiegel-
+   Kette: Korruption + Bannsiegel-Symbol + Schadenskarten + Verängstigt)
+   in einem Array zurück, flushGmCardCollection versendet sie als EINE
+   GM-Karte mit sichtbarer Eintrags-Liste. Ohne aktiven Collector bleibt
+   das Verhalten unverändert (eine Karte je Aufruf). */
+let _gmCardCollector = null;
+
+export function beginGmCardCollection() {
+  _gmCardCollector = [];
+}
+
+export async function flushGmCardCollection() {
+  const collected = _gmCardCollector;
+  _gmCardCollector = null;
+  if (!collected || collected.length === 0) return;
+  await game.symbaroum.emit({
+    type: "GMMessage",
+    data: collected,
+  });
+}
+
 export async function createModifyTokenChatButton(actionsDataArray){
+  if (_gmCardCollector !== null) {
+    /* v2.7: Sammel-Modus aktiv - Einträge sammeln, Karte kommt mit
+       flushGmCardCollection (ein Aufrufer pro Vorgang, keine
+       Verschachtelung). */
+    _gmCardCollector.push(...actionsDataArray);
+    return;
+  }
   game.symbaroum.emit(
-    { 
+    {
       type: "GMMessage",
       data: actionsDataArray
     });
