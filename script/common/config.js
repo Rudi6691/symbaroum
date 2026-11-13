@@ -1925,13 +1925,36 @@ SYMBAROUM.AOE_SHAPE_SELECTION = {
    behalten die Dauerhaft-Maschinerie vollständig). Kein Krafttext dieser
    fünf koppelt ein Gebiet an die Wirkungsdauer - die Wirkungen laufen über
    die manuelle Maschinerik weiter (Ein-Runde über A34, Maintain über A23,
-   bis-Heilung über Heilung/SL). */
+   bis-Heilung über Heilung/SL).
+   v2.10 (Rudolfs Scope-Entscheidung, Gruppe B des Kraft-Zonen-Inventars):
+   die ZWÖLF Kettenkräfte kommen als Sweep-Zonen hinzu - ihr Zonen-Batch
+   läuft über die v2.3/v2.5-Kettenmechanik (zoneChainDone/zoneChainContinue,
+   Stabgeschoss über die umgebaute chainResult), Novizen-Stufen degenerieren
+   aufs Primärziel (Stufen-Dispatch bleibt wirksam), Maintain läuft danach
+   über A29/A23. ERDSCHUSS bleibt bewusst außen vor (Rudolfs Entscheidung:
+   manueller A32-Brocken-Flow, kein Zonen-Lift). Schweben ist der einzige
+   freundlichen Sweep (Zone-Tab: Zielfilter "Verbündete"). */
 SYMBAROUM.SWEEP_ZONE_POWERS = [
   "banishingseal",
   "battlesymbol",
   "blindingsymbol",
   "drainingglyph",
   "markoftorment",
+  /* v2.10 (Gruppe B): die zwölf Kettenkräfte - Zone = Zielwahl-Automatik
+     für den Erstzauber-Sweep, Kette/Stufen/Maintain laufen über die
+     bestehende Master-Automatik. */
+  "anathema",
+  "blackbolt",
+  "blackbreath",
+  "brimstonecascade",
+  "confusion",
+  "earthbinding",
+  "entanglingvines",
+  "levitate",
+  "maltransformation",
+  "mindthrow",
+  "staffprojectile",
+  "trueform",
 ];
 
 /* AoE Stufe 1: Zielfilter des Auto-Targeting — 'all' = alle sichtbaren

@@ -1354,7 +1354,7 @@ function a29ShowReminderDialog(actor, abilityRef, targetCount) {
 			game.socket.emit('system.symbaroum', { type: 'a29MaintainReminderAnswer', data: { actorId: actor.id, abilityRef: abilityRef, answer: 'no' } });
 		}
 	};
-	const answerYes = () => {
+	const answerYes = async () => {
 		if (!abilityItem) {
 			ui.notifications.warn(game.i18n.localize('A29.REMINDER_NO_ITEM'));
 			return;
@@ -1370,7 +1370,21 @@ function a29ShowReminderDialog(actor, abilityRef, targetCount) {
 		   beim Abort-Weg. */
 		if (aoeFindZoneRegionFor(actor.id, abilityItem.system?.reference)) {
 			if (game.user.isGM) {
-				aoeMaintainZoneRound(actor, abilityItem.system?.reference);
+				/* v2.10 (Rudolfs Testrunde 9, P6-Root-Cause): aoeMaintain-
+				   ZoneRound liefert false, wenn die gefundene Region KEINE
+				   lauffähige Zonen-Runde ist (Zone nicht aktiviert, Kraft-
+				   Item gelöscht, AoE deaktiviert). Der Rückgabewert war im
+				   GM-Pfad UNBEACHTET - das A29-"Ja" lief dann ins Leere
+				   (keine Zonen-Runde, kein Würfeldialog, kein Fehler), was
+				   als "Nach 'Ja' geschieht nichts" durch den Blendend-
+				   Altzonen-Fall sichtbar wurde. Jetzt: false = Fallback auf
+				   den normalen presetMaintain-Flow. Der dokumentierte
+				   @returns-Kontrakt (true = Zone gefunden und Runde
+				   ausgeführt, normaler Flow entfällt) wird damit erstmals
+				   im GM-Pfad ausgewertet; der Spieler-Socket-Pfad bleibt
+				   unverändert (Rudolfs Fix-Scope-Entscheidung v2.10). */
+				const ran = await aoeMaintainZoneRound(actor, abilityItem.system?.reference);
+				if (!ran) actor.usePower(abilityItem, { presetMaintain: true });
 			} else {
 				game.socket.emit('system.symbaroum', {
 					type: 'a29MaintainZoneRound',

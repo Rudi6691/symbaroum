@@ -4544,8 +4544,12 @@ export async function buildRolls(functionStuff) {
    (Staff Projectile master, Banishing Seal). buildRolls only rolls the opposed
    test against the primary target; the result functions below continue the
    sequence through the remaining pre-selected targets (functionStuff.chainTargets,
-   populated by the power's pre-dialog), with a confirmation before each follow-up
-   and a stop at the first failed test. Chain targets pay corruption per target
+   populated by the power's pre-dialog), with a confirmation before each follow-up.
+   v2.10 (Rudolfs v2.10-Entscheidung, Vault-RAW): Stabgeschoss stoppt NICHT
+   beim ersten Miss (siehe chainResult) - der frühere Stopp war eine unbe-
+   absichtigte Abweichung; im Zonen-Batch (zoneChainTargets) entfällt die
+   je-Ziel-Bestätigung dialogfrei und die Kette deckelt auf multipleTargetsNb
+   Ziele. Chain targets pay corruption per target
    on the initial casting (A20); maintaining later costs nothing.
    A19: the Kette powers Anathema, Brimstone Cascade and Black Bolt (Adept+) use
    the same mechanism with targets marked one after another (see
@@ -4727,16 +4731,36 @@ async function chainResult(rollData, functionStuff, chainDamageDice) {
   await standardPowerResult(rollData, functionStuff);
   // advantage (+1d4 damage) applies to the primary attack only
   functionStuff.hasAdvantage = false;
-  if (!rollData?.[0]?.trueActorSucceeded) return;
+  /* v2.10 (Rudolfs v2.10-Entscheidung, Gruppe B / Vault-RAW Stab-
+     geschoss): die Meister-Kette stoppt NICHT beim ersten Miss - der
+     Geschoss springt auch nach einem fehlgeschlagenen Angriff auf die
+     verbliebenen Ziele über (Vault-Notiz „kein Stopp bei Miss"; der
+     frühere Abbruch beim ersten Fehlschlag, Primärziel wie Folgeziel,
+     war eine unbeabsichtigte Abweichung - Manuell = Master). Der
+     Schaden sinkt pro Folgeziel über die Leiter (chainDamageDice,
+     min 1d4). */
   const chainTargets = functionStuff.chainTargets ?? [];
   const savedCorruption = functionStuff.corruption;
   // the chain is part of one casting: no further corruption per target
   functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
-  for (let i = 0; i < chainTargets.length; i++) {
+  /* v2.10 (Gruppe B, RAW „bis zu fünf Ziele"): der manuelle Mehrfach-
+     auswahl-Dialog deckelt über getTargets auf multipleTargetsNb - die
+     gleiche Zielzahl gilt im Zonen-Batch: Primärziel plus maximal
+     multipleTargetsNb-1 Folgeziele. */
+  const maxFollowUps = Number.isFinite(functionStuff.multipleTargetsNb)
+    ? Math.max(0, functionStuff.multipleTargetsNb - 1)
+    : chainTargets.length;
+  /* v2.10 (Gruppe B, Zonen-Batch): bei Zonen-Auslösungen stehen alle
+     Ziele von Anfang an fest (functionStuff.zoneChainTargets, v2.3) -
+     die je-Ziel-Bestätigung entfällt dialogfrei (zoneChainContinue-
+     Muster der Ketten-Runde-Funktionen); ohne Zone bleibt der je-Ziel-
+     Dialog unverändert. */
+  const zoneBatch = functionStuff?.zoneChainTargets?.size > 0;
+  for (let i = 0; i < Math.min(chainTargets.length, maxFollowUps); i++) {
     const next = chainTargets[i];
     const damageDice = chainDamageDice?.(i);
-    const proceed = await chainTargetConfirmation(functionStuff, next, damageDice);
-    if (!proceed) return;
+    const proceed = zoneBatch || (await chainTargetConfirmation(functionStuff, next, damageDice));
+    if (!proceed) break;
     if (damageDice) functionStuff.damageDice = damageDice;
     functionStuff.targetData = next;
     const rollDataNext = [
@@ -4751,7 +4775,6 @@ async function chainResult(rollData, functionStuff, chainDamageDice) {
       ),
     ];
     await standardPowerResult(rollDataNext, functionStuff);
-    if (!rollDataNext[0].trueActorSucceeded) return;
   }
   functionStuff.corruption = savedCorruption;
 }
