@@ -153,6 +153,17 @@ export function resolveRecipient(value) {
  * Primärer Besitzer-User des Ziel-Aktors (für Consent und Execute-
  * Routing): expliziter OWNER-User, sonst user.character-Verknüpfung,
  * sonst der aktive GM (NSC ohne Besitzer).
+ * v2.11 (Rudolfs Testrunde-10-Punkt 3): Rudolfs Beobachtung - die SL
+ * musste SC-an-SC-Übergaben bestätigen, obwohl der Empfänger-Consent an
+ * den ZIEL-SPIELER gehört. Ursache: In Welten mit „Standard-Besitz:
+ * Eigentümer" (ownership.default = OWNER) stehen KEINE expliziten
+ * User-Einträge im ownership-Objekt, und ohne Charakter-Verknüpfung fiel
+ * die bisherige Kette auf den aktiven GM zurück. Neu: Stufe 3 prüft den
+ * EFFEKTIVEN Besitz inkl. Default-Stufe - genau EIN aktiver Nicht-GM-User
+ * mit Owner-Recht ist der eindeutige Spieler-Besitzer. Bei MEHREREN
+ * gleichzeitig Owner-berechtigten Spielern ohne Charakter-Verknüpfung
+ * bleibt bewusst der GM-Consent (keine Fehlzuordnung); der SL bestätigt
+ * weiterhin NSC-Handel (Ziel ohne Spieler-Besitzer, unlinked Token).
  */
 function resolveTargetUser(actor) {
 	const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
@@ -160,6 +171,16 @@ function resolveTargetUser(actor) {
 	if (owners.length) return owners.find((u) => u.active) ?? owners[0];
 	const charUser = game.users.find((u) => u.character?.id === actor.id);
 	if (charUser) return charUser;
+	// v2.11: effektiver Besitz inkl. Default-Stufe - eindeutiger Fall nur
+	// bei GENAU EINEM aktiven Nicht-GM-User mit Owner-Recht. Unverknüpfte
+	// Token-Aktoren (isToken, NSC-Spielsteine ohne Welt-Aktor) bleiben
+	// draussen: Ihr Besitzer ist zuverlässig nur über die Token-Rechte
+	// auflösbar, der GM-Consent ist dort korrekt.
+	const effective =
+		actor.isToken
+			? []
+			: game.users.filter((u) => u.active && !u.isGM && (actor.ownership?.[u.id] ?? actor.ownership?.default) === OWNER);
+	if (effective.length === 1) return effective[0];
 	return game.users.find((u) => u.active && u.isGM) ?? null;
 }
 

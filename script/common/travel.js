@@ -2201,8 +2201,32 @@ export async function setupTravelRuntime() {
 	// bei aktivem Master-Setting, bewusst lose gekoppelt — kein Import-
 	// Zykel zwischen boon.js und travel.js in DIESER Richtung)
 	Hooks.on('symbaroum:bushcraftYield', (data) => {
-		if (!isTravelEnabled() || !game.user.isGM) return;
+		if (!isTravelEnabled()) return;
 		if (!Number.isFinite(Number(data?.days)) || Number(data?.days) <= 0) return;
-		openTravelSupplyBooking(data.actorId, data.days);
+		if (game.user.isGM) {
+			openTravelSupplyBooking(data.actorId, data.days);
+			return;
+		}
+		/* v2.11 (Rudolfs Testrunde-10-Punkt 4): Der Ertrags-Hook feuert
+		   NUR auf dem Client, der WÜRFELT — bisher mit GM-Gate: Würfelte
+		   der SPIELER (Aufforderungskarte „Vorräte auffüllen“ oder Segen
+		   am eigenen Blatt), ging der Ertrag auf dem Spieler-Client ver-
+		   loren und die SL sah den Buchungsdialog nie; automatisches
+		   Buchen lief nur, wenn die SL selbst würfelte (NSC-Sucher, Klick
+		   auf Karte/Token — Rudolfs „Token auf Canvas“-Korrelation).
+		   Relay an die SL (Muster TravelHungerProbe, symbcomms-Kanal):
+		   Der SL-Client öffnet den Buchungsdialog, egal wer würfelt.
+		   Gebucht wird weiterhin auf den WELT-AKTOR (Aktorblatt-Ebene),
+		   wie das Rationsabbuchen nach „Reisetag abschließen“. */
+		game.symbaroum.emit({ type: 'TravelBushcraftYield', data: { actorId: data.actorId, days: Number(data.days) } });
+	});
+	/* v2.11: Socket-Empfang des Buschwissen-Relays — nur der GM-Client
+	   öffnet den Buchungsdialog (mehrere GM-Clients öffnen ihn je einmal,
+	   wie bei TravelHungerProbe auch). */
+	game.socket.on('system.symbaroum', (msg) => {
+		if (msg?.type !== 'TravelBushcraftYield' || !game.user.isGM) return;
+		const days = Number(msg.data?.days);
+		if (!Number.isFinite(days) || days <= 0) return;
+		openTravelSupplyBooking(msg.data.actorId, days);
 	});
 }

@@ -4321,7 +4321,17 @@ export async function modifierDialog(functionStuff) {
       cancel: {
         icon: '<i class="fas fa-times"></i>',
         label: game.i18n.localize("BUTTON.CANCEL"),
-        callback: () => {},
+        /* v2.11 (Rudolfs Testrunde 10, P15): Wird der Wuerfeldialog einer
+           Zonen-AKTIVIERUNG abgebrochen, raeumt der Abbruch die In-Flight-
+           Marke SOFORT - bisher geschah das nur beim erfolgreichen Abschluss
+           bzw. nach 5 Minuten Stale-Schutz, die Zone war nach dem Abbruch
+           bis dahin nicht erneut ausloesbar. Ohne zoneActivation ist der
+           Callback wie bisher eine Nulloperation. */
+        callback: () => {
+          if (functionStuff?.zoneActivation?.regionId) {
+            game.symbaroum.api?.aoeZoneActivationAborted?.(functionStuff.zoneActivation.regionId);
+          }
+        },
       },
     },
     default: "roll",
@@ -4543,10 +4553,12 @@ export async function buildRolls(functionStuff) {
 /* A16 chain powers: scripted powers that strike one target after another
    (Staff Projectile master, Banishing Seal). buildRolls only rolls the opposed
    test against the primary target; the result functions below continue the
-   sequence through the remaining pre-selected targets (functionStuff.chainTargets,
-   populated by the power's pre-dialog), with a confirmation before each follow-up.
+   sequence. v2.11 (Rudolfs Testrunde 10, P11): Stabgeschoss läuft auf
+   FRISCHES ZIELEN (A36V-Muster wie chainSequenceResult) - die Vorauswahl
+   liefert nur das PRIMÄRZIEL, jedes Folgeziel wird nach „Weiteres Ziel?"
+   über eine NEUE Markierung gewählt (siehe staffProjectileChainResult).
    v2.10 (Rudolfs v2.10-Entscheidung, Vault-RAW): Stabgeschoss stoppt NICHT
-   beim ersten Miss (siehe chainResult) - der frühere Stopp war eine unbe-
+   beim ersten Miss - der frühere Stopp war eine unbe-
    absichtigte Abweichung; im Zonen-Batch (zoneChainTargets) entfällt die
    je-Ziel-Bestätigung dialogfrei und die Kette deckelt auf multipleTargetsNb
    Ziele. Chain targets pay corruption per target
@@ -4673,8 +4685,9 @@ function getPowerResultFunction(functionStuff) {
    jeden von ihnen abgearbeitet hat, springt dieser Guard die 'Weiteres
    Ziel?'-Bestaetigung UEBER - der Dialog fragte sonst nach dem letzten
    Zonenziel ins Leere (Rudolfs Testrunde-3-Befund). Ohne zoneChainTargets
-   (normales Wirken) ist der Guard wirkungslos; der chainResult-for-loop
-   iteriert die Ziele ohnehin ohne Dialog und braucht keinen Guard. */
+   (normales Wirken) ist der Guard wirkungslos; die Zonen-Ziele laufen in
+   der Ketten-Schleife (chainSequenceResult/staffProjectileChainResult)
+   ohnehin dialogfrei und brauchen keinen Guard. */
 function zoneChainDone(functionStuff, handled) {
   const zoneTargets = functionStuff?.zoneChainTargets;
   if (!zoneTargets || zoneTargets.size === 0) return false;
@@ -4699,89 +4712,79 @@ async function zoneChainContinue(functionStuff, questionKey) {
   return glyphNextTargetConfirmation(functionStuff, questionKey);
 }
 
-function chainTargetConfirmation(functionStuff, target, damageDice) {
-  return new Promise((resolve) => {
-    const key =
-      functionStuff.ability.reference === "staffprojectile" ? "POWER_STAFFPROJECTILE.CHAIN_CONFIRM" : "POWER_BANISHINGSEAL.CHAIN_CONFIRM";
-    const question = game.i18n.format(key, { targetname: target.name, dice: damageDice ?? "" });
-    symbDialog({
-      title: functionStuff.abilityName,
-      content: `<p>${question}</p>`,
-      // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern
-      classes: isModernDialogActive() ? modernDialogClasses('modern-chain-confirm-dialog') : [],
-      buttons: {
-        yes: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("BUTTON.YES"),
-          callback: () => resolve(true),
-        },
-        no: {
-          icon: '<i class="fas fa-times"></i>',
-          label: game.i18n.localize("BUTTON.NO"),
-          callback: () => resolve(false),
-        },
-      },
-      default: "yes",
-    });
-  });
-}
+/* v2.11 (Rudolfs Testrunde 10, P11 + Freigabe): Die MANUELLE Meister-Kette
+   des Stabgeschosses läuft auf FRISCHES ZIELEN umgestellt (A36V-Bannsiegel-
+   Muster, wie chainSequenceResult): Nach dem Primärwurf fragt die Kette je
+   Folgeziel „Weiteres Ziel?“ (DIALOG.CHAIN_NEXT_TARGET über zoneChainContinue)
+   und der Spieler markiert das nächste Ziel NEU - die Vorauswahl vor dem
+   Würfeln liefert nur noch das Primärziel (preDialogStaffProjectile).
+   Bisher galt das A16-Vorauswahl-Modell (functionStuff.chainTargets, je-Ziel-
+   Bestätigung mit Zielname + Würfel über die v2.10-Funktionen chainResult/
+   chainTargetConfirmation): Die Kette traf nur vor dem Würfeln markierte
+   Ziele - mit einer einzigen Marke lief nie ein Kettendialog (Rudolfs
+   P11-Befund „kein Kettendialog nach erstem Ziel“). Beide Funktionen sind
+   damit ohne Nutzer und ENTFERNT (Fork-Konvention: toter Code fliegt raus,
+   Muster v2.7-Kettencheck-Rückbau).
 
-async function chainResult(rollData, functionStuff, chainDamageDice) {
-  // primary target: standard behaviour (chat, damage, corruption, effects)
+   RAW unverändert aus v2.10: kein Stopp bei Miss (Vault-Notiz), Schadens-
+   leiter 1W10 → 1W8 → 1W6 → 1W4 (min 1W4), Deckel multipleTargetsNb
+   (5 Ziele gesamt = Primärziel + max 4 Folgeziele). Die Kette ist Teil
+   EINES Wirkens: je Folgeziel keine erneute Korruption (das Setup bucht
+   die Kosten des Wirkens auf dem Primärwurf, A16). Im Zonen-Batch bleibt
+   alles dialogfrei (zoneChainTargets, zoneChainDone/zoneChainContinue
+   greifen wie bei chainSequenceResult): Die Zonen-Ziele stehen als
+   Nutzer-Markierungen (executeZonePower), die Kette arbeitet sie ab,
+   bis alle behandelt sind oder der RAW-Deckel greift - Verhalten und
+   Deckel identisch zur v2.10-Zonen-Auslösung (P10 der Testrunde 10 grün). */
+async function staffProjectileChainResult(rollData, functionStuff) {
+  // Primärziel: Standardverhalten (Chat, 1W12-Schaden aus dem Setup, Korruption, Effekte)
   await standardPowerResult(rollData, functionStuff);
-  // advantage (+1d4 damage) applies to the primary attack only
+  // Vorteil gilt nur für den ersten Angriff
   functionStuff.hasAdvantage = false;
-  /* v2.10 (Rudolfs v2.10-Entscheidung, Gruppe B / Vault-RAW Stab-
-     geschoss): die Meister-Kette stoppt NICHT beim ersten Miss - der
-     Geschoss springt auch nach einem fehlgeschlagenen Angriff auf die
-     verbliebenen Ziele über (Vault-Notiz „kein Stopp bei Miss"; der
-     frühere Abbruch beim ersten Fehlschlag, Primärziel wie Folgeziel,
-     war eine unbeabsichtigte Abweichung - Manuell = Master). Der
-     Schaden sinkt pro Folgeziel über die Leiter (chainDamageDice,
-     min 1d4). */
-  const chainTargets = functionStuff.chainTargets ?? [];
-  const savedCorruption = functionStuff.corruption;
-  // the chain is part of one casting: no further corruption per target
-  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
-  /* v2.10 (Gruppe B, RAW „bis zu fünf Ziele"): der manuelle Mehrfach-
-     auswahl-Dialog deckelt über getTargets auf multipleTargetsNb - die
-     gleiche Zielzahl gilt im Zonen-Batch: Primärziel plus maximal
-     multipleTargetsNb-1 Folgeziele. */
+  const dice = ["1d10", "1d8", "1d6", "1d4"];
+  /* v2.10-RAW-Deckel (multipleTargetsNb): 5 Ziele gesamt = Primärziel +
+     max 4 Folgeziele - Parität zwischen Manuell und Zonen-Batch. */
   const maxFollowUps = Number.isFinite(functionStuff.multipleTargetsNb)
     ? Math.max(0, functionStuff.multipleTargetsNb - 1)
-    : chainTargets.length;
-  /* v2.10 (Gruppe B, Zonen-Batch): bei Zonen-Auslösungen stehen alle
-     Ziele von Anfang an fest (functionStuff.zoneChainTargets, v2.3) -
-     die je-Ziel-Bestätigung entfällt dialogfrei (zoneChainContinue-
-     Muster der Ketten-Runde-Funktionen); ohne Zone bleibt der je-Ziel-
-     Dialog unverändert. */
-  const zoneBatch = functionStuff?.zoneChainTargets?.size > 0;
-  for (let i = 0; i < Math.min(chainTargets.length, maxFollowUps); i++) {
-    const next = chainTargets[i];
-    const damageDice = chainDamageDice?.(i);
-    const proceed = zoneBatch || (await chainTargetConfirmation(functionStuff, next, damageDice));
-    if (!proceed) break;
-    if (damageDice) functionStuff.damageDice = damageDice;
-    functionStuff.targetData = next;
+    : dice.length;
+  if (maxFollowUps <= 0) return;
+  const savedCorruption = functionStuff.corruption;
+  const savedDamageDice = functionStuff.damageDice;
+  // die Kette ist Teil eines Wirkens: je Folgeziel keine erneute Korruption
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  const handled = new Set([functionStuff.targetData.tokenId]);
+  let followUps = 0;
+  while (
+    followUps < maxFollowUps &&
+    !zoneChainDone(functionStuff, handled) &&
+    (await zoneChainContinue(functionStuff, "DIALOG.CHAIN_NEXT_TARGET"))
+  ) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    followUps++;
+    // Schadensleiter je Folgeziel (min 1W4, v2.10-RAW)
+    functionStuff.damageDice = dice[Math.min(followUps - 1, dice.length - 1)];
+    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute ?? "defense");
     const rollDataNext = [
       await baseRoll(
         functionStuff.actor,
         functionStuff.castingAttributeName,
-        next.actor,
-        next.resistAttributeName ?? "defense",
+        nextToken.actor,
+        functionStuff.targetData.resistAttributeName ?? "defense",
         functionStuff.favour,
         functionStuff.modifier,
         false
       ),
     ];
+    // kein Stopp bei Miss (v2.10-RAW, Vault-Notiz) - die Kette läuft weiter
     await standardPowerResult(rollDataNext, functionStuff);
   }
   functionStuff.corruption = savedCorruption;
-}
-
-async function staffProjectileChainResult(rollData, functionStuff) {
-  const dice = ["1d10", "1d8", "1d6", "1d4"];
-  return chainResult(rollData, functionStuff, (index) => dice[Math.min(index, dice.length - 1)]);
+  functionStuff.damageDice = savedDamageDice;
 }
 
 /* v2.7 (Testrunde 7, Rudolfs Schritt 2, stufenunabhängig): Prüfung der
@@ -8562,12 +8565,22 @@ export async function standardPowerResult(rollData, functionStuff) {
 
 /* A16 pre-dialog helpers for the chain powers: with multipleTargets the usePower
    flow collects all targeted tokens in functionStuff.targets and leaves targetData
-   empty; these helpers promote the first target to the primary target and queue
-   the rest as chain targets for the result functions above. */
+   empty; these helpers promote the first target to the primary target.
+   v2.11 (Rudolfs Testrunde 10, P11): Stabgeschoss läuft auf Frisch-Zielen -
+   ein "Rest" wird NICHT mehr als chainTargets vorgegeben, die Kette wählt
+   jedes Folgeziel nach „Weiteres Ziel?" über eine NEUE Markierung. */
 async function preDialogStaffProjectile(functionStuff) {
+  /* v2.11 (Rudolfs Testrunde 10, P11 + Freigabe): Frisch-Zielen nach dem
+     A36V-Bannsiegel-Muster - eine Mehrfach-Auswahl vor dem Wirken liefert
+     nur noch das PRIMÄRZIEL, weitere vorab markierte Tokens werden
+     ignoriert. Die Meister-Kette fragt nach dem Primärwurf je Folgeziel
+     „Weiteres Ziel?" und läuft dann auf die FRISCH markierten Ziele
+     (staffProjectileChainResult). Bisher galt das A16-Vorauswahl-Modell
+     (functionStuff.chainTargets): Die Kette traf nur vor dem Würfeln
+     markierte Ziele - mit einer einzigen Marke lief nie ein Kettendialog
+     (Rudolfs P11-Befund „kein Kettendialog nach erstem Ziel"). */
   if (!functionStuff.targetData.hasTarget && functionStuff.targets?.length) {
     functionStuff.targetData = functionStuff.targets[0];
-    functionStuff.chainTargets = functionStuff.targets.slice(1);
   }
   if (!functionStuff.targetData.hasTarget) {
     ui.notifications.error(game.i18n.localize("POWER_STAFFPROJECTILE.CHAT_NO_TARGET"));
@@ -8806,7 +8819,7 @@ export async function executeZonePower(
   // v2.3 (Rudolfs Testrunde 3, Punkt 7 - Kettendialog-Auto-Ende): die
   // Zonenziele als Token-Id-Menge mitfuehren - zoneChainDone ueberspringt
   // die 'Weiteres Ziel?'-Bestaetigung, sobald die Kette alle abgearbeitet
-  // hat (siehe Helper nahe chainTargetConfirmation). Normales Wirken ohne
+  // hat (siehe Helper zoneChainDone/zoneChainContinue). Normales Wirken ohne
   // Zone setzt das Feld nie, alle Ketten laufen dann unveraendert.
   functionStuff.zoneChainTargets = new Set(targetTokens.map((td) => td.id));
   // Ausloesung wuerfelt wie Ketten-Follow-ups: kein Vorteil, keine Modifikatoren

@@ -17,7 +17,7 @@ import { isStackableItem, getStackKey, findStackTarget, mergeStackDrop, splitSta
 // AoE Stufe 2 (Freigabe 2a+2b, 09.11.2026): öffentliche Zonen-API für
 // Script-Behaviors (aoeZoneEnter), Zonen-Karten-Tasten und Makros (freie
 // Zone platzieren) - siehe aoe.js
-import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone, aoeMaintainZoneRound, aoeConcludeInstantZone, aoeZoneActivationCompleted } from './aoe.js';
+import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone, aoeMaintainZoneRound, aoeConcludeInstantZone, aoeZoneActivationCompleted, aoeZoneActivationAborted } from './aoe.js';
 
 export class SymbaroumAPI
 {
@@ -80,6 +80,10 @@ export class SymbaroumAPI
         // Zonen-Aktivierung (item.js captureZoneActivationSnapshot ruft
         // diesen Hook-on nach dem Region-Flag-Write; siehe aoe.js).
         this.aoeZoneActivationCompleted = aoeZoneActivationCompleted;
+        // AoE v2.11 (Rudolfs Testrunde 10, P15): Sofortige In-Flight-Raeumung
+        // bei ABBRUCH des Aktivierungs-Wuerfeldialogs (item.js modifierDialog
+        // cancel-Callback ruft diesen API-Pfad; siehe aoe.js).
+        this.aoeZoneActivationAborted = aoeZoneActivationAborted;
     }
 
 

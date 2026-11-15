@@ -2258,6 +2258,20 @@ export async function aoeConcludeInstantZone(regionId, sceneId) {
 }
 
 /**
+ * ABBRUCH der Zonen-AKTIVIERUNG (v2.11, Rudolfs Testrunde 10, P15): Called aus
+ * dem cancel-Callback des Aktivierungs-Würfeldialogs (item.js modifierDialog),
+ * wenn die Aktivierung ABGEBROCHEN statt ausgewürfelt wurde. Raeumt die
+ * In-Flight-Marke SOFORT - vorher geschah das nur beim erfolgreichen Abschluss
+ * (aoeZoneActivationCompleted) bzw. nach 5 Minuten Stale-Schutz, die Zone war
+ * nach einem Dialog-Abbruch bis dahin nicht erneut ausloesbar (Rudolfs
+ * P15-Befund: „sollte möglich sein"). Kein Karten-Update: Die Zonen-Karte
+ * zeigt weiterhin „Auslösen" - die Aktivierung ist ja nie zustande gekommen.
+ */
+export function aoeZoneActivationAborted(regionId) {
+	_zoneActivationInFlight.delete(regionId);
+}
+
+/**
  * Abschluss der Zonen-AKTIVIERUNG (v2.5, Rudolfs Testrunde 5): Called aus
  * captureZoneActivationSnapshot (item.js), sobald der Standard-Würfeldialog
  * wirklich abgeschlossen wurde. Raeumt die In-Flight-Marke (frei fuer
