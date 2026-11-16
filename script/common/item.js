@@ -5164,18 +5164,23 @@ async function earthshotResult(rollData, functionStuff) {
 async function priosBurningGlassResult(rollData, functionStuff) {
   const baseDamageDice = functionStuff.damageDice;
   // primary target: the one unopposed Resolute probe (GRW) + damage; the
-  // thoroughly-corrupted bonus (auto-detected) raises this first damage
-  // roll as well
-  if (functionStuff.targetData.isCorrupted) {
+  // unholy bonus (auto-detected) raises this first damage roll as well.
+  // v2.13 (Rudolfs Testrunde 12, P6a): the bonus predicate is now
+  // isUnholyCreatureTarget - creature category undead/abomination OR
+  // thoroughly corrupted (the category is NOT auto-adjusted when
+  // corruption reaches its maximum mid-scene, so both criteria stay)
+  if (game.symbaroum.config.isUnholyCreatureTarget(functionStuff.targetData?.actor)) {
     Object.assign(functionStuff, functionStuff.targetFullyCorruptedFSmod);
     functionStuff.targetData.autoParams += game.i18n.localize("TOOLTIP.HEALTH.CORRUPTION_NA_TEXT");
   }
   await standardPowerResult(rollData, functionStuff);
   // the single probe decides for every enemy: on a miss nothing hits
   if (rollData?.[0]?.trueActorSucceeded === false) return;
-  // A34: Master - the thoroughly corrupted primary target can additionally
-  // be stunned for one round (GRW, optional): opposed [Resolute<-Resolute]
-  if (functionStuff.powerLvl.level > 2 && functionStuff.targetData.isCorrupted) {
+  // A34: Master - the unholy primary target can additionally be stunned
+  // for one round (GRW, optional): opposed [Resolute<-Resolute].
+  // v2.13 (P6a decision): RAW "alle durch und durch verdorbenen und
+  // untoten Feinde" - same unified unholy predicate as the bonus dice
+  if (functionStuff.powerLvl.level > 2 && game.symbaroum.config.isUnholyCreatureTarget(functionStuff.targetData?.actor)) {
     await priosBurningGlassMasterStun(functionStuff, functionStuff.targetData);
   }
   functionStuff.hasAdvantage = false;
@@ -5191,8 +5196,10 @@ async function priosBurningGlassResult(rollData, functionStuff) {
     }
     handled.add(nextToken.id);
     functionStuff.targetData = buildGlyphTargetData(nextToken, null);
-    // per-target auto-detection of the thoroughly-corrupted bonus dice
-    if (game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
+    // per-target auto-detection of the unholy bonus dice (v2.13, P6a:
+    // category undead/abomination OR thoroughly corrupted - see config.js
+    // isUnholyCreatureTarget)
+    if (game.symbaroum.config.isUnholyCreatureTarget(nextToken.actor)) {
       functionStuff.damageDice = functionStuff.targetFullyCorruptedFSmod.damageDice;
       functionStuff.finalTextSucceed = functionStuff.targetFullyCorruptedFSmod.finalTextSucceed;
       functionStuff.targetData.autoParams += game.i18n.localize("TOOLTIP.HEALTH.CORRUPTION_NA_TEXT");
@@ -5202,9 +5209,9 @@ async function priosBurningGlassResult(rollData, functionStuff) {
     }
     // no new probe - one probe covers the whole casting
     await standardPowerResult(null, functionStuff);
-    // A34: Master - the optional stun applies to this thoroughly corrupted
-    // follow-up target as well (freshly built targetData carries the flag)
-    if (functionStuff.powerLvl.level > 2 && functionStuff.targetData.isCorrupted) {
+    // A34: Master - the optional stun applies to this unholy follow-up
+    // target as well (v2.13: same unified predicate as the bonus dice)
+    if (functionStuff.powerLvl.level > 2 && game.symbaroum.config.isUnholyCreatureTarget(functionStuff.targetData?.actor)) {
       await priosBurningGlassMasterStun(functionStuff, functionStuff.targetData);
     }
   }
@@ -5213,6 +5220,10 @@ async function priosBurningGlassResult(rollData, functionStuff) {
 
 /* A34 Prios' Burning Glass Master (GRW): the mystic MAY stun a thoroughly
    corrupted (or undead) enemy for one round - opposed [Resolute<-Resolute].
+   v2.13 (Rudolfs Testrunde 12, P6a): the CALL SITES gate on the unified
+   unholy predicate (category undead/abomination OR thoroughly corrupted,
+   config.js isUnholyCreatureTarget) - RAW "alle durch und durch verdorbenen
+   und untoten Feinde".
    A dialog asks per target whether to attempt it (whoever triggered the
    casting answers - player owner of the caster, GM fallback), the probe is
    rolled automatically and posted as its own small card (DOT card optics);
@@ -5298,7 +5309,11 @@ function priosStunConfirmation(functionStuff, targetname) {
      regeneration symbol with the aura heal rate 1d4/1d6 (the A35 heal
      resource). Allied abominations/undead are excluded by simply not
      marking them, which fulfils the novice exclusion rule without a
-     dialog. All lines and rolls go onto ONE aura summary card (F8 optics).
+     dialog. v2.13 (Rudolfs Testrunde 12, P13 + Entscheidung): every
+     included ally is ALSO healed IMMEDIATELY on inclusion (one own roll,
+     positive toughnessChange on the same GM card, clamped to max) -
+     symmetry with loop 1's immediate damage; the DOT keeps ticking the
+     following rounds. All lines and rolls go onto ONE aura summary card (F8 optics).
    - MAINTAIN: the existing per-round casting roll. A success keeps the
      aura and ALL symbols ticking without any further clicks; a failure
      ends the power - every scene symbol carrying this caster's author
@@ -5467,6 +5482,23 @@ async function holyAuraResult(rollData, functionStuff) {
         },
       });
       lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_REGEN", { targetname: nextToken.name, dice: auraHealDice })}</p>`);
+      // v2.13 (Rudolfs Testrunde 12, P13 + Entscheidung): the first heal
+      // fires IMMEDIATELY on inclusion (symmetry with loop 1's immediate
+      // damage) - one own roll per ally on this summary card, applied as
+      // a positive toughnessChange on the same GM card, clamped to the
+      // maximum; no line at full toughness. The regeneration DOT keeps
+      // ticking every round from the ally's own turn on (RAW "heilen jede
+      // Runde"); A33Fix2/A33Fix3 suppressions stay with the TICKS - the
+      // immediate application also heals a dying ally (toughness 0),
+      // only the ongoing ticks follow the dying rule
+      const immediateHealRoll = await new Roll(auraHealDice).evaluate();
+      const allyToughness = nextToken.actor?.system?.health?.toughness;
+      const immediateHealed = Math.max(0, Math.min(immediateHealRoll.total, Number(allyToughness?.max ?? 0) - Number(allyToughness?.value ?? 0)));
+      if (immediateHealed > 0) {
+        auraRolls.push(immediateHealRoll);
+        flagDataArray.push({ tokenId: nextToken.id, toughnessChange: immediateHealed });
+        lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_HEAL_IMMEDIATE", { targetname: nextToken.name, count: immediateHealed })}</p>`);
+      }
     }
   }
   // A36V test round 2 (Rudolf, 25.10.): the summed healing corruption lands
@@ -5761,9 +5793,11 @@ function unholyAllyIncludeConfirmation(functionStuff, targetname) {
    mit Resist-Marke (A28-Engine tickt je Opfer-Zug), sonst sofortiger
    Schaden 1W6/1W8 (Rüstung ignoriert, GM-Apply-Karte mit A25-F9-Sterbe-
    Feedback) plus Schadenssymbol. Loop 2 (Meister): je frisch markiertem
-   verbündeten ABSCHEULICHKEIT/UNTOTEN das Regenerations-DOT 1W8 Zähigkeit
-   (Heilige-Aura-Loop-2-Muster, OHNE deren Korruptionsgebühr - RAW nennt
-   keine). Zusammenfassung auf einer eigenen Karte (postMaintainChainCard). */
+   verbündeten ABSCHEULICHKEIT/UNTOTEN ODER (v2.13, Rudolfs Entscheidung)
+   VÖLLIG VERDORBENEN (Korruption >= max) das Regenerations-DOT 1W8
+   Zähigkeit (Heilige-Aura-Loop-2-Muster, OHNE deren Korruptionsgebühr -
+   RAW nennt keine) PLUS (v2.13, P10a/P13) eine SOFORT-Heilung bei
+   Aufnahme. Zusammenfassung auf einer eigenen Karte (postMaintainChainCard). */
 async function unholyAuraResult(rollData, functionStuff) {
   const succeeded = rollData?.[0]?.trueActorSucceeded !== false;
   // Standard-Karte: Probe, Korruption, Maintain-Symbol des Wirkers
@@ -5868,8 +5902,10 @@ async function unholyAuraResult(rollData, functionStuff) {
     }
     pushAuraDamageSymbol(nextToken.id);
   }
-  // Loop 2 - Heilung (Meister): verbündete Abscheulichkeiten und Untote
-  // in der Nähe heilen 1W8 Zähigkeit (Regenerations-DOT, A35-Heil-Ressource)
+  // Loop 2 - Heilung (Meister): verbündete Abscheulichkeiten, Untote und
+  // (v2.13, Rudolfs Entscheidung) völlig Verdorbene in der Nähe heilen
+  // 1W8 Zähigkeit - SOFORT bei Aufnahme (v2.13, P10a/P13) plus
+  // Regenerations-DOT (A35-Heil-Ressource)
   if (functionStuff.powerLvl.level > 2) {
     while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_UNHOLYAURA.CHAT_NEXT_ALLY"))) {
       const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
@@ -5879,7 +5915,11 @@ async function unholyAuraResult(rollData, functionStuff) {
       }
       handled.add(nextToken.id);
       const allyCategory = game.symbaroum.config.getCreatureCategory(nextToken.actor);
-      if (allyCategory !== "undead" && allyCategory !== "abomination") {
+      // v2.13 (Rudolfs Testrunde 12, P10a + Entscheidung): heal recipients
+      // = allied undead/abominations OR thoroughly corrupted creatures
+      // (Korruption >= max) - RAW names only "verbündete Abscheulichkeiten
+      // und Untote", Rudolf extends the list to the thoroughly corrupted
+      if (allyCategory !== "undead" && allyCategory !== "abomination" && !game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
         ui.notifications.warn(game.i18n.format("POWER_UNHOLYAURA.CHAT_ALLY_NOT_UNDEAD", { targetname: nextToken.name }));
         continue;
       }
@@ -5899,6 +5939,22 @@ async function unholyAuraResult(rollData, functionStuff) {
         },
       });
       lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.ALLY_HEAL", { targetname: nextToken.name, dice: auraHealDice })}</p>`);
+      // v2.13 (Rudolfs Testrunde 12, P10a/P13 + Entscheidung): the first
+      // heal fires IMMEDIATELY on inclusion (symmetry with loop 1's
+      // immediate damage) - one own roll per ally on this summary card,
+      // applied as a positive toughnessChange on the same GM card,
+      // clamped to the maximum; nothing to line up at full toughness.
+      // The regeneration DOT keeps ticking every round from the ally's
+      // own turn on (A33Fix2/A33Fix3 suppressions stay with the TICKS -
+      // the immediate application also heals a dying ally at 0)
+      const immediateHealRoll = await new Roll(auraHealDice).evaluate();
+      const allyToughness = nextToken.actor?.system?.health?.toughness;
+      const immediateHealed = Math.max(0, Math.min(immediateHealRoll.total, Number(allyToughness?.max ?? 0) - Number(allyToughness?.value ?? 0)));
+      if (immediateHealed > 0) {
+        auraRolls.push(immediateHealRoll);
+        flagDataArray.push({ tokenId: nextToken.id, toughnessChange: immediateHealed });
+        lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.ALLY_HEAL_IMMEDIATE", { targetname: nextToken.name, count: immediateHealed })}</p>`);
+      }
     }
   }
   if (lines.length > 0) {
@@ -6084,7 +6140,6 @@ function buildGlyphTargetData(targetToken, resistAttributeName) {
     resistAttributeName: resistAttributeName,
     leaderTarget: leaderEffect,
     autoParams: leaderEffect ? game.i18n.localize("COMBAT.CHAT_DMG_PARAMS_LEADER") : "",
-    isCorrupted: game.symbaroum.config.isThoroughlyCorruptTarget(targetToken.actor),
   };
 }
 

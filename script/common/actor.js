@@ -1132,8 +1132,15 @@ export class SymbaroumActor extends Actor {
 				specificStuff = Object.assign({}, specificStuff, specificStuff.targetPresentFSmod);
 			}
 
+			// v2.13 (Rudolfs Testrunde 12, P6a + Entscheidung): der Novize-
+			// Checkbox-Default greift auf das EINHEITLICHE unheilig-
+			// Prädikat zurück (Kategorie undead/abomination ODER durch und
+			// durch verdorben, config.js isUnholyCreatureTarget) - die
+			// Checkbox fragt "Ziel unheilig?", nicht mehr nur den
+			// Korruptionsstand ab (der Dialog-Text DIALOG.ASK_CORRUPTION
+			// wurde entsprechend angepasst)
 			specificStuff.targetFullyCorrupted =
-				specificStuff.targetFullyCorruptedFSmod && specificStuff.targetData.hasTarget && specificStuff.targetData.isCorrupted;
+				specificStuff.targetFullyCorruptedFSmod && specificStuff.targetData.hasTarget && game.symbaroum.config.isUnholyCreatureTarget(specificStuff.targetData.actor);
 
 			if (specificStuff.targetImpeding && specificStuff.targetData.hasTarget)
 				specificStuff.targetImpeding = specificStuff.targetData.actor.system.combat.impedingMov;

@@ -444,19 +444,25 @@ SYMBAROUM.scriptedAbilities = [
   "flamewall",
   "holyaura",
   "inheritwound",
+  // v2.13 (Rudolfs Testrunde 12, P10b): isScripted-Badge für die drei in
+  // v2.12 neu gescripteten Gruppe-C-Kräfte - das Sheet-Badge kommt aus
+  // DIESER Liste (actor.js hasScript/script), nicht aus den Setups
   "larvaeboils",
   "layonhands",
+  "lifegiver",
   "levitate",
   "maltransformation",
   "markoftorment",
   "mindthrow",
   "priosburningglass",
   "protectiverunes",
+  "purgatory",
   "revenantstrike",
   "sphere",
   "staffprojectile",
   "tormentingspirits",
   "trueform",
+  "unholyaura",
   "unnoticeable",
   "poisonous",
   "regeneration",
@@ -895,6 +901,24 @@ SYMBAROUM.SIGHT_RANGE_UNITS = 50;
 
 SYMBAROUM.isCreatureCategory = function (actor, categoryId) {
 	return !!categoryId && actor?.system?.creatureCategory === categoryId;
+};
+
+/* v2.13 (Rudolfs Testrunde 12, P6a + Entscheidungs-Runde): "unheilig" für die
+   Brennglas-Bewertungen (Schadens-Bonus 1W8/1W12 und Meister-Betäubung) =
+   Kreaturenkategorie undead/abomination ODER durch und durch verdorben
+   (isThoroughlyCorruptTarget mit Abso.-Fallback). RAW nennt für den Bonus
+   die Kategorien ("1W12 bei Abscheulichkeiten und Untoten", Vault GRW);
+   das Korruptions-Kriterium bleibt daneben bestehen, weil die Kategorie
+   bei Korruption, die im Spiel bis zum Maximum steigt, NICHT automatisch
+   angepasst wird (Rudolfs Befund Testrunde 12): ein voll korrumpiertes
+   Kulturwesen ohne Kategorie-Eintrag bleibt vom Bonus erreicht. Ein
+   einheitliches Prädikat für Schadens-Bonus UND Betäubungs-Angebot -
+   die Betäubung nennt RAW "alle durch und durch verdorbenen und untoten
+   Feinde", die Bonus-Würfel "Abscheulichkeiten und Untote", mit dem
+   gemeinsamen Prädikat deckt beides beide Kriterien ab. */
+SYMBAROUM.isUnholyCreatureTarget = function (actor) {
+	const category = SYMBAROUM.getCreatureCategory(actor);
+	return category === "undead" || category === "abomination" || SYMBAROUM.isThoroughlyCorruptTarget(actor);
 };
 
 /* A33 (Rudolf's Adept redesign, 23.10.): Zeichen der Pein - Adept+ marks
