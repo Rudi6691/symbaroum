@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -1737,6 +1737,13 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						// (Ziel), Selbst-Elixiere und alle kuenftigen flagData-
 						// Pfade ab.
 						if (flagData.corruptionChange > 0) await checkCorruptionThreshold(actor, flagData.corruptionChange);
+						// v2.12 (Gruppe C, Rudolfs Freigabe 15.11.): Meister-Reaktionen
+						// (Fegefeuer-Spiegelschaden / Lebensspender-Reduktion) laufen VOR
+						// der Buchung - mechanische Näherung für RAW "Korruption durch
+						// Kräfte/Artefakte" = jede System-Korruptionsbuchung; außerhalb
+						// des Systems bleibt SL-Urteil (siehe applyCorruptionMaster-
+						// Reactions, item.js - Rückgabewert = reduzierter Betrag).
+						if (flagData.corruptionChange > 0) flagData.corruptionChange = await applyCorruptionMasterReactions(actor, token?.id ?? flagData.tokenId ?? null, flagData.corruptionChange);
 						let newCorruption = Math.max(0, actor.system.health.corruption.temporary + flagData.corruptionChange);
 						await actor.update({ 'system.health.corruption.temporary': newCorruption });
 					}

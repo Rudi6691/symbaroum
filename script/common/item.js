@@ -2727,6 +2727,34 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  mysticPowerSetupLifegiver(base) {
+    /* v2.12 (Rudolfs Freigabe 15.11., Gruppe C): Lebensspender (APG,
+       Theurgie). Novize: 1W4 temporäre Korruption von EINER Kreatur in
+       Sichtweite abwaschen - alle überschüssigen Punkte heilen stattdessen
+       Zähigkeit; ohne markiertes Ziel wirkt die Kraft auf den Mystiker
+       selbst (RAW). Adept: selbst + alle Verbündeten in Sichtweite
+       (Frisch-Zielen-Kette bzw. Sweep-Filter 'Verbündete'). Meister =
+       REAKTION: passive Aura (lifegiver-Symbol auf dem Mystiker,
+       Korruptions-Reduktion um 1W4 über applyCorruptionMasterReactions
+       in hooks.js, NICHT auf den Mystiker selbst; SL entfernt das Symbol
+       zum Deaktivieren). RAW nennt keine Probe - CASTING_NOT. */
+    base.traditions = [game.symbaroum.config.TRAD_THEURGY];
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.maintain = game.symbaroum.config.MAINTAIN_NOT;
+    if (base.powerLvl.level < 3) {
+      base.getTarget = true;
+      base.targetMandatory = false;
+      base.introText = game.i18n.localize("POWER_LIFEGIVER.CHAT_INTRO");
+      base.resultTextSuccess = game.i18n.localize("POWER_LIFEGIVER.CHAT_SUCCESS");
+      base.resultTextFail = game.i18n.localize("POWER_LIFEGIVER.CHAT_FAILURE");
+    } else {
+      base.introText = game.i18n.localize("POWER_LIFEGIVER.CHAT_INTRO_MASTER");
+      base.resultTextSuccess = game.i18n.localize("POWER_LIFEGIVER.CHAT_SUCCESS_MASTER");
+      base.resultTextFail = game.i18n.localize("POWER_LIFEGIVER.CHAT_FAILURE");
+    }
+    return base;
+  }
+
   mysticPowerSetupMaltransformation(base) {
     base.getTarget = true;
     base.targetMandatory = true;
@@ -2869,6 +2897,38 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  mysticPowerSetupPurgatory(base) {
+    /* v2.12 (Rudolfs Freigabe 15.11., Gruppe C): Fegefeuer (APG, Theurgie).
+       Novize/Adept: KEINE Mystiker-Probe (CASTING_NOT) - der Mystiker
+       zwingt die Opfer zum Wurf: je Ziel 1W20 gegen dessen GESAMTKORRUPTION
+       (temporary + longterm + permanent), bei Wurf <= Gesamtkorruption ist
+       das Ziel akuten Schmerzen ausgesetzt und eine volle Runde handlungs-
+       unfaehig (Stun-Symbol, endet mit dem Zug des Ziels, A34-Muster);
+       VOELLIG VERDORBENE Kreaturen erleiden stattdessen automatisch 1W6
+       Schaden, Ruestung ignoriert (GM-Apply-Karte). Novize = Einzelziel;
+       Adept = alle Feinde in Sichtweite (manuell Frisch-Zielen-Kette,
+       als Sweep-Zone dialogfrei - Rudolfs Sichtweiten-Festlegung 13.11.:
+       Sichtweite = 100 m = Extrem, als platzierte Flaeche dargestellt).
+       Meister = REAKTION: reaktive Aura (purgatory-Symbol auf dem
+       Mystiker, Korruptions-Spiegelschaden ueber applyCorruptionMaster-
+       Reactions in hooks.js, SL entfernt das Symbol zum Deaktivieren). */
+    base.traditions = [game.symbaroum.config.TRAD_THEURGY];
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.maintain = game.symbaroum.config.MAINTAIN_NOT;
+    if (base.powerLvl.level < 3) {
+      base.getTarget = true;
+      base.targetMandatory = true;
+      base.introText = game.i18n.localize("POWER_PURGATORY.CHAT_INTRO");
+      base.resultTextSuccess = game.i18n.localize("POWER_PURGATORY.CHAT_SUCCESS");
+      base.resultTextFail = game.i18n.localize("POWER_PURGATORY.CHAT_FAILURE");
+    } else {
+      base.introText = game.i18n.localize("POWER_PURGATORY.CHAT_INTRO_MASTER");
+      base.resultTextSuccess = game.i18n.localize("POWER_PURGATORY.CHAT_SUCCESS_MASTER");
+      base.resultTextFail = game.i18n.localize("POWER_PURGATORY.CHAT_FAILURE");
+    }
+    return base;
+  }
+
   mysticPowerSetupRevenantstrike(base) {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
@@ -2988,6 +3048,37 @@ export class SymbaroumItem extends Item {
     }
     // Adept+: chains from creature to creature (GRW) - via dispatch only,
     // no chain flag (no maintain on any level, so no maintain dropdown)
+    return base;
+  }
+
+  mysticPowerSetupUnholyaura(base) {
+    /* v2.12 (Rudolfs Freigabe 15.11., Gruppe C): Unheilige Aura (GRW,
+       Zauberei) - 1:1-Spiegel der Heiligen Aura (A36-Verbraucher):
+       Resolute-Probe, Maintain bis Probe-Misserfolg/Konzentrations-
+       abbruch (Standard-Maintain-Pfad räumt über unholyAuraEndCleanup),
+       Schaden an KULTURWESEN und BESTIEN in Sichtweite (Freund UND Feind -
+       Kategorie-Filter statt Disposition, die Novizenstufe schadet
+       ausdrücklich Verbündeten mit), 1W6 (Novize/Adept) bzw. 1W8
+       (Meister), Rüstung ignoriert, je Opfer eine Resist-Chance gegen
+       die gesnapshottete Willenskraft des Mystikers (Ein-Wurf-Modell wie
+       Heilige Aura) und ein unholyaura-Schadenssymbol mit Resist-Marke
+       (A28-Engine tickt am Beginn der Opfer-Züge). Adept+ kann lebende
+       Verbündete ausschließen (Bestätigungsdialog je verbündetem Opfer,
+       Default Nein - RAW "kann wählen"). Meister heilt zusätzlich
+       verbündete Abscheulichkeiten und Untote in der Nähe um 1W8
+       Zähigkeit (Regenerations-DOT, Heilige-Aura-Loop-2-Muster, ohne
+       deren Korruptionsgebühr - RAW nennt keine). */
+    base.casting = game.symbaroum.config.CASTING;
+    base.traditions = [game.symbaroum.config.TRAD_WIZARDRY];
+    base.maintain = game.symbaroum.config.MAINTAIN;
+    base.introText = game.i18n.localize("POWER_UNHOLYAURA.CHAT_INTRO");
+    base.introTextMaintain = game.i18n.localize("POWER_UNHOLYAURA.CHAT_INTRO_M");
+    base.resultTextSuccess = game.i18n.localize("POWER_UNHOLYAURA.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_UNHOLYAURA.CHAT_FAILURE");
+    base.activelyMaintaninedCasterEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "unholyaura"))];
+    base.auraDamageDice = "1d6";
+    base.auraHealDice = "1d8";
+    if (base.powerLvl.level === 3) base.auraDamageDice = "1d8";
     return base;
   }
 
@@ -3838,6 +3929,16 @@ export async function modifierDialog(functionStuff) {
   if ((functionStuff.type === "boon" || functionStuff.type === "burden") && functionStuff.castingAttributeName) {
     title = `${title} - ${game.symbaroum.api.getAttributeLabel(functionStuff.actor, functionStuff.castingAttributeName)}`;
   }
+  /* v2.12 (Rudolfs Testrunde 11, P2a): Der close-Handler unten räumt die
+     In-Flight-Marke der Zonen-AKTIVIERUNG auch bei X/ESC - das Fenster-
+     kreuz (und ESC) feuert KEINEN cancel-Callback, deshalb blieb die Marke
+     nach dem Schließen bis zum 5-Minuten-Stale-Schutz stehen und die Zone
+     war nicht erneut auslösbar. Die Flag unterscheidet Button-Schließungen
+     (roll UND cancel setzen sie synchron am Callback-Anfang) von X/ESC:
+     nur ohne Flag räumt der Handler. Feuert das close-Event vor dem
+     Callback-Ende, verhindert die Flag das vorzeitige Räumen des Erfolg-
+     pfads (der über aoeZoneActivationCompleted räumt; delete ist idempotent). */
+  let zoneDialogClosedByButton = false;
   let dialog = symbDialog({
     title: title,
     content: html,
@@ -3856,6 +3957,10 @@ export async function modifierDialog(functionStuff) {
         icon: '<i class="fas fa-check"></i>',
         label: game.i18n.localize("BUTTON.ROLL"),
         callback: async (html) => {
+          // v2.12 (Testrunde 11, P2a): Button-Schließung markieren - der
+          // close-Handler räumt dann nicht vorzeitig (Erfolgspfad räumt
+          // über aoeZoneActivationCompleted).
+          zoneDialogClosedByButton = true;
           /* v2.7 (Testrunde 7, Rudolfs Schritt 2): die Bannsiegel-Kategorie-
              Prüfung läuft jetzt bei der WAHL (preDialogBanishingSeal bzw.
              Zonen-Platzierung), NICHT mehr erst beim „Würfeln" - ein
@@ -4328,6 +4433,11 @@ export async function modifierDialog(functionStuff) {
            bis dahin nicht erneut ausloesbar. Ohne zoneActivation ist der
            Callback wie bisher eine Nulloperation. */
         callback: () => {
+          // v2.12 (Testrunde 11, P2a): Button-Schließung markieren - der
+          // Abbrechen-Button räumt selbst (unten), der close-Handler darf
+          // nicht doppelt eingreifen (idempotent, aber der Flag bleibt
+          // der saubere Zustand).
+          zoneDialogClosedByButton = true;
           if (functionStuff?.zoneActivation?.regionId) {
             game.symbaroum.api?.aoeZoneActivationAborted?.(functionStuff.zoneActivation.regionId);
           }
@@ -4336,6 +4446,22 @@ export async function modifierDialog(functionStuff) {
     },
     default: "roll",
   });
+  // v2.12 (Rudolfs Testrunde 11, P2a): close-Handler auf der Dialog-Instanz
+  // für die Zonen-AKTIVIERUNG - X und ESC schließen den Würfeldialog ohne
+  // Button-Callback, der Handler räumt die In-Flight-Marke dann sofort
+  // (Muster: symbDialog nutzt dasselbe close-Event für die Single-Instance-
+  // Registry). Ohne zoneActivation bleibt der Handler unregistriert.
+  if (functionStuff?.zoneActivation?.regionId) {
+    try {
+      dialog.addEventListener?.("close", () => {
+        if (!zoneDialogClosedByButton) {
+          game.symbaroum.api?.aoeZoneActivationAborted?.(functionStuff.zoneActivation.regionId);
+        }
+      });
+    } catch (closeErr) {
+      game.symbaroum.log("v2.12: zone activation close guard unavailable");
+    }
+  }
   // Automatisierungspaket 1: Freier-Angriff-Toggle - Fenstertitel-Suffix
   // und das Ausblenden der aktiven Paket-Checkboxen folgen live dem Häkchen
   // (Muster A30: symbDialog startet das Rendern selbst; das erneute await
@@ -4674,6 +4800,17 @@ function getPowerResultFunction(functionStuff) {
     // maintain rounds keep them alive and the failed roll removes them
     case "holyaura":
       return holyAuraResult;
+    // v2.12 (Gruppe C, Rudolfs Freigabe 15.11.): Unheilige Aura = 1:1-
+    // Spiegel der Heiligen Aura (every level runs the automated mirror
+    // flow); Fegefeuer und Lebenspender trennen die Meister-REAKTIONS-
+    // Aktivierung (Aura-Symbol auf dem Mystiker) von den aktiven Stufen
+    // (Opfer-Zwangswürfe bzw. Korruptions-Waschung).
+    case "unholyaura":
+      return unholyAuraResult;
+    case "purgatory":
+      return functionStuff.powerLvl.level > 2 ? purgatoryMasterResult : purgatoryResult;
+    case "lifegiver":
+      return functionStuff.powerLvl.level > 2 ? lifegiverMasterResult : lifegiverResult;
     default:
       return standardPowerResult;
   }
@@ -5380,6 +5517,523 @@ async function holyAuraEndCleanup(functionStuff) {
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* v2.12 (Rudolfs Freigabe 15.11., Gruppe C) — Fegefeuer (APG Theurgie),
+   Novize/Adept: keine Mystiker-Probe, der Mystiker zwingt die Opfer zum
+   Wurf. je Ziel 1W20 gegen die GESAMTKORRUPTION (temporary + longterm +
+   permanent): bei Wurf <= Korruption akute Schmerzen, das Ziel ist eine
+   volle Runde handlungsunfähig (Stun-Symbol über die GM-Apply-Karte, endet
+   mit dem Zug des Ziels - A34-Muster wie der Brennglas-Stun); völlig
+   verdorbene Kreaturen (isThoroughlyCorruptTarget inkl. Abso.-Fallback)
+   erleiden stattdessen automatisch 1W6 Schaden, Rüstung ignoriert. Novize =
+   Einzelziel; Adept = alle Feinde in Sichtweite: manuell als Frisch-Zielen-
+   Kette (Muster priosBurningGlassResult), als Sweep-Zone dialogfrei über
+   zoneChainTargets (Zone = Sichtweiten-Abstraktion, Rudolfs Festlegung
+   13.11.). Kein Zauberer-Vorteil/Modifikator im Zonen-Batch (execute-
+   ZonePower stellt das ein). */
+async function purgatoryResult(rollData, functionStuff) {
+  // Aktionskarte (CASTING_NOT) mit den Korruptionskosten des Wirkens
+  await standardPowerResult(rollData, functionStuff);
+  const rolls = [];
+  const lines = [];
+  const flagDataArray = [];
+  const handled = new Set();
+  const applyPurgatory = async (token) => {
+    if (!token?.actor) return;
+    handled.add(token.id);
+    const victim = token.actor;
+    const corr = victim.system?.health?.corruption;
+    const totalCorruption = corr ? Number(corr.temporary ?? 0) + Number(corr.longterm ?? 0) + Number(corr.permanent ?? 0) : 0;
+    if (game.symbaroum.config.isThoroughlyCorruptTarget(victim)) {
+      const damageRoll = await new Roll("1d6").evaluate();
+      rolls.push(damageRoll);
+      lines.push(`<p>${game.i18n.format("POWER_PURGATORY.CHAT_DAMAGE", { targetname: token.name, count: damageRoll.total })}</p>`);
+      flagDataArray.push({ tokenId: token.id, toughnessChange: -1 * damageRoll.total });
+      // Getötet-Prüfung wie Heilige-Aura-Loop (A25 F9/F11-Muster)
+      const targetToughness = victim.system?.health?.toughness?.value;
+      if (targetToughness !== undefined && damageRoll.total >= targetToughness) {
+        if (ui.combat.viewed && (ui.combat.viewed.getCombatantsByToken(token.id) ?? []).length > 0) {
+          flagDataArray.push({ tokenId: token.id, defeated: true });
+        }
+      }
+      return;
+    }
+    const forcedRoll = await new Roll("1d20").evaluate();
+    rolls.push(forcedRoll);
+    if (forcedRoll.total <= totalCorruption) {
+      lines.push(`<p>${game.i18n.format("POWER_PURGATORY.CHAT_PAIN", { targetname: token.name, roll: forcedRoll.total, corruption: totalCorruption })}</p>`);
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "stun")),
+        effectDuration: 1,
+        turnEnd: true,
+        casterId: functionStuff.actor.id,
+        abilityRef: functionStuff.ability?.reference,
+        casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+        casterName: functionStuff.actingCharName,
+      });
+    } else {
+      lines.push(`<p>${game.i18n.format("POWER_PURGATORY.CHAT_RESISTED", { targetname: token.name, roll: forcedRoll.total, corruption: totalCorruption })}</p>`);
+    }
+  };
+  // Primärziel (manuell markiert bzw. Zonen-Batch: erstes Auto-Ziel)
+  const primaryToken = functionStuff.targetData?.hasTarget ? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.targetData.tokenId) ?? null : null;
+  if (primaryToken) {
+    await applyPurgatory(primaryToken);
+  }
+  // Adept: Kette über frisch markierte Ziele; Novize bleibt Einzelziel
+  // (Zonen-Batch degeneriert analog aufs Primärziel, Gruppen-B-Muster)
+  while (
+    functionStuff.powerLvl.level > 1 &&
+    !zoneChainDone(functionStuff, handled) &&
+    (await zoneChainContinue(functionStuff, "POWER_PURGATORY.CHAT_NEXT_TARGET"))
+  ) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_PURGATORY.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    await applyPurgatory(nextToken);
+  }
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.format("POWER_PURGATORY.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, rolls);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* v2.12 — Fegefeuer MEISTER (APG): Reaktion, keine Probe. Die Aktivierung
+   setzt das purgatory-Symbol auf den Mystiker-Token (GM-Apply-Karte) - das
+   Markiert die reaktive Aura: jeder FEINDLICHE Korruptionsempfänger in
+   Sichtweite erleidet denselben Betrag als körperlichen Schaden (Rüstung
+   ignoriert), gebucht über applyCorruptionMasterReactions (unten), das
+   an den beiden System-Auslieferungspunkten der Korruption hängt (GM-
+   Apply-Karte in hooks.js + Bestätigungs-Dialog in buildRolls). Die SL
+   entfernt das Symbol, um die Aura zu deaktivieren (RAW nennt keine
+   Dauer); die Näherung "Korruption durch Kräfte/Artefakte" = jede
+   System-Korruptionsbuchung, der Rest bleibt SL-Urteil. */
+async function purgatoryMasterResult(rollData, functionStuff) {
+  await standardPowerResult(rollData, functionStuff);
+  const tokenId = functionStuff.tokenId ?? functionStuff.token?.id ?? null;
+  if (!tokenId) return;
+  await createModifyTokenChatButton([
+    {
+      tokenId,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "purgatory")),
+      casterId: functionStuff.actor.id,
+      abilityRef: functionStuff.ability?.reference,
+      casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+      casterName: functionStuff.actingCharName,
+    },
+  ]);
+}
+
+/* v2.12 — Lebensspender (APG Theurgie), Novize/Adept: keine Probe (RAW
+   nennt keine). je Ziel 1W4: temporäre Korruption abwaschen (nie unter 0,
+   negative Klemmung wie im GM-Apply-Pfad), alle überschüssigen Punkte
+   heilen stattdessen Zähigkeit (GM-Apply-Karte: corruptionChange negativ +
+   toughnessChange positiv). Novize: EIN Ziel in Sichtweite, ohne Marke
+   wirkt die Kraft auf den Mystiker selbst (RAW "auch auf sich selbst").
+   Adept: selbst + alle Verbündeten in Sichtweite (selbst automatisch,
+   Verbündete über Frisch-Zielen-Kette; als Sweep-Zone mit Filter
+   'Verbündete' dialogfrei über zoneChainTargets). Kein Dispositions-
+   Zwangsfilter - die Markierung ist die Spielerentscheidung, die SL
+   wacht wie bei den Glyphen-Schleifen. */
+async function lifegiverResult(rollData, functionStuff) {
+  await standardPowerResult(rollData, functionStuff);
+  const rolls = [];
+  const lines = [];
+  const flagDataArray = [];
+  const handled = new Set();
+  const washCorruption = async (token) => {
+    if (!token?.actor) return;
+    handled.add(token.id);
+    const corr = token.actor.system?.health?.corruption;
+    if (!corr) return;
+    const washRoll = await new Roll("1d4").evaluate();
+    rolls.push(washRoll);
+    const temp = Math.max(0, Number(corr.temporary ?? 0));
+    const washed = Math.min(washRoll.total, temp);
+    const overflow = washRoll.total - washed;
+    if (washed > 0) {
+      flagDataArray.push({ tokenId: token.id, corruptionChange: -washed });
+    }
+    lines.push(`<p>${game.i18n.format("POWER_LIFEGIVER.CHAT_WASH", { targetname: token.name, count: washed, dice: washRoll.total })}</p>`);
+    if (overflow > 0) {
+      flagDataArray.push({ tokenId: token.id, toughnessChange: overflow });
+      lines.push(`<p>${game.i18n.format("POWER_LIFEGIVER.CHAT_OVERFLOW", { targetname: token.name, count: overflow })}</p>`);
+    }
+  };
+  const selfToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
+  const primaryToken = functionStuff.targetData?.hasTarget ? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.targetData.tokenId) ?? null : null;
+  // Adept: selbst immer; Novize: nur selbst, OHNE markiertes Ziel
+  if (selfToken && (functionStuff.powerLvl.level > 1 || !primaryToken)) {
+    await washCorruption(selfToken);
+  }
+  if (primaryToken && !handled.has(primaryToken.id)) {
+    await washCorruption(primaryToken);
+  }
+  // Adept: weitere Verbündete über frisch markierte Ziele
+  while (
+    functionStuff.powerLvl.level > 1 &&
+    !zoneChainDone(functionStuff, handled) &&
+    (await zoneChainContinue(functionStuff, "POWER_LIFEGIVER.CHAT_NEXT_ALLY"))
+  ) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_LIFEGIVER.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    await washCorruption(nextToken);
+  }
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.format("POWER_LIFEGIVER.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, rolls);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* v2.12 — Lebensspender MEISTER (APG): Reaktion, keine Probe, keine
+   Ziele. Die Aktivierung setzt das lifegiver-Symbol auf den Mystiker-
+   Token - die passive Aura reduziert jede System-Korruptionsbuchung
+   FREUNDLICHER Verbündeter in Sichtweite um 1W4 (applyCorruptionMaster-
+   Reactions unten), nie aber die des Mystikers selbst (RAW). SL entfernt
+   das Symbol zum Deaktivieren. */
+async function lifegiverMasterResult(rollData, functionStuff) {
+  await standardPowerResult(rollData, functionStuff);
+  const tokenId = functionStuff.tokenId ?? functionStuff.token?.id ?? null;
+  if (!tokenId) return;
+  await createModifyTokenChatButton([
+    {
+      tokenId,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "lifegiver")),
+      casterId: functionStuff.actor.id,
+      abilityRef: functionStuff.ability?.reference,
+      casterResolute: getAttributeValue(functionStuff.actor, "resolute"),
+      casterName: functionStuff.actingCharName,
+    },
+  ]);
+}
+
+/* v2.12 — Unheilige Aura (GRW Zauberei), Adept-Ausschluss-Bestätigung:
+   RAW "kann lebende Verbündete ausschließen" - je verbündetem Opfer fragt
+   der Dialog, ob es in die Aura eingeschlossen wird; Default NEIN
+   (ausschließen), Muster priosStunConfirmation. */
+function unholyAllyIncludeConfirmation(functionStuff, targetname) {
+  return new Promise((resolve) => {
+    symbDialog({
+      title: functionStuff.abilityName,
+      classes: ["chain-confirm", ...(isModernDialogActive() ? modernDialogClasses("modern-chain-confirm-dialog") : [])],
+      content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format(game.i18n.localize("POWER_UNHOLYAURA.ALLY_QUESTION"), { targetname })}</p></div>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: () => resolve(true),
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+          callback: () => resolve(false),
+        },
+      },
+      default: "no",
+    });
+  });
+}
+
+/* v2.12 — Unheilige Aura (GRW Zauberei): 1:1-Spiegel der Heiligen Aura
+   (A36-Verbraucher-Muster). Standard-Karte: Resolute-Probe, Korruption,
+   Maintain-Symbol auf dem Wirker (unholyaura). Maintain-Runde: gescheiterte
+   Probe räumt alle Aura-Symbole (unholyAuraEndCleanup). Loop 1 (jede
+   Stufe): je frisch markiertem Opfer Kategorie-Filter KULTURWESEN oder
+   BESTIE (Freund UND Feind - Novize schadet ausdrücklich Verbündete mit,
+   Adept+ fragt je Verbündetem die Ausschluss-Bestätigung, Default Nein),
+   dann die Resist-Chance gegen die gesnapshottete Willenskraft des
+   Mystikers (Ein-Wurf-Modell 1W20 <= Opfer-Resolute + 10 - Mystiker-
+   Resolute, identisch Heilige Aura): widerstanden -> nur Schadenssymbol
+   mit Resist-Marke (A28-Engine tickt je Opfer-Zug), sonst sofortiger
+   Schaden 1W6/1W8 (Rüstung ignoriert, GM-Apply-Karte mit A25-F9-Sterbe-
+   Feedback) plus Schadenssymbol. Loop 2 (Meister): je frisch markiertem
+   verbündeten ABSCHEULICHKEIT/UNTOTEN das Regenerations-DOT 1W8 Zähigkeit
+   (Heilige-Aura-Loop-2-Muster, OHNE deren Korruptionsgebühr - RAW nennt
+   keine). Zusammenfassung auf einer eigenen Karte (postMaintainChainCard). */
+async function unholyAuraResult(rollData, functionStuff) {
+  const succeeded = rollData?.[0]?.trueActorSucceeded !== false;
+  // Standard-Karte: Probe, Korruption, Maintain-Symbol des Wirkers
+  await standardPowerResult(rollData, functionStuff);
+  if (functionStuff.isMaintained) {
+    // Maintain-Runde: Erfolg hält alle Symbole am Ticken, Fehlschlag
+    // beendet die Aura und räumt alle ihre Szenen-Symbole
+    if (!succeeded) {
+      await unholyAuraEndCleanup(functionStuff);
+    }
+    return;
+  }
+  if (!succeeded) {
+    // gescheitertes erstes Wirken: keine Aura (Neuversuch erlaubt - die
+    // Szenen-Sperre der Heiligen Aura war ein A36V-Testrunden-Beschluss
+    // für DIESE Kraft, RAW schreibt sie hier nicht)
+    ui.notifications.warn(game.i18n.localize("POWER_UNHOLYAURA.CHAT_FAILED_CAST"));
+    return;
+  }
+  const flagDataArray = [];
+  const auraRolls = [];
+  const lines = [];
+  const handled = new Set();
+  const auraDamageDice = functionStuff.auraDamageDice ?? "1d6";
+  const auraHealDice = functionStuff.auraHealDice ?? "1d8";
+  const casterResolute = getAttributeValue(functionStuff.actor, "resolute");
+  const casterTokenId = functionStuff.tokenId ?? functionStuff.token?.id ?? null;
+  const casterDisposition = functionStuff.token?.document?.disposition ?? 0;
+  const pushAuraDamageSymbol = (tokenId) => {
+    flagDataArray.push({
+      tokenId: tokenId,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "unholyaura")),
+      casterId: functionStuff.actor.id,
+      abilityRef: functionStuff.ability?.reference,
+      casterResolute: casterResolute,
+      casterName: functionStuff.actingCharName,
+      maintained: true,
+      dot: {
+        label: "POWER_LABEL.UNHOLY_AURA",
+        formula: auraDamageDice,
+        resource: "toughness",
+        separateRoll: false,
+        resist: {
+          attribute: "resolute",
+          value: casterResolute,
+        },
+      },
+    });
+  };
+  // Loop 1 - Schaden (jede Stufe): Kulturwesen und Bestien, Freund UND Feind
+  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_UNHOLYAURA.CHAT_NEXT_VICTIM"))) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_UNHOLYAURA.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    handled.add(nextToken.id);
+    const category = game.symbaroum.config.getCreatureCategory(nextToken.actor);
+    if (category !== "civilized" && category !== "beast") {
+      ui.notifications.warn(game.i18n.format("POWER_UNHOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
+      continue;
+    }
+    // Adept+: lebende Verbündete ausschließen (RAW "kann wählen") - der
+    // Heuristik-Vergleich ist DISPOSITIONS-RELATIV zum Wirker ( >= ), damit
+    // auch die üblichen neutralen SC-Tokens als Verbündete erkannt werden;
+    // die Bestätigung fragt nur nach, die SL entscheidet wie immer
+    if (
+      functionStuff.powerLvl.level > 1 &&
+      nextToken.id !== casterTokenId &&
+      (nextToken.document?.disposition ?? 0) >= casterDisposition &&
+      !(await unholyAllyIncludeConfirmation(functionStuff, nextToken.name))
+    ) {
+      lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.ALLY_EXCLUDED", { targetname: nextToken.name })}</p>`);
+      continue;
+    }
+    // je Anwendung EINE Resist-Chance gegen die gesnapshottete Willenskraft
+    const resistRoll = await new Roll("1d20").evaluate();
+    auraRolls.push(resistRoll);
+    const resistTarget = getAttributeValue(nextToken.actor, "resolute") + 10 - casterResolute;
+    if (resistRoll.total <= resistTarget) {
+      lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.VICTIM_RESISTED", { targetname: nextToken.name, roll: resistRoll.total, target: resistTarget })}</p>`);
+      pushAuraDamageSymbol(nextToken.id);
+      continue;
+    }
+    lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.VICTIM_NO_RESIST", { targetname: nextToken.name, roll: resistRoll.total, target: resistTarget })}</p>`);
+    // sofortiger Schaden, Rüstung ignoriert (GRW) - je Opfer eine Wurfzeile
+    // auf der Zusammenfassungskarte, angewendet über die GM-Karte
+    const damageRoll = await new Roll(auraDamageDice).evaluate();
+    auraRolls.push(damageRoll);
+    flagDataArray.push({
+      tokenId: nextToken.id,
+      toughnessChange: -1 * damageRoll.total,
+    });
+    lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.VICTIM_DAMAGE", { targetname: nextToken.name, count: damageRoll.total })}</p>`);
+    // der Schaden tötete das Opfer (A25 F10/F11-Muster) - kein Symbol
+    const targetToughness = nextToken.actor?.system?.health?.toughness?.value;
+    if (targetToughness !== undefined && damageRoll.total >= targetToughness) {
+      if (ui.combat.viewed && (ui.combat.viewed.getCombatantsByToken(nextToken.id) ?? []).length > 0) {
+        flagDataArray.push({ tokenId: nextToken.id, defeated: true });
+      }
+      continue;
+    }
+    pushAuraDamageSymbol(nextToken.id);
+  }
+  // Loop 2 - Heilung (Meister): verbündete Abscheulichkeiten und Untote
+  // in der Nähe heilen 1W8 Zähigkeit (Regenerations-DOT, A35-Heil-Ressource)
+  if (functionStuff.powerLvl.level > 2) {
+    while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_UNHOLYAURA.CHAT_NEXT_ALLY"))) {
+      const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+      if (!nextToken) {
+        ui.notifications.warn(game.i18n.localize("POWER_UNHOLYAURA.CHAT_NO_NEW_TARGET"));
+        break;
+      }
+      handled.add(nextToken.id);
+      const allyCategory = game.symbaroum.config.getCreatureCategory(nextToken.actor);
+      if (allyCategory !== "undead" && allyCategory !== "abomination") {
+        ui.notifications.warn(game.i18n.format("POWER_UNHOLYAURA.CHAT_ALLY_NOT_UNDEAD", { targetname: nextToken.name }));
+        continue;
+      }
+      flagDataArray.push({
+        tokenId: nextToken.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "regeneration")),
+        casterId: functionStuff.actor.id,
+        abilityRef: functionStuff.ability?.reference,
+        casterResolute: casterResolute,
+        casterName: functionStuff.actingCharName,
+        maintained: true,
+        dot: {
+          label: "POWER_LABEL.UNHOLY_AURA",
+          formula: auraHealDice,
+          resource: "heal",
+          separateRoll: false,
+        },
+      });
+      lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.ALLY_HEAL", { targetname: nextToken.name, dice: auraHealDice })}</p>`);
+    }
+  }
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.format("POWER_UNHOLYAURA.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, auraRolls);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* v2.12 — Unheilige Aura: die Aura endet (gescheiterte Maintain-Probe oder
+   A29-"Nein"-Abbruch) - 1:1-Spiegel von holyAuraEndCleanup: jedes Szenen-
+   Symbol mit den Autoren-Markern dieses Wirkers für die unholyaura-Kraft
+   (Schadenspunkte auf Kulturwesen/Bestien, Regenerations-Symbole der
+   Verbündeten) geht auf EINE GM-Entfernungs-Karte; das eigene Maintain-
+   Symbol hat standardPowerResult bereits geräumt. Unmarkierte Bedingungen
+   bleiben unberührt (A23/K6-Markerschutz). */
+async function unholyAuraEndCleanup(functionStuff) {
+  const casterId = functionStuff.actor.id;
+  const abilityRef = functionStuff.ability?.reference;
+  const flagDataArray = [];
+  const seen = new Set();
+  for (const token of canvas.tokens.placeables) {
+    const tokenActor = token.actor;
+    if (!tokenActor) continue;
+    for (const effect of tokenActor.effects) {
+      const effectFlagData = effect.getFlag(game.system.id, "flagData");
+      if (effectFlagData?.caster !== casterId || effectFlagData?.ability !== abilityRef) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = token.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+    }
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* v2.12 (Rudolfs Freigabe 15.11.) — Korruptions-Reaktion der beiden
+   MEISTER-Auren (Fegefeuer APG: Spiegelschaden; Lebensspender APG:
+   Reduktion). Läuft an BEIDEN System-Auslieferungspunkten einer Korruptions-
+   buchung: dem GM-Apply-Karten-Handler (hooks.js, flagData.corruptionChange)
+   und dem Bestätigungs-Dialog-Pfad in buildRolls (confirmDialog, direkte
+   Anwendung) - die mechanische Näherung für RAW "Korruption durch Kräfte
+   oder Artefakte" ist damit JEDE System-Korruptionsbuchung, was außerhalb
+   des Systems passiert, bleibt SL-Urteil. Rückgabewert: der (ggf.
+   reduzierte) anzuwendende Betrag.
+   - Fegefeuer: jeder Mystiker-Token mit purgatory-Symbol (flagData.ability
+     === "purgatory") bestraft HOSTILE Korruptionsempfänger in Sichtweite
+     (SIGHT_RANGE_UNITS, Messung nicht verfügbar => SL-Urteil wirkt) mit
+     demselben Betrag als körperlichen Schaden, Rüstung ignoriert (direkte
+     toughnessChange-GM-Karte, keine Rekursion: körperlicher Schaden bucht
+     keine Korruption).
+   - Lebensspender: jeder Mystiker-Token mit lifegiver-Symbol reduziert die
+     Korruptionsbuchung FREUNDLICHER Token (dispositions-relativ, nie der
+     Mystiker selbst) in Sichtweite um 1W4 (mindestens 0); bei mehreren
+     aktiven Lebensspendern greift die GRÖSSTE einzelne Reduktion (keine
+     RAW-Stacking-Regel, konservative Lesung).
+   Disposition: absolut HOSTILE/FRIENDLY wie die v2.1-Zielfilter-Entscheidung
+   (aoe.js _filterTargets), neutrale Token bleiben SL-Urteil und feuern
+   keine der beiden Reaktionen. */
+export async function applyCorruptionMasterReactions(actor, tokenId, amount) {
+  let applied = Number(amount) || 0;
+  if (!(applied > 0)) return applied;
+  try {
+    const victimToken = canvas.tokens?.placeables?.find((t) => t.id === tokenId) ?? null;
+    if (!victimToken) return applied;
+    const sightLimit = game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50;
+    const inSight = (mysticToken) => {
+      try {
+        return canvas.grid.measureDistance(mysticToken, victimToken) <= sightLimit;
+      } catch (distanceError) {
+        return true;
+      }
+    };
+    const rolls = [];
+    const lines = [];
+    const flagDataArray = [];
+    const victimName = victimToken.name ?? actor?.name ?? "";
+    for (const mysticToken of canvas.tokens?.placeables ?? []) {
+      const mysticActor = mysticToken.actor;
+      if (!mysticActor?.effects) continue;
+      for (const effect of mysticActor.effects) {
+        if (!effect.statuses?.has?.("purgatory") && !effect.statuses?.has?.("lifegiver")) continue;
+        const effectFlagData = effect.getFlag(game.system.id, "flagData") ?? {};
+        if (mysticToken.id === victimToken.id || mysticActor.id === actor?.id) continue;
+        if (effect.statuses.has("purgatory") && effectFlagData.ability === "purgatory") {
+          // Fegefeuer-Spiegel: nur hostile Korruptionsempfänger
+          if ((victimToken.document?.disposition ?? 0) !== CONST.TOKEN_DISPOSITIONS.HOSTILE) continue;
+          if (!inSight(mysticToken)) continue;
+          flagDataArray.push({ tokenId: victimToken.id, toughnessChange: -1 * applied });
+          lines.push(
+            `<p>${game.i18n.format("POWER_PURGATORY.MASTER_MIRROR", { victimname: victimName, castername: effectFlagData.casterName ?? mysticToken.name, count: applied })}</p>`
+          );
+        } else if (effect.statuses.has("lifegiver") && effectFlagData.ability === "lifegiver") {
+          // Lebensspender-Reduktion: nur freundliche Empfänger, nie der
+          // Mystiker selbst; größte einzelne Reduktion gewinnt
+          if ((victimToken.document?.disposition ?? 0) < (mysticToken.document?.disposition ?? 0)) continue;
+          if (!inSight(mysticToken)) continue;
+          const reductionRoll = await new Roll("1d4").evaluate();
+          rolls.push(reductionRoll);
+          const before = applied;
+          applied = Math.max(0, applied - reductionRoll.total);
+          if (before !== applied) {
+            lines.push(
+              `<p>${game.i18n.format("POWER_LIFEGIVER.MASTER_REDUCTION", { victimname: victimName, castername: effectFlagData.casterName ?? mysticToken.name, count: before - applied, kept: applied })}</p>`
+            );
+          }
+        }
+      }
+    }
+    if (lines.length > 0) {
+      const title = `<h4>${game.i18n.localize("POWER.MASTER_REACTIONS")}</h4>`;
+      const html = `<div class="symbaroum chat ability"><div class="foreground">${title}${lines.map((line) => `<div class="finalTxt">${line}</div>`).join("")}</div></div>`;
+      const chatData = {
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor?.id }),
+        rollMode: game.settings.get("core", "messageMode"),
+        content: html,
+      };
+      if (rolls.length > 0) chatData.rolls = [createRollData(rolls)];
+      await ChatMessage.create(chatData);
+      if (flagDataArray.length > 0) {
+        await createModifyTokenChatButton(flagDataArray);
+      }
+    }
+    return applied;
+  } catch (reactionError) {
+    // Niemals die Korruptionsbuchung blockieren - ohne Reaktion weiterbuchen
+    game.symbaroum.log("v2.12: corruption master reactions unavailable");
+    return Number(amount) || 0;
   }
 }
 
@@ -8004,6 +8658,11 @@ export async function standardPowerResult(rollData, functionStuff) {
       // the player already confirmed the corruption cost in the dialog - apply it directly, no GM approval card
       // Elixiere v1.5: direkte Anwendung = dritter generischer Auslieferungs-
       // punkt - Schwellenkarte hier (GM-Karten-Pfad: hooks.js Handler).
+      // v2.12 (Gruppe C, Rudolfs Freigabe 15.11.): die Meister-Reaktionen
+      // (Fegefeuer-Spiegel / Lebensspender-Reduktion) laufen vor der
+      // Buchung - mechanische Näherung für RAW "Korruption durch Kräfte/
+      // Artefakte" = jede System-Buchung (siehe applyCorruptionMasterReactions).
+      if (corruption.value > 0) corruption.value = await applyCorruptionMasterReactions(functionStuff.actor, functionStuff.tokenId, corruption.value);
       if (corruption.value > 0) await checkCorruptionThreshold(functionStuff.actor, corruption.value);
       await functionStuff.actor.update({ "system.health.corruption.temporary": functionStuff.actor.system.health.corruption.temporary + corruption.value });
     } else {

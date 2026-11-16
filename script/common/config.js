@@ -671,6 +671,17 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/bug.png",
   },
   {
+    // v2.12 (Rudolfs Freigabe 15.11.): Lebensspender-Meister (APG) ist eine
+    // passive REAKTIONS-Aura - das Symbol markiert auf dem Mystiker-Token,
+    // dass Verbündete in Sichtweite Kraft-/Artefakt-Korruption um 1d4
+    // reduziert bekommen (applyCorruptionMasterReactions, item.js). Die SL
+    // entfernt das Symbol, um die Aura zu deaktivieren.
+    id: "lifegiver",
+    label: "POWER_LABEL.LIFEGIVER",
+    name: "POWER_LABEL.LIFEGIVER",
+    icon: "systems/symbaroum/asset/image/powers/lifegiver.svg",
+  },
+  {
     id: "maltransformation",
     label: "POWER_LABEL.MALTRANSFORMATION",
     name: "POWER_LABEL.MALTRANSFORMATION",
@@ -681,6 +692,17 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.PROTECTIVE_RUNES",
     name: "POWER_LABEL.PROTECTIVE_RUNES",
     icon: "systems/symbaroum/asset/image/powers/protectiverunes.svg",
+  },
+  {
+    // v2.12 (Rudolfs Freigabe 15.11.): Fegefeuer-Meister (APG) ist eine
+    // REAKTIONS-Aura - das Symbol markiert auf dem Mystiker-Token, dass
+    // feindliche Korruptions-Empfänger in Sichtweite denselben Betrag als
+    // körperlichen Schaden erleiden (applyCorruptionMasterReactions,
+    // item.js). Die SL entfernt das Symbol, um die Aura zu deaktivieren.
+    id: "purgatory",
+    label: "POWER_LABEL.PURGATORY",
+    name: "POWER_LABEL.PURGATORY",
+    icon: "systems/symbaroum/asset/image/powers/purgatory.svg",
   },
   {
     id: "revenantstrike",
@@ -711,6 +733,17 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.TRUE_FORM",
     name: "POWER_LABEL.TRUE_FORM",
     icon: "icons/svg/eye.svg",
+  },
+  {
+    // v2.12 (Rudolfs Freigabe 15.11.): Unheilige Aura (GRW Zauberei) - 1:1-
+    // Spiegel der Heiligen-Aura-Schadenssymbole (A36-Verbraucher): DOT-Block
+    // mit Resist-Marke gegen die gesnapshottete Willenskraft des Mystikers,
+    // getickt über die A28-Engine am Beginn der Opfer-Züge, geräumt über
+    // unholyAuraEndCleanup (item.js).
+    id: "unholyaura",
+    label: "POWER_LABEL.UNHOLY_AURA",
+    name: "POWER_LABEL.UNHOLY_AURA",
+    icon: "systems/symbaroum/asset/image/powers/unholyaura.svg",
   },
   {
     id: "unnoticeable",
@@ -850,6 +883,15 @@ SYMBAROUM.isThoroughlyCorruptTarget = function (actor) {
 SYMBAROUM.getCreatureCategory = function (actor) {
 	return actor?.system?.creatureCategory ?? "";
 };
+
+/* v2.12 (Rudolfs Festlegung 13.11. + Freigabe 15.11.): Sichtweite = 100 m =
+   Entfernungskategorie Extrem. Maßstab des Systems: kurze Distanz = 5
+   Szenen-Einheiten (der Heilige-Aura-Regenerations-Hinweis), also
+   1 Einheit = 2 m und Sichtweite = 50 Szenen-Einheiten. Weiches Gate für
+   die Meister-Reaktionen (Fegefeuer/Lebensspender): über dieser Distanz
+   zählt das Ziel als außer Sichtweite; ist die Distanzmessung nicht
+   verfügbar (kein Grid/Makro-Kante), greift das SL-Urteil (wirkt). */
+SYMBAROUM.SIGHT_RANGE_UNITS = 50;
 
 SYMBAROUM.isCreatureCategory = function (actor, categoryId) {
 	return !!categoryId && actor?.system?.creatureCategory === categoryId;
@@ -1955,6 +1997,17 @@ SYMBAROUM.SWEEP_ZONE_POWERS = [
   "mindthrow",
   "staffprojectile",
   "trueform",
+  /* v2.12 (Gruppe C, Rudolfs Freigabe 15.11.): die beiden Sichtweiten-
+     Sweeps - Prios' Brennglas (Adept+, A32 bereits gescriptet) und
+     Fegefeuer (Adept+, purgatoryResult NEU). Zone = Zielwahl-Automatik
+     für den Erstzauber-Sweep; die Sichtweite wird als platzierte Fläche
+     dargestellt (Rudolfs Festlegung 13.11.: Sichtweite = 100 m = Extrem,
+     Kreis um den Mystiker als RAW-nahe Abstraktion). Novizen-Stufen
+     degenerieren aufs Primärziel (Stufen-Dispatch bleibt wirksam),
+     Fegefeuer-Meister ist Reaktion und läuft über die Korruptions-
+     Reaktion statt über eine Zone. */
+  "priosburningglass",
+  "purgatory",
 ];
 
 /* AoE Stufe 1: Zielfilter des Auto-Targeting — 'all' = alle sichtbaren
