@@ -182,6 +182,44 @@ Hooks.once('init', () => {
 		config: true,
 	});
 
+	/* v2.14 (Rudolfs Festlegung, Testrunde 13: „eine Runde in Weltzeit
+	   dauert 15 Minuten" - derselbe Rhythmus wie der temporäre Korruptions-
+	   abbau; einstellbar in MINUTEN, 0 = keine Weltzeit-Ticks, max. 60):
+	   Rundenwirkungen der Kraft-Symbole (Schadens-/Heilungs-DOTs) ticken
+	   außerhalb des Kampfs im Weltzeit-Takt - siehe die Weltzeit-Engine
+	   am updateWorldTime-Hook unten. */
+	game.settings.register('symbaroum', 'dotWorldTimeRoundMinutes', {
+		name: 'SYMBAROUM.OPTIONAL_WORLDTIME_ROUND',
+		hint: 'SYMBAROUM.OPTIONAL_WORLDTIME_ROUND_HINT',
+		scope: 'world',
+		type: Number,
+		default: 15,
+		range: { min: 0, max: 60, step: 1 },
+		config: true,
+		restricted: true,
+	});
+	game.settings.register('symbaroum', 'a28DotLastWorldTimeMark', {
+		name: 'A28 world-time DOT tick mark',
+		hint: 'Technical marker (world-time round mark) for the DOT world-time tick.',
+		scope: 'world',
+		type: Number,
+		default: 0,
+		config: false,
+	});
+	/* Marken-Initialisierung NUR hier NACH der Registrierung, OHNE Tick
+	   (v2.7-Lernweis aus aoe.js aoeLastRoundMark: game.settings.get wirft
+	   für unregistrierte Settings, und der erste updateWorldTime nach F5
+	   soll keinen Sofort-Tick auslösen; 0 = noch nie initialisiert). */
+	{
+		const _initMinutes = Math.max(0, Math.round(Number(game.settings.get('symbaroum', 'dotWorldTimeRoundMinutes')) || 0));
+		if (_initMinutes > 0) {
+			const _initMark = Math.floor(Number(game.time?.worldTime ?? 0) / (_initMinutes * 60));
+			if (!(Number(game.settings.get('symbaroum', 'a28DotLastWorldTimeMark')) || 0) && _initMark > 0) {
+				game.settings.set('symbaroum', 'a28DotLastWorldTimeMark', _initMark);
+			}
+		}
+	}
+
 	game.settings.register('symbaroum', 'playerResistButton', {
 		name: 'SYMBAROUM.OPTIONAL_PLAYER_RESIST',
 		hint: 'SYMBAROUM.OPTIONAL_PLAYER_RESIST_HINT',
@@ -941,17 +979,22 @@ Hooks.on('combatStart', async (combat, ...args) => {
    brings them into the engine. Outside of a combat nothing ticks (rounds only
    exist in the combat tracker), and no render or movement path is touched
    (A28-2 performance rules). */
-Hooks.on('updateCombat', async (combat, changed) => {
-	if (!game.user.isActiveGM) return;
-	if (!('turn' in changed) && !('round' in changed)) return;
-	const combatant = combat.combatant;
-	const actor = combatant?.actor;
-	if (!actor) return;
+/* v2.14: der Tick-Kern des A28 ist eine EIGENE Funktion - der Kampfpfad
+   (updateCombat, Zugbeginn des aktiven Kampfteilnehmers) und die
+   Weltzeit-Engine (updateWorldTime, außerhalb des Kampfs) rufen denselben
+   Kern auf: gleiche DOT-Bearbeitung (Resist-Wurf je Runde, fixedDamage-
+   Modell, A33Fix2/Fix3-Unterdrückungen, Korruptionsschwellen-Karte, EIN
+   batched Actor-Update, EINE aggregierte Karte, Sterbefall-Feedback) - nur
+   der WIRKUNGS-ABLAUF (durationRounds-Rundenzähler) bleibt kampfgebunden
+   und läuft weiter NUR im updateCombat-Hook (dokumentierte Grenze der
+   Weltzeit-Engine: sie tickt Rundenwirkungen, keine Abläufe). Rückgabe:
+   die erfassten DOT-Effekte für den kampfgebundenen Ablaufteil. */
+async function a28TickActorDotEffects(actor, victimName) {
 	const dotEffects = actor.effects.filter((e) => {
 		const fd = e.getFlag(game.system.id, 'flagData');
 		return fd && (fd.durationRounds != null || fd.dot);
 	});
-	if (dotEffects.length === 0) return;
+	if (dotEffects.length === 0) return dotEffects;
 
 	// A33Fix2 (Rudolf's test round, Befund 7): heal ticks (Regeneration) are
 	// suppressed when the victim's toughness is already at max and no
@@ -1083,10 +1126,9 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	// same transition gate and consistent big skull overlay as on the GM apply
 	// path; an actor already at 0 does not re-trigger (no spam)
 	if (updateData['system.health.toughness.value'] === 0 && oldToughness > 0) {
-		const dyingName = combatant.token?.name ?? actor.token?.name ?? actor.name ?? '';
 		await ChatMessage.create({
 			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
-			content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${dyingName}${game.i18n.localize('COMBAT.CHAT_DAMAGE_DYING')}</p></div></div></div>`,
+			content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${victimName}${game.i18n.localize('COMBAT.CHAT_DAMAGE_DYING')}</p></div></div></div>`,
 		});
 		await applyDeadOverlay(actor);
 	}
@@ -1095,12 +1137,12 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	// (regeneration at full toughness or dying, no damage, nothing expiring)
 	// - no card at all
 	const anyExpiry = dotEffects.some((e) => e.getFlag(game.system.id, 'flagData')?.durationRounds != null);
-	if (lines.length === 0 && foundry.utils.isEmpty(updateData) && !anyExpiry) return;
+	if (lines.length === 0 && foundry.utils.isEmpty(updateData) && !anyExpiry) return dotEffects;
 
 	// EINE aggregated tick card per victim per turn, dice attached as rolls
 	// A35: a card with ONLY healing (the regeneration case) gets its own title
 	const dotTitleKey = healAmount > 0 && toughnessDamage === 0 && corruptionDamage === 0 ? 'COMBAT.REGEN_TITLE' : 'COMBAT.DOT_TITLE';
-	const title = `<h4>${combatant.token?.name ?? actor.token?.name ?? actor.name}${game.i18n.localize(dotTitleKey)}</h4>`;
+	const title = `<h4>${victimName}${game.i18n.localize(dotTitleKey)}</h4>`;
 	const html = `<div class="symbaroum chat ability"><div class="foreground">${title}${lines.map((line) => `<div class="finalTxt">${line}</div>`).join('')}</div></div>`;
 	const chatData = {
 		user: game.user.id,
@@ -1111,6 +1153,19 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	if (rolls.length > 0) chatData.rolls = [createRollData(rolls)];
 	ChatMessage.applyMode(chatData, 'public');
 	await ChatMessage.create(chatData);
+	return dotEffects;
+}
+
+/* A28 Kampfpfad: Zugbeginn des aktiven Kampfteilnehmers - der Tick-Kern
+   läuft, danach (kampfgebunden) der Wirkungs-Ablauf. */
+Hooks.on('updateCombat', async (combat, changed) => {
+	if (!game.user.isActiveGM) return;
+	if (!('turn' in changed) && !('round' in changed)) return;
+	const combatant = combat.combatant;
+	const actor = combatant?.actor;
+	if (!actor) return;
+	const dotEffects = await a28TickActorDotEffects(actor, combatant.token?.name ?? actor.token?.name ?? actor.name);
+	if (dotEffects.length === 0) return;
 
 	// tick-then-expiry: decrement the round counters (batched) and remove
 	// finished conditions; the effect's duration display follows the counter
@@ -1129,6 +1184,47 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	}
 	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
 	if (expireIds.length > 0) await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
+});
+
+/* v2.14 — WELTZEIT-ENGINE (Rudolfs Festlegung, Testrunde 13: „alle Kräfte
+   außerhalb von Kämpfen lassen ihre Rundenwirkung über Weltzeit laufen";
+   eine Runde Weltzeit = 15 Minuten, derselbe Rhythmus wie der temporäre
+   Korruptionsabbau - einstellbar über das Setting dotWorldTimeRoundMinutes
+   in Minuten, 0 = aus, max. 60). Außerhalb eines aktiven Kampfs treibt
+   dieser Haken den GEMEINSAMEN A28-Tick-Kern (a28TickActorDotEffects)
+   über ALLE Token der aktiven Szene mit DOT-Effekten. Markmodell wie der
+   A29-Weltzeit-Reminder und der Zonen-Rundentakt (aoe.js): Marke =
+   floor(Weltzeit / (Minuten*60)), ein Sweep je Marken-Voranschritt - auch
+   ein großer Zeitsprung (+8 h Reise) tickt jeden DOT genau EINMAL
+   (Rudolfs Deckel-Entscheidung: „max 1 Tick je Effekt je Zeit-Änderung").
+   Im Kampf gewinnt der Zug-Tick des Kampftrackers (Früh-Return - „ein
+   Takt, keine zweite Uhr", Muster aoeRoundTick); nur die aktive Szene
+   tickt (Muster A29-Sweep). Wirkungs-DAUERN (durationRounds/turnEnd)
+   bleiben kampfgebunden: dieser Pfad ruft NUR den Tick-Kern, keine
+   Ablauf-Logik (dokumentierte Grenze im Auslieferungsdoc). */
+Hooks.on('updateWorldTime', async (worldTime) => {
+	if (!game.user.isActiveGM) return;
+	if (game.combat?.active) return;
+	const minutes = Math.max(0, Math.round(Number(game.settings.get('symbaroum', 'dotWorldTimeRoundMinutes')) || 0));
+	if (minutes <= 0) return;
+	// Achtung: die Marke wird mit dem AKTUELLEN Minuten-Wert berechnet - ändert
+	// die SL das Setting, verschieben sich die Markengrenzen (einmalig ein
+	// Tick mehr oder weniger, danach wieder stabil; bewusste Grenze)
+	const mark = Math.floor(Number(worldTime ?? 0) / (minutes * 60));
+	const last = Number(game.settings.get('symbaroum', 'a28DotLastWorldTimeMark')) || 0;
+	if (mark <= last) return;
+	game.settings.set('symbaroum', 'a28DotLastWorldTimeMark', mark);
+	const seen = new Set();
+	for (const token of canvas.tokens?.placeables ?? []) {
+		const actor = token?.actor;
+		if (!actor || seen.has(actor.id)) continue;
+		seen.add(actor.id);
+		try {
+			await a28TickActorDotEffects(actor, token.name ?? actor.token?.name ?? actor.name ?? '');
+		} catch (err) {
+			console.warn('Symbaroum: world-time DOT tick failed', err);
+		}
+	}
 });
 
 /* A35 - Regeneration Auto-Tick (GO erteilt 23.10.). The regeneration trait

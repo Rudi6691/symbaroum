@@ -5356,6 +5356,12 @@ async function holyAuraResult(rollData, functionStuff) {
   const auraHealDice = functionStuff.auraHealDice ?? "1d4";
   // the caster's snapshotted Resolute - author marker AND resistance target
   const casterResolute = getAttributeValue(functionStuff.actor, "resolute");
+  // v2.14 (Rudolfs Testrunde-13-Entscheidungen): Wirker-Id und -Disposition
+  // für die Zonen-Batch-Schutzregeln - der Wirker bleibt im Zonen-Batch von
+  // der eigenen Aura unberührt (Schaden wie Heilung), Heil-Empfänger sind
+  // dort nur verbündete Token (dispositions-relativ >= Wirker)
+  const casterHealTokenId = functionStuff.tokenId ?? functionStuff.token?.id ?? null;
+  const casterHealDisposition = functionStuff.token?.document?.disposition ?? 0;
   // A36V test round (Rudolf, 25.10.): the damage symbol carries a resist
   // block so the A28 engine runs the per-round opposition (see hooks.js) -
   // the author markers stay identical to the first delivery
@@ -5390,6 +5396,14 @@ async function holyAuraResult(rollData, functionStuff) {
       break;
     }
     handled.add(nextToken.id);
+    /* v2.14 (Rudolfs Entscheidung, Testrunde 13, Spiegel der Unheiligen
+       Aura): im ZONEN-BATCH bleibt der Wirker-Token von der eigenen Aura
+       unberührt - ein völlig verdorbener Mystiker stünde sonst ohne jede
+       Rückfrage im eigenen Schadens-Batch; manuell entscheidet die SL
+       weiter per Markierung. */
+    if ((functionStuff.zoneChainTargets?.size ?? 0) > 0 && nextToken.id === casterHealTokenId) {
+      continue;
+    }
     const category = game.symbaroum.config.getCreatureCategory(nextToken.actor);
     if (category !== "undead" && category !== "abomination" && !game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
       ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
@@ -5431,24 +5445,34 @@ async function holyAuraResult(rollData, functionStuff) {
     pushAuraDamageSymbol(nextToken.id);
   }
   // loop 2 - healing (Adept+): allies receive the regeneration symbol
-  // (A35 heal resource, ticks at the START of the ally's own turn)
+  // (A35 heal resource, ticks at the START of the ally's own turn).
+  // v2.14 (Testrunde-13-Root-Cause): Loop 2 läuft mit EIGENEM handled-Set -
+  // im Fluss-Pfad bleiben damit in Loop 1 mit Kategorie-Warnung übersprungene
+  // Token neu markierbar - und bei ZONEN-AKTIVIERTER Auslösung als DIALOG-
+  // FREIER ZWEITER DURCHLAUF über die Zonenziele: Loop 1 verbraucht im
+  // Zonen-Batch ALLE Zonenziele, der gemeinsame zoneChainDone-Gard
+  // übersprang den Heil-Loop deshalb still (Rudolfs Testrunde-13-Befunde
+  // P7-P10 - der Loop-2-Dialog erschien nie). Empfänger im Zonen-Batch:
+  // verbündet (dispositions-relativ >= Wirker, Konvention der Zonen-
+  // Zielfilter); der Wirker selbst wird nie geheilt (Rudolfs Entscheidung;
+  // Spiegel der Lebensspender-Meister-Reaktion, erspart dem Mystiker die
+  // Selbst-Heilung samt eigener Korruptionsgebühr). Manuell entscheidet
+  // die SL wie gehabt über die Markierung.
   let allyCorruption = 0;
   if (functionStuff.powerLvl.level > 1) {
-    while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY"))) {
-      const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
-      if (!nextToken) {
-        ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
-        break;
-      }
-      handled.add(nextToken.id);
+    const markHolyAuraAlly = async (nextToken, silentCategorySkip) => {
       const allyCategory = game.symbaroum.config.getCreatureCategory(nextToken.actor);
       if (allyCategory === "undead" || allyCategory === "abomination") {
-        ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_NOT_LIVING", { targetname: nextToken.name }));
-        continue;
+        // v2.14: im Zonen-Batch still übersprungen (verbündete Untote sind
+        // dort üblich, keine Warnung je Token), im Fluss-Pfad Warnung wie gehabt
+        if (!silentCategorySkip) {
+          ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_NOT_LIVING", { targetname: nextToken.name }));
+        }
+        return;
       }
       if (nextToken.actor?.hasCondition("regeneration")) {
         ui.notifications.warn(game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_HAS_REGEN", { targetname: nextToken.name }));
-        continue;
+        return;
       }
       // A36V test round 2 (Rudolf, 25.10.): the healing corruption goes to
       // the MYSTIC, not to the healed ally - one temporary corruption
@@ -5498,6 +5522,30 @@ async function holyAuraResult(rollData, functionStuff) {
         auraRolls.push(immediateHealRoll);
         flagDataArray.push({ tokenId: nextToken.id, toughnessChange: immediateHealed });
         lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_HEAL_IMMEDIATE", { targetname: nextToken.name, count: immediateHealed })}</p>`);
+      }
+    };
+    const handledHeal = new Set();
+    const zoneHealTargetIds = [...(functionStuff.zoneChainTargets ?? [])];
+    if (zoneHealTargetIds.length > 0) {
+      // Zonen-Batch: dialogfreier zweiter Durchlauf im Zonen-Stil wie Loop 1
+      for (const tokenId of zoneHealTargetIds) {
+        if (handledHeal.has(tokenId)) continue;
+        const nextToken = canvas.tokens?.placeables?.find((t) => t.id === tokenId);
+        if (!nextToken?.actor) continue;
+        handledHeal.add(tokenId);
+        if (tokenId === casterHealTokenId) continue;
+        if ((nextToken.document?.disposition ?? 0) < casterHealDisposition) continue;
+        await markHolyAuraAlly(nextToken, true);
+      }
+    } else {
+      while (await zoneChainContinue(functionStuff, "POWER_HOLYAURA.CHAT_NEXT_ALLY")) {
+        const nextToken = Array.from(game.user.targets).find((token) => !handledHeal.has(token.id));
+        if (!nextToken) {
+          ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.CHAT_NO_NEW_TARGET"));
+          break;
+        }
+        handledHeal.add(nextToken.id);
+        await markHolyAuraAlly(nextToken, false);
       }
     }
   }
@@ -5855,9 +5903,26 @@ async function unholyAuraResult(rollData, functionStuff) {
       break;
     }
     handled.add(nextToken.id);
+    /* v2.14 (Rudolfs Entscheidung, Testrunde 13): im ZONEN-BATCH bleibt der
+       Wirker-Token von der eigenen Aura unberührt - die Adept-Ausschlussfrage
+       springt den Wirker ohnehin (nextToken.id !== casterTokenId), ein
+       Zonen-Selbst-Schaden träte also automatisch und folgenlos auf; manuell
+       entscheidet die SL weiter per Markierung. */
+    if ((functionStuff.zoneChainTargets?.size ?? 0) > 0 && nextToken.id === casterTokenId) {
+      continue;
+    }
     const category = game.symbaroum.config.getCreatureCategory(nextToken.actor);
     if (category !== "civilized" && category !== "beast") {
       ui.notifications.warn(game.i18n.format("POWER_UNHOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
+      continue;
+    }
+    /* v2.14 (Rudolfs Entscheidung, Testrunde 13, P7): völlig Verdorbene
+       (Korruption >= max) werden von der Unheiligen Aura NICHT mehr
+       geschädigt - Spiegel-Symmetrie zur Heiligen Aura; dasselbe Kriterium,
+       das sie als HEIL-Empfänger qualifiziert (Loop 2), soll sie nicht
+       zusätzlich Schaden nehmen lassen. Warnung + Skip, in Zone UND Fluss. */
+    if (game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
+      ui.notifications.warn(game.i18n.format("POWER_UNHOLYAURA.CHAT_VICTIM_CORRUPT", { targetname: nextToken.name }));
       continue;
     }
     // Adept+: lebende Verbündete ausschließen (RAW "kann wählen") - der
@@ -5905,23 +5970,34 @@ async function unholyAuraResult(rollData, functionStuff) {
   // Loop 2 - Heilung (Meister): verbündete Abscheulichkeiten, Untote und
   // (v2.13, Rudolfs Entscheidung) völlig Verdorbene in der Nähe heilen
   // 1W8 Zähigkeit - SOFORT bei Aufnahme (v2.13, P10a/P13) plus
-  // Regenerations-DOT (A35-Heil-Ressource)
+  // Regenerations-DOT (A35-Heil-Ressource).
+  // v2.14 (Testrunde-13-Root-Cause): Loop 2 läuft mit EIGENEM handled-Set -
+  // im Fluss-Pfad bleiben damit in Loop 1 mit Kategorie-Warnung übersprungene
+  // Token neu markierbar - und bei ZONEN-AKTIVIERTER Auslösung als DIALOG-
+  // FREIER ZWEITER DURCHLAUF über die Zonenziele: Loop 1 verbraucht im
+  // Zonen-Batch ALLE Zonenziele, der gemeinsame zoneChainDone-Gard
+  // übersprang den Heil-Loop deshalb still (Rudolfs Testrunde-13-Befunde
+  // P7-P10 - der Loop-2-Dialog erschien nie). Empfänger im Zonen-Batch:
+  // verbündet (dispositions-relativ >= Wirker, Konvention der Zonen-
+  // Zielfilter) UND Kategorie (undead/abomination ODER völlig verdorben);
+  // der Wirker selbst wird nie geheilt (Rudolfs Entscheidung; Spiegel der
+  // Lebensspender-Meister-Reaktion). Manuell entscheidet die SL wie gehabt
+  // über die Markierung (kein Dispositions-Zwang, keine Wirker-Sperre).
   if (functionStuff.powerLvl.level > 2) {
-    while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_UNHOLYAURA.CHAT_NEXT_ALLY"))) {
-      const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
-      if (!nextToken) {
-        ui.notifications.warn(game.i18n.localize("POWER_UNHOLYAURA.CHAT_NO_NEW_TARGET"));
-        break;
-      }
-      handled.add(nextToken.id);
+    const markUnholyAuraAlly = async (nextToken, silentCategorySkip) => {
       const allyCategory = game.symbaroum.config.getCreatureCategory(nextToken.actor);
       // v2.13 (Rudolfs Testrunde 12, P10a + Entscheidung): heal recipients
       // = allied undead/abominations OR thoroughly corrupted creatures
       // (Korruption >= max) - RAW names only "verbündete Abscheulichkeiten
-      // und Untote", Rudolf extends the list to the thoroughly corrupted
+      // und Untote", Rudolf extends the list to the thoroughly corrupted.
+      // v2.14: im Zonen-Batch wird die Kategorie still übersprungen (nicht
+      // heilfähige Verbündete sind dort üblich, keine Warnung je Token),
+      // im Fluss-Pfad bleibt die Warnung wie gehabt.
       if (allyCategory !== "undead" && allyCategory !== "abomination" && !game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
-        ui.notifications.warn(game.i18n.format("POWER_UNHOLYAURA.CHAT_ALLY_NOT_UNDEAD", { targetname: nextToken.name }));
-        continue;
+        if (!silentCategorySkip) {
+          ui.notifications.warn(game.i18n.format("POWER_UNHOLYAURA.CHAT_ALLY_NOT_UNDEAD", { targetname: nextToken.name }));
+        }
+        return;
       }
       flagDataArray.push({
         tokenId: nextToken.id,
@@ -5954,6 +6030,30 @@ async function unholyAuraResult(rollData, functionStuff) {
         auraRolls.push(immediateHealRoll);
         flagDataArray.push({ tokenId: nextToken.id, toughnessChange: immediateHealed });
         lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.ALLY_HEAL_IMMEDIATE", { targetname: nextToken.name, count: immediateHealed })}</p>`);
+      }
+    };
+    const handledHeal = new Set();
+    const zoneHealTargetIds = [...(functionStuff.zoneChainTargets ?? [])];
+    if (zoneHealTargetIds.length > 0) {
+      // Zonen-Batch: dialogfreier zweiter Durchlauf im Zonen-Stil wie Loop 1
+      for (const tokenId of zoneHealTargetIds) {
+        if (handledHeal.has(tokenId)) continue;
+        const nextToken = canvas.tokens?.placeables?.find((t) => t.id === tokenId);
+        if (!nextToken?.actor) continue;
+        handledHeal.add(tokenId);
+        if (tokenId === casterTokenId) continue;
+        if ((nextToken.document?.disposition ?? 0) < casterDisposition) continue;
+        await markUnholyAuraAlly(nextToken, true);
+      }
+    } else {
+      while (await zoneChainContinue(functionStuff, "POWER_UNHOLYAURA.CHAT_NEXT_ALLY")) {
+        const nextToken = Array.from(game.user.targets).find((token) => !handledHeal.has(token.id));
+        if (!nextToken) {
+          ui.notifications.warn(game.i18n.localize("POWER_UNHOLYAURA.CHAT_NO_NEW_TARGET"));
+          break;
+        }
+        handledHeal.add(nextToken.id);
+        await markUnholyAuraAlly(nextToken, false);
       }
     }
   }
