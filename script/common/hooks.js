@@ -1202,9 +1202,13 @@ Hooks.on('updateCombat', async (combat, changed) => {
    tickt (Muster A29-Sweep). Wirkungs-DAUERN (durationRounds/turnEnd)
    bleiben kampfgebunden: dieser Pfad ruft NUR den Tick-Kern, keine
    Ablauf-Logik (dokumentierte Grenze im Auslieferungsdoc). */
+/* v2.15 (Rudolfs Testrunde 14, Entscheidung): In-Memory-Guard für den
+   Kampf-Pausen-Hinweis des Weltzeit-Hooks - je 15-Min-Marke höchstens
+   EIN Hinweis je Session (verhindert Spam bei laufender Echtzeituhr);
+   begrenzt auf 64 Einträge, danach einmalig geleert. */
+const dotWorldTimePausedNotice = new Set();
 Hooks.on('updateWorldTime', async (worldTime) => {
 	if (!game.user.isActiveGM) return;
-	if (game.combat?.active) return;
 	const minutes = Math.max(0, Math.round(Number(game.settings.get('symbaroum', 'dotWorldTimeRoundMinutes')) || 0));
 	if (minutes <= 0) return;
 	// Achtung: die Marke wird mit dem AKTUELLEN Minuten-Wert berechnet - ändert
@@ -1212,7 +1216,30 @@ Hooks.on('updateWorldTime', async (worldTime) => {
 	// Tick mehr oder weniger, danach wieder stabil; bewusste Grenze)
 	const mark = Math.floor(Number(worldTime ?? 0) / (minutes * 60));
 	const last = Number(game.settings.get('symbaroum', 'a28DotLastWorldTimeMark')) || 0;
-	if (mark <= last) return;
+	/* v2.15 (Rudolfs Testrunde 14, Rückwärts-Klemme): läuft die Weltzeit
+	   ZURÜCK (Zeit-Reset, Kalender-Resync eines Zeitmoduls), folgt die
+	   Marke still dem neuen Stand - sonst bliebe sie als Hochwasserstand
+	   vor der Uhr liegen und der Sweep schwiege dauerhaft (realer Fall aus
+	   Rudolfs Testrunde 14: Marke 29 Slots vor der Uhr, alle drei
+	   Weltzeit-Mechaniken still). */
+	if (mark < last) {
+		game.settings.set('symbaroum', 'a28DotLastWorldTimeMark', mark);
+		return;
+	}
+	if (mark === last) return;
+	/* v2.15 (Rudolfs Testrunde 14, Entscheidung Kampf-Hinweis): im Kampf
+	   übernimmt der Zug-Tick des Kampftrackers ("ein Takt, keine zweite
+	   Uhr"); statt STILL zu schweigen zeigt der Hook jetzt einen Hinweis,
+	   je Marken-Voranschritt höchstens einmal je Session. Die Marke wird
+	   bewusst NICHT gespeichert - nach Kampfende tickt der erste Schub. */
+	if (game.combat?.active) {
+		const noticeKey = `paused:${mark}`;
+		if (dotWorldTimePausedNotice.has(noticeKey)) return;
+		if (dotWorldTimePausedNotice.size > 64) dotWorldTimePausedNotice.clear();
+		dotWorldTimePausedNotice.add(noticeKey);
+		ui.notifications.info(game.i18n.localize('COMBAT.DOT_WORLDTIME_PAUSED'));
+		return;
+	}
 	game.settings.set('symbaroum', 'a28DotLastWorldTimeMark', mark);
 	const seen = new Set();
 	for (const token of canvas.tokens?.placeables ?? []) {
@@ -1603,7 +1630,15 @@ Hooks.on('updateWorldTime', async (worldTime) => {
 	const SLICE = 15 * 60;
 	const mark = Math.floor(Number(worldTime ?? 0) / SLICE);
 	const last = Number(game.settings.get('symbaroum', 'a29LastWorldtimeReminder') ?? 0);
-	if (mark <= last) return;
+	/* v2.15 (Rudolfs Testrunde 14, Rückwärts-Klemme): läuft die Weltzeit
+	   ZURÜCK, folgt die Marke still dem neuen Stand, sonst läge sie als
+	   Hochwasserstand vor der Uhr und der Reminder schwiege dauerhaft
+	   (realer Fall aus Rudolfs Testrunde 14). */
+	if (mark < last) {
+		game.settings.set('symbaroum', 'a29LastWorldtimeReminder', mark);
+		return;
+	}
+	if (mark === last) return;
 	game.settings.set('symbaroum', 'a29LastWorldtimeReminder', mark);
 	const seen = new Set();
 	for (const token of canvas.tokens?.placeables ?? []) {

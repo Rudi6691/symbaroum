@@ -2157,7 +2157,15 @@ export function registerAoeHooks() {
 		if (game.combat?.active) return;
 		const mark = Math.floor((Number(worldTime) || 0) / 900);
 		const last = Number(game.settings.get('symbaroum', 'aoeLastRoundMark')) || 0;
-		if (mark <= last) return;
+		/* v2.15 (Rudolfs Testrunde 14, Rückwärts-Klemme): läuft die Weltzeit
+		   ZURÜCK, folgt die Marke still dem neuen Stand - sonst läge sie als
+		   Hochwasserstand vor der Uhr und der Zonen-Rundentakt schwiege
+		   dauerhaft (realer Fall aus Rudolfs Testrunde 14). */
+		if (mark < last) {
+			game.settings.set('symbaroum', 'aoeLastRoundMark', mark);
+			return;
+		}
+		if (mark === last) return;
 		game.settings.set('symbaroum', 'aoeLastRoundMark', mark);
 		aoeRoundTick('worldtime');
 	});
