@@ -1,3 +1,14 @@
+Version 40.1.14
+
+- Area-zone system (tiers 1 and 2): GM-only zone tab on mystical powers (shape, size, targeting, mode, trigger, duration, target order) behind a world setting; placed zones become scene regions with chat cards whose trigger/round/end buttons work for the GM and the placing player; instant one-shot and lasting modes, plus free zones as a GM tool with absolute target values, modifier and favour
+- Zone execution model: activation rolls through the standard roll dialog with one-time corruption per power rules, an attribute snapshot drives all follow-up probes (each entering or maintained token resists against the snapshot), maintain rounds test every token in the zone, and zone rounds tick at the caster's initiative in combat or every 15 minutes of world time outside combat
+- Sweep zones: the five symbolist area powers and twelve chain powers (staff projectile included, with RAW no-stop-at-miss and the five-target cap) work as sight-range sweep zones
+- Banishing seal zone flow: the creature category is picked once at placement, checks are level-independent, a failed ban against the chosen type deals adept/master damage, one GM card collects the whole process, and symbols survive the zone end for manual GM handling
+- Auras: both auras work zone-activated (caster excluded from the zone batch, thoroughly corrupted victims skip unholy damage, dialog-free second pass), allies heal immediately on inclusion, the unholy aura master heals thoroughly corrupted allies, and prios' burning glass keys on the unified unholy predicate; all skip diagnostics whisper to the active GMs plus the caster's owner while the public summary card shows only effects
+- World-time engine: round effects tick outside combat with a configurable round length in minutes (default 15, 0 = off), all three world-time marks (DOT sweep, A29 reminder, zone rounds) follow the clock backwards after a time reset instead of deadlocking, and a once-per-mark notice explains paused ticks during active combat
+- Targeting and robustness: disposition filters (allies/enemies/neutral/not allied), target order marking/nearest/scene with player markings overriding, reactive undo when targeting outside an open zone window, maintain without a marked target, the zone activation lock clears on dialog cancel and X/ESC, and the world-time mark init moved after setting registration (fixes a silent module load failure)
+- No world migration required; existing worlds keep their data unchanged
+
 Version 40.1.13
 
 - Travel hunger rules v1.0/v1.1: the hunger strength penalty is baked into the attribute total with a locked hunger row in the attributes dialog; the travel-group context menu is registered at init, fixing the missing sidebar entry
