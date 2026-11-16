@@ -5351,6 +5351,10 @@ async function holyAuraResult(rollData, functionStuff) {
   const flagDataArray = [];
   const auraRolls = [];
   const lines = [];
+  // v2.16 (Rudolfs Testrunde 15, N2-Entscheidung): Skip-Diagnose-Zeilen
+  // laufen auf EINE eigene geflüsterte SL-Karte (postAuraSkipDiagCard),
+  // die öffentliche Zusammenfassungskarte zeigt nur noch Wirkungen.
+  const skipLines = [];
   const handled = new Set();
   const auraDamageDice = functionStuff.auraDamageDice ?? "1d6";
   const auraHealDice = functionStuff.auraHealDice ?? "1d4";
@@ -5408,14 +5412,14 @@ async function holyAuraResult(rollData, functionStuff) {
       /* v2.15 (Rudolfs Testrunde 14, P13-max): der bisher stille Wirker-Skip
          im Zonen-Batch bekommt eine Zeile MIT GRUND - jeder Skip ist damit
          auf der Karte sichtbar statt still. */
-      lines.push(`<p>${game.i18n.localize("POWER_HOLYAURA.SKIP_CASTER")}</p>`);
+      skipLines.push(`<p>${game.i18n.localize("POWER_HOLYAURA.SKIP_CASTER")}</p>`);
       continue;
     }
     const category = game.symbaroum.config.getCreatureCategory(nextToken.actor);
     if (category !== "undead" && category !== "abomination" && !game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
       /* v2.15 (Rudolfs P13-max): Kategorie-Warnung als Kartenzeile statt
          ui.notifications (Bestands-Key wird wiederverwendet). */
-      lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name })}</p>`);
+      skipLines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name })}</p>`);
       continue;
     }
     // A36V test round (Rudolf, 25.10.): EVERY damage application is opposed
@@ -5476,12 +5480,12 @@ async function holyAuraResult(rollData, functionStuff) {
            Zone UND Fluss künftig als Kartenzeile (v2.14 übersprang im
            Zonen-Batch noch still); Bestands-Key wird wiederverwendet, der
            silentCategorySkip-Mechanismus entfällt. */
-        lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_NOT_LIVING", { targetname: nextToken.name })}</p>`);
+        skipLines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_NOT_LIVING", { targetname: nextToken.name })}</p>`);
         return;
       }
       if (nextToken.actor?.hasCondition("regeneration")) {
         /* v2.15 (Rudolfs P13-max): Regenerations-Warnung als Kartenzeile. */
-        lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_HAS_REGEN", { targetname: nextToken.name })}</p>`);
+        skipLines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_HAS_REGEN", { targetname: nextToken.name })}</p>`);
         return;
       }
       // A36V test round 2 (Rudolf, 25.10.): the healing corruption goes to
@@ -5546,7 +5550,7 @@ async function holyAuraResult(rollData, functionStuff) {
         if (tokenId === casterHealTokenId) {
           /* v2.15 (Rudolfs Testrunde 14, P13-max): stiller Wirker-Skip wird
              Zeile MIT GRUND (wie Loop 1). */
-          lines.push(`<p>${game.i18n.localize("POWER_HOLYAURA.SKIP_CASTER")}</p>`);
+          skipLines.push(`<p>${game.i18n.localize("POWER_HOLYAURA.SKIP_CASTER")}</p>`);
           continue;
         }
         if ((nextToken.document?.disposition ?? 0) < casterHealDisposition) {
@@ -5555,7 +5559,7 @@ async function holyAuraResult(rollData, functionStuff) {
              "Kein Heilen-Loop für Zone"-Befunds - ab jetzt Zeile MIT GRUND;
              der Filter selbst bleibt unverändert (Rudolfs RAW-Entscheidung:
              nur Verbündete sind Heil-Empfänger). */
-          lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.SKIP_DISPOSITION", { targetname: nextToken.name })}</p>`);
+          skipLines.push(`<p>${game.i18n.format("POWER_HOLYAURA.SKIP_DISPOSITION", { targetname: nextToken.name })}</p>`);
           continue;
         }
         await markHolyAuraAlly(nextToken);
@@ -5576,7 +5580,7 @@ async function holyAuraResult(rollData, functionStuff) {
     /* v2.15 (Rudolfs Testrunde 14, P13-max): Stufen-Gate-Zeile - bisher
        lief der Heil-Loop still nie, wenn die Stufe unter der Schwelle
        liegt; die Zeile macht das auf der Karte sichtbar. */
-    lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.LEVEL_GATE_HEAL", { lvlname: functionStuff.powerLvl.lvlName })}</p>`);
+    skipLines.push(`<p>${game.i18n.format("POWER_HOLYAURA.LEVEL_GATE_HEAL", { lvlname: functionStuff.powerLvl.lvlName })}</p>`);
   }
   // A36V test round 2 (Rudolf, 25.10.): the summed healing corruption lands
   // on the caster's own token - ONE GM apply card entry. Without a caster
@@ -5593,6 +5597,11 @@ async function holyAuraResult(rollData, functionStuff) {
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
+  }
+  // v2.16 (N2): Skip-Diagnose als eigene geflüsterte SL-Karte (nur falls
+  // tatsächlich Ziele übersprungen wurden - keine leere Karte).
+  if (skipLines.length > 0) {
+    await postAuraSkipDiagCard(functionStuff, skipLines, "POWER_HOLYAURA.SKIP_CARD_TITLE");
   }
 }
 
@@ -5897,6 +5906,10 @@ async function unholyAuraResult(rollData, functionStuff) {
   const flagDataArray = [];
   const auraRolls = [];
   const lines = [];
+  // v2.16 (Rudolfs Testrunde 15, N2-Entscheidung): Skip-Diagnose-Zeilen
+  // laufen auf EINE eigene geflüsterte SL-Karte (postAuraSkipDiagCard),
+  // die öffentliche Zusammenfassungskarte zeigt nur noch Wirkungen.
+  const skipLines = [];
   const handled = new Set();
   const auraDamageDice = functionStuff.auraDamageDice ?? "1d6";
   const auraHealDice = functionStuff.auraHealDice ?? "1d8";
@@ -5942,14 +5955,14 @@ async function unholyAuraResult(rollData, functionStuff) {
     if ((functionStuff.zoneChainTargets?.size ?? 0) > 0 && nextToken.id === casterTokenId) {
       /* v2.15 (Rudolfs Testrunde 14, P13-max): stiller Wirker-Skip wird
          Zeile MIT GRUND (Spiegel der Heiligen Aura). */
-      lines.push(`<p>${game.i18n.localize("POWER_UNHOLYAURA.SKIP_CASTER")}</p>`);
+      skipLines.push(`<p>${game.i18n.localize("POWER_UNHOLYAURA.SKIP_CASTER")}</p>`);
       continue;
     }
     const category = game.symbaroum.config.getCreatureCategory(nextToken.actor);
     if (category !== "civilized" && category !== "beast") {
       /* v2.15 (Rudolfs P13-max): Kategorie-Warnung als Kartenzeile statt
          ui.notifications (Bestands-Key wird wiederverwendet). */
-      lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name })}</p>`);
+      skipLines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name })}</p>`);
       continue;
     }
     /* v2.14 (Rudolfs Entscheidung, Testrunde 13, P7): völlig Verdorbene
@@ -5959,7 +5972,7 @@ async function unholyAuraResult(rollData, functionStuff) {
        zusätzlich Schaden nehmen lassen. Zeile + Skip, in Zone UND Fluss. */
     if (game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
       /* v2.15 (Rudolfs P13-max): Warnung als Kartenzeile. */
-      lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_VICTIM_CORRUPT", { targetname: nextToken.name })}</p>`);
+      skipLines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_VICTIM_CORRUPT", { targetname: nextToken.name })}</p>`);
       continue;
     }
     // Adept+: lebende Verbündete ausschließen (RAW "kann wählen") - der
@@ -6032,7 +6045,7 @@ async function unholyAuraResult(rollData, functionStuff) {
       // noch still); Bestands-Key wird wiederverwendet, der silentCategory-
       // Skip-Mechanismus entfällt.
       if (allyCategory !== "undead" && allyCategory !== "abomination" && !game.symbaroum.config.isThoroughlyCorruptTarget(nextToken.actor)) {
-        lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_ALLY_NOT_UNDEAD", { targetname: nextToken.name })}</p>`);
+        skipLines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_ALLY_NOT_UNDEAD", { targetname: nextToken.name })}</p>`);
         return;
       }
       flagDataArray.push({
@@ -6080,7 +6093,7 @@ async function unholyAuraResult(rollData, functionStuff) {
         if (tokenId === casterTokenId) {
           /* v2.15 (Rudolfs Testrunde 14, P13-max): stiller Wirker-Skip wird
              Zeile MIT GRUND (Spiegel der Heiligen Aura). */
-          lines.push(`<p>${game.i18n.localize("POWER_UNHOLYAURA.SKIP_CASTER")}</p>`);
+          skipLines.push(`<p>${game.i18n.localize("POWER_UNHOLYAURA.SKIP_CASTER")}</p>`);
           continue;
         }
         if ((nextToken.document?.disposition ?? 0) < casterDisposition) {
@@ -6089,7 +6102,7 @@ async function unholyAuraResult(rollData, functionStuff) {
              "Kein Heilen-Loop für Zone"-Befunds - ab jetzt Zeile MIT GRUND;
              der Filter selbst bleibt unverändert (Rudolfs RAW-Entscheidung:
              nur Verbündete sind Heil-Empfänger). */
-          lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.SKIP_DISPOSITION", { targetname: nextToken.name })}</p>`);
+          skipLines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.SKIP_DISPOSITION", { targetname: nextToken.name })}</p>`);
           continue;
         }
         await markUnholyAuraAlly(nextToken);
@@ -6110,7 +6123,7 @@ async function unholyAuraResult(rollData, functionStuff) {
     /* v2.15 (Rudolfs Testrunde 14, P13-max): Stufen-Gate-Zeile - der Heil-
        Loop der Unheiligen Aura läuft erst ab Meister; die Zeile macht das
        stillle Schweigen auf der Karte sichtbar. */
-    lines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.LEVEL_GATE_HEAL", { lvlname: functionStuff.powerLvl.lvlName })}</p>`);
+    skipLines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.LEVEL_GATE_HEAL", { lvlname: functionStuff.powerLvl.lvlName })}</p>`);
   }
   if (lines.length > 0) {
     const title = `<h4>${game.i18n.format("POWER_UNHOLYAURA.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
@@ -6118,6 +6131,11 @@ async function unholyAuraResult(rollData, functionStuff) {
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
+  }
+  // v2.16 (N2): Skip-Diagnose als eigene geflüsterte SL-Karte (nur falls
+  // tatsächlich Ziele übersprungen wurden - keine leere Karte).
+  if (skipLines.length > 0) {
+    await postAuraSkipDiagCard(functionStuff, skipLines, "POWER_UNHOLYAURA.SKIP_CARD_TITLE");
   }
 }
 
@@ -6908,6 +6926,41 @@ async function postMaintainChainCard(functionStuff, titleHtml, lines, rolls = []
   }
   ChatMessage.applyMode(chatData, "public");
   await ChatMessage.create(chatData);
+}
+
+/* v2.16 (Rudolfs Testrunde 15, N2-Entscheidung): Die Skip-Diagnose der
+   Heiligen/Unheiligen Aura läuft auf EINE eigene geflüsterte Karte statt
+   auf die öffentliche Zusammenfassungskarte - die öffentliche Karte bleibt
+   "sauber" (nur Wirkungen), die Diagnose ist SL-Sache. Empfänger sind die
+   aktiven GMs plus der Besitzer des Wirkers (Muster travel.js
+   postWhisperSystemCard); Fallback der auslösende Nutzer. Der Abbruch-
+   Hinweis CHAT_NO_NEW_TARGET bleibt bewusst öffentlich (er betrifft das
+   gesamte Wirken, nicht nur ein einzelnes übersprungenes Ziel). */
+async function postAuraSkipDiagCard(functionStuff, skipLines, titleKey) {
+  const titleHtml = `<h4>${game.i18n.format(titleKey, { powername: functionStuff.abilityName })}</h4>`;
+  const body = skipLines.map((line) => `<div class="finalTxt">${line}</div>`).join("");
+  const html = `<div class="symbaroum chat ability">
+    <div class="foreground">
+      ${titleHtml}
+      ${body}
+    </div>
+  </div>`;
+  const targets = new Map();
+  for (const user of game.users) {
+    if (user.active && user.isGM) targets.set(user.id, user.id);
+  }
+  const owners = await getOwnerPlayer(functionStuff.actor);
+  for (const user of owners) targets.set(user.id, user.id);
+  if (targets.size === 0) targets.set(game.user.id, game.user.id);
+  await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({
+      alias: game.user.name,
+      actor: functionStuff.actor.id,
+    }),
+    content: html,
+    whisper: [...targets.values()],
+  });
 }
 
 /* A24: Anathema nullifies the ongoing effects of a power on a being. Per GRW
