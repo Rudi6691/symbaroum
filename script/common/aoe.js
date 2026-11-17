@@ -1773,6 +1773,49 @@ export async function placeZoneFromItem(item) {
  *   = Platzierung abgebrochen (Rechtsklick - Gesang wird NICHT gewirkt);
  *   {configured: true, region} = platzierte Region.
  */
+/* Hymnen-Paket 1.2: Brücke zwischen Ausführungsdialog und usePower
+   (Rudolfs Entscheidung 4: die Gesangsfläche wird VOR dem Gesangs-
+   dialog platziert, das functionStuff entsteht aber erst in usePower).
+   Genau EIN Eintrag je Wirker, Consume-once - ein vergessener Eintrag
+   (usePower lief nach der Platzierung nie) wird beim nächsten
+   Erstgesang-Platzieren mitgekehrt (siehe den Zone-Button unten). */
+const pendingHymnZones = new Map();
+
+/** Frisch platzierte Gesangsfläche für den nächsten usePower-Lauf
+    dieses Wirkers hinterlegen. */
+export function setPendingHymnZone(actorId, info) {
+	if (!actorId || !info?.regionId) return;
+	pendingHymnZones.set(String(actorId), info);
+}
+
+/** Ausstehende Gesangsfläche abholen und LÖSCHEN (Consume-once);
+    null, wenn kein passender Lauf folgte. */
+export function takePendingHymnZone(actorId) {
+	const key = String(actorId ?? '');
+	if (!key) return null;
+	const info = pendingHymnZones.get(key) ?? null;
+	pendingHymnZones.delete(key);
+	return info;
+}
+
+/* Hymnen-Paket 1.2 (aus item.js hierher verlegt, jetzt Export): Liefert
+   die Referenz des Gesangs, den dieser Wirker auf der Szene aktuell
+   hält (A23-Marker flagData.caster + flagData.ability), sonst null -
+   Grundlage für die Aufrechterhalten-Vorbelegung (item.js preDialog-
+   HymnChoice) und dafür, dass der Ausführungsdialog des Erstgesangs
+   bei einem LAUFENDEN Gesang (Maintain-Klick) schweigt. */
+export function hymnActiveForCaster(actor) {
+	if (!actor) return null;
+	for (const token of canvas.tokens?.placeables ?? []) {
+		if (!token.actor?.effects) continue;
+		for (const effect of token.actor.effects) {
+			const fd = effect.getFlag(game.system.id, "flagData");
+			if (fd?.caster === actor.id && game.symbaroum.config.HYMN_REFERENCES.includes(fd?.ability)) return fd.ability;
+		}
+	}
+	return null;
+}
+
 export async function placeHymnZone(item) {
 	if (!item || !aoeEnabled() || !canvas?.scene) return { configured: false };
 	if (!mayPlaceZone(item)) return { configured: false };
@@ -1883,11 +1926,11 @@ async function _autoTargetRegion(region, cfg, casterToken) {
 export async function maybeZoneExecutionChoice(item) {
 	if (!item || item.type !== 'mysticalPower') return false;
 	if (!aoeEnabled()) return false;
-	/* Hymnen-Paket 1.1: die Hymnen sind von der Zonen-Auswahl (Manuell |
-	   Zone platzieren | Abbrechen) UND vom Zonen-Flow ausgenommen - sie
-	   platzieren ihren eigenen Gesangsbereich als Teil des Gesangs
-	   (item.js buildRolls-Haken, placeHymnZone). */
-	if (game.symbaroum.config.HYMN_REFERENCES.includes(String(item.system?.reference ?? ''))) return false;
+	/* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1 + Entscheidung 4):
+	   Hymnen laufen NICHT durch den Zonen-Dialog hier, sondern durch
+	   ihren EIGENEN Ausführungsdialog - siehe den Hymnen-Block nach der
+	   Teil-Konfigurations-Warnung. */
+	const isHymn = game.symbaroum.config.HYMN_REFERENCES.includes(String(item.system?.reference ?? ''));
 	/* Hymnen-Paket 1.1: „Zone aktivieren: Nein“ = keine Warnung, kein
 	   Ausführungsdialog (Vor dem Teil-Konfigurations-Check, damit auch
 	   die Form-Warnung von deaktivierten Zonen schweigt). */
@@ -1909,6 +1952,103 @@ export async function maybeZoneExecutionChoice(item) {
 			ui.notifications.warn(game.i18n.localize('AOE.ERR_ZONE_NO_SHAPE'));
 		}
 		return false;
+	}
+	/* Hymnen-Paket 1.2 (Rudolfs Entscheidung 4): Beim ERSTGESANG einer
+	   Hymne mit konfigurierter, aktivierter Zone fragt dieser Dialog
+	   VOR dem Gesangsdialog, wie gewirkt wird - „Sichtweite“ (v1-Modus,
+	   100 m), „Zone platzieren“ (interaktive Platzierung JETZT, danach
+	   erst der Gesangsdialog) oder „Abbrechen“ (kein Gesang, keine
+	   Korruption - die Standard-Engine läuft noch nicht). Ein LAUFENDER
+	   Gesang (Maintain-Klick) schweigt hier ebenso wie Hymnen ohne
+	   Platzierungsrechte - beide laufen ohne Dialog direkt weiter;
+	   unkonfigurierte Hymnen sind oben bereits gekehrt. Rückgabe:
+	   'manual' = Sichtweite, 'hymnzone' = Fläche platziert (usePower
+	   übernimmt sie über die Pending-Map), 'cancel' = Abbruch. */
+	if (isHymn) {
+		if (hymnActiveForCaster(item.actor)) return false;
+		if (!game.user.isGM && (!playerPlacementEnabled() || !item.isOwner)) return false;
+		const hymnModern = isModernDialogActive();
+		const hymnContent = `<div class="symbaroum${hymnModern ? ' modern-roll-dialog' : ' dialog'}"><p>${game.i18n.localize('POWER_HYMN.EXEC_HINT')}</p></div>`;
+		return new Promise((resolve) => {
+			let settled = false;
+			let placing = false;
+			const settle = (value) => {
+				if (settled) return;
+				settled = true;
+				resolve(value);
+			};
+			const dialog = symbDialog({
+				title: game.i18n.format('AOE.EXEC_TITLE', { power: item.name }),
+				content: hymnContent,
+				classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(hymnModern ? modernDialogClasses('modern-roll-dialog') : [])],
+				buttons: {
+					sight: {
+						icon: '<i class="fas fa-eye"></i>',
+						label: game.i18n.localize('POWER_HYMN.EXEC_SIGHT'),
+						callback: () => settle('manual'),
+					},
+					zone: {
+						icon: '<i class="fas fa-draw-polygon"></i>',
+						label: game.i18n.localize('AOE.EXEC_ZONE'),
+						callback: () => {
+							/* Der Dialog schließt mit dem Klick, die Platzierung
+							   läuft danach interaktiv - placing hält den Close-
+							   Fallback auf, bis das Ergebnis feststeht. */
+							placing = true;
+							(async () => {
+								/* Verwaiste Flächen dieses Sängers dürfen nicht
+								   stehen bleiben (Rudolfs P8: abgebrochene
+								   Platzierung, Gesangsdialog-Abbruch der Runde
+								   davor) - ein Gesang läuft nie doppelt. */
+								await removeHymnZoneRegions(item.actor?.id ?? null, game.symbaroum.config.HYMN_REFERENCES);
+								const outcome = await placeHymnZone(item);
+								if (outcome?.region) {
+									setPendingHymnZone(item.actor?.id, {
+										ref: String(item.system?.reference ?? ''),
+										regionId: outcome.region.id,
+										sceneId: canvas.scene?.id,
+									});
+									settle('hymnzone');
+								} else {
+									/* unkonfiguriert (kann hier nicht) oder Platzierung
+									   abgebrochen (Rechtsklick) = Gesang abgebrochen */
+									settle('cancel');
+								}
+							})();
+						},
+					},
+					cancel: {
+						icon: '<i class="fas fa-times"></i>',
+						label: game.i18n.localize('DIALOG.CANCEL'),
+						callback: () => settle('cancel'),
+					},
+				},
+				onRender: (element) => {
+					const btns = element?.querySelectorAll?.('footer button');
+					if (!btns || btns.length === 0) return;
+					const footer = btns[0].closest('footer') ?? btns[0].parentElement;
+					if (footer) {
+						footer.style.display = 'flex';
+						footer.style.flexDirection = 'column';
+						footer.style.gap = '0.25rem';
+					}
+					for (const b of btns) {
+						b.style.boxSizing = 'border-box';
+						b.style.setProperty('width', '100%', 'important');
+						b.style.setProperty('align-self', 'stretch', 'important');
+					}
+				},
+				default: 'sight',
+				width: 460,
+			});
+			try {
+				dialog.addEventListener('close', () => {
+					if (!placing) settle('cancel');
+				});
+			} catch (error) {
+				console.warn('Symbaroum Hymnen: Gesangsbereich-Dialog ohne ESC-Fallback', error);
+			}
+		});
 	}
 	// GM immer berechtigt; Spieler nur bei aktivem Setting + Besitz (2b)
 	if (!game.user.isGM && (!playerPlacementEnabled() || !item.isOwner)) return false;

@@ -1,4 +1,10 @@
-import { modifierDialog, getActorAbilityLevel, isHeavyWeapon } from "./item.js";
+import { modifierDialog, standardPowerResult, getActorAbilityLevel, isHeavyWeapon } from "./item.js";
+import { symbDialog } from "./symbDialog.js";
+import { modernDialogClasses, isModernDialogActive } from "./modernSheetConfig.js";
+// Hymnen-Paket 1.2: Übernahme der im Ausführungsdialog frisch platzierten
+// Gesangsfläche (Consume-once-Map in aoe.js). Zyklenfrei: aoe.js importiert
+// weder actor.js noch item.js.
+import { takePendingHymnZone } from "./aoe.js";
 import { prepareRollAttribute } from "../common/dialog.js";
 import { baseRoll } from "./roll.js";
 // A39 Belastungssystem: Last-Berechnung (optionale APG-Regeln)
@@ -1143,6 +1149,13 @@ export class SymbaroumActor extends Actor {
 				return;
 			}
 			let functionStuff = Object.assign({}, fsDefault, specificStuff);
+			/* Hymnen-Paket 1.2: Eine im Ausführungsdialog frisch platzierte
+			   Gesangsfläche („Sichtweite | Zone platzieren | Abbrechen“,
+			   aoe.js) wird hier übernommen - der Eintrag existiert nur
+			   direkt nach der Platzierung (Consume-once), Maintain-Runden
+			   lesen stattdessen das Actor-Flag (hymnZone.{ref}). */
+			const pendingHymnZone = takePendingHymnZone(this.id);
+			if (pendingHymnZone) functionStuff.hymnZone = pendingHymnZone;
 			// A29 (G2b): the Zug-Start maintain reminder's "Ja" opens this dialog
 			// preset to "Aufrechterhalten" (the F12 maintain radio) - everything
 			// else stays exactly as if the player had clicked the power themselves
@@ -1150,20 +1163,43 @@ export class SymbaroumActor extends Actor {
 			if (functionStuff.preDialogFunction) {
 				await functionStuff.preDialogFunction(functionStuff);
 			} else {
-				/* Hymnen-Paket 1.1 (Rudolfs Testrunde 17.11., Entscheidung
-				   „Alle Bestätigungs-Kräfte“): der Ja/Nein-Bestätigungs-
-				   dialog ist ENTFALLEN - jede gescriptete CASTING_NOT-Kraft
-				   öffnet den normalen Würfeldialog. Bei Toggle-Kräften
-				   (flagTest) zeigt der Dialogtitel an, was „Wirken“ tut:
-				   aktivieren oder deaktivieren (der Zustand selbst ergibt
-				   sich aus dem Symbol am Token). */
+				/* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1, P4 + Antwort 1):
+				   Die Toggle-Kräfte (flagTest) tragen jetzt eine ECHTE
+				   Eigenschaftsprobe - die AKTIVIERUNG läuft über den vollen
+				   Standard-Würfeldialog (casting CASTING + wählbare Eigen-
+				   schaft, siehe die Setups in item.js), wirkt nur bei
+				   Probeerfolg und bucht die Korruption AUCH bei Fehlschlag
+				   (Standard-Pfad, ergebnisunabhängig). Die DEAKTIVIERUNG
+				   (Symbol aktiv) fragt dieser kleine Ja/Nein-Dialog -
+				   Ja wendet die flagPresent-Abwicklung direkt an (kein
+				   Wurf, keine Korruption: alle flagPresentFSmods der
+				   Toggles sind TEMPCORRUPTION_NONE). */
 				if (functionStuff.flagTest) {
 					const toggleActive = Boolean(
 						functionStuff.actor.hasCondition(functionStuff.flagTest) || functionStuff.actor.getFlag(game.system.id, functionStuff.flagTest)
 					);
-					functionStuff.dialogTitleSuffix = game.i18n.localize(
-						toggleActive ? "DIALOG.TITLE_SUFFIX_DEACTIVATE" : "DIALOG.TITLE_SUFFIX_ACTIVATE"
-					);
+					if (toggleActive) {
+						symbDialog({
+							title: functionStuff.abilityName,
+							content: `<p>${game.i18n.format("DIALOG.CONFIRM_DEACTIVATE", { ability: functionStuff.abilityName })}</p>`,
+							classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+							buttons: {
+								yes: {
+									icon: '<i class="fas fa-check"></i>',
+									label: game.i18n.localize("BUTTON.YES"),
+									callback: async () => {
+										await standardPowerResult(null, functionStuff);
+									},
+								},
+								no: {
+									icon: '<i class="fas fa-times"></i>',
+									label: game.i18n.localize("BUTTON.NO"),
+								},
+							},
+							default: "yes",
+						});
+						return;
+					}
 				}
 				await modifierDialog(functionStuff);
 			}
