@@ -2509,10 +2509,11 @@ export class SymbaroumItem extends Item {
   mysticPowerSetupCombathymn(base) {
     /* Hymnen-Paket v1 (Rudolfs Startsignal „Leg los“ 16.11.2026, RAW:
     Kampfhymne, Tradition Trollgesang): Aktion Frei, KEINE Zauberprobe
-    (CASTING_NOT) - der Gesang läuft als Maintain (jede Runde eine un-
-    opponierte Willenskraft-Probe, Standard-Würfeldialog mit Wirken/
-    Aufrechterhalten-Radio, A29-Erinnerung über die maintained-Marker
-    auf den Verbündeten-Symbolen). Novize wählt EIN Attribut für alle
+    (CASTING_NOT) - der Gesang läuft als Maintain OHNE Probe (1.4,
+    APG-Abgleich: Abbruch nur durch eine andere mystische Kraft oder
+    Willenskraft-Schaden; A29-Erinnerung über die maintained-Marker auf
+    den Verbündeten-Symbolen, ihre „Ja"-Runde läuft wurflos und still).
+    Novize wählt EIN Attribut für alle
     Betroffenen (Rudolfs Vereinfachung, preDialogHymnChoice), Adept und
     Meister buffen alle drei Attribute (quick/strong/accurate); der
     Meister gibt zusätzlich 1× pro Szene bei Liedbeginn jedem Betroffe-
@@ -2527,7 +2528,8 @@ export class SymbaroumItem extends Item {
     base.hymnAttributes = ["quick", "strong", "accurate"];
     base.hymnMasterHeal = true;
     base.introText = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_INTRO");
-    base.introTextMaintain = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_INTRO_M");
+    /* 1.4: introTextMaintain entfällt - Hymnen-Maintain-Runden wuerfeln
+       nicht mehr, die Karte wird nie erreicht (Schluessel entfernt). */
     base.resultTextSuccess = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_FAILURE");
     base.preDialogFunction = preDialogHymnChoice;
@@ -2723,8 +2725,9 @@ export class SymbaroumItem extends Item {
   mysticPowerSetupHeroichymn(base) {
     /* Hymnen-Paket v1 (Rudolfs Startsignal „Leg los“ 16.11.2026, RAW:
     Heldenhafte Hymne, Tradition Trollgesang): Aktion Frei, KEINE
-    Zauberprobe (CASTING_NOT), Maintain-Runden als unopponierte
-    Willenskraft-Probe - wie die Kampfhymne, nur dass die Attribute
+    Zauberprobe (CASTING_NOT), Maintain-Runden WURFLOS (1.4, APG-
+    Abgleich: keine Probe beim Aufrechterhalten) - wie die Kampfhymne,
+    nur dass die Attribute
     cunning/resolute/persuasive gebufft werden und der Meister statt
     Zähigkeit 1× pro Szene bei Liedbeginn jedem Betroffenen 1W4 tem-
     poräre Korruption abwäscht (je Betroffenem ein eigener Wurf, Flag
@@ -2737,7 +2740,8 @@ export class SymbaroumItem extends Item {
     base.hymnAttributes = ["cunning", "resolute", "persuasive"];
     base.hymnMasterCleanse = true;
     base.introText = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_INTRO");
-    base.introTextMaintain = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_INTRO_M");
+    /* 1.4: introTextMaintain entfällt - Hymnen-Maintain-Runden wuerfeln
+       nicht mehr, die Karte wird nie erreicht (Schluessel entfernt). */
     base.resultTextSuccess = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_FAILURE");
     base.preDialogFunction = preDialogHymnChoice;
@@ -3748,7 +3752,19 @@ export async function modifierDialog(functionStuff) {
   let actorWeapons;
   let askImpeding = false;
   let impedingValue = 0;
-  let hasRoll = functionStuff.casting !== game.symbaroum.config.CASTING_NOT;
+  /* Hymnen-Paket 1.4 (Rudolfs Testrunde v1.3, Punkt 8 + RAW-Entscheid):
+     Maintain-Runden formlos gewirkter Kräfte würfeln WIRKLICH - Fluch
+     (unopponierte Willenskraft je Runde) und Larvenbeulen (opponierte
+     Probe je Runde gegen die Stärke des Opfers), beide von Rudolf gegen
+     das RAW bestätigt. Deren A29-Maintain-Dialog braucht deshalb die
+     Wurffelder (Modifikator, Gunst-Radio, Segen-und-Lasten-Zeilen) plus
+     „Aufrechterhalten"-Vorbelegung - die 1.3-Version blendete sie aus,
+     obwohl der Wurf lief (Rudolfs Befund: „Hymnen-Würfeldialog ohne
+     Modifikator, Gunst-Block etc."). Die Hymnen erreichen preset-
+     Maintain hier NIE mehr (preDialogHymnChoice wendet ihre Maintain-
+     Runde wurflos direkt an); ihr Erstgesangs-Dialog bleibt bewusst
+     schlank (keine Probe -> keine Wurffelder, RAW-gerecht). */
+  let hasRoll = functionStuff.casting !== game.symbaroum.config.CASTING_NOT || functionStuff.presetMaintain;
   let d8 = "(+1d8)";
   let d6 = "(+1d6)";
   let d4 = "(+1d4)";
@@ -4997,8 +5013,9 @@ function getPowerResultFunction(functionStuff) {
        Kampfhymne und die Heldenhafte Hymne laufen über die gemeinsame
        hymnResult - Erstgesang (kein Wurf, CASTING_NOT) plaziert die
        Verbündeten-Symbole inklusive Sänger und löst den Meister-Effekt
-       aus, die Maintain-Runden wiederholen nur die unopponierte
-       Willenskraft-Probe (Fehlschlag beendet den Gesang). */
+       aus. Hymnen-Paket 1.4: Die Maintain-Runden würfeln NICHT mehr
+       (APG-Abgleich: keine Probe beim Aufrechterhalten) - sie laufen
+       wurflos und still über preDialogHymnChoice (nur Re-Scan). */
     case "combathymn":
     case "heroichymn":
       return hymnResult;
@@ -5902,15 +5919,78 @@ function cleanupFreshHymnZone(functionStuff) {
   removeHymnZoneRegions(functionStuff.actor?.id ?? null, [functionStuff.ability?.reference]);
 }
 
-/* Hymnen-Pre-Dialog: läuft ein Gesang dieses Wirkers, öffnet der
-   Würfeldialog auf „Aufrechterhalten“ (presetMaintain, A29-G2b-Muster).
-   Novize OHNE laufenden Gesang wählt EIN Attribut für alle Betroffenen
-   (Rudolfs Vereinfachung) - dann erst der Standard-Würfeldialog. */
+/* Hymnen-Paket 1.4 (Rudolfs Testrunde v1.3, Punkt 8 + RAW-Abgleich
+   gegen den Vault): Kampfhymne und Heldenhafte Hymne haben nach APG
+   KEINE Probe - weder beim Wirken noch beim Aufrechterhalten („Aktion:
+   Frei", Wirkung „solange der Gesang andauert", Abbruch nur durch eine
+   andere mystische Kraft oder Willenskraft-Schaden). Der v1-Baustein
+   „je Runde eine unopponierte Willenskraft-Probe" war eine Hausregel
+   und ist ENTFERNT. Drei Pfade:
+   - A29-„Ja" (presetMaintain): die Maintain-Runde läuft DIREKT und
+     STILL - kein Dialog, kein Wurf, keine Korruption (RAW: nur der
+     Einsatz kostet), nur der Re-Scan der Gesangsfläche (hymnZone-
+     Rescan; Joiner/Leaver-Zeilen, stille Runde ohne Bewegung).
+   - Klick auf die Hymne bei laufendem Gesang: kleiner Bestätigungs-
+     dialog „Soll {Kraft} abgebrochen werden?" (Muster Tanzende Waffe:
+     DIALOG.CONFIRM_DEACTIVATE-Optik, generischer Kraftname des
+     LAUFENDEN Gesangs). Ja räumt komplett (Symbole, Region, Flag -
+     das von Rudolf bestätigte Abräumen) und postet die Ende-Karte,
+     Nein lässt den Gesang unberührt weiterlaufen. Der schlanke
+     C/M-Dialog mit „Würfeln"-Option (Rudolfs Testbefund: irritierend,
+     der „Würfeln"-Wurf auf Vorbelegung „Aufrechterhalten" beendete
+     den Gesang bei Fehlschlag) entfällt damit komplett.
+   - Erstgesang (kein Gesang aktiv): Novize wählt EIN Attribut für
+     alle Betroffenen (Rudolfs Vereinfachung), dann der schlanke
+     Gesangsdialog - jetzt OHNE „Erster Zauber | Aufrechterhalten"-
+     Radios (keine Maintain-Probe mehr, die Wahl wäre wirkungslos;
+     checkMaintain in modifierDialog liest functionStuff.maintain,
+     functionStuff ist je usePower-Aufruf ein frischer Clone). */
 async function preDialogHymnChoice(functionStuff) {
-  if (hymnActiveForCaster(functionStuff.actor)) {
-    functionStuff.presetMaintain = true;
+  if (functionStuff.presetMaintain) {
+    /* 1.1 (Rudolfs Antwort „automatisch nachziehen"), 1.4 wurflos:
+       Der Gesangsbereich wird je Maintain-Runde NEU gescannt - neu
+       in der Fläche = Buff kommt automatisch (mit GM-Anwenden-Karte),
+       herausbewegt = Buff endet. Runden-Rhythmus (Gesangsbeginn + je
+       Runde), keine Echtzeit-Reaktion auf Token-Bewegung (dokumen-
+       tierte Grenze); stille Runde ohne Bewegung. */
+    await hymnZoneRescan(functionStuff);
+    return;
   }
-  if (functionStuff.powerLvl.level === 1 && !functionStuff.presetMaintain) {
+  const runningRef = hymnActiveForCaster(functionStuff.actor);
+  if (runningRef) {
+    const runningLabel = game.i18n.localize(runningRef === "combathymn" ? "POWER_LABEL.COMBAT_HYMN" : "POWER_LABEL.HEROIC_HYMN");
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: runningLabel })}</p>`,
+      classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: async () => {
+            await postHymnEndCard(
+              { actor: functionStuff.actor, actingCharName: functionStuff.actingCharName, abilityName: runningLabel },
+              "POWER_HYMN.CHAT_END_ABORTED"
+            );
+            await endActiveHymns(functionStuff.actor, { silent: true });
+          },
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+        },
+      },
+      default: "yes",
+    });
+    return;
+  }
+  /* 1.4: Maintain-Radios im Erstgesangs-Dialog aus (siehe Block-
+     kommentar oben). Die A29-Erinnerung scannt die maintained-Marker
+     auf den Symbolen (flagData.maintained, hooks.js a29Scan-
+     MaintainedPowers), nicht diese Dialog-Konfiguration - sie feuert
+     unverändert je Runde. */
+  functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  if (functionStuff.powerLvl.level === 1) {
     const radioButtons = functionStuff.hymnAttributes
       .map((attr, index) => {
         const attrLabel = game.i18n.localize(game.symbaroum.config.attributeLabels[attr]);
@@ -6008,32 +6088,21 @@ function getHymnAffectedTokens(functionStuff) {
 
 /* Gemeinsame Ergebnis-Funktion beider Hymnen (Dispatch combathymn/
    heroichymn). Erstgesang: eigene Verbündeten-Symbole MIT Buff-Daten
-   (der Standard-Pfad würde das Sänger-Symbol ohne flagData pushen -
-   aktiv leer geräumt, das eigene Symbol geht mit conditionData auf
-   dieselbe GM-Karte). Maintain-Runde: Erfolg = nichts zu tun, Fehl-
-   schlag = Ende-Karte + Aufräumen. */
+   (der Standard-Pfad würde das Sänger-Symbol ohne flagData pushen - das
+   eigene Symbol läuft mit conditionData auf dieselbe GM-Karte).
+   Hymnen-Paket 1.4: Der Maintain-Zweig ist ENTFERNT - nach APG
+   (Vault-Abgleich) haben die Hymnen keine Probe beim Aufrechter-
+   halten; die Maintain-Runde läuft wurflos und still über pre-
+   DialogHymnChoice (A29-„Ja" -> hymnZoneRescan), ein Fehlschlag-Ende
+   kann es nicht mehr geben. Abbruch-Wege: andere mystische Kraft
+   (buildRolls), A29-„Nein" (hooks.js), Abbruch-Dialog (preDialog-
+   HymnChoice), Willenskraft-Schaden (SL-Sache, dokumentierte Grenze). */
 async function hymnResult(rollData, functionStuff) {
-  const succeeded = rollData?.[0]?.trueActorSucceeded !== false;
   const abilityRef = functionStuff.ability?.reference;
   const casterEffects = functionStuff.activelyMaintaninedCasterEffect;
   functionStuff.activelyMaintaninedCasterEffect = [];
   await standardPowerResult(rollData, functionStuff);
   functionStuff.activelyMaintaninedCasterEffect = casterEffects;
-  if (functionStuff.isMaintained) {
-    if (!succeeded) {
-      await postHymnEndCard(functionStuff, "POWER_HYMN.CHAT_END_MAINTAIN");
-      await endActiveHymns(functionStuff.actor, { silent: true });
-    } else {
-      /* Hymnen-Paket 1.1 (Rudolfs Antwort „automatisch nachziehen“): Nach
-         erfolgreicher Maintain-Runde wird der Gesangsbereich NEU
-         gescannt - neu in der Fläche = Buff kommt automatisch (mit
-         GM-Anwenden-Karte), herausbewegt = Buff endet. Runden-Rhythmus
-         (Gesangsbeginn + je Runde), keine Echtzeit-Reaktion auf Token-
-         Bewegung (dokumentierte Grenze). */
-      await hymnZoneRescan(functionStuff);
-    }
-    return;
-  }
   const affectedTokens = getHymnAffectedTokens(functionStuff);
   if (affectedTokens.length === 0) {
     /* Hymnen-Paket 1.2: Ohne Betroffene startet kein Gesang - eine
