@@ -708,6 +708,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				   Wirker-Einbeziehung der Auto-Auswahl - STRING-Select
 				   'never' (Default) / 'always', getZoneConfig-Kanonik */
 				includeCaster: zoneCfg?.includeCaster ?? 'never',
+				/* Hymnen-Paket 1.1 (Rudolfs Testrunde v1, Punkt Tanzende Waffe):
+				   Zonen-Schalter 'active' - STRING-Select 'yes' (Default) / 'no'.
+				   'no' deaktiviert die Kraft-Zone komplett (keine Warnung,
+				   kein Ausführungsdialog, keine Platzierung), getZoneConfig-Kanonik */
+				active: zoneCfg?.active ?? 'yes',
 			};
 			/* v2.1: Augenblickliche Zonen haben keine Dauer (One-Shot) -
 			   das Template blendet das Dauer-Feld deshalb aus */
@@ -735,6 +740,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			}));
 			/* Baustein E: Wirker-Einbeziehung der Auto-Auswahl */
 			context.aoe_include_caster_selection = Object.values(game.symbaroum.config.AOE_INCLUDE_CASTER_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			}));
+			/* Hymnen-Paket 1.1: Zonen-Schalter (aktiviert/deaktiviert) */
+			context.aoe_zone_active_selection = Object.values(game.symbaroum.config.AOE_ZONE_ACTIVE_SELECTION).map((c) => ({
 				id: c.id,
 				label: game.i18n.localize(c.label),
 			}));
@@ -1147,6 +1157,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   ist in den Bonus-Tab gewandert - der WERTE-Abschnitt erscheint
 		   fuer Segen/Lasten wieder nur bei Referenz-Sichtbarkeit. */
 		modern.showValues = modern.showReference || modern.showComputed;
+		/* Hymnen-Paket 1.1 (Rudolfs Testrunde v1, letzter Punkt): das
+		   WERTE-Label unter dem Icon entfaellt auf den Kraft-Blättern -
+		   die Werte-Sektion selbst bleibt, nur der Abschnittstitel ist
+		   dort nichtssagend. */
+		modern.showValuesLabel = this.item.type !== 'mysticalPower';
 		/* ItemSheets v3.1 (Rudolfs Testrunde 4, Punkt 7): Rail-Stufen-
 		   markierung. V3 hatte die verschachtelten Handlebars-ifs DIREKT im
 		   class-Attribut notiert - durch einen Ersetzungsfehler standen dort

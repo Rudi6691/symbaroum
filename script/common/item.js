@@ -39,6 +39,8 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // travel.js). Zykel-Sicherheit wie dialog.js <-> item.js: nur
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
+import { itemHasTraditionKnowledge } from "./tradition.js";
+import { placeHymnZone, hymnRegionTokens, hymnRegionById } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -1030,8 +1032,9 @@ export class SymbaroumItem extends Item {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
     if (lvl.level > 1) {
+      /* Hymnen-Paket 1.1: Traditionswissen-Gate (siehe getItemModifierSymbolism) */
       for (let i = 0; i < abilities.length; i++) {
-        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_BLESSINGS)) {
+        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && itemHasTraditionKnowledge(abilities[i], game.symbaroum.config.TRAD_BLESSINGS)) {
           combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
           if (lvl.level > 2) {
             combatMods.abilities[abilities[i].id].healingBonus += "+1d4[" + this.name + "]";
@@ -1815,8 +1818,9 @@ export class SymbaroumItem extends Item {
       }
     }
     if (lvl.level > 1 && activeStaff) {
+      /* Hymnen-Paket 1.1: Traditionswissen-Gate (siehe getItemModifierSymbolism) */
       for (let j = 0; j < abilities.length; j++) {
-        if (combatMods.abilities[abilities[j].id].type === "mysticalPower" && combatMods.abilities[abilities[j].id].traditions.includes(game.symbaroum.config.TRAD_STAFFM)) {
+        if (combatMods.abilities[abilities[j].id].type === "mysticalPower" && itemHasTraditionKnowledge(abilities[j], game.symbaroum.config.TRAD_STAFFM)) {
           combatMods.abilities[abilities[j].id].corruption = lvl.level == 2 ? game.symbaroum.config.TEMPCORRUPTION_FAVOUR : game.symbaroum.config.TEMPCORRUPTION_NONE;
         }
       }
@@ -1969,8 +1973,12 @@ export class SymbaroumItem extends Item {
     if (lvl.level == 0) return;
     // A16: per APG, symbolists pay at most one point of temporary corruption for
     // powers of their tradition on every tradition level (novice, adept and master)
+    /* Hymnen-Paket 1.1 (Rudolfs Regel „Traditionswissen auswerten, gilt
+       für alle Items“): das Gate läuft über das Traditionswissen-Feld
+       DES KRAFT-ITEMS (Traditionen-Tab), nicht mehr über die hartcodierte
+       Traditionsliste des Setups. Ohne gesetztes Feld keine Reduktion. */
     for (let i = 0; i < abilities.length; i++) {
-      if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_SYMBOLISM)) {
+      if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && itemHasTraditionKnowledge(abilities[i], game.symbaroum.config.TRAD_SYMBOLISM)) {
         combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
       }
     }
@@ -2020,8 +2028,9 @@ export class SymbaroumItem extends Item {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
     if (lvl.level > 1) {
+      /* Hymnen-Paket 1.1: Traditionswissen-Gate (siehe getItemModifierSymbolism) */
       for (let i = 0; i < abilities.length; i++) {
-        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_THEURGY)) {
+        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && itemHasTraditionKnowledge(abilities[i], game.symbaroum.config.TRAD_THEURGY)) {
           combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
           if (lvl.level > 2) {
             combatMods.abilities[abilities[i].id].healingBonus += "+1d4[" + this.name + "]";
@@ -2054,13 +2063,16 @@ export class SymbaroumItem extends Item {
        kosten nur 1 Punkt temporäre Korruption statt 1W4, wenn die Fähigkeit
        Trollsingen mindestens auf der Stufe steht, auf der die jeweilige Kraft
        gewirkt wird (A16-Symbolisten-Muster auf Trollsingen übertragen).
-       Betroffen sind alle gescripteten Kräfte der Tradition Trollgesang,
-       also neben den Hymnen auch die Tanzende Waffe. */
+       Paket 1.1 (Rudolfs Testrunde 17.11., seine Regel „Gilt für alle
+       Items“): das Traditions-Gate läuft über das Traditionswissen-Feld
+       DES KRAFT-ITEMS (Traditionen-Tab), nicht mehr über die hartcodierte
+       Setups-Liste - Tanzende Waffe lernt er also via Trollgesang ODER
+       Stabmagie, die Reduktion greift nur bei zugeordnetem Trollgesang. */
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
     for (let i = 0; i < abilities.length; i++) {
       const entry = combatMods.abilities[abilities[i].id];
-      if (entry?.type === "mysticalPower" && entry?.traditions?.includes(game.symbaroum.config.TRAD_TROLLS) && (entry?.powerLvl?.level ?? 1) <= lvl.level) {
+      if (entry?.type === "mysticalPower" && itemHasTraditionKnowledge(abilities[i], game.symbaroum.config.TRAD_TROLLS) && (entry?.powerLvl?.level ?? 1) <= lvl.level) {
         combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
       }
     }
@@ -2242,8 +2254,9 @@ export class SymbaroumItem extends Item {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
     if (lvl.level > 1) {
+      /* Hymnen-Paket 1.1: Traditionswissen-Gate (siehe getItemModifierSymbolism) */
       for (let i = 0; i < abilities.length; i++) {
-        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_WIZARDRY)) {
+        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && itemHasTraditionKnowledge(abilities[i], game.symbaroum.config.TRAD_WIZARDRY)) {
           combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
           if (lvl.level > 2) {
             let pack = this._getPackageFormat();
@@ -2417,7 +2430,6 @@ export class SymbaroumItem extends Item {
     base.blackbreath = true;
     // A25 stage 4 F2: CASTING_NOT powers ask for confirmation instead of
     // showing the empty roll dialog (A7-2 convention)
-    base.confirmDialog = true;
     base.introText = game.i18n.localize("POWER_BLACKBREATH.CHAT_INTRO");
     base.resultTextSuccess = game.i18n.localize("POWER_BLACKBREATH.CHAT_SUCCESS");
     return base;
@@ -2545,7 +2557,6 @@ export class SymbaroumItem extends Item {
     base.corruption = false;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "dancingweapon";
-    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_DANCINGWEAPON.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("POWER_DANCINGWEAPON.CHAT_RESULT_DEACTIVATE"),
@@ -2950,7 +2961,6 @@ export class SymbaroumItem extends Item {
     base.traditions = [game.symbaroum.config.TRAD_STAFFM, game.symbaroum.config.TRAD_SYMBOLISM];
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "protectiverunes";
-    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_RESULT_DEACTIVATE"),
@@ -3007,7 +3017,6 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "revenantstrike";
-    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_REVENANTSTRIKE.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("POWER_REVENANTSTRIKE.CHAT_RESULT_DEACTIVATE"),
@@ -3028,7 +3037,6 @@ export class SymbaroumItem extends Item {
     base.traditions = [game.symbaroum.config.TRAD_STAFFM];
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "sphere";
-    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_SPHERE.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("POWER_SPHERE.CHAT_RESULT_DEACTIVATE"),
@@ -3168,7 +3176,6 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "witchhammer";
-    base.confirmDialog = true;
     base.traditions = [game.symbaroum.config.TRAD_THEURGY];
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_WITCHHAMMER.CHAT_DEACTIVATE"),
@@ -3234,7 +3241,6 @@ export class SymbaroumItem extends Item {
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "berserker";
-    base.confirmDialog = true;
     base.flagPresentFSmod = {
       introText: game.i18n.localize("ABILITY_BERSERKER.CHAT_DEACTIVATE"),
       resultTextSuccess: game.i18n.localize("ABILITY_BERSERKER.CHAT_RESULT_DEACTIVATE"),
@@ -3418,7 +3424,6 @@ export class SymbaroumItem extends Item {
 
   traitSetupRegeneration(base) {
     base.introText = game.i18n.localize("TRAIT_REGENERATION.CHAT_ACTION");
-    base.confirmDialog = true;
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.healedToken = game.symbaroum.config.ACTING_TOKEN;
 
@@ -3609,58 +3614,16 @@ function checkPainEffect(functionStuff, damageTotal) {
   return false;
 }
 
-/*Confirmation dialog for scripted CASTING_NOT powers (no roll): asks whether the
-power should be (de)activated, previews the corruption cost and calls buildRolls()
-directly on confirmation - replacing the empty roll-modifier dialog.
-   * @param {any} functionStuff  the usual functionStuff object, requires confirmDialog=true */
-export async function confirmPowerDialog(functionStuff) {
-  const isDeactivate = Boolean(functionStuff.flagTest && functionStuff.actor.hasCondition(functionStuff.flagTest));
-  // on deactivation the flagPresentFSmod values apply (same merge as in standardPowerResult)
-  const fs = isDeactivate && functionStuff.flagPresentFSmod ? Object.assign({}, functionStuff, functionStuff.flagPresentFSmod) : functionStuff;
-  const corruption = functionStuff.actor.getCorruptionPreview(fs);
-  const cost =
-    corruption.corruptionFormula === "2d4kl"
-      ? game.i18n.localize("DIALOG.CORRUPTION_COST_2D4KL")
-      : game.i18n.localize("DIALOG.CORRUPTION_COST_1D4");
-  let question;
-  if (isDeactivate) {
-    // the power is active - ask for deactivation
-    if (corruption.value === 0) {
-      question = game.i18n.format("DIALOG.CONFIRM_DEACTIVATE", { ability: functionStuff.abilityName });
-    } else {
-      question = game.i18n.format("DIALOG.CONFIRM_DEACTIVATE_COST", { ability: functionStuff.abilityName, cost: corruption.value === 1 ? "1" : cost });
-    }
-  } else if (corruption.value === 0) {
-    question = game.i18n.format("DIALOG.CONFIRM_ACTIVATE_NOCOST", { ability: functionStuff.abilityName });
-  } else if (corruption.value === 1) {
-    question = game.i18n.format("DIALOG.CONFIRM_ACTIVATE_ONE", { ability: functionStuff.abilityName });
-  } else {
-    question = game.i18n.format("DIALOG.CONFIRM_ACTIVATE", { ability: functionStuff.abilityName, cost: cost });
-  }
-  symbDialog({
-    title: functionStuff.abilityName,
-    content: `<p>${question}</p>`,
-    // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern. Das ist der
-    // Auslöser des Audits (S2-Testpunkt 26 „Schutzrunen"): dieser Bestätigungs-
-    // Dialog für ALLE CASTING_NOT-Kräfte (Schutzrunen, Revenantstrike, ...)
-    // war immer klassisch, auch mit modernen Blättern.
-    classes: isModernDialogActive() ? modernDialogClasses('modern-power-confirm-dialog') : [],
-    buttons: {
-      yes: {
-        icon: '<i class="fas fa-check"></i>',
-        label: game.i18n.localize("BUTTON.YES"),
-        callback: async (html) => {
-          await buildRolls(functionStuff);
-        },
-      },
-      no: {
-        icon: '<i class="fas fa-times"></i>',
-        label: game.i18n.localize("BUTTON.NO"),
-      },
-    },
-    default: "yes",
-  });
-}
+/* Hymnen-Paket 1.1 (Rudolfs Testrunde 17.11., Entscheidung „Alle
+   Bestätigungs-Kräfte“): confirmPowerDialog (Ja/Nein-Bestätigung für
+   gescriptete CASTING_NOT-Kräfte) ist ENTFALLEN - alle acht Kräfte
+   (Tanzende Waffe, Schwarzodem, Schutzrunen, Revenant-Stoß, Sphäre,
+   Hexenhammer, Berserker, Hexenblick) laufen jetzt über den normalen
+   Würfeldialog (usePower/executeZonePower, modifierDialog). Der
+   Aktivieren/Deaktivieren-Zustand steht im Dialogtitel-Suffix
+   (DIALOG.TITLE_SUFFIX_*), die Kosten zeigt die Ergebnis-Karte
+   (standardPowerResult); getCorruptionPreview (actor.js) ist mit dem
+   einzigen Aufrufer mit entfernt. */
 
 /*usualy called by any prepareAbility function, or the combat function
 will send to screen a windows asking for modifiers for the roll, then roll, then call the abilityResult function (sent as a parameter)
@@ -3992,7 +3955,9 @@ export async function modifierDialog(functionStuff) {
   });
   let title;
   if (functionStuff.ability) {
-    title = functionStuff.abilityName;
+    /* Hymnen-Paket 1.1: Toggle-Suffix („(aktivieren)“/„(deaktivieren)“)
+       für flagTest-Kräfte - gesetzt in actor.js usePower, siehe dort. */
+    title = functionStuff.abilityName + (functionStuff.dialogTitleSuffix ?? "");
   } else {
     title = functionStuff.weapon.name;
   }
@@ -4698,8 +4663,30 @@ export async function buildRolls(functionStuff) {
      eines laufenden Gesangs (Kampfhymne/Heldenhafte Hymne) automatisch.
      Eigene Hymnen-Runden sind ausgenommen; Willenskraft-Schaden als
      Abbruchgrund bleibt SL-verwaltet (dokumentierte Grenze). */
-  if (functionStuff?.type === "mysticalPower" && !HYMN_REFERENCES.includes(functionStuff?.ability?.reference)) {
+  if (functionStuff?.type === "mysticalPower" && !game.symbaroum.config.HYMN_REFERENCES.includes(functionStuff?.ability?.reference)) {
     await endActiveHymns(functionStuff.actor);
+  }
+
+  /* Hymnen-Paket 1.1 (Rudolfs Entscheidung „A: Eigene Zone über Zone-
+     Tab“ + Geometrie-Frage): Bei einem ERSTGESANG mit konfiguriertem
+     Gesangsbereich („Zone aktivieren: Ja“ + Form/Größe im Zone-Tab)
+     platziert der Ausführende die Fläche JETZT interaktiv - gleiche
+     Drag-Platzierung wie Kraft-Zonen (Kreis mittig um den Sänger
+     möglich, Kegel kann an ihm beginnen, 90°, Rotation frei).
+     Abbruch (Rechtsklick) bricht den GESANG komplett ab (keine
+     Korruption, keine Karte - die Standard-Engine läuft noch nicht).
+     Ohne konfigurierte Zone: Sichtweiten-Modus wie in v1. */
+  if (
+    functionStuff?.type === "mysticalPower" &&
+    game.symbaroum.config.HYMN_REFERENCES.includes(functionStuff?.ability?.reference) &&
+    !functionStuff.isMaintained &&
+    !functionStuff.zoneActivation
+  ) {
+    const hymnZoneOutcome = await placeHymnZone(functionStuff.ability);
+    if (hymnZoneOutcome.cancelled) return;
+    if (hymnZoneOutcome.region) {
+      functionStuff.hymnZone = { regionId: hymnZoneOutcome.region.id, sceneId: canvas.scene.id };
+    }
   }
 
   if (functionStuff.casting === game.symbaroum.config.CASTING_NOT && !functionStuff.isMaintained) {
@@ -5782,7 +5769,10 @@ async function holyAuraEndCleanup(functionStuff) {
    Adept/Meister erlaubt. Frequenz (Entscheidung 9): Novize 1×/Szene,
    Adept 1×/Runde, Meister unbegrenzt; Konsum erst beim KLICK.
    ===================================================================== */
-const HYMN_REFERENCES = ["combathymn", "heroichymn"];
+
+/* Hymnen-Paket 1.1: die Hymnen-Referenz-Liste liegt in config.js
+   (SYMBAROUM.HYMN_REFERENCES) - Single Source auch für aoe.js
+   (Hymnen sind vom Zonen-Auswahl-Flow ausgenommen). */
 
 /* Liefert die Referenz des Gesangs, den dieser Wirker auf der Szene
    aktuell hält (A23-Marker flagData.caster + flagData.ability), sonst
@@ -5793,7 +5783,7 @@ function hymnActiveForCaster(actor) {
     if (!token.actor?.effects) continue;
     for (const effect of token.actor.effects) {
       const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster === actor.id && HYMN_REFERENCES.includes(fd?.ability)) return fd.ability;
+      if (fd?.caster === actor.id && game.symbaroum.config.HYMN_REFERENCES.includes(fd?.ability)) return fd.ability;
     }
   }
   return null;
@@ -5840,14 +5830,35 @@ async function preDialogHymnChoice(functionStuff) {
   await modifierDialog(functionStuff);
 }
 
-/* Sichtweiten-Sweep: der Sänger selbst immer, dazu jeder verbündete
-   Token (dispositions-relativ >= Wirker, v2.14-Konvention) innerhalb
-   der Sichtweiten-Abstraktion (100 m = SIGHT_RANGE_UNITS, config.js).
-   Messfehler schließen das Ziel ein (Fegefeuer-Präzedenz). */
+/* Zielauswahl der Hymnen. Paket 1.1 (Rudolfs Entscheidung A): ist ein
+   Gesangsbereich platziert (functionStuff.hymnZone, buildRolls-Haken),
+   zählt nur, wer IN der Fläche steht (Mittelpunkt-Test, Muster
+   _collectRegionTokens) - der Sänger selbst IMMER, unabhängig von
+   seiner Position. Ohne Gesangsbereich gilt die v1-Sichtweiten-
+   Abstraktion (100 m = SIGHT_RANGE_UNITS, config.js, Messfehler
+   schließen ein - Fegefeuer-Präzedenz). */
 function getHymnAffectedTokens(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   if (!casterToken) return [];
   const casterDisposition = casterToken.document?.disposition ?? 0;
+  if (functionStuff.hymnZone?.regionId) {
+    const region = hymnRegionById(functionStuff.hymnZone.regionId);
+    if (region) {
+      const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
+      const affected = [];
+      for (const token of canvas.tokens?.placeables ?? []) {
+        if (!token.actor) continue;
+        if (token.id !== casterToken.id) {
+          if ((token.document?.disposition ?? 0) < casterDisposition) continue;
+          if (!inZone.has(token.id)) continue;
+        }
+        affected.push(token);
+      }
+      return affected;
+    }
+    /* Region fehlt (manuell gelöscht oder Szenen-Wechsel): Sichtweiten-
+       Fallback, SL-Urteil wirkt. */
+  }
   const sightLimit = game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50;
   const affected = [];
   for (const token of canvas.tokens?.placeables ?? []) {
@@ -5882,6 +5893,14 @@ async function hymnResult(rollData, functionStuff) {
     if (!succeeded) {
       await postHymnEndCard(functionStuff, "POWER_HYMN.CHAT_END_MAINTAIN");
       await endActiveHymns(functionStuff.actor, { silent: true });
+    } else {
+      /* Hymnen-Paket 1.1 (Rudolfs Antwort „automatisch nachziehen“): Nach
+         erfolgreicher Maintain-Runde wird der Gesangsbereich NEU
+         gescannt - neu in der Fläche = Buff kommt automatisch (mit
+         GM-Anwenden-Karte), herausbewegt = Buff endet. Runden-Rhythmus
+         (Gesangsbeginn + je Runde), keine Echtzeit-Reaktion auf Token-
+         Bewegung (dokumentierte Grenze). */
+      await hymnZoneRescan(functionStuff);
     }
     return;
   }
@@ -5889,6 +5908,20 @@ async function hymnResult(rollData, functionStuff) {
   if (affectedTokens.length === 0) {
     ui.notifications.warn(game.i18n.localize("POWER_HYMN.NO_TOKENS"));
     return;
+  }
+  /* Hymnen-Paket 1.1: Bei Platzierung eines Gesangsbereichs (Baustein E:
+     interaktive Platzierung im buildRolls-Haken) die Region am Akteur
+     vermerken - der Re-Scan der Maintain-Runde und endActiveHymns lesen
+     dieses Flag. Eine Region aus einem FRÜHEREN Gesang desselben Refs
+     (Neuaufnahme über eine neue Fläche) wird gezielt entfernt, eine
+     verwaiste Fläche darf nicht stehen bleiben. */
+  if (functionStuff.hymnZone?.regionId) {
+    const previousZone = functionStuff.actor.getFlag(game.system.id, `hymnZone.${abilityRef}`);
+    if (previousZone?.regionId && previousZone.regionId !== functionStuff.hymnZone.regionId) {
+      const previousRegion = hymnRegionById(previousZone.regionId);
+      if (previousRegion) await previousRegion.delete();
+    }
+    await functionStuff.actor.setFlag(game.system.id, `hymnZone.${abilityRef}`, functionStuff.hymnZone);
   }
   const attributeNames = functionStuff.powerLvl.level > 1 ? functionStuff.hymnAttributes : [functionStuff.hymnChosenAttribute ?? functionStuff.hymnAttributes[0]];
   const attributeLabels = attributeNames.map((attr) => game.i18n.localize(game.symbaroum.config.attributeLabels[attr]));
@@ -5960,6 +5993,95 @@ async function hymnResult(rollData, functionStuff) {
   }
 }
 
+/* Re-Scan des Gesangsbereichs je Maintain-Runde (Rudolfs Entscheidung:
+   automatisch nachziehen). Vergleicht die Token in der Hymnen-Region mit
+   den Token, die das Hymnen-Symbol dieses Sängers tragen: Heraus-
+   bewegte Verbündete verlieren den Buff (Revert über den Standard-
+   Handler), in die Fläche eingebrochene Verbündete erhalten ihn
+   automatisch mit dem identischen Erstgesang-Payload. Der Sänger
+   selbst trägt das Symbol unabhängig vom Standort. Vorlage für die
+   Attribut-Liste ist ein BESTEHENDES Symbol (Stabilität über die
+   Runden); sind alle Symbole manuell entfernt, bleibt der Re-Scan
+   stumm (dokumentierte Grenze). */
+async function hymnZoneRescan(functionStuff) {
+  const abilityRef = functionStuff.ability?.reference;
+  if (!game.symbaroum.config.HYMN_REFERENCES.includes(abilityRef)) return;
+  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `hymnZone.${abilityRef}`);
+  if (!zoneFlag?.regionId) return;
+  const region = hymnRegionById(zoneFlag.regionId);
+  if (!region) return;
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  if (!casterToken) return;
+  const casterDisposition = casterToken.document?.disposition ?? 0;
+  const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
+  /* Bestand: alle Token der Szene mit einem Hymnen-Symbol dieses Sängers */
+  const carrying = new Map();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor?.effects) continue;
+    for (const effect of token.actor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === functionStuff.actor.id && fd?.ability === abilityRef) {
+        carrying.set(token.id, { token, effect, fd });
+        break;
+      }
+    }
+  }
+  /* Vorlage-Symbol für die Attribut-Liste: erst ein Nicht-Sänger-Symbol
+     (stabil über Runden, auch wenn der Sänger sein Symbol verliert),
+     sonst das Sänger-Symbol selbst. */
+  let templateFd = null;
+  for (const entry of carrying.values()) {
+    if (entry.token.id !== casterToken.id) {
+      templateFd = entry.fd;
+      break;
+    }
+  }
+  templateFd ??= carrying.get(casterToken.id)?.fd ?? null;
+  if (!templateFd) return;
+  const attributeNames = (templateFd.conditionData?.attributeChanges ?? []).map((c) => c.name);
+  if (attributeNames.length === 0) return;
+  const attributeLabels = attributeNames.map((attr) => game.i18n.localize(game.symbaroum.config.attributeLabels[attr]));
+  const flagDataArray = [];
+  const lines = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor || token.id === casterToken.id) continue;
+    const hasBuff = carrying.has(token.id);
+    if (hasBuff && !inZone.has(token.id)) {
+      /* Herausbewegt: Buff endet, Revert läuft über den Entfernen-Handler */
+      const statusId = carrying.get(token.id).effect.statuses?.size ? [...carrying.get(token.id).effect.statuses][0] : null;
+      if (!statusId) continue;
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+      lines.push(`<p>${game.i18n.format("POWER_HYMN.ZONE_LEFT", { targetname: token.name })}</p>`);
+    } else if (!hasBuff && inZone.has(token.id)) {
+      /* Eingetreten: nur Verbündete (Disposition relativ zum Sänger,
+         Sichtweiten-Muster des Erstgesangs) ziehen automatisch nach */
+      if ((token.document?.disposition ?? 0) < casterDisposition) continue;
+      const attributeChanges = attributeNames.map((attr) => ({ name: attr, value: 1 }));
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+        effectDuration: 1,
+        maintained: true,
+        casterId: functionStuff.actor.id,
+        abilityRef: abilityRef,
+        casterResolute: templateFd.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
+        casterName: templateFd.casterName ?? functionStuff.actingCharName,
+        conditionData: { attrSymbol: true, attributeChanges: attributeChanges },
+      });
+      for (const attr of attributeNames) {
+        flagDataArray.push({ tokenId: token.id, attributeName: attr, attributeChange: 1 });
+      }
+      lines.push(`<p>${game.i18n.format("POWER_HYMN.ZONE_JOINED", { targetname: token.name, attributes: attributeLabels.join(", ") })}</p>`);
+    }
+  }
+  if (lines.length === 0) return;
+  const title = `<h4>${game.i18n.format("POWER_HYMN.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+  await postMaintainChainCard(functionStuff, title, lines, []);
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
 /* Ende-Karte: kleiner öffentlicher Hinweis, WARUM der Gesang endete
    (Maintain-Fehlschlag, andere mystische Kraft). */
 async function postHymnEndCard(functionStuff, lineKey) {
@@ -5984,7 +6106,7 @@ async function endActiveHymns(actor, options = {}) {
     if (!tokenActor?.effects) continue;
     for (const effect of tokenActor.effects) {
       const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster !== casterId || !HYMN_REFERENCES.includes(fd?.ability)) continue;
+      if (fd?.caster !== casterId || !game.symbaroum.config.HYMN_REFERENCES.includes(fd?.ability)) continue;
       const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
       if (!statusId) continue;
       const key = token.id + "|" + statusId;
@@ -5996,6 +6118,18 @@ async function endActiveHymns(actor, options = {}) {
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
+  }
+  /* Hymnen-Paket 1.1: Gesangsbereiche des Sängers aufräumen (Region
+     löschen, Flag entfernen). endActiveHymns beendet den GESAMTEN
+     Gesangszustand, deshalb beide Referenzen; auch ohne je gefundenes
+     Symbol kann eine verwaiste Fläche stehen bleiben (Symbole manuell
+     entfernt), die darf nicht überdauern. */
+  for (const ref of game.symbaroum.config.HYMN_REFERENCES) {
+    const zoneFlag = actor.getFlag(game.system.id, `hymnZone.${ref}`);
+    if (!zoneFlag?.regionId) continue;
+    const region = hymnRegionById(zoneFlag.regionId);
+    if (region) await region.delete();
+    await actor.unsetFlag(game.system.id, `hymnZone.${ref}`);
   }
   if (endedRefs.size > 0 && !options.silent) {
     const casterName = options.casterName ?? actor.name;
@@ -6628,11 +6762,14 @@ async function unholyAuraEndCleanup(functionStuff) {
 /* v2.12 (Rudolfs Freigabe 15.11.) — Korruptions-Reaktion der beiden
    MEISTER-Auren (Fegefeuer APG: Spiegelschaden; Lebensspender APG:
    Reduktion). Läuft an BEIDEN System-Auslieferungspunkten einer Korruptions-
-   buchung: dem GM-Apply-Karten-Handler (hooks.js, flagData.corruptionChange)
-   und dem Bestätigungs-Dialog-Pfad in buildRolls (confirmDialog, direkte
-   Anwendung) - die mechanische Näherung für RAW "Korruption durch Kräfte
-   oder Artefakte" ist damit JEDE System-Korruptionsbuchung, was außerhalb
-   des Systems passiert, bleibt SL-Urteil. Rückgabewert: der (ggf.
+   buchung: dem GM-Apply-Karten-Handler (hooks.js, flagData.corruptionChange).
+   Hymnen-Paket 1.1: der zweite frühere Auslieferungspunkt (Bestätigungs-
+   Dialog-Pfad in standardPowerResult, direkte Anwendung ohne GM-Karte)
+   ist mit dem Ja/Nein-Dialog entfallen, alle früheren confirmDialog-
+   Kräfte buchen seit 1.1 über die GM-Anwenden-Karte. Die mechanische
+   Näherung für RAW "Korruption durch Kräfte oder Artefakte" ist damit
+   JEDE System-Korruptionsbuchung, was außerhalb des Systems passiert,
+   bleibt SL-Urteil. Rückgabewert: der (ggf.
    reduzierte) anzuwendende Betrag.
    - Fegefeuer: jeder Mystiker-Token mit purgatory-Symbol (flagData.ability
      === "purgatory") bestraft HOSTILE Korruptionsempfänger in Sichtweite
@@ -9370,26 +9507,16 @@ export async function standardPowerResult(rollData, functionStuff) {
     corruption = await functionStuff.actor.getCorruption(functionStuff);
     corruptionText = game.i18n.localize("POWER.CHAT_CORRUPTION") + corruption.value;
     if (corruption.sorceryRoll) corruptionText += " (sorcery roll result:" + corruption.sorceryRoll.diceResult + ")";
-    // Elixiere v1.5: Rollzeit-Check entfernt - die Karte kommt im GM-Apply-Pfad
-    // (hooks.js) bei tatsaechlicher Anwendung (confirmDialog-Pfad: siehe dort).
-    if (functionStuff.confirmDialog) {
-      // the player already confirmed the corruption cost in the dialog - apply it directly, no GM approval card
-      // Elixiere v1.5: direkte Anwendung = dritter generischer Auslieferungs-
-      // punkt - Schwellenkarte hier (GM-Karten-Pfad: hooks.js Handler).
-      // v2.12 (Gruppe C, Rudolfs Freigabe 15.11.): die Meister-Reaktionen
-      // (Fegefeuer-Spiegel / Lebensspender-Reduktion) laufen vor der
-      // Buchung - mechanische Näherung für RAW "Korruption durch Kräfte/
-      // Artefakte" = jede System-Buchung (siehe applyCorruptionMasterReactions).
-      if (corruption.value > 0) corruption.value = await applyCorruptionMasterReactions(functionStuff.actor, functionStuff.tokenId, corruption.value);
-      if (corruption.value > 0) await checkCorruptionThreshold(functionStuff.actor, corruption.value);
-      await functionStuff.actor.update({ "system.health.corruption.temporary": functionStuff.actor.system.health.corruption.temporary + corruption.value });
-    } else {
-      flagDataArray.push({
-        tokenId: functionStuff.tokenId,
-        actorId: functionStuff.actor.id,
-        corruptionChange: corruption.value,
-      });
-    }
+    // Hymnen-Paket 1.1: der ehemalige confirmDialog-Direktpfad (Anwendung
+    // ohne GM-Karte, inkl. Schwellen-Check und Meister-Reaktionen hier im
+    // Ergebnis-Pfad) ist entfallen - alle Kräfte buchen die Korruption
+    // seit 1.1 über die GM-Anwenden-Karte (Flag corruptionChange, Handler
+    // in hooks.js führt Schwellen-Check und Meister-Reaktionen aus).
+    flagDataArray.push({
+      tokenId: functionStuff.tokenId,
+      actorId: functionStuff.actor.id,
+      corruptionChange: corruption.value,
+    });
   }
 
   if (functionStuff.resultRolls !== undefined && functionStuff.resultRolls !== null) {
@@ -9683,26 +9810,12 @@ export async function standardPowerResult(rollData, functionStuff) {
         templateData.damageTooltip = healResult.damageTooltip;
       }
       templateData.damageFinalText = "";
-      if (functionStuff.confirmDialog) {
-        // the player already confirmed - apply the healing directly, no GM approval card
-        let healedActor = functionStuff.healedToken?.actor;
-        if (healedActor) {
-          let newToughness = Math.max(0, Math.min(healedActor.system.health.toughness.max, healedActor.system.health.toughness.value + healResult.healed));
-          await healedActor.update({ "system.health.toughness.value": newToughness });
-          // Ressourcen v1.4 (Rudolfs Entscheidung, 31.10.): Eine tatsaechlich
-          // angewandte Heilung stabilisiert sterbende Charaktere GENERISCH -
-          // die Todesproben-Marker (nbrOfFailedDeathRoll) werden auf 0
-          // zurueckgesetzt, egal welcher Heilungspfad (Medicus, Handauflegen,
-          // Erholung) die Heilung ausgeliefert hat. Duplikat-Schutz wie im
-          // hooks.js-Pfad: nur wenn ueberhaupt geheilt und Marker > 0.
-          if (healResult.healed > 0 && healedActor.system.nbrOfFailedDeathRoll > 0) {
-            await healedActor.update({ "system.nbrOfFailedDeathRoll": 0 });
-            ui.notifications.info(game.i18n.format("CHAT.STABILIZED", { name: healedActor.name ?? "" }));
-          }
-        }
-      } else {
-        flagDataArray.push(healResult.flagData);
-      }
+      // Hymnen-Paket 1.1: der ehemalige confirmDialog-Direktpfad (Heilung
+      // ohne GM-Karte, inkl. Stabilisierung hier im Ergebnis-Pfad) ist
+      // entfallen - die Heilung laeuft seit 1.1 immer ueber die GM-
+      // Anwenden-Karte (healResult.flagData, Stabilisierung im hooks.js-
+      // Handler).
+      flagDataArray.push(healResult.flagData);
 
       if (functionStuff.ability.reference === "inheritwound") {
         let inheritDamage = functionStuff.powerLvl.level > 1 ? Math.ceil(healResult.healed / 2) : healResult.healed;
@@ -10253,11 +10366,13 @@ export async function executeZonePower(
        1 Punkt, alle anderen 1W4), wie im manuellen Wirkpfad. */
     if (functionStuff.ability?.reference === "banishingseal") {
       await modifierDialog(functionStuff);
-    } else if (functionStuff.confirmDialog) {
-      await confirmPowerDialog(functionStuff);
     } else if (functionStuff.preDialogFunction) {
       await functionStuff.preDialogFunction(functionStuff);
     } else {
+      /* Hymnen-Paket 1.1: confirmDialog-Zweig entfallen (siehe Kommentar
+         oben bei der ehemaligen confirmPowerDialog) - auch Zonen-
+         Aktivierungen gescripteter CASTING_NOT-Kräfte laufen über den
+         Würfeldialog. */
       await modifierDialog(functionStuff);
     }
   } else if (presetRollData !== null || zoneApplyDirect) {

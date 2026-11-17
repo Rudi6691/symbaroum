@@ -434,6 +434,10 @@ SYMBAROUM.scriptedAbilities = [
   "blackbreath",
   "blessedshield",
   "blindingsymbol",
+  // Hymnen v1 (Rudolfs Testrunde 17.11., Befund 1): Skript-Badges für die
+  // in v1 gescripteten Trollgesang-Hymnen - das Sheet-Badge kommt aus
+  // DIESER Liste (actor.js hasScript/script), nicht aus dem Setup-Flag
+  "combathymn",
   "confusion",
   "curse",
   "dancingweapon",
@@ -442,6 +446,8 @@ SYMBAROUM.scriptedAbilities = [
   "earthshot",
   "entanglingvines",
   "flamewall",
+  // Hymnen v1 (siehe combathymn)
+  "heroichymn",
   "holyaura",
   "inheritwound",
   // v2.13 (Rudolfs Testrunde 12, P10b): isScripted-Badge für die drei in
@@ -470,6 +476,12 @@ SYMBAROUM.scriptedAbilities = [
   "wisdomages",
   "witchhammer",
 ];
+
+/* Hymnen v1.1: gemeinsame Referenz-Liste beider Gesänge - benutzt von
+   item.js (Hymnen-Engine: Ende-Haken, Re-Scan) und aoe.js (Hymnen sind
+   von der Zonen-Auswahl ausgenommen, sie platzieren ihren eigenen
+   Gesangsbereich). Single Source statt doppelter Konstanten. */
+SYMBAROUM.HYMN_REFERENCES = ["combathymn", "heroichymn"];
 
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];
@@ -2151,5 +2163,22 @@ SYMBAROUM.AOE_INCLUDE_CASTER_SELECTION = {
   always: {
     id: "always",
     label: "AOE.INCLUDE_CASTER_ALWAYS",
+  },
+};
+
+/* Hymnen-Paket 1.1 (Rudolfs Testrunde 17.11., Befund „Tanzende Waffe“):
+   Zonen-Aktivierung pro Kraft - „Ja“ (Default, Altbestand unverändert)
+   lässt die Zonen-Maschinerie wie bisher laufen, „Nein“ deaktiviert
+   die Zone dieser Kraft KOMPLETT: keine Form-Warnung, kein Ausführungs-
+   dialog, keine Platzierung (Kraft wirkt wie ohne Zone). String-Select
+   statt Boolean: Muster includeCaster, später erweiterbar. */
+SYMBAROUM.AOE_ZONE_ACTIVE_SELECTION = {
+  yes: {
+    id: "yes",
+    label: "AOE.ZONE_ACTIVE_YES",
+  },
+  no: {
+    id: "no",
+    label: "AOE.ZONE_ACTIVE_NO",
   },
 };

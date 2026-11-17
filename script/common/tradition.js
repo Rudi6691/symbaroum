@@ -119,6 +119,20 @@ export function resolveItemTraditions(item) {
 	return { active, ids, labels: ids.map((id) => traditionLabel(id)) };
 }
 
+/* Hymnen-Paket 1.1 (Rudolfs Testrunde 17.11., seine Regel „Gilt für
+   alle Items“): Traditions-Kostenreduktion-Gate. Die Reduzierer in
+   item.js (Theurgie, Symbolismus, Segnungen, Stabmagie, Zauberwerk,
+   Trollsingen) werten nicht mehr die hartcodierte Traditionsliste des
+   Setups aus, sondern das Traditionswissen DES ITEMS: „Traditionswissen?“
+   = Ja UND die passende Tradition im Traditionen-Tab zugeordnet.
+   Ohne gesetztes Feld greift KEINE Reduktion (einmalige Konfiguration
+   pro Kraft, GM-only). */
+export function itemHasTraditionKnowledge(item, traditionId) {
+	if (!item || !traditionId) return false;
+	const resolved = resolveItemTraditions(item);
+	return resolved.active === 'true' && resolved.ids.includes(traditionId);
+}
+
 /* ---------------------------------------------------------------- */
 /*  Zugangsprüfung (vereinheitlicht; Vorarbeit brewing.js)           */
 /* ---------------------------------------------------------------- */

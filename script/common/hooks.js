@@ -1840,8 +1840,9 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						// (nbrOfFailedDeathRoll) werden auf 0 zurueckgesetzt, egal welcher
 						// Heilungspfad (Medicus, Handauflegen, Erholung) die Heilung
 						// ausgeliefert hat. Duplikat-Schutz: nur wenn Marker ueberhaupt
-						// gesetzt sind; die Notification nennt den Namen. Der direkte
-						// confirmDialog-Pfad in item.js spiegelt dieselbe Regel.
+						// gesetzt sind; die Notification nennt den Namen. (Hymnen-Paket
+						// 1.1: der direkte confirmDialog-Pfad in item.js ist entfallen,
+						// dieser Handler ist seit 1.1 der EINZIGE Heilungspfad.)
 						if (flagData.toughnessChange > 0 && actor.system.nbrOfFailedDeathRoll > 0) {
 							await actor.update({ 'system.nbrOfFailedDeathRoll': 0 });
 							ui.notifications.info(game.i18n.format('CHAT.STABILIZED', { name: token?.name ?? actor.name ?? '' }));

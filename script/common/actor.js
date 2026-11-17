@@ -1,4 +1,4 @@
-import { modifierDialog, confirmPowerDialog, getActorAbilityLevel, isHeavyWeapon } from "./item.js";
+import { modifierDialog, getActorAbilityLevel, isHeavyWeapon } from "./item.js";
 import { prepareRollAttribute } from "../common/dialog.js";
 import { baseRoll } from "./roll.js";
 // A39 Belastungssystem: Last-Berechnung (optionale APG-Regeln)
@@ -1004,33 +1004,6 @@ export class SymbaroumActor extends Actor {
 		return { value: corRoll.total, sorceryRoll: sorceryRoll, corruptionRoll: corRoll };
 	}
 
-	//preview the temporary corruption cost without rolling - used by confirmPowerDialog
-	//mirrors getCorruption(): {value:0} = no cost, {value:1} = fixed 1 point,
-	//{value:null, corruptionFormula} = dice cost shown in the confirmation dialog
-	getCorruptionPreview(functionStuff) {
-		if (this.system.isThoroughlyCorrupt || functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_NONE) {
-			return { value: 0 };
-		}
-		if (functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_ONE) {
-			return { value: 1 };
-		}
-		if (functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_TESTFORONE) {
-			//no confirmDialog power uses this - preview as the 1 point it costs on a successful test
-			return { value: 1, tradition: "sorcery" };
-		}
-		let corruptionFormula = functionStuff.corruptionFormula ?? "1d4"; // TODO move literal to config
-		if (functionStuff.corruption === game.symbaroum.config.TEMPCORRUPTION_FAVOUR) {
-			corruptionFormula = "2d4kl";
-		} else {
-			for (let i = 0; i < this.system.combat.combatMods.corruption.length; i++) {
-				if (this.system.combat.combatMods.corruption[i].type === game.symbaroum.config.TEMPCORRUPTION_FAVOUR) {
-					corruptionFormula = "2d4kl";
-				}
-			}
-		}
-		return { value: null, corruptionFormula: corruptionFormula };
-	}
-
 	async usePower(ability, options = {}) {
 		const api = game.symbaroum.api;
 		if (!ability.isOwned || ability.system.reference === undefined || ability.system.reference === null) {
@@ -1174,12 +1147,24 @@ export class SymbaroumActor extends Actor {
 			// preset to "Aufrechterhalten" (the F12 maintain radio) - everything
 			// else stays exactly as if the player had clicked the power themselves
 			if (options?.presetMaintain) functionStuff.presetMaintain = true;
-			if (functionStuff.confirmDialog) {
-				//scripted CASTING_NOT power: ask for confirmation instead of showing the empty roll dialog
-				await confirmPowerDialog(functionStuff);
-			} else if (functionStuff.preDialogFunction) {
+			if (functionStuff.preDialogFunction) {
 				await functionStuff.preDialogFunction(functionStuff);
 			} else {
+				/* Hymnen-Paket 1.1 (Rudolfs Testrunde 17.11., Entscheidung
+				   „Alle Bestätigungs-Kräfte“): der Ja/Nein-Bestätigungs-
+				   dialog ist ENTFALLEN - jede gescriptete CASTING_NOT-Kraft
+				   öffnet den normalen Würfeldialog. Bei Toggle-Kräften
+				   (flagTest) zeigt der Dialogtitel an, was „Wirken“ tut:
+				   aktivieren oder deaktivieren (der Zustand selbst ergibt
+				   sich aus dem Symbol am Token). */
+				if (functionStuff.flagTest) {
+					const toggleActive = Boolean(
+						functionStuff.actor.hasCondition(functionStuff.flagTest) || functionStuff.actor.getFlag(game.system.id, functionStuff.flagTest)
+					);
+					functionStuff.dialogTitleSuffix = game.i18n.localize(
+						toggleActive ? "DIALOG.TITLE_SUFFIX_DEACTIVATE" : "DIALOG.TITLE_SUFFIX_ACTIVATE"
+					);
+				}
 				await modifierDialog(functionStuff);
 			}
 		}

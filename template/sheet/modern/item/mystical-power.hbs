@@ -95,6 +95,13 @@
             <div class="m-panel">
                 <h1>{{localize "AOE.TAB_LABEL"}}</h1>
                 <div class="m-row m-zone-row">
+                    {{!-- Hymnen-Paket 1.1 (Rudolfs Testrunde v1, Punkt Tanzende Waffe): Zonen-Schalter als ERSTES Feld — Nein deaktiviert die Kraft-Zone komplett (keine Teil-Konfigurations-Warnung, kein Ausführungsdialog, keine Platzierung). --}}
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.areaZone.active" data-tooltip="{{localize "AOE.INFO_ZONE_ACTIVE"}}">{{localize "AOE.FIELD_ZONE_ACTIVE"}}</label>
+                        <select id="{{id}}-system.areaZone.active" name="system.areaZone.active">
+                            {{selectOptions aoe_zone_active_selection selected=aoe.active valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
                     <div class="m-inline-field">
                         <label for="{{id}}-system.areaZone.shape">{{localize "AOE.FIELD_SHAPE"}}</label>
                         <select id="{{id}}-system.areaZone.shape" name="system.areaZone.shape">

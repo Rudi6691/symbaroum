@@ -138,7 +138,12 @@
         {{/if}}
         {{#if modern.showValues}}
         <div class="m-item-section">
+            {{!-- Hymnen-Paket 1.1 (Rudolfs Testrunde v1, letzter Punkt):
+                das WERTE-Label entfaellt auf den Kraft-Blättern, der
+                Abschnitts-Inhalt bleibt unverändert. --}}
+            {{#if modern.showValuesLabel}}
             <div class="m-sec-label">{{localize "MODERN_ITEM.SECTION_VALUES"}}</div>
+            {{/if}}
             <div class="m-item-chips">
                 {{!-- S2.1-Fix (Testpunkt 29): Das Bonus/Malus-Feld ist aus
                     dem geteilten Kopf ENTFERNT (er wäre auf jedem Tab

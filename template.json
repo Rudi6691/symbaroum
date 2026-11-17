@@ -209,6 +209,7 @@
       },
       "areaZone": {
         "areaZone": {
+          "active": "yes",
           "shape": "",
           "size": 0,
           "targeting": "",

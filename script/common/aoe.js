@@ -230,6 +230,13 @@ function _mayControlZone(aoe) {
  * ------------------------------------------------------------------- */
 export function getZoneConfig(item) {
 	const zone = item?.system?.areaZone ?? {};
+	/* Hymnen-Paket 1.1 (Rudolfs Testrunde 17.11., Befund „Tanzende Waffe“):
+	   „Zone aktivieren: Nein“ deaktiviert die Zone dieser Kraft KOMPLETT -
+	   getZoneConfig liefert null, alle Aufrufer behandeln die Kraft wie
+	   unkonfiguriert (keine Warnung, kein Ausführungsdialog, keine
+	   Platzierung, Zone-Tab-Platzieren-Knopf deaktiviert). Default 'yes'
+	   hält den Altbestand unverändert. */
+	if (String(zone.active ?? 'yes') === 'no') return null;
 	const shape = String(zone.shape ?? '').trim();
 	if (!shape) return null;
 	const rawSize = Math.round(Number(zone.size));
@@ -268,7 +275,7 @@ export function getZoneConfig(item) {
 	   im config-Snapshot -> undefined = unverändertes Verhalten. */
 	const rawIncludeCaster = String(zone.includeCaster ?? '').trim();
 	const includeCaster = rawIncludeCaster === 'always' ? 'always' : 'never';
-	return { shape, size, targeting, mode, trigger, duration, targetOrder, includeCaster };
+	return { active: String(zone.active ?? 'yes'), shape, size, targeting, mode, trigger, duration, targetOrder, includeCaster };
 }
 
 /**
@@ -1747,6 +1754,104 @@ export async function placeZoneFromItem(item) {
 	}
 }
 
+/* =====================================================================
+ * Hymnen-Paket 1.1 (Rudolfs Entscheidung „A: Eigene Zone über Zone-Tab“,
+ * 17.11.): Gesangsbereich der Hymnen. Rein geografische Region OHNE
+ * Zonen-Karten, Auslöse-Taste, Trigger oder Dauer-Tick - die Fläche
+ * lebt genau so lange wie der Gesang (Ende über endActiveHymns) und
+ * begrenzt die Betroffenen (Sänger immer, sonst Verbündete in der
+ * Fläche; Re-Scan je Maintain-Runde in item.js). Ohne konfigurierte
+ * Zone gilt die bisherige Sichtweiten-Abstraktion (keine Platzierung).
+ * =================================================================== */
+
+/**
+ * Platziert den Gesangsbereich einer Hymne interaktiv (gleiche Drag-
+ * Platzierung wie Kraft-Zonen: Kreis kann mittig um den Sänger gezogen
+ * werden, Kegel kann an ihm beginnen, Rotation frei).
+ * @returns {Promise<object>} {configured: false} = kein Gesangsbereich
+ *   konfiguriert (Sichtweiten-Modus); {configured: true, cancelled: true}
+ *   = Platzierung abgebrochen (Rechtsklick - Gesang wird NICHT gewirkt);
+ *   {configured: true, region} = platzierte Region.
+ */
+export async function placeHymnZone(item) {
+	if (!item || !aoeEnabled() || !canvas?.scene) return { configured: false };
+	if (!mayPlaceZone(item)) return { configured: false };
+	const cfg = getZoneConfig(item);
+	if (!cfg) return { configured: false };
+	const casterToken = _resolveCasterToken(item);
+	const actor = item.actor ?? null;
+	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
+	const shape = _buildShapeData(cfg, gridSize);
+	if (!shape) return { configured: false };
+	/* Kein flags.symbaroum.aoe - die Region ist für die Zonen-Maschinerie
+	   unsichtbar (keine Karten, kein Betreten-Auslöser, kein Runden-Tick);
+	   eigene Kennung hymnzone für Re-Scan und Ende-Aufräumen. */
+	const regionData = {
+		name: game.i18n.format('POWER_HYMN.REGION_NAME', { powername: item.name, user: actor?.name ?? game.user.name }),
+		color: game.user.color,
+		displayMeasurements: true,
+		highlightMode: 'coverage',
+		shapes: [shape],
+		visibility: CONST.REGION_VISIBILITY.ALWAYS,
+		'flags.core.MeasuredTemplate': true,
+		flags: {
+			symbaroum: {
+				hymnzone: {
+					ref: String(item.system?.reference ?? ''),
+					casterId: actor?.id ?? null,
+					casterName: actor?.name ?? game.user.name,
+				},
+			},
+		},
+	};
+	if (canvas.level) regionData.levels = [canvas.level.id];
+	let regions = null;
+	try {
+		regions = await canvas.regions.placeRegions([regionData]);
+	} catch (error) {
+		console.error('Symbaroum Hymnen: Gesangsbereich-Platzierung fehlgeschlagen', error);
+		return { configured: true, cancelled: true };
+	}
+	if (!regions?.length) return { configured: true, cancelled: true };
+	return { configured: true, region: regions[0] };
+}
+
+/**
+ * Alle Szenen-Token, deren Mittelpunkt in der Region liegt
+ * (Muster _collectRegionTokens: region.tokens mit testPoint-Fallback).
+ * @returns {TokenPlaceable[]}
+ */
+export function hymnRegionTokens(region) {
+	if (!region) return [];
+	return _collectRegionTokens(region);
+}
+
+/** Regions-Dokument per Id auf der aktuellen Szene suchen. */
+export function hymnRegionById(regionId) {
+	const id = String(regionId ?? '');
+	if (!id || !canvas?.scene) return null;
+	return canvas.scene.regions?.get(id) ?? null;
+}
+
+/**
+ * Gesangsbereiche eines Sängers aufräumen (Hymnen-Ende, egal warum):
+ * löscht alle Regionen mit hymnzone.casterId auf der aktuellen Szene,
+ * deren Referenz in refs steht. Idempotent.
+ */
+export async function removeHymnZoneRegions(casterId, refs) {
+	if (!canvas?.scene || !Array.isArray(refs) || refs.length === 0) return;
+	const wanted = new Set(refs);
+	const doomed = [];
+	for (const region of canvas.scene.regions ?? []) {
+		const hz = region.flags?.symbaroum?.hymnzone;
+		if (!hz) continue;
+		if (hz.casterId === casterId && wanted.has(hz.ref)) doomed.push(region);
+	}
+	for (const region of doomed) {
+		await region.delete();
+	}
+}
+
 /** Auto-Targeting EINER platzierten Region (Zielvorschlag wie Stufe 1). */
 async function _autoTargetRegion(region, cfg, casterToken) {
 	const tokens = _filterTargets(_collectRegionTokens(region), cfg.targeting, casterToken, cfg.includeCaster ?? null);
@@ -1778,6 +1883,15 @@ async function _autoTargetRegion(region, cfg, casterToken) {
 export async function maybeZoneExecutionChoice(item) {
 	if (!item || item.type !== 'mysticalPower') return false;
 	if (!aoeEnabled()) return false;
+	/* Hymnen-Paket 1.1: die Hymnen sind von der Zonen-Auswahl (Manuell |
+	   Zone platzieren | Abbrechen) UND vom Zonen-Flow ausgenommen - sie
+	   platzieren ihren eigenen Gesangsbereich als Teil des Gesangs
+	   (item.js buildRolls-Haken, placeHymnZone). */
+	if (game.symbaroum.config.HYMN_REFERENCES.includes(String(item.system?.reference ?? ''))) return false;
+	/* Hymnen-Paket 1.1: „Zone aktivieren: Nein“ = keine Warnung, kein
+	   Ausführungsdialog (Vor dem Teil-Konfigurations-Check, damit auch
+	   die Form-Warnung von deaktivierten Zonen schweigt). */
+	if (String(item?.system?.areaZone?.active ?? 'yes') === 'no') return false;
 	// v2.4 (Rudolfs Testrunde 4, Bannsiegel-Diagnose): areaZone ist vor-
 	// konfiguriert, aber die FORM fehlt -> getZoneConfig null -> der
 	// Ausführungsdialog wurde bislang STILL übersprungen (Rudolfs Beob-
