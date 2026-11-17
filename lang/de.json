@@ -1044,6 +1044,7 @@
   "POWER_HYMN.CHAT_END": "Gesang beendet",
   "POWER_HYMN.CHAT_END_LINE": "{actorname} beendet {powername} (andere mystische Kraft gewirkt).",
   "POWER_HYMN.CHAT_END_MAINTAIN": "{actorname} kann {powername} nicht mehr aufrechterhalten — der Gesang endet.",
+  "POWER_HYMN.CHAT_END_ABORTED": "{actorname} beendet {powername}.",
   "POWER_HYMN.SCENE_RESET_TITLE": "Szenen-Zurücksetzung (1×/Szene)",
   "POWER_HYMN.SCENE_RESET_LINE": "{actorname}: Meister-Effekt und Novizen-Wiederholung dieser Szene sind verbraucht. Die Taste setzt beides frei (neue Szene / SL-Urteil).",
   "POWER_HYMN.SCENE_RESET_BUTTON": "1×/Szene freigeben",

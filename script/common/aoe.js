@@ -1926,6 +1926,19 @@ async function _autoTargetRegion(region, cfg, casterToken) {
 export async function maybeZoneExecutionChoice(item) {
 	if (!item || item.type !== 'mysticalPower') return false;
 	if (!aoeEnabled()) return false;
+	/* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P11): Der "Nicht
+	   erlernt"-Check (A13) sitzt in usePower - dieser Ausführungs-
+	   dialog läuft aber VOR usePower (beide Sheet-Aufrufer). Eine
+	   nicht erlernte Kraft (Stufe 0, z. B. die zurückgestellte
+	   Schwächende Hymne) öffnete deshalb erst den Ausführungsdialog,
+	   die Warnung kam erst beim Manuell-Wirken bzw. erst NACH dem
+	   Zonen-Platzieren beim Auslösen. Rudolfs Wunsch: Warnung VOR dem
+	   Dialog. Rückgabe 'cancel' = Aufrufer bricht ab (kein usePower,
+	   keine doppelte Warnung). */
+	if (item.system?.hasLevels && item.getLevel?.()?.level === 0) {
+		ui.notifications.warn(game.i18n.format('ERROR.NOT_LEARNED', { name: item.name }));
+		return 'cancel';
+	}
 	/* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1 + Entscheidung 4):
 	   Hymnen laufen NICHT durch den Zonen-Dialog hier, sondern durch
 	   ihren EIGENEN Ausführungsdialog - siehe den Hymnen-Block nach der

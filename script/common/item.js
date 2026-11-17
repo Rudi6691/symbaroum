@@ -2438,7 +2438,9 @@ export class SymbaroumItem extends Item {
     base.traditions = [game.symbaroum.config.TRAD_SORCERY];
     /* A25 stage 4 (APG) + Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1,
        Antwort 2): Schwarzer Atem würfelt jetzt eine ECHTE Eigen-
-       schaftsprobe (Standard-Würfeldialog, wählbare Eigenschaft) -
+       schaftsprobe (Standard-Würfeldialog, 1.3: FESTE Eigenschaft
+       Willenskraft statt des 1.2-Attribut-Dropdowns, Rudolfs Testrunde
+       v1.2 P6b) -
        die d4/d6-Wirkung gegen die GESAMTE Korruption des Ziels läuft
        unverändert in standardPowerResult (functionStuff.blackbreath,
        nur bei Probeerfolg), die Meister-Kette läuft weiter, solange
@@ -2446,7 +2448,7 @@ export class SymbaroumItem extends Item {
        - der Primärziel-Aufruf war beim AoE-v2.4-Refactor verloren
        gegangen und ist in 1.2 wiederhergestellt). */
     base.casting = game.symbaroum.config.CASTING;
-    base.askCastingAttribute = true;
+    base.castingAttributeName = "resolute";
     base.maintain = game.symbaroum.config.MAINTAIN_NOT;
     base.blackbreath = true;
     base.introText = game.i18n.localize("POWER_BLACKBREATH.CHAT_INTRO");
@@ -2572,14 +2574,18 @@ export class SymbaroumItem extends Item {
 
   mysticPowerSetupDancingweapon(base) {
     /* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1, P4 + Antwort 1): echte
-       Eigenschaftsprobe im Standard-Würfeldialog (Modifikator, Gunst,
-       wählbare Eigenschaft) statt der wurflosen Bestätigung - Akti-
-       vierung nur bei Probeerfolg, Korruption bucht die Ergebnis-Karte
-       AUCH bei Fehlschlag (Standard-Pfad, ergebnisunabhängig). Dekti-
-       vierung: Ja/Nein-Dialog in actor.js usePower (kein Wurf, keine
-       Korruption). Muster: mysticPowerSetupDancingweapon. */
+       Eigenschaftsprobe im Standard-Würfeldialog statt der wurflosen
+       Bestätigung - Aktivierung nur bei Probeerfolg, Korruption bucht
+       die Ergebnis-Karte AUCH bei Fehlschlag (Standard-Pfad, ergeb-
+       nisunabhängig). Deaktivierung: Ja/Nein-Dialog in actor.js
+       usePower (kein Wurf, keine Korruption).
+       Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P6b + Entscheidung
+       "Fest Willenskraft, kein Dropdown"): Die Probe läuft FEST auf
+       Willenskraft (resolute) - das 1.2-Attribut-Dropdown ("Mystische
+       Kraft", alle Eigenschaften wählbar) ist ENTFERNT, Modifikator
+       und Gunst bleiben wählbar (Modifikator-Feld + Gunst-Radio). */
     base.casting = game.symbaroum.config.CASTING;
-    base.askCastingAttribute = true;
+    base.castingAttributeName = "resolute";
     base.traditions = [game.symbaroum.config.TRAD_TROLLS, game.symbaroum.config.TRAD_STAFFM];
     base.corruption = false;
     base.gmOnlyChatResultNPC = true;
@@ -2985,14 +2991,18 @@ export class SymbaroumItem extends Item {
 
   mysticPowerSetupProtectiverunes(base) {
     /* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1, P4 + Antwort 1): echte
-       Eigenschaftsprobe im Standard-Würfeldialog (Modifikator, Gunst,
-       wählbare Eigenschaft) statt der wurflosen Bestätigung - Akti-
-       vierung nur bei Probeerfolg, Korruption bucht die Ergebnis-Karte
-       AUCH bei Fehlschlag (Standard-Pfad, ergebnisunabhängig). Dekti-
-       vierung: Ja/Nein-Dialog in actor.js usePower (kein Wurf, keine
-       Korruption). Muster: mysticPowerSetupDancingweapon. */
+       Eigenschaftsprobe im Standard-Würfeldialog statt der wurflosen
+       Bestätigung - Aktivierung nur bei Probeerfolg, Korruption bucht
+       die Ergebnis-Karte AUCH bei Fehlschlag (Standard-Pfad, ergeb-
+       nisunabhängig). Deaktivierung: Ja/Nein-Dialog in actor.js
+       usePower (kein Wurf, keine Korruption).
+       Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P6b + Entscheidung
+       "Fest Willenskraft, kein Dropdown"): Die Probe läuft FEST auf
+       Willenskraft (resolute) - das 1.2-Attribut-Dropdown ("Mystische
+       Kraft", alle Eigenschaften wählbar) ist ENTFERNT, Modifikator
+       und Gunst bleiben wählbar (Modifikator-Feld + Gunst-Radio). */
     base.casting = game.symbaroum.config.CASTING;
-    base.askCastingAttribute = true;
+    base.castingAttributeName = "resolute";
     base.traditions = [game.symbaroum.config.TRAD_STAFFM, game.symbaroum.config.TRAD_SYMBOLISM];
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "protectiverunes";
@@ -3050,14 +3060,18 @@ export class SymbaroumItem extends Item {
 
   mysticPowerSetupRevenantstrike(base) {
     /* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1, P4 + Antwort 1): echte
-       Eigenschaftsprobe im Standard-Würfeldialog (Modifikator, Gunst,
-       wählbare Eigenschaft) statt der wurflosen Bestätigung - Akti-
-       vierung nur bei Probeerfolg, Korruption bucht die Ergebnis-Karte
-       AUCH bei Fehlschlag (Standard-Pfad, ergebnisunabhängig). Dekti-
-       vierung: Ja/Nein-Dialog in actor.js usePower (kein Wurf, keine
-       Korruption). Muster: mysticPowerSetupDancingweapon. */
+       Eigenschaftsprobe im Standard-Würfeldialog statt der wurflosen
+       Bestätigung - Aktivierung nur bei Probeerfolg, Korruption bucht
+       die Ergebnis-Karte AUCH bei Fehlschlag (Standard-Pfad, ergeb-
+       nisunabhängig). Deaktivierung: Ja/Nein-Dialog in actor.js
+       usePower (kein Wurf, keine Korruption).
+       Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P6b + Entscheidung
+       "Fest Willenskraft, kein Dropdown"): Die Probe läuft FEST auf
+       Willenskraft (resolute) - das 1.2-Attribut-Dropdown ("Mystische
+       Kraft", alle Eigenschaften wählbar) ist ENTFERNT, Modifikator
+       und Gunst bleiben wählbar (Modifikator-Feld + Gunst-Radio). */
     base.casting = game.symbaroum.config.CASTING;
-    base.askCastingAttribute = true;
+    base.castingAttributeName = "resolute";
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "revenantstrike";
     base.flagPresentFSmod = {
@@ -3077,14 +3091,18 @@ export class SymbaroumItem extends Item {
 
   mysticPowerSetupSphere(base) {
     /* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1, P4 + Antwort 1): echte
-       Eigenschaftsprobe im Standard-Würfeldialog (Modifikator, Gunst,
-       wählbare Eigenschaft) statt der wurflosen Bestätigung - Akti-
-       vierung nur bei Probeerfolg, Korruption bucht die Ergebnis-Karte
-       AUCH bei Fehlschlag (Standard-Pfad, ergebnisunabhängig). Dekti-
-       vierung: Ja/Nein-Dialog in actor.js usePower (kein Wurf, keine
-       Korruption). Muster: mysticPowerSetupDancingweapon. */
+       Eigenschaftsprobe im Standard-Würfeldialog statt der wurflosen
+       Bestätigung - Aktivierung nur bei Probeerfolg, Korruption bucht
+       die Ergebnis-Karte AUCH bei Fehlschlag (Standard-Pfad, ergeb-
+       nisunabhängig). Deaktivierung: Ja/Nein-Dialog in actor.js
+       usePower (kein Wurf, keine Korruption).
+       Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P6b + Entscheidung
+       "Fest Willenskraft, kein Dropdown"): Die Probe läuft FEST auf
+       Willenskraft (resolute) - das 1.2-Attribut-Dropdown ("Mystische
+       Kraft", alle Eigenschaften wählbar) ist ENTFERNT, Modifikator
+       und Gunst bleiben wählbar (Modifikator-Feld + Gunst-Radio). */
     base.casting = game.symbaroum.config.CASTING;
-    base.askCastingAttribute = true;
+    base.castingAttributeName = "resolute";
     base.traditions = [game.symbaroum.config.TRAD_STAFFM];
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "sphere";
@@ -3225,14 +3243,18 @@ export class SymbaroumItem extends Item {
 
   mysticPowerSetupWitchhammer(base) {
     /* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1, P4 + Antwort 1): echte
-       Eigenschaftsprobe im Standard-Würfeldialog (Modifikator, Gunst,
-       wählbare Eigenschaft) statt der wurflosen Bestätigung - Akti-
-       vierung nur bei Probeerfolg, Korruption bucht die Ergebnis-Karte
-       AUCH bei Fehlschlag (Standard-Pfad, ergebnisunabhängig). Dekti-
-       vierung: Ja/Nein-Dialog in actor.js usePower (kein Wurf, keine
-       Korruption). Muster: mysticPowerSetupDancingweapon. */
+       Eigenschaftsprobe im Standard-Würfeldialog statt der wurflosen
+       Bestätigung - Aktivierung nur bei Probeerfolg, Korruption bucht
+       die Ergebnis-Karte AUCH bei Fehlschlag (Standard-Pfad, ergeb-
+       nisunabhängig). Deaktivierung: Ja/Nein-Dialog in actor.js
+       usePower (kein Wurf, keine Korruption).
+       Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P6b + Entscheidung
+       "Fest Willenskraft, kein Dropdown"): Die Probe läuft FEST auf
+       Willenskraft (resolute) - das 1.2-Attribut-Dropdown ("Mystische
+       Kraft", alle Eigenschaften wählbar) ist ENTFERNT, Modifikator
+       und Gunst bleiben wählbar (Modifikator-Feld + Gunst-Radio). */
     base.casting = game.symbaroum.config.CASTING;
-    base.askCastingAttribute = true;
+    base.castingAttributeName = "resolute";
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "witchhammer";
     base.traditions = [game.symbaroum.config.TRAD_THEURGY];
@@ -3297,15 +3319,15 @@ export class SymbaroumItem extends Item {
   }
 
   abilitySetupBerserker(base) {
-    /* Hymnen-Paket 1.2 (Rudolfs Testrunde v1.1, P4 + Antwort 1): echte
-       Eigenschaftsprobe im Standard-Würfeldialog (Modifikator, Gunst,
-       wählbare Eigenschaft) statt der wurflosen Bestätigung - Akti-
-       vierung nur bei Probeerfolg, Korruption bucht die Ergebnis-Karte
-       AUCH bei Fehlschlag (Standard-Pfad, ergebnisunabhängig). Dekti-
-       vierung: Ja/Nein-Dialog in actor.js usePower (kein Wurf, keine
-       Korruption). Muster: mysticPowerSetupDancingweapon. */
-    base.casting = game.symbaroum.config.CASTING;
-    base.askCastingAttribute = true;
+    /* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P6a + Entscheidungen
+       "Bestätigungsdialog wie 1.1" / "Alte Funktion wieder herstellen"):
+       Berserker ist eine FÄHIGKEIT, keine mystische Kraft - die Akti-
+       vierung läuft OHNE Würfelwurf (Rückbau des 1.2-Probe-Baus auf
+       den 1.1-Zustand): formloser Bestätigungsdialog (Wirken/Abbrechen,
+       CASTING_NOT), Anwendung direkt, KEINE Korruption (Fähigkeit).
+       Die Deaktivierung läuft weiter über den Ja/Nein-Dialog in
+       actor.js usePower (flagTest-Pfad, aus 1.2 unverändert). */
+    base.casting = game.symbaroum.config.CASTING_NOT;
     base.gmOnlyChatResultNPC = true;
     base.flagTest = "berserker";
     base.flagPresentFSmod = {
@@ -6156,7 +6178,21 @@ async function hymnZoneRescan(functionStuff) {
   }
   templateFd ??= carrying.get(casterToken.id)?.fd ?? null;
   if (!templateFd) return;
-  const attributeNames = (templateFd.conditionData?.attributeChanges ?? []).map((c) => c.name);
+  /* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P4 - Root-Cause): Die
+     Vorlage liest die Attribut-Liste FLACH vom Effekt-Flag
+     (flags.symbaroum.flagData.attributeChanges). addCondition
+     (actor.js) speichert das GMC-Karten-Payload GEFALTET in
+     conditionData, der Apply-Handler (hooks.js, GM-Anwenden-Karte)
+     klappt es beim Anlegen FLACH auseinander: flagData = { caster,
+     ability, resolute, casterName, maintained, attrSymbol,
+     attributeChanges } - derselbe Kontrakt wie der deleteActiveEffect-
+     Revert (fd.attributeChanges). Die 1.2-Version las
+     conditionData?.attributeChanges auf dem EFFEKT - dort nie
+     vorhanden => attributeNames leer => stiller Rückweg VOR dem
+     Join/Leave-Vergleich: Joiner und Leaver wurden nie erkannt (beide
+     Wirkungsmodi, eine Wurzel). Der conditionData-Fallback bleibt als
+     Gürtel für Symbole aus der Zeit vor diesem Fix. */
+  const attributeNames = (templateFd.attributeChanges ?? templateFd.conditionData?.attributeChanges ?? []).map((c) => c.name);
   if (attributeNames.length === 0) return;
   const attributeLabels = attributeNames.map((attr) => game.i18n.localize(game.symbaroum.config.attributeLabels[attr]));
   const flagDataArray = [];
@@ -6182,7 +6218,11 @@ async function hymnZoneRescan(functionStuff) {
         maintained: true,
         casterId: functionStuff.actor.id,
         abilityRef: abilityRef,
-        casterResolute: templateFd.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
+        /* 1.3: Auf dem Effekt heißt das Snapshot-Feld 'resolute'
+           (Apply-Handler), nicht 'casterResolute' - der 1.2-Fallback
+           griff sonst auf den AKTUELLEN statt des Erstschafts-Werts
+           zurück. Beide Namen als Kette für Alt-Symbole. */
+        casterResolute: templateFd.resolute ?? templateFd.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
         casterName: templateFd.casterName ?? functionStuff.actingCharName,
         conditionData: { attrSymbol: true, attributeChanges: attributeChanges },
       });

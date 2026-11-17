@@ -49,7 +49,7 @@ import { registerAmmoSettings } from './ammo.js';
 // „Flächeneffekte (AoE)“ (GM, world, Default AN) + Template-Platzierung
 // mit Auto-Targeting aus dem Kraft-Item - Engine: aoe.js, Datenmodell
 // system.areaZone (template.json, additives Feld).
-import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor } from './aoe.js';
+import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor, removeHymnZoneRegions } from './aoe.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
@@ -1461,6 +1461,26 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 	const casterEffects = actor.system.combat.combatMods.abilities?.[abilityItem?.id]?.activelyMaintaninedCasterEffect ?? [];
 	for (const effect of casterEffects) {
 		await actor.removeCondition(effect);
+	}
+	/* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P5 - Root-Cause): Für
+	   Hymnen räumt der A29-"Nein"-Abbruch jetzt AUCH die Gesangsfläche
+	   (Region) und das Actor-Flag hymnZone.{ref}. Die 1.2-Version
+	   entfernte nur die Symbole - Region und Flag blieben stehen;
+	   endActiveHymns wurde auf diesem Pfad nie erreicht (erst "andere
+	   Kraft"/"Neuaufnahme" räumten). Rudolfs Entscheidung: MIT kleiner
+	   Ende-Karte (gleicher Kartensatz wie die anderen Ende-Fälle,
+	   postHymnEndCard-Muster). Läuft immer auf dem GM-Client (direkt
+	   oder via a29MaintainReminderAnswer-Socket), die Flächen-Löschung
+	   braucht ohnehin GM-Rechte. */
+	if (game.symbaroum.config.HYMN_REFERENCES.includes(abilityRef)) {
+		await removeHymnZoneRegions(actor.id, [abilityRef]);
+		await actor.unsetFlag(game.system.id, `hymnZone.${abilityRef}`);
+		const powerLabel = game.i18n.localize(abilityRef === 'combathymn' ? 'POWER_LABEL.COMBAT_HYMN' : 'POWER_LABEL.HEROIC_HYMN');
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('POWER_HYMN.CHAT_END')}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+		});
 	}
 }
 

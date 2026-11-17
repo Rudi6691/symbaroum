@@ -1044,6 +1044,7 @@
   "POWER_HYMN.CHAT_END": "Hymn ended",
   "POWER_HYMN.CHAT_END_LINE": "{actorname} ends {powername} (another mystical power was cast).",
   "POWER_HYMN.CHAT_END_MAINTAIN": "{actorname} can no longer sustain {powername} — the hymn ends.",
+  "POWER_HYMN.CHAT_END_ABORTED": "{actorname} ends {powername}.",
   "POWER_HYMN.SCENE_RESET_TITLE": "Scene reset (once per scene)",
   "POWER_HYMN.SCENE_RESET_LINE": "{actorname}: the master effect and the novice reroll of this scene are spent. The button frees both (new scene / GM ruling).",
   "POWER_HYMN.SCENE_RESET_BUTTON": "Free once-per-scene uses",
