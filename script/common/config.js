@@ -448,6 +448,10 @@ SYMBAROUM.scriptedAbilities = [
   "flamewall",
   // Hymnen v1 (siehe combathymn)
   "heroichymn",
+  // Hymnen-Paket 1.5 (Rudolfs Startsignal 17.11.2026): Skript-Badges
+  // für die beiden Paket-2-Kräfte (Schwächende Hymne, Dornenmantel)
+  "thorncloak",
+  "weakeninghymn",
   "holyaura",
   "inheritwound",
   // v2.13 (Rudolfs Testrunde 12, P10b): isScripted-Badge für die drei in
@@ -477,11 +481,16 @@ SYMBAROUM.scriptedAbilities = [
   "witchhammer",
 ];
 
-/* Hymnen v1.1: gemeinsame Referenz-Liste beider Gesänge - benutzt von
-   item.js (Hymnen-Engine: Ende-Haken, Re-Scan) und aoe.js (Hymnen sind
-   von der Zonen-Auswahl ausgenommen, sie platzieren ihren eigenen
-   Gesangsbereich). Single Source statt doppelter Konstanten. */
-SYMBAROUM.HYMN_REFERENCES = ["combathymn", "heroichymn"];
+/* Hymnen v1.1: gemeinsame Referenz-Liste der Gesänge - benutzt von
+   item.js (Hymnen-Engine: Ende-Hook, Re-Scan), hooks.js (A29-"Nein"-
+   Abräumen) und aoe.js (Hymnen sind von der Zonen-Auswahl ausgenommen,
+   sie platzieren ihren eigenen Gesangsbereich). Single Source statt
+   doppelter Konstanten.
+   Hymnen-Paket 1.5: + "weakeninghymn" (Schwächende Hymne, Paket 2) -
+   Erstgesang mit je-Feind-Proben in der Gesangsfläche, Maintain-Runde
+   WURFLOS still (kein Re-Scan - Rudolfs Entscheidung), Missgunst-
+   Marker auf den betroffenen Feinden. */
+SYMBAROUM.HYMN_REFERENCES = ["combathymn", "heroichymn", "weakeninghymn"];
 
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];
@@ -695,6 +704,29 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.HEROIC_HYMN",
     name: "POWER_LABEL.HEROIC_HYMN",
     icon: "systems/symbaroum/asset/image/powers/heroichymn.svg",
+  },
+  {
+    /* Hymnen-Paket 1.5 (Rudolfs Startsignal 17.11.2026): Dornenmantel-
+       Symbol - Toggle-Kraft (flagTest) am Mystiker, ab Adept zusätzlich
+       auf den in Nahkampfreichweite gewebten Verbündeten; flagData.
+       caster/ability identifizieren den Ursprung (Rescan, Räumung,
+       Meister-Rückschlag), das zugehörige Rüstungs-Item folgt dem
+       Symbol über den preDeleteActiveEffect-Hook (hooks.js). */
+    id: "thorncloak",
+    label: "POWER_LABEL.THORN_CLOAK",
+    name: "POWER_LABEL.THORN_CLOAK",
+    icon: "systems/symbaroum/asset/image/powers/thorncloak.svg",
+  },
+  {
+    /* Hymnen-Paket 1.5: Schwächende-Hymne-Missgunst-Marker - liegt auf
+       JEDEM vom Gesang geschwächten Feind (und zu Sichtbarkeit auf dem
+       Sänger), solange der Gesang andauert; die -1-Missgunst-Vorbe-
+       legung des Gunst-Radios lesen item.js (modifierDialog) und
+       dialog.js über getWeakeningHymnFavour (boon.js). */
+    id: "weakeninghymn",
+    label: "POWER_LABEL.WEAKENING_HYMN",
+    name: "POWER_LABEL.WEAKENING_HYMN",
+    icon: "systems/symbaroum/asset/image/powers/weakeninghymn.svg",
   },
   {
     id: "holyaura",
@@ -930,6 +962,13 @@ SYMBAROUM.getCreatureCategory = function (actor) {
    zählt das Ziel als außer Sichtweite; ist die Distanzmessung nicht
    verfügbar (kein Grid/Makro-Kante), greift das SL-Urteil (wirkt). */
 SYMBAROUM.SIGHT_RANGE_UNITS = 50;
+
+/* Hymnen-Paket 1.5 (Dornenmantel): Nahkampfreichweite = 2 m = benach-
+   barte Felder (1 Szenen-Einheit = 2 m, derselbe Maßstab wie oben;
+   Diagonalen nach Szenen-Messmodus). Adept-Stufe webt alle Verbündeten
+   in dieser Distanz in den Mantel, der Rescan prüft sie je Runde, der
+   Meister-Rückschlag misst frisch gegen sie. */
+SYMBAROUM.MELEE_RANGE_UNITS = 2;
 
 SYMBAROUM.isCreatureCategory = function (actor, categoryId) {
 	return !!categoryId && actor?.system?.creatureCategory === categoryId;

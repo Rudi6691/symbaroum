@@ -32,7 +32,7 @@ import { getBoonRollConfig } from "./boon.js";
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
 // Kräfte-/Fähigkeits-Würfeldialog (Typ B + B/G „Zweite Chance“ mit
 // Radio-Exklusivität) — Kanonik und Helfer in boon.js
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty, hasPoisonResilient, hasPoisonManual } from "./boon.js";
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty, hasPoisonResilient, hasPoisonManual, getWeakeningHymnFavour } from "./boon.js";
 // S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026):
 // Hunger/Durst-Missgunst als Radio-VORBELEGUNG + Hunger-Stärke-Malus
 // als Modifikator-Vorbelegung im Fähigkeits-Würfeldialog (Helfer aus
@@ -2210,8 +2210,23 @@ export class SymbaroumItem extends Item {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
     if (lvl.level > 1) {
+      /* Hymnen-Paket 1.5 (Rudolfs Testrunde v1.4, P8 - Root-Cause):
+         Der Hexerei-Reduzierer pruefte die HARTCODIERTE Setup-Liste
+         (traditions.includes(TRAD_WITCHCRAFT)) statt des Traditions-
+         wissen-Felds des Kraft-Items - als EINZIGEM Traditions-
+         Reduzierer war er bei der 1.1/1.2-Umstellung ("Gilt fuer alle
+         Items") uebersprungen worden: Jeder Hexerei-Adept+ bekam die
+         Reduktion auf 1 temporäre Korruption fuer ALLE Hexerei-
+         gescripteten Kraefte, egal was im Kraft-Item stand (Rudolfs
+         Befund: "falsche Tradition eingestellt, trotzdem 1 statt
+         1W4"). Jetzt wie alle uebrigen Reduzierer (Muster getItem-
+         ModifierWizardry): Traditionswissen-Gate (Feld "Traditions-
+         wissen?"=Ja UND Hexerei im Traditionen-Tab des Kraft-Items)
+         plus Stufenabgleich (Rudolfs 1.5-Entscheidung "Mit Stufen-
+         abgleich wie die anderen") - die Reduktion greift nur, wenn
+         die Wirkstufe der Kraft die Hexerei-Stufe nicht uebersteigt. */
       for (let i = 0; i < abilities.length; i++) {
-        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && combatMods.abilities[abilities[i].id].traditions.includes(game.symbaroum.config.TRAD_WITCHCRAFT)) {
+        if (combatMods.abilities[abilities[i].id].type === "mysticalPower" && itemHasTraditionKnowledge(abilities[i], game.symbaroum.config.TRAD_WITCHCRAFT) && (combatMods.abilities[abilities[i].id].powerLvl?.level ?? 1) <= lvl.level) {
           combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
         }
       }
@@ -2571,6 +2586,86 @@ export class SymbaroumItem extends Item {
     base.rollFailedFSmod = {
       finalText: game.i18n.localize("POWER_CURSE.CHAT_FAIL_FINAL"),
     };
+    return base;
+  }
+
+  mysticPowerSetupThorncloak(base) {
+    /* Hymnen-Paket 1.5 (Rudolfs Startsignal 17.11.2026): Dornenmantel
+       (APG, Tradition Hexenwissen/Gruenweber, Vault-Karte). Aktion
+       Aktiv, KEINE Probe (CASTING_NOT, Berserker-Muster), KEIN
+       Maintain-Wurf - die Kraft ist ein Toggle an/aus (flagTest,
+       Tanzende-Waffe-Muster), Korruption 1W4 nur auf die Aktivierung
+       (Deaktivierung frei, flagPresentFSmod TEMPCORRUPTION_NONE).
+       Wirkung als Ruestungs-Item (Bonusgeschuetz-Precedenz create-
+       BlessedShield): +1W4 auf Ruestung, +1W6 solange der Mystiker
+       sich seit dem letzten eigenen Zug nicht bewegt hat (Bewegungs-
+       Hook hooks.js + je-Runde-Abgleich im A29-Rescan, Rudolfs
+       Entscheidungen "automatisches Flag" und "je Runde pruefen");
+       Adept+ schuetzt zusaetzlich alle Verbuendeten in Nahkampf-
+       reichweite (2 m = benachbarte Felder, MELEE_RANGE_UNITS) -
+       der A29-Turnus (Rudolfs Vorschlag) prueft die je-Runde-Naehe
+       im Rescan; Meister-Rueckschlag 1W10 (Ruestung ignoriert)
+       laeuft automatisch als Reaktions-Karte in attackResult (Rudolfs
+       Entscheidung "Ja, automatisch"). Die VerbUndeten-Marker tragen
+       maintained + Autor-Marker (A29-Erinnerung feuert am eigenen
+       Zug, "Ja" = Rescan, "Nein" = Ende). */
+    base.traditions = [game.symbaroum.config.TRAD_WITCHCRAFT];
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.maintain = game.symbaroum.config.MAINTAIN;
+    base.needToken = true;
+    base.flagTest = "thorncloak";
+    base.preDialogFunction = preDialogThornCloakChoice;
+    base.flagPresentFSmod = {
+      introText: game.i18n.localize("POWER_THORN_CLOAK.CHAT_DEACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_THORN_CLOAK.CHAT_RESULT_DEACTIVATE"),
+      corruption: game.symbaroum.config.TEMPCORRUPTION_NONE,
+      removeCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak"))],
+    };
+    base.flagNotPresentFSmod = {
+      /* flagData.thorncloakArmor ist der Ruestungs-Schluessel: Der
+         preDeleteActiveEffect-Hook (hooks.js) loescht mit dem Symbol
+         das Ruestungs-Item; maintained/level reiten als Autor- und
+         Adept-Gate mit (Novize ohne Marker wird im Konzentration-
+         Pfad ueber die Condition erkannt). */
+      flagData: { thorncloakArmor: true, level: base.powerLvl.level },
+      introText: game.i18n.localize("POWER_THORN_CLOAK.CHAT_ACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_THORN_CLOAK.CHAT_RESULT_ACTIVATE"),
+      addCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak"))],
+    };
+    return base;
+  }
+
+  mysticPowerSetupWeakeninghymn(base) {
+    /* Hymnen-Paket 1.5 (Rudolfs Startsignal 17.11.2026): Schwaechende
+       Hymne (APG, Tradition Trollsingen, Vault-Karte). Aktion Frei,
+       muss laut gesungen werden. Erstgesang: opponierte Probe
+       Ausstrahlung<-Willenskraft JE Feind in der Gesangsflaeche
+       (Novize nur verwundete Feinde, Adept+ alle; je Feind ein
+       eigener Wurf, Maintain-Chain-Muster baseRoll), danach wirkt
+       sie WURFLOS "solange der Gesang weitergeht" (A29-"Ja"-Runde
+       still, kein Re-Scan, keine neuen Proben - Rudolfs Entschei-
+       dung: kein automatisches Nachziehen spaeter eintretender
+       Feinde, Neuaufnahme = neuer Erstgesang ueber die SL). Betraf-
+       fene Feinde tragen den Missgunst-Marker (weakeninghymn-Symbol,
+       favourMod -1-Vorbelegung in BEIDEN Wurfdialogen - Rudolfs
+       Systemabbildung fuer "eine zweite Chance, alle Erfolgsproben
+       nicht zu bestehen", dokumentierte Abbildungsentscheidung).
+       Meister-1W4 ("wegen der Hymne nicht bestanden") bleibt SL-
+       Sache (dokumentierte Grenze, Hinweiszeile). Abbruch: andere
+       mystische Kraft (buildRolls-Gate), A29-"Nein", Abbruch-
+       Dialog, Konzentration (1.5). Korruption 1W4 auf den Einsatz
+       (Trollsingen-Reduzierer greift, Traditions-Gate seit 1.2). */
+    base.traditions = [game.symbaroum.config.TRAD_TROLLS];
+    base.casting = game.symbaroum.config.CASTING;
+    base.castingAttributeName = "persuasive";
+    base.targetResistAttribute = "resolute";
+    base.getTarget = true;
+    base.maintain = game.symbaroum.config.MAINTAIN;
+    base.needToken = true;
+    base.introText = game.i18n.localize("POWER_WEAKENING_HYMN.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_WEAKENING_HYMN.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_WEAKENING_HYMN.CHAT_FAILURE");
+    base.preDialogFunction = preDialogWeakeningHymnChoice;
     return base;
   }
 
@@ -3876,6 +3971,18 @@ export async function modifierDialog(functionStuff) {
   if (travelFavour.forced) {
     functionStuff.autoParams += game.i18n.localize(travelFavour.labelKey) + ", ";
   }
+  // Hymnen-Paket 1.5 (Schwaechende Hymne, Rudolfs Entscheidung
+  // "Missgunst-Marker bei Opfer"): Betroffene Feinde bekommen "eine
+  // zweite Chance, alle Erfolgsproben nicht zu bestehen" als
+  // MISSGUNST-VORBELEGUNG des Gunst-Radios (favourMod -1, exakt das
+  // Hunger/Durst-Muster oben), NICHT verriegelt, plus autoParams-
+  // Zeile. Nur bei Wuerfen (hasRoll); Freiform-Makro-Wuerfe bleiben
+  // draussen (gleiche dokumentierte Begrenzung wie Benommen/Epilep-
+  // sie/Hunger).
+  const weakeningHymnFavour = hasRoll ? getWeakeningHymnFavour(functionStuff.actor) : { forced: false, favour: 0, labelKey: null };
+  if (weakeningHymnFavour.forced) {
+    functionStuff.autoParams += game.i18n.localize(weakeningHymnFavour.labelKey) + ", ";
+  }
   const travelStrengthPenalty =
     hasRoll && !functionStuff.askCastingAttribute && functionStuff.castingAttributeName === "strong"
       ? getHungerPenalty(functionStuff.actor)
@@ -4026,7 +4133,7 @@ export async function modifierDialog(functionStuff) {
     d4: d4,
     choices: { 0: game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1": game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), 1: game.i18n.localize("DIALOG.FAVOUR_FAVOUR") },
     groupName: "favour",
-    defaultFavour: travelFavour.forced ? String(travelFavour.favour) : "0",
+    defaultFavour: travelFavour.forced ? String(travelFavour.favour) : weakeningHymnFavour.forced ? String(weakeningHymnFavour.favour) : "0",
     // S4: Hinweiszeile über dem Gunst-Radio (dialog2[-modern].hbs)
     travelFavourHint: travelFavour.forced ? game.i18n.localize(travelFavour.labelKey) : null,
     defaultModifier: functionStuff.modifier,
@@ -4979,6 +5086,15 @@ function getPowerResultFunction(functionStuff) {
           : standardPowerResult;
     case "battlesymbol":
       return functionStuff.isMaintained ? maintainChainResult : battlesymbolChainResult;
+    // Hymnen-Paket 1.5: Schwaechende Hymne (Erstgesang mit je-Feind-
+    // Proben; die A29-Maintain-Runde laeuft still ueber preDialog-
+    // WeakeningHymnChoice und erreicht den Dispatch nie) und Dornen-
+    // mantel (Toggle-Aktivierung/-Deaktivierung ueber den CASTING_NOT-
+    // Pfad von buildRolls und den Deaktivierungs-Dialog).
+    case "weakeninghymn":
+      return functionStuff.isMaintained ? standardPowerResult : weakeningHymnResult;
+    case "thorncloak":
+      return thornCloakResult;
     case "blackbreath":
       return blackbreathChainResult;
     case "trueform":
@@ -5958,7 +6074,7 @@ async function preDialogHymnChoice(functionStuff) {
   }
   const runningRef = hymnActiveForCaster(functionStuff.actor);
   if (runningRef) {
-    const runningLabel = game.i18n.localize(runningRef === "combathymn" ? "POWER_LABEL.COMBAT_HYMN" : "POWER_LABEL.HEROIC_HYMN");
+    const runningLabel = hymnPowerLabel(runningRef);
     symbDialog({
       title: functionStuff.abilityName,
       content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: runningLabel })}</p>`,
@@ -6361,13 +6477,494 @@ async function endActiveHymns(actor, options = {}) {
   if (endedRefs.size > 0 && !options.silent) {
     const casterName = options.casterName ?? actor.name;
     const lines = [...endedRefs].map((ref) => {
-      const powerLabel = game.i18n.localize(ref === "combathymn" ? "POWER_LABEL.COMBAT_HYMN" : "POWER_LABEL.HEROIC_HYMN");
+      const powerLabel = hymnPowerLabel(ref);
       return `<p>${game.i18n.format("POWER_HYMN.CHAT_END_LINE", { actorname: casterName, powername: powerLabel })}</p>`;
     });
     const title = `<h4>${game.i18n.localize("POWER_HYMN.CHAT_END")}</h4>`;
     await postMaintainChainCard({ actor: actor, actingCharName: casterName }, title, lines, []);
   }
   return endedRefs.size > 0;
+}
+
+/* Hymnen-Paket 1.5: Drei-Wege-Kraftname der Gesaenge (combathymn /
+   heroichymn / weakeninghymn) - die binaeren Terrarnaeren der v1.4-
+   Standorte (endActiveHymns, preDialogHymnChoice, a29AbortMaintain-
+   Power) wurden mit der dritten Hymne mehrdeutig. */
+export function hymnPowerLabel(ref) {
+  const labelKey = ref === "combathymn" ? "POWER_LABEL.COMBAT_HYMN" : ref === "heroichymn" ? "POWER_LABEL.HEROIC_HYMN" : "POWER_LABEL.WEAKENING_HYMN";
+  return game.i18n.localize(labelKey);
+}
+
+/* Hymnen-Paket 1.5 - Schwaechende Hymne, Ausfuehrungs-Vorlauf
+   (Muster preDialogHymnChoice): A29-"Ja" (presetMaintain) fuehrt die
+   Gesangsrunde WURFLOS und STILL aus - keine Probe, kein Re-Scan,
+   keine neuen Proben (Rudolfs Entscheidung), die Missgunst-Marker
+   wirken unbefristet weiter. Klick auf die Hymne bei LAUFENDEM
+   Gesang zeigt den Abbruch-Dialog (POWER_HYMN.CONFIRM_ABORT, generi-
+   scher Kraftname des LAUFENDEN Gesangs). Erstgesang: Maintain-Radios
+   aus (keine Maintain-Probe, die Wahl waere wirkungslos - 1.4-
+   Parallele), sonst der volle Wurfeldialog (Casting CASTING, Modifi-
+   kator/Gunst/Segen-Zeilen wie im Fluch-Maintain-Dialog). */
+async function preDialogWeakeningHymnChoice(functionStuff) {
+  if (functionStuff.presetMaintain) return;
+  const runningRef = hymnActiveForCaster(functionStuff.actor);
+  if (runningRef === "weakeninghymn") {
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: hymnPowerLabel(runningRef) })}</p>`,
+      classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: async () => {
+            await postHymnEndCard(
+              { actor: functionStuff.actor, actingCharName: functionStuff.actingCharName, abilityName: hymnPowerLabel(runningRef) },
+              "POWER_HYMN.CHAT_END_ABORTED"
+            );
+            await endActiveHymns(functionStuff.actor, { silent: true });
+          },
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+        },
+      },
+      default: "yes",
+    });
+    return;
+  }
+  functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  await modifierDialog(functionStuff);
+}
+
+/* Feinde der Schwaechenden Hymne im Gesangsbereich (Sichtweiten-
+   Fallback ohne Flaeche, Muster getHymnAffectedTokens mit umgekehrter
+   Disposition): Feinde = Disposition KLEINER als die des Saengers;
+   der Saenger selbst zaehlt nie. Novize (Stufe 1): nur VERWUNDETE
+   Feinde (Zaehigkeit unter Maximum, RAW "jedem verwundeten Feind"),
+   Adept+ alle. */
+function getWeakeningHymnTargets(functionStuff) {
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  if (!casterToken) return [];
+  const casterDisposition = casterToken.document?.disposition ?? 0;
+  const inZone = new Set();
+  if (functionStuff.hymnZone?.regionId) {
+    const region = hymnRegionById(functionStuff.hymnZone.regionId);
+    if (region) {
+      for (const t of hymnRegionTokens(region)) inZone.add(t.id);
+    }
+  }
+  const sightLimit = game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50;
+  const enemies = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor) continue;
+    if ((token.document?.disposition ?? 0) >= casterDisposition) continue;
+    if (functionStuff.hymnZone?.regionId) {
+      if (!inZone.has(token.id)) continue;
+    } else {
+      try {
+        if (canvas.grid.measureDistance(casterToken, token) > sightLimit) continue;
+      } catch (distanceError) {
+        // Messung nicht verfuegbar => Ziel einschliessen, SL-Urteil wirkt
+      }
+    }
+    if (functionStuff.powerLvl.level === 1) {
+      const toughness = token.actor.system?.health?.toughness;
+      if (Number(toughness?.value ?? 0) >= Number(toughness?.max ?? 0)) continue;
+    }
+    enemies.push(token);
+  }
+  return enemies;
+}
+
+/* Hymnen-Paket 1.5 - Ergebnis der Schwaechenden Hymne (nur Erst-
+   gesang): Standard-Karte (markierte Ziel-Probe oder einfacher Wurf
+   ohne Markierung), danach JE Feind aus der Gesangsflaeche eine
+   eigene opponierte Probe Ausstrahlung<-Willenskraft mit denselben
+   Dialog-Werten (Maintain-Chain-Muster: eine Gesangsentscheidung,
+   je Feind ein Wurf, baseRoll). Bestandene Proben setzen den
+   Missgunst-Marker (weakeninghymn-Symbol mit Autor-Marker,
+   maintained - A29-Erinnerung und alle RAEumpfade greifen darueber).
+   Der Saenger selbst traegt das Symbol ebenfalls (Sichtbarkeit,
+   endActiveHymns-Raeumung, hymnResult-Parallele). */
+async function weakeningHymnResult(rollData, functionStuff) {
+  const abilityRef = functionStuff.ability?.reference;
+  const casterEffects = functionStuff.activelyMaintaninedCasterEffect;
+  functionStuff.activelyMaintaninedCasterEffect = [];
+  await standardPowerResult(rollData, functionStuff);
+  functionStuff.activelyMaintaninedCasterEffect = casterEffects;
+  const affectedEnemies = getWeakeningHymnTargets(functionStuff);
+  if (affectedEnemies.length === 0) {
+    cleanupFreshHymnZone(functionStuff);
+    functionStuff.hymnZoneCommitted = true;
+    ui.notifications.warn(game.i18n.localize("POWER_HYMN.NO_TOKENS"));
+    return;
+  }
+  /* Gesangsflaeche am Akteur vermerken (hymnResult-Muster: vorherige
+     Flaeche desselben Refs raeumen, verwaiste Flaechen duerfen nicht
+     stehen bleiben; der Close-Waechter des Dialogs darf sie jetzt
+     nicht mehr anfassen). */
+  if (functionStuff.hymnZone?.regionId) {
+    const previousZone = functionStuff.actor.getFlag(game.system.id, `hymnZone.${abilityRef}`);
+    if (previousZone?.regionId && previousZone.regionId !== functionStuff.hymnZone.regionId) {
+      const previousRegion = hymnRegionById(previousZone.regionId);
+      if (previousRegion) await previousRegion.delete();
+    }
+    await functionStuff.actor.setFlag(game.system.id, `hymnZone.${abilityRef}`, functionStuff.hymnZone);
+    functionStuff.hymnZoneCommitted = true;
+  }
+  const flagDataArray = [];
+  const rolls = [];
+  const lines = [];
+  if (functionStuff.tokenId) {
+    flagDataArray.push({
+      tokenId: functionStuff.tokenId,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+      effectDuration: 1,
+      maintained: true,
+      casterId: functionStuff.actor.id,
+      abilityRef: abilityRef,
+      casterName: functionStuff.actingCharName,
+    });
+  }
+  const markedTokenId = functionStuff.targetData?.hasTarget ? functionStuff.targetData.tokenId : null;
+  let weakenedCount = 0;
+  for (const token of affectedEnemies) {
+    let succeeded = false;
+    const markedProbe = token.id === markedTokenId && rollData?.[0]?.trueActorSucceeded !== undefined;
+    if (markedProbe) {
+      succeeded = rollData[0].trueActorSucceeded !== false;
+    } else {
+      const probe = await baseRoll(
+        functionStuff.actor,
+        functionStuff.castingAttributeName,
+        token.actor,
+        functionStuff.targetResistAttribute,
+        functionStuff.favour,
+        functionStuff.modifier,
+        false
+      );
+      rolls.push(...(probe.rolls ?? []));
+      succeeded = probe.trueActorSucceeded;
+    }
+    if (succeeded) {
+      weakenedCount++;
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+        effectDuration: 1,
+        maintained: true,
+        casterId: functionStuff.actor.id,
+        abilityRef: abilityRef,
+        casterName: functionStuff.actingCharName,
+      });
+      lines.push(`<p>${game.i18n.format("POWER_WEAKENING_HYMN.WEAKENED_LINE", { targetname: token.name })}</p>`);
+    } else {
+      lines.push(`<p>${game.i18n.format("POWER_WEAKENING_HYMN.RESIST_LINE", { targetname: token.name })}</p>`);
+    }
+  }
+  if (functionStuff.powerLvl.level > 2 && weakenedCount > 0) {
+    lines.push(`<p>${game.i18n.localize("POWER_WEAKENING_HYMN.MASTER_HINT")}</p>`);
+  }
+  const title = `<h4>${game.i18n.format("POWER_HYMN.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+  await postMaintainChainCard(functionStuff, title, lines, rolls);
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* Hymnen-Paket 1.5 - Dornenmantel, Ausfuehrungs-Vorlauf: A29-"Ja"
+   (presetMaintain) = Re-Scan (Naehe-Pruefung + Bewegungs-Abgleich +
+   Nachzieher), Klick auf das aktive Toggle = Deaktivierungs-Dialog
+   (Berserker-/Tanzende-Waffe-Muster: der flagTest-Zweig in actor.js
+   usePower wuerde identisch arbeiten, wird aber vom preDialog-
+   Function umgangen - hier identisch nachgebaut, Ja wendet die
+   flagPresent-Abwicklung direkt an: kein Wurf, keine Korruption),
+   Erstaktivierung = schmaler formloser Dialog (CASTING_NOT, ohne
+   Maintain-Radios - 1.4-Parallele). */
+async function preDialogThornCloakChoice(functionStuff) {
+  if (functionStuff.presetMaintain) {
+    await thornCloakRescan(functionStuff);
+    return;
+  }
+  const toggleActive = Boolean(
+    functionStuff.actor.hasCondition(functionStuff.flagTest) || functionStuff.actor.getFlag(game.system.id, functionStuff.flagTest)
+  );
+  if (toggleActive) {
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<p>${game.i18n.format("DIALOG.CONFIRM_DEACTIVATE", { ability: functionStuff.abilityName })}</p>`,
+      classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: async () => {
+            await thornCloakResult(null, functionStuff);
+          },
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+        },
+      },
+      default: "yes",
+    });
+    return;
+  }
+  functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+  await modifierDialog(functionStuff);
+}
+
+/* Verbuendete in Nahkampfreichweite des Mystikers (2 m = benachbarte
+   Felder, MELEE_RANGE_UNITS; Disposition relativ zum Mystiker, Muster
+   getHymnAffectedTokens - der Mystiker selbst nie). */
+function thornCloakAlliesInRange(functionStuff, casterToken, meleeRange) {
+  const casterDisposition = casterToken.document?.disposition ?? 0;
+  const allies = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor || token.id === casterToken.id) continue;
+    if ((token.document?.disposition ?? 0) < casterDisposition) continue;
+    try {
+      if (canvas.grid.measureDistance(casterToken, token) > meleeRange) continue;
+    } catch (distanceError) {
+      continue;
+    }
+    const alreadyWoven = token.actor.effects.some((effect) => {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      return fd?.caster === functionStuff.actor.id && fd?.ability === "thorncloak";
+    });
+    if (alreadyWoven) continue;
+    allies.push(token);
+  }
+  return allies;
+}
+
+/* Dornenmantel-Ruestungs-Item am Akteur auf die aktuelle Bonus-Stufe
+   stellen (Bewegungs-Hook und Rescan teilen diesen Helfer). */
+async function thornCloakSetArmorDice(actor, dice) {
+  for (const item of actor.items) {
+    if (item.getFlag(game.system.id, "thorncloakarmor") && item.system?.bonusProtection !== dice) {
+      await item.update({ "system.bonusProtection": dice });
+    }
+  }
+}
+
+/* Raeumt alle Dornenmantel-VerbUndeten-Marker eines Mystikers ueber
+   die GM-Anwenden-Karte (ihre Ruestungs-Items folgen dem Symbol ueber
+   den preDeleteActiveEffect-Hook in hooks.js). */
+async function endThornCloakAllies(functionStuff, options = {}) {
+  const casterId = functionStuff.actor.id;
+  const flagDataArray = [];
+  const lines = [];
+  const seen = new Set();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const tokenActor = token.actor;
+    if (!tokenActor?.effects) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster !== casterId || fd?.ability !== "thorncloak") continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = token.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+      lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ALLY_END_LINE", { targetname: token.name })}</p>`);
+    }
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  if (lines.length > 0 && !options.silent) {
+    const title = `<h4>${game.i18n.format("POWER_THORN_CLOAK.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, []);
+  }
+}
+
+/* Hymnen-Paket 1.5 - Dornenmantel-Ergebnis: Aktivierung (Ruestungs-
+   Item am Mystiker +1W6 Startstufe, Adept+ Verbuendete in Nahkampf-
+   reichweite mit Marker +1W4) und Deaktivierung (VerbUndeten-Marker
+   ueber die Karte, Caster-Symbol/Ruestung ueber den Standard-Pfad +
+   Hook). */
+async function thornCloakResult(rollData, functionStuff) {
+  const wasActive = Boolean(
+    functionStuff.actor.hasCondition(functionStuff.flagTest) || functionStuff.actor.getFlag(game.system.id, functionStuff.flagTest)
+  );
+  await standardPowerResult(rollData ?? null, functionStuff);
+  if (wasActive) {
+    await endThornCloakAllies(functionStuff);
+    await functionStuff.actor.unsetFlag(game.system.id, "thornCloakMoved");
+    return;
+  }
+  const meleeRange = game.symbaroum.config.MELEE_RANGE_UNITS ?? 2;
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  const flagDataArray = [];
+  const lines = [];
+  if (functionStuff.tokenId) {
+    flagDataArray.push({
+      tokenId: functionStuff.tokenId,
+      actorId: functionStuff.actor.id,
+      addObject: "thorncloakarmor",
+      protection: "1d6",
+    });
+    lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ARMOR_LINE", { targetname: functionStuff.actingCharName, dice: "1d6" })}</p>`);
+  }
+  if (functionStuff.powerLvl.level > 1 && casterToken) {
+    for (const token of thornCloakAlliesInRange(functionStuff, casterToken, meleeRange)) {
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
+        effectDuration: 1,
+        maintained: true,
+        thorncloakArmor: true,
+        casterId: functionStuff.actor.id,
+        abilityRef: "thorncloak",
+        casterName: functionStuff.actingCharName,
+      });
+      flagDataArray.push({
+        tokenId: token.id,
+        actorId: token.actor.id,
+        addObject: "thorncloakarmor",
+        protection: "1d4",
+      });
+      lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ALLY_LINE", { targetname: token.name })}</p>`);
+    }
+  }
+  if (functionStuff.powerLvl.level > 2) {
+    lines.push(`<p>${game.i18n.localize("POWER_THORN_CLOAK.MASTER_HINT")}</p>`);
+  }
+  const title = `<h4>${game.i18n.format("POWER_THORN_CLOAK.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+  await postMaintainChainCard(functionStuff, title, lines, []);
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  await functionStuff.actor.unsetFlag(game.system.id, "thornCloakMoved");
+}
+
+/* A29-Rescan des Dornenmantels (Rudolfs Entscheidung: je eigene Runde
+   ueber die A29-Erinnerung, keine Echtzeit-Reaktion auf Bewegung -
+   dokumentierte Grenze, Hymnen-Parallele): Bewegungs-Abgleich des
+   Mystikers (+1W6 ohne Bewegung seit dem letzten eigenen Zug, sonst
+   +1W4, danach Flag neu), Naehe-Pruefung der geschuetzten Verbuende-
+   ten (2 m = Nachbarfelder; Hinausbewegte verlieren Marker und
+   Ruestung, Hinzugezogene ab Adept erhalten beides automatisch). */
+async function thornCloakRescan(functionStuff) {
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  if (!casterToken) return;
+  const meleeRange = game.symbaroum.config.MELEE_RANGE_UNITS ?? 2;
+  const carrying = new Map();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor?.effects) continue;
+    for (const effect of token.actor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === functionStuff.actor.id && fd?.ability === "thorncloak") {
+        carrying.set(token.id, { token, effect, fd });
+        break;
+      }
+    }
+  }
+  const moved = functionStuff.actor.getFlag(game.system.id, "thornCloakMoved") === true;
+  await thornCloakSetArmorDice(functionStuff.actor, moved ? "1d4" : "1d6");
+  const flagDataArray = [];
+  const lines = [];
+  if (functionStuff.powerLvl.level > 1) {
+    for (const entry of carrying.values()) {
+      if (entry.token.id === casterToken.id) continue;
+      let inRange = true;
+      try {
+        inRange = canvas.grid.measureDistance(casterToken, entry.token) <= meleeRange;
+      } catch (distanceError) {
+        inRange = true;
+      }
+      if (!inRange) {
+        const statusId = entry.effect.statuses?.size ? [...entry.effect.statuses][0] : null;
+        if (!statusId) continue;
+        flagDataArray.push({ tokenId: entry.token.id, removeEffect: statusId });
+        lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ZONE_LEFT", { targetname: entry.token.name })}</p>`);
+      }
+    }
+    for (const token of thornCloakAlliesInRange(functionStuff, casterToken, meleeRange)) {
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
+        effectDuration: 1,
+        maintained: true,
+        thorncloakArmor: true,
+        casterId: functionStuff.actor.id,
+        abilityRef: "thorncloak",
+        casterName: functionStuff.actingCharName,
+      });
+      flagDataArray.push({
+        tokenId: token.id,
+        actorId: token.actor.id,
+        addObject: "thorncloakarmor",
+        protection: "1d4",
+      });
+      lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ZONE_JOINED", { targetname: token.name })}</p>`);
+    }
+  }
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.format("POWER_THORN_CLOAK.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, []);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  await functionStuff.actor.unsetFlag(game.system.id, "thornCloakMoved");
+}
+
+/* Hymnen-Paket 1.5 (Dornenmantel-Meister, Rudolfs Entscheidung
+   "automatisch"): Jeder erfolgreiche Nahkampftreffer gegen den
+   Mystiker oder einen geschuetzten Verbuendeten loest die Rueck-
+   schlags-Karte aus - 1W10 Schaden, Ruestung ignoriert (direkte
+   Zaehigkeits-Buchung ueber die GM-Anwenden-Karte), FRISCHE Distanz-
+   messung zum Dornenmantel-Mystiker (die je-Runde-Tracking-Grenze
+   faengt hier keinen rausgewanderten Verbuendeten ab). Aufgerufen am
+   Ende von attackResult (EC- und klassischer Pfad). */
+async function thornCloakRetaliation(functionStuff, damageTot, rollData) {
+  try {
+    if (damageTot <= 0) return;
+    if (!functionStuff.weapon?.system?.isMelee || functionStuff.isAlternativeDamage || functionStuff.resistRoll) return;
+    if (!rollData.some((r) => r.trueActorSucceeded)) return;
+    const defenderToken = functionStuff.targetData?.token;
+    const defenderActor = functionStuff.targetData?.actor;
+    if (!defenderToken || !defenderActor) return;
+    if (!defenderActor.items.some((i) => i.getFlag(game.system.id, "thorncloakarmor"))) return;
+    /* Schutz-Ursprung: Caster-Aktor aus dem Dornenmantel-Marker (am
+       Mystiker selbst traegt die flagTest-Condition den Marker). */
+    let casterActor = defenderActor;
+    const marker = defenderActor.effects.find((e) => {
+      const fd = e.getFlag(game.system.id, "flagData");
+      return e.statuses?.has?.("thorncloak") && fd?.caster;
+    });
+    if (marker) {
+      const fd = marker.getFlag(game.system.id, "flagData");
+      casterActor = game.actors.get(fd.caster) ?? canvas.tokens?.placeables?.find((t) => t.actor?.id === fd.caster)?.actor ?? defenderActor;
+    }
+    const cloakItem = casterActor.items.find((it) => it.system?.reference === "thorncloak");
+    if (!cloakItem || (cloakItem.getLevel?.()?.level ?? 0) < 3) return;
+    /* Frische Distanz: Verbuendete nur in Nahkampfreichweite des
+       Mystikers; bei fehlender Messung wirkt der Schutz (SL-Urteil). */
+    if (casterActor !== defenderActor) {
+      const casterToken = canvas.tokens?.placeables?.find((t) => t.actor?.id === casterActor.id);
+      if (casterToken) {
+        try {
+          if (canvas.grid.measureDistance(casterToken, defenderToken) > (game.symbaroum.config.MELEE_RANGE_UNITS ?? 2)) return;
+        } catch (distanceError) {
+          // Messung nicht verfuegbar => Schutz wirkt, SL-Urteil
+        }
+      }
+    }
+    const retaliationRoll = await new Roll("1d10").evaluate();
+    await createModifyTokenChatButton([{ tokenId: functionStuff.tokenId, actorId: functionStuff.actor.id, toughnessChange: -1 * retaliationRoll.total }]);
+    const title = `<h4>${game.i18n.localize("POWER_THORN_CLOAK.RETALIATION_TITLE")}</h4>`;
+    const line = `<p>${game.i18n.format("POWER_THORN_CLOAK.RETALIATION_LINE", { targetname: functionStuff.actingCharName, count: retaliationRoll.total })}</p>`;
+    await postMaintainChainCard({ actor: casterActor, actingCharName: casterActor.name }, title, [line], [retaliationRoll]);
+  } catch (retaliationError) {
+    game.symbaroum.log("Hymnen 1.5: Dornenmantel-Rueckschlag", retaliationError);
+  }
 }
 
 /* SL-Reset-Karte für die 1×/Szene-Verwaltung (dokumentierte Szenen-
@@ -9336,6 +9933,11 @@ async function attackResult(rollData, functionStuff) {
       }
     }
   }
+  /* Hymnen-Paket 1.5: Dornenmantel-Meister-Rueckschlag (siehe
+     thornCloakRetaliation) - nach der Angriffs-Karte, nur bei
+     erfolgreichem Nahkampftreffer mit Schaden auf einen geschuetzten
+     Akteur. */
+  await thornCloakRetaliation(functionStuff, damageTot, rollData);
   return templateData;
 }
 

@@ -8,7 +8,7 @@ import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.j
 // S3 (07.11.2026): getDeathTestFavour sperrt das Gunst-Radio des
 // Todesprobe-Dialogs bei Zäh/Kränklich (Zwangswert), getEpilepsyPenalty
 // vorbelegt den Modifikator in der Anfalls-Erschöpfungsphase (−1).
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty, hasPoisonManual } from './boon.js';
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty, hasPoisonManual, getWeakeningHymnFavour } from './boon.js';
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
@@ -166,6 +166,14 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   const travelFavour = getTravelTestFavour(actor);
   if(travelFavour.forced) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(travelFavour.labelKey) + ', ';
+  }
+  // Hymnen-Paket 1.5 (Schwaechende Hymne): Missgunst-Vorbelegung des
+  // Gunst-Radios fuer vom Gesang geschwaechte Feinde (Hunger/Durst-
+  // Muster, nicht verriegelt) - Helfer in boon.js, Erkennung ueber
+  // den weakeninghymn-Status auf den Actor-Effekten.
+  const weakeningHymnFavour = getWeakeningHymnFavour(actor);
+  if(weakeningHymnFavour.forced) {
+    ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(weakeningHymnFavour.labelKey) + ', ';
   }
   // Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Stärke-Malus
   // scheiternder Hunger-Proben ist ab jetzt IM STÄRKE-GESAMTWERT
@@ -473,7 +481,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
     "groupName":"favour",
     "attri_mods" : attri_mods,
-    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 || travelFavour.forced
+    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 || travelFavour.forced || weakeningHymnFavour.forced
       ? { ...attri_defaults,
           // Hunger-Paket v1: travelStrengthPenalty wirkt NICHT mehr über
           // die roll_defaults (im Gesamtwert gebacken, s. Kommentar oben) —
@@ -482,7 +490,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           ...(((elixirDazedPenalty + epilepsyPenalty) > 0)
             ? { modifier: (Number(attri_defaults.modifier) || 0) - elixirDazedPenalty - epilepsyPenalty }
             : {}),
-          ...(travelFavour.forced ? { selectedFavour: String(travelFavour.favour) } : {}) }
+          ...(travelFavour.forced ? { selectedFavour: String(travelFavour.favour) } : {}),
+          // Hymnen-Paket 1.5: Schwächende Hymne - Missgunst vorauswählen
+          ...(weakeningHymnFavour.forced ? { selectedFavour: String(weakeningHymnFavour.favour) } : {}) }
       : attri_defaults,
     // S4: Hinweiszeile über dem Gunst-Radio (4 Templates, Muster
     // dialog-deathtest.hbs deathMod-Zeile) — bereits lokalisierter Text

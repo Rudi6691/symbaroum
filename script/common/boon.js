@@ -1171,6 +1171,21 @@ export function getEpilepsyPenalty(actor) {
   return actor?.hasCondition?.('epilepsy') ? 1 : 0;
 }
 
+// Hymnen-Paket 1.5 (Schwaechende Hymne, Rudolfs Entscheidung
+// „Missgunst-Marker bei Opfer“): Ein vom Gesang betroffener Feind
+// bekommt „eine zweite Chance, alle Erfolgsproben nicht zu bestehen“
+// als MISSGUNST-VORBELEGUNG des Gunst-Radios (favourMod -1) in BEIDEN
+// Wurfdialogen (item.js modifierDialog + dialog.js Eigenschaftswurf)
+// - exakt das Hunger/Durst-Muster getTravelTestFavour (Vorauswahl,
+// NICHT verriegelt), mit autoParams-Hinweiszeile. Erkennung ueber den
+// weakeninghymn-Status auf einem der Actor-Effekte (das Symbol sitzt
+// auf JEDEM geschwaechten Feind, nicht nur am markierten Ziel).
+export function getWeakeningHymnFavour(actor) {
+  if (!actor) return { favour: 0, forced: false, labelKey: null };
+  const weakened = actor.effects?.some((effect) => effect.statuses?.has?.('weakeninghymn'));
+  return weakened ? { favour: -1, forced: true, labelKey: 'POWER_WEAKENING_HYMN.AUTOPARAM' } : { favour: 0, forced: false, labelKey: null };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Gift v1 (Rudolfs Freigabe 08.11.2026): Giftresistent & Handbuch    */
 /* ------------------------------------------------------------------ */

@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -921,15 +921,29 @@ Hooks.on('changeSidebarTabA', (app) => {
 Hooks.on('preDeleteActiveEffect', (ae) => {
 	game.symbaroum.log('preDeleteActiveEffect', ae);
 	let holyShield = false;
+	/* Hymnen-Paket 1.5 (Dornenmantel): Spiegel des holyShield-Blocks -
+	   mit dem Thorncloak-Symbol endet auch das Rüstungs-Item (1.5-
+	   Aktivierung, A29-Nein, Konzentration, Abbruch-Dialog, manuelle
+	   Symbol-Entfernung; alle Räumpfade laufen über deleteCondition).
+	   Gleiche Version-Weiche wie beim holyShield-Vorbild. */
+	let thornCloak = false;
 	if (foundry.utils.isNewerVersion('11', game.version)) {
 		holyShield = ae.getFlag('core', 'statusId') == 'holyShield';
+		thornCloak = ae.getFlag('core', 'statusId') == 'thorncloak';
 	} else {
 		holyShield = ae.statuses.find((e) => e == 'holyShield');
+		thornCloak = ae.statuses.find((e) => e == 'thorncloak');
 	}
 	let actor = ae.parent;
 	if (actor) {
 		if (holyShield) {
 			const ids = actor.items.filter((i) => i.getFlag(game.system.id, 'blessedshield')).map((i) => i.id);
+			if (ids.length > 0) {
+				actor.deleteEmbeddedDocuments('Item', ids);
+			}
+		}
+		if (thornCloak) {
+			const ids = actor.items.filter((i) => i.getFlag(game.system.id, 'thorncloakarmor')).map((i) => i.id);
 			if (ids.length > 0) {
 				actor.deleteEmbeddedDocuments('Item', ids);
 			}
@@ -1475,7 +1489,23 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 	if (game.symbaroum.config.HYMN_REFERENCES.includes(abilityRef)) {
 		await removeHymnZoneRegions(actor.id, [abilityRef]);
 		await actor.unsetFlag(game.system.id, `hymnZone.${abilityRef}`);
-		const powerLabel = game.i18n.localize(abilityRef === 'combathymn' ? 'POWER_LABEL.COMBAT_HYMN' : 'POWER_LABEL.HEROIC_HYMN');
+		const powerLabel = hymnPowerLabel(abilityRef);
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('POWER_HYMN.CHAT_END')}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+		});
+	}
+	/* Hymnen-Paket 1.5 (Dornenmantel): A29-"Nein" und "Alle beenden"
+	   räumen auch das Toggle ab - das Caster-Symbol (die Verbündeten-
+	   Marker lief der generische Schleifen-Löscher oben schon ab),
+	   das Bewegungs-Flag und die Ende-Karte (derselbe Kartensatz wie
+	   die Hymnen; die Rüstungs-Items folgen den Symbolen über den
+	   preDeleteActiveEffect-Hook). */
+	if (abilityRef === 'thorncloak') {
+		await actor.removeCondition('thorncloak');
+		await actor.unsetFlag(game.system.id, 'thornCloakMoved');
+		const powerLabel = game.i18n.localize('POWER_LABEL.THORN_CLOAK');
 		await ChatMessage.create({
 			user: game.user.id,
 			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
@@ -1483,6 +1513,96 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 		});
 	}
 }
+
+/* Hymnen-Paket 1.5 (Konzentration, GRW Vault-Karte "Konzentration",
+   Rudolfs Startsignal 17.11.2026): Halbautomatik für ALLE andauernden
+   Kräfte, generisch. Auto-Erkennung im preUpdateActor: Sinkt die
+   Zähigkeit (Zähigkeitsverlust = Schaden nach Rüstung), postet der
+   AKTIVE GM-Client JE TREFFER (kein Debounce) eine geflüsterte SL-
+   Karte mit je andauernder Kraft einem Probe-Button (W20 <= Willens-
+   kraft - Schaden) plus "Alle beenden"-Button; EINE verfehlte Probe
+   beendet ALLE andauernden Effekte (Rudolfs Entscheidung). Hymnen-
+   Flächen und Dornenmantel-Rüstungen räumt der a29AbortMaintainPower-
+   Pfad mit ab. Willenskraft-Schaden als Hymnen-Abbruchgrund ist damit
+   SL-seitig automatisiert (die v1.4-Grenze entfällt an dieser Stelle). */
+Hooks.on('preUpdateActor', (actor, change) => {
+	try {
+		if (!game.user.isActiveGM) return;
+		if (change?.system?.health?.toughness?.value === undefined) return;
+		const oldValue = Number(actor.system?.health?.toughness?.value ?? 0);
+		const newValue = Number(change.system.health.toughness.value ?? 0);
+		const damage = oldValue - newValue;
+		if (!(damage > 0)) return;
+		postConcentrationCard(actor, damage);
+	} catch (concentrationError) {
+		game.symbaroum.log('Hymnen 1.5: Konzentrationserkennung', concentrationError);
+	}
+});
+
+async function postConcentrationCard(actor, damage) {
+	const groups = a29ScanMaintainedPowers(actor);
+	/* Dornenmantel-Fallback: Ein Novize trägt KEINE Verbündeten-Marker,
+	   nur die eigene Condition ohne Maintained-Group (Adept+-Marker
+	   findet der Scan oben) - die Kraft ist trotzdem andauernd. */
+	if (!groups.has('thorncloak') && actor.hasCondition('thorncloak')) {
+		groups.set('thorncloak', { abilityRef: 'thorncloak', targets: 1 });
+	}
+	if (groups.size === 0) return;
+	const resolute = getAttributeValue(actor, 'resolute');
+	const target = Math.max(1, resolute - damage);
+	const buttonHtml = [];
+	for (const group of groups.values()) {
+		const abilityItem = a29FindAbilityItem(actor, group.abilityRef);
+		const label = game.symbaroum.htmlEscape(abilityItem?.name ?? group.abilityRef);
+		buttonHtml.push(`<button class="conc-probe" data-ref="${group.abilityRef}"><i class="fas fa-dice-d20"></i> ${game.i18n.format('CONCENTRATION.BUTTON_PROBE', { powername: label })}</button>`);
+	}
+	buttonHtml.push(`<button class="conc-probe" data-mode="end"><i class="fas fa-times"></i> ${game.i18n.localize('CONCENTRATION.BUTTON_END_ALL')}</button>`);
+	const content = `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('CONCENTRATION.CARD_TITLE')}</h4><div class="finalTxt"><p>${game.i18n.format('CONCENTRATION.CARD_LINE', { actorname: actor.name, count: damage })}</p><p>${game.i18n.format('CONCENTRATION.CARD_TARGET', { resolute: resolute, damage: damage, target: target })}</p></div><div class="finalTxt">${buttonHtml.join(' ')}</div></div></div>`;
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+		whisper: ChatMessage.getWhisperRecipients('GM'),
+		content: content,
+		[`flags.${game.system.id}.concentrationCard`]: { actorId: actor.id, damage: damage, refs: [...groups.keys()] },
+	});
+}
+
+/* Rudolfs Entscheidung "eine verfehlte Probe beendet ALLE": Abräumen
+   über den etablierten A29-Abbruch-Pfad (Symbole, Caster-Effekte,
+   Hymnen-Flächen/Flags, Dornenmantel-Rüstungs-Items über den
+   preDeleteActiveEffect-Hook, Ende-Karten je Kraft). */
+async function endAllMaintainedPowers(actor) {
+	const groups = a29ScanMaintainedPowers(actor);
+	if (!groups.has('thorncloak') && actor.hasCondition('thorncloak')) {
+		groups.set('thorncloak', { abilityRef: 'thorncloak', targets: 1 });
+	}
+	for (const group of groups.values()) {
+		await a29AbortMaintainPower(actor, group.abilityRef);
+	}
+}
+
+/* Hymnen-Paket 1.5 (Dornenmantel, Rudolfs Entscheidungen "automati-
+   sches Flag" und "Bewegungs-Hook stuft sofort ab"): Bewegt sich ein
+   Dornenmantel-Träger, setzt das thornCloakMoved-Flag und stuft dessen
+   Rüstungs-Items sofort auf +1W4 ab; der A29-Rescan liest das Flag je
+   eigene Runde (+1W6 nur ohne Bewegung seit dem letzten eigenen Zug)
+   und stellt es danach neu. Feuer-tolerant (jeder Client). */
+Hooks.on('updateToken', async (tokenDoc, change) => {
+	try {
+		if (change?.x === undefined && change?.y === undefined) return;
+		const actor = tokenDoc?.actor;
+		if (!actor || !actor.hasCondition('thorncloak')) return;
+		if (!(game.user.isGM || actor.isOwner)) return;
+		await actor.setFlag(game.system.id, 'thornCloakMoved', true);
+		for (const item of actor.items) {
+			if (item.getFlag(game.system.id, 'thorncloakarmor') && item.system?.bonusProtection !== '1d4') {
+				await item.update({ 'system.bonusProtection': '1d4' });
+			}
+		}
+	} catch (thornMoveError) {
+		game.symbaroum.log('Hymnen 1.5: Dornenmantel-Bewegungsabgleich', thornMoveError);
+	}
+});
 
 /* K3: one small dialog per power (NO chat card) */
 function a29ShowReminderDialog(actor, abilityRef, targetCount) {
@@ -1788,6 +1908,14 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							if (flagData.attackerFavour === true) {
 								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { attackerFavour: true });
 							}
+							// Hymnen-Paket 1.5 (Dornenmantel): Der Verbündeten-Marker
+							// reitet sein Rüstungs-Schlüsselwort wie turnEnd/maintained/
+							// attackerFavour mit (ohne diese Durchreiche landet das
+							// Feld NICHT im Effekt-Flag, Rescan und Räumung würden den
+							// Ursprung dann nicht mehr erkennen).
+							if (flagData.thorncloakArmor === true) {
+								conditionData = foundry.utils.mergeObject(conditionData ?? {}, { thorncloakArmor: true });
+							}
 							// Elixier-Automatisierung v1: generischer conditionData-
 							// Block - Wurf-/Selbst-Elixiere reiten ihre Zusatzdaten
 							// (durationRounds fuer den A28-Rundenlauf, dazedPenalty
@@ -1954,6 +2082,12 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 					if (flagData.addObject == 'blessedshield') {
 						await createBlessedShield(actor, flagData.protection);
 					}
+					// Hymnen-Paket 1.5 (Dornenmantel): Rüstungs-Item des
+					// Dornenmantels (createBlessedShield-Precedenz, 1W6 am
+					// Mystiker ohne Bewegung, 1W4 bei Bewegung/Verbündete)
+					if (flagData.addObject == 'thorncloakarmor') {
+						await createThornCloakArmor(actor, flagData.protection);
+					}
 				}
 				await chatItem.unsetFlag(game.system.id, 'applyEffects');
 				await chatItem.delete();
@@ -2037,6 +2171,51 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 				await chatItem.unsetFlag(game.system.id, 'trollSceneReset');
 				await chatItem.delete();
 				return;
+			});
+		}
+	}
+	/* Hymnen-Paket 1.5: Konzentrations-Karte (geflüstert an die SL,
+	   Erzeugung im preUpdateActor-Hook) - Probe-Button je andauernder
+	   Kraft, "Alle beenden"-Button; EINE verfehlte Probe beendet ALLE
+	   andauernden Effekte (Rudolfs Entscheidung). */
+	const concentrationCard = await chatItem.getFlag(game.system.id, 'concentrationCard');
+	if (concentrationCard) {
+		const listenArea = html.querySelectorAll('.conc-probe');
+		for (const s of listenArea) {
+			s.addEventListener('click', async () => {
+				if (!game.user.isGM) {
+					ui.notifications.warn(game.i18n.localize('ERROR.GM_ONLY'));
+					return;
+				}
+				const actor = game.actors.get(concentrationCard.actorId) ?? canvas.tokens?.objects?.children?.find((t) => t.actor?.id === concentrationCard.actorId)?.actor;
+				if (!actor) {
+						return;
+				}
+				if (s.dataset.mode === 'end') {
+					await endAllMaintainedPowers(actor);
+					await ChatMessage.create({
+						user: game.user.id,
+						speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+						content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format('CONCENTRATION.ENDED_ALL', { actorname: actor.name })}</p></div></div></div>`,
+					});
+					await chatItem.delete();
+					return;
+				}
+				const abilityItem = a29FindAbilityItem(actor, s.dataset.ref);
+				const label = game.symbaroum.htmlEscape(abilityItem?.name ?? s.dataset.ref);
+				const target = Math.max(1, getAttributeValue(actor, 'resolute') - concentrationCard.damage);
+				const probe = await new Roll('1d20').evaluate();
+				const success = probe.total <= target;
+				await ChatMessage.create({
+					user: game.user.id,
+					speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+					rolls: [createRollData([probe])],
+					content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${success ? game.i18n.format('CONCENTRATION.PROBE_SUCCESS', { actorname: actor.name, total: probe.total, target: target }) : game.i18n.format('CONCENTRATION.PROBE_FAIL', { actorname: actor.name, total: probe.total, target: target })}</p></div></div></div>`,
+				});
+				if (!success) {
+					await endAllMaintainedPowers(actor);
+					await chatItem.delete();
+				}
 			});
 		}
 	}
@@ -2171,6 +2350,26 @@ async function createBlessedShield(actor, protection = '1d4') {
 	blessedShield.flags = {};
 	blessedShield.flags[game.system.id] = { blessedshield: true };
 	await Item.create(blessedShield, { parent: actor }, { renderSheet: false });
+}
+
+/* Hymnen-Paket 1.5 (Dornenmantel): Rüstungs-Item des Dornenmantels
+   (Bonusgeschütz-Precedenz): bonusProtection 1W6 (Mystiker, unbewegt)
+   bzw. 1W4 (Verbündete / nach Bewegung), Basis 0, aktiv; das Flag
+   thorncloakarmor identifiziert das Item für Bewegungs-Abgleich
+   (updateToken), A29-Rescan, Meister-Rückschlag-Erkennung und die
+   Symbol-Löschung (preDeleteActiveEffect-Hook, Spiegel oben). */
+async function createThornCloakArmor(actor, protection = '1d4') {
+	let thornCloakArmor = {};
+	thornCloakArmor.system = foundry.utils.deepClone(game.model.Item.armor);
+	thornCloakArmor.name = game.i18n.localize('POWER_LABEL.THORN_CLOAK');
+	thornCloakArmor.type = 'armor';
+	thornCloakArmor.img = 'systems/symbaroum/asset/image/powers/thorncloak.svg';
+	thornCloakArmor.system.baseProtection = '0';
+	thornCloakArmor.system.bonusProtection = protection;
+	thornCloakArmor.system.state = 'active';
+	thornCloakArmor.flags = {};
+	thornCloakArmor.flags[game.system.id] = { thorncloakarmor: true };
+	await Item.create(thornCloakArmor, { parent: actor }, { renderSheet: false });
 }
 
 async function showReleaseNotes(originalVersion) {
