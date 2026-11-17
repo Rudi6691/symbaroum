@@ -2049,6 +2049,28 @@ export class SymbaroumItem extends Item {
     combatMods.traditions.push(base);
   }
 
+  getItemModifierTrollsinging(combatMods, armors, weapons, abilities) {
+    /* Hymnen-Paket v1 (Rudolfs Kalibrierung 16.11.2026): Trollgesang-Kräfte
+       kosten nur 1 Punkt temporäre Korruption statt 1W4, wenn die Fähigkeit
+       Trollsingen mindestens auf der Stufe steht, auf der die jeweilige Kraft
+       gewirkt wird (A16-Symbolisten-Muster auf Trollsingen übertragen).
+       Betroffen sind alle gescripteten Kräfte der Tradition Trollgesang,
+       also neben den Hymnen auch die Tanzende Waffe. */
+    let lvl = this.getLevel();
+    if (lvl.level == 0) return;
+    for (let i = 0; i < abilities.length; i++) {
+      const entry = combatMods.abilities[abilities[i].id];
+      if (entry?.type === "mysticalPower" && entry?.traditions?.includes(game.symbaroum.config.TRAD_TROLLS) && (entry?.powerLvl?.level ?? 1) <= lvl.level) {
+        combatMods.abilities[abilities[i].id].corruption = game.symbaroum.config.TEMPCORRUPTION_ONE;
+      }
+    }
+    let base = this._getBaseFormat();
+    base.value = game.symbaroum.config.TRAD_TROLLS;
+    base.level = lvl.level;
+    this.system.isIntegrated = true;
+    combatMods.traditions.push(base);
+  }
+
   getItemModifierThoroughlycorrupt(combatMods, armors, weapons, abilities) {
     let base = this._getBaseFormat();
     base.type = game.symbaroum.config.NO_TRESHOLD;
@@ -2451,6 +2473,34 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  mysticPowerSetupCombathymn(base) {
+    /* Hymnen-Paket v1 (Rudolfs Startsignal „Leg los“ 16.11.2026, RAW:
+    Kampfhymne, Tradition Trollgesang): Aktion Frei, KEINE Zauberprobe
+    (CASTING_NOT) - der Gesang läuft als Maintain (jede Runde eine un-
+    opponierte Willenskraft-Probe, Standard-Würfeldialog mit Wirken/
+    Aufrechterhalten-Radio, A29-Erinnerung über die maintained-Marker
+    auf den Verbündeten-Symbolen). Novize wählt EIN Attribut für alle
+    Betroffenen (Rudolfs Vereinfachung, preDialogHymnChoice), Adept und
+    Meister buffen alle drei Attribute (quick/strong/accurate); der
+    Meister gibt zusätzlich 1× pro Szene bei Liedbeginn jedem Betroffe-
+    nen 1W6 Zähigkeit zurück (je Betroffenem ein eigener Wurf, Flag
+    hymnMasterScene + SL-Reset-Karte). Kosten: Standard 1W4 temporäre
+    Korruption, mit der Fähigkeit Trollsingen auf der entsprechenden
+    Stufe nur 1 Punkt (getItemModifierTrollsinging). */
+    base.traditions = [game.symbaroum.config.TRAD_TROLLS];
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.maintain = game.symbaroum.config.MAINTAIN;
+    base.needToken = true;
+    base.hymnAttributes = ["quick", "strong", "accurate"];
+    base.hymnMasterHeal = true;
+    base.introText = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_INTRO");
+    base.introTextMaintain = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_INTRO_M");
+    base.resultTextSuccess = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_COMBAT_HYMN.CHAT_FAILURE");
+    base.preDialogFunction = preDialogHymnChoice;
+    return base;
+  }
+
   mysticPowerSetupConfusion(base) {
     base.traditions = [game.symbaroum.config.TRAD_WIZARDRY, game.symbaroum.config.TRAD_TROLLS];
     base.targetResistAttribute = "resolute";
@@ -2623,6 +2673,30 @@ export class SymbaroumItem extends Item {
     base.traditions = [game.symbaroum.config.TRAD_WIZARDRY];
     base.maintain = game.symbaroum.config.MAINTAIN;
     base.casting = game.symbaroum.config.CASTING;
+    return base;
+  }
+
+  mysticPowerSetupHeroichymn(base) {
+    /* Hymnen-Paket v1 (Rudolfs Startsignal „Leg los“ 16.11.2026, RAW:
+    Heldenhafte Hymne, Tradition Trollgesang): Aktion Frei, KEINE
+    Zauberprobe (CASTING_NOT), Maintain-Runden als unopponierte
+    Willenskraft-Probe - wie die Kampfhymne, nur dass die Attribute
+    cunning/resolute/persuasive gebufft werden und der Meister statt
+    Zähigkeit 1× pro Szene bei Liedbeginn jedem Betroffenen 1W4 tem-
+    poräre Korruption abwäscht (je Betroffenem ein eigener Wurf, Flag
+    hymnMasterScene + SL-Reset-Karte). Kosten siehe getItemModifier-
+    Trollsinging. */
+    base.traditions = [game.symbaroum.config.TRAD_TROLLS];
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    base.maintain = game.symbaroum.config.MAINTAIN;
+    base.needToken = true;
+    base.hymnAttributes = ["cunning", "resolute", "persuasive"];
+    base.hymnMasterCleanse = true;
+    base.introText = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_INTRO");
+    base.introTextMaintain = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_INTRO_M");
+    base.resultTextSuccess = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_HEROIC_HYMN.CHAT_FAILURE");
+    base.preDialogFunction = preDialogHymnChoice;
     return base;
   }
 
@@ -4618,6 +4692,16 @@ export async function buildRolls(functionStuff) {
     await captureZoneActivationSnapshot(functionStuff);
   }
 
+  /* Hymnen-Paket v1 (RAW-literal, Rudolfs Detail-Antwort 2b): Jede
+     ANDERE mystische Kraft - Erstzauber, Maintain-Runde oder Zonen-
+     Aktivierung, jeder buildRolls-Lauf - beendet die Maintain-Funktion
+     eines laufenden Gesangs (Kampfhymne/Heldenhafte Hymne) automatisch.
+     Eigene Hymnen-Runden sind ausgenommen; Willenskraft-Schaden als
+     Abbruchgrund bleibt SL-verwaltet (dokumentierte Grenze). */
+  if (functionStuff?.type === "mysticalPower" && !HYMN_REFERENCES.includes(functionStuff?.ability?.reference)) {
+    await endActiveHymns(functionStuff.actor);
+  }
+
   if (functionStuff.casting === game.symbaroum.config.CASTING_NOT && !functionStuff.isMaintained) {
     // A25 stage 4: a CASTING_NOT power can define its own result function
     // (Black Breath rolls d4/d6 against the total corruption) - every
@@ -4668,6 +4752,17 @@ export async function buildRolls(functionStuff) {
     return await attackResult(rollData, functionStuff);
   } else {
     const resultFunction = getPowerResultFunction(functionStuff);
+    /* Trollsingen-Reroll (Hymnen-Paket v1, Rudolfs Entscheidungen 8+10,
+       Erstbau - Variante a): Eligibility NUR im Standard-Pfad (result-
+       Function === standardPowerResult); Ketten, Auren, Zonen-Aktivie-
+       rungen und Waffen bleiben bewusst ohne Taste (dokumentierte
+       Grenze). Der Payload ist der bereinigte functionStuff-Schnapp-
+       schuss (resistRoll-Muster: Dokument-Referenzen genullt), die
+       Kosten sind bereits bezahlt (TEMPCORRUPTION_NONE). */
+    if (resultFunction === standardPowerResult && !functionStuff.zoneActivation) {
+      const payload = trollRerollPayload(functionStuff, rollData);
+      if (payload) functionStuff.trollRerollPayload = payload;
+    }
     const res = await resultFunction(rollData, functionStuff);
     /* v2.5 (Baustein e): Zielmarkierungen der Zonen-Ausfuehrung nach
        dem Ergebnis freigeben (nur Zonen-Pfade mit zoneChainTargets). */
@@ -4800,6 +4895,15 @@ function getPowerResultFunction(functionStuff) {
     // maintain rounds keep them alive and the failed roll removes them
     case "holyaura":
       return holyAuraResult;
+    /* Hymnen-Paket v1 (Rudolfs Startsignal „Leg los“ 16.11.2026): Die
+       Kampfhymne und die Heldenhafte Hymne laufen über die gemeinsame
+       hymnResult - Erstgesang (kein Wurf, CASTING_NOT) plaziert die
+       Verbündeten-Symbole inklusive Sänger und löst den Meister-Effekt
+       aus, die Maintain-Runden wiederholen nur die unopponierte
+       Willenskraft-Probe (Fehlschlag beendet den Gesang). */
+    case "combathymn":
+    case "heroichymn":
+      return hymnResult;
     // v2.12 (Gruppe C, Rudolfs Freigabe 15.11.): Unheilige Aura = 1:1-
     // Spiegel der Heiligen Aura (every level runs the automated mirror
     // flow); Fegefeuer und Lebenspender trennen die Meister-REAKTIONS-
@@ -5636,6 +5740,357 @@ async function holyAuraEndCleanup(functionStuff) {
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
   }
+}
+
+/* =====================================================================
+   Hymnen-Paket v1 (Rudolfs Startsignal „Leg los“ 16.11.2026, Gruppe D):
+   Kampfhymne + Heldenhafte Hymne (Tradition Trollgesang) und die
+   Trollsingen-Wiederholungsprobe (Erstbau, Rudolfs Entscheidungen 1-10
+   aus der RAW-Bewertung Gruppe D).
+
+   Hymnen: Aktion Frei, keine Zauberprobe (CASTING_NOT) - der Erstgesang
+   platziert auf JEDEM Verbündeten in Sichtweite (Sichtweiten-Abstrak-
+   tion 100 m = SIGHT_RANGE_UNITS, Dispositions-Filter v2.14-Konvention:
+   verbündet = disposition >= Wirker) und auf dem Sänger selbst EIN
+   Statussymbol (combathymn/heroichymn) mit attrSymbol-Buff-Daten, je
+   betroffenem Token +1 auf die Hymnen-Attribute über die reguläre GM-
+   Anwenden-Karte (attributeChange-Einträge; das Löschen des Symbols
+   revertiert über den deleteActiveEffect-Haken, Elixier-Muster). Die
+   Maintain-Runde läuft als unopponierte Willenskraft-Probe über den
+   Standard-Würfeldialog (Wirken/Aufrechterhalten-Radio), die A29-
+   Erinnerung greift über die maintained-Marker auf den Symbolen. Ein
+   Fehlschlag der Maintain-Probe beendet den Gesang. RAW-literal (Rudolfs
+   Detail-Antwort): JEDE andere mystische Kraft beendet den Gesang
+   automatisch (buildRolls-Hook) - nur andere aufrechterhaltene Kräfte
+   zu zählen wäre die enge Lesart, Rudolf hat die wörtliche gewählt.
+   Willenskraft-Schaden als Abbruchgrund bleibt SL-verwaltet (dokumen-
+   tierte Grenze, Epilepsie-Präzedenz).
+
+   Novize: EIN Attribut für alle Betroffene (Rudolfs Vereinfachung,
+   Wahl-Dialog vor dem Würfeldialog). Adept: alle drei Attribute.
+   Meister: alle drei + 1×/Szene-Effekt bei Liedbeginn (Kampfhymne:
+   je Betroffenem eigener 1W6-Zähigkeitswurf; Heldenhafte Hymne: je
+   Betroffenem eigener 1W4-Korruptions-Waschung; Flag hymnMasterScene
+   + SL-Reset-Karte, dokumentierte Szenen-Grenze).
+
+   Trollsingen-Reroll (Variante a, Rudolfs Entscheidung 8): Taste auf
+   der eigenen Ergebniskarte bei fehlgeschlagener Geist-Beeinflussungs-
+   Probe (resolute-Resist), Eligibility NUR im Standard-Pfad (result
+   Function === standardPowerResult - Ketten/Auren/Zonen bewusst aus-
+   geschlossen, dokumentierte Grenze; Waffen sowieso). Ketten-Regel:
+   Novize KEIN Reroll für Ketten-Glieder (chain) ODER Maintain-Runden,
+   Adept/Meister erlaubt. Frequenz (Entscheidung 9): Novize 1×/Szene,
+   Adept 1×/Runde, Meister unbegrenzt; Konsum erst beim KLICK.
+   ===================================================================== */
+const HYMN_REFERENCES = ["combathymn", "heroichymn"];
+
+/* Liefert die Referenz des Gesangs, den dieser Wirker auf der Szene
+   aktuell hält (A23-Marker flagData.caster + flagData.ability), sonst
+   null - Grundlage für die Aufrechterhalten-Vorbelegung. */
+function hymnActiveForCaster(actor) {
+  if (!actor) return null;
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor?.effects) continue;
+    for (const effect of token.actor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === actor.id && HYMN_REFERENCES.includes(fd?.ability)) return fd.ability;
+    }
+  }
+  return null;
+}
+
+/* Hymnen-Pre-Dialog: läuft ein Gesang dieses Wirkers, öffnet der
+   Würfeldialog auf „Aufrechterhalten“ (presetMaintain, A29-G2b-Muster).
+   Novize OHNE laufenden Gesang wählt EIN Attribut für alle Betroffenen
+   (Rudolfs Vereinfachung) - dann erst der Standard-Würfeldialog. */
+async function preDialogHymnChoice(functionStuff) {
+  if (hymnActiveForCaster(functionStuff.actor)) {
+    functionStuff.presetMaintain = true;
+  }
+  if (functionStuff.powerLvl.level === 1 && !functionStuff.presetMaintain) {
+    const radioButtons = functionStuff.hymnAttributes
+      .map((attr, index) => {
+        const attrLabel = game.i18n.localize(game.symbaroum.config.attributeLabels[attr]);
+        return `<label class="lblfavour" style="display:block;margin:2px 0;"><input type="radio" name="hymnAttribute" value="${attr}"${index === 0 ? " checked" : ""} style="margin-right:6px;">${attrLabel}</label>`;
+      })
+      .join("");
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<p>${game.i18n.localize("POWER_HYMN.DIALOG_ATTRIBUTE")}</p>${radioButtons}`,
+      // P26 (Dialog-Audit): Modern-Chrome bei modernen Blättern
+      classes: isModernDialogActive() ? modernDialogClasses("modern-hymn-attribute-dialog") : [],
+      buttons: {
+        cast: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("POWER_BANISHINGSEAL.BUTTON_APPLY"),
+          callback: (html) => {
+            functionStuff.hymnChosenAttribute = html[0].querySelector('input[name="hymnAttribute"]:checked')?.value ?? functionStuff.hymnAttributes[0];
+            modifierDialog(functionStuff);
+          },
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.CANCEL"),
+        },
+      },
+      default: "cast",
+    });
+    return;
+  }
+  await modifierDialog(functionStuff);
+}
+
+/* Sichtweiten-Sweep: der Sänger selbst immer, dazu jeder verbündete
+   Token (dispositions-relativ >= Wirker, v2.14-Konvention) innerhalb
+   der Sichtweiten-Abstraktion (100 m = SIGHT_RANGE_UNITS, config.js).
+   Messfehler schließen das Ziel ein (Fegefeuer-Präzedenz). */
+function getHymnAffectedTokens(functionStuff) {
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  if (!casterToken) return [];
+  const casterDisposition = casterToken.document?.disposition ?? 0;
+  const sightLimit = game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50;
+  const affected = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor) continue;
+    if (token.id !== casterToken.id) {
+      if ((token.document?.disposition ?? 0) < casterDisposition) continue;
+      try {
+        if (canvas.grid.measureDistance(casterToken, token) > sightLimit) continue;
+      } catch (distanceError) {
+        // Messung nicht verfügbar => Ziel einschließen, SL-Urteil wirkt
+      }
+    }
+    affected.push(token);
+  }
+  return affected;
+}
+
+/* Gemeinsame Ergebnis-Funktion beider Hymnen (Dispatch combathymn/
+   heroichymn). Erstgesang: eigene Verbündeten-Symbole MIT Buff-Daten
+   (der Standard-Pfad würde das Sänger-Symbol ohne flagData pushen -
+   aktiv leer geräumt, das eigene Symbol geht mit conditionData auf
+   dieselbe GM-Karte). Maintain-Runde: Erfolg = nichts zu tun, Fehl-
+   schlag = Ende-Karte + Aufräumen. */
+async function hymnResult(rollData, functionStuff) {
+  const succeeded = rollData?.[0]?.trueActorSucceeded !== false;
+  const abilityRef = functionStuff.ability?.reference;
+  const casterEffects = functionStuff.activelyMaintaninedCasterEffect;
+  functionStuff.activelyMaintaninedCasterEffect = [];
+  await standardPowerResult(rollData, functionStuff);
+  functionStuff.activelyMaintaninedCasterEffect = casterEffects;
+  if (functionStuff.isMaintained) {
+    if (!succeeded) {
+      await postHymnEndCard(functionStuff, "POWER_HYMN.CHAT_END_MAINTAIN");
+      await endActiveHymns(functionStuff.actor, { silent: true });
+    }
+    return;
+  }
+  const affectedTokens = getHymnAffectedTokens(functionStuff);
+  if (affectedTokens.length === 0) {
+    ui.notifications.warn(game.i18n.localize("POWER_HYMN.NO_TOKENS"));
+    return;
+  }
+  const attributeNames = functionStuff.powerLvl.level > 1 ? functionStuff.hymnAttributes : [functionStuff.hymnChosenAttribute ?? functionStuff.hymnAttributes[0]];
+  const attributeLabels = attributeNames.map((attr) => game.i18n.localize(game.symbaroum.config.attributeLabels[attr]));
+  const casterResolute = getAttributeValue(functionStuff.actor, "resolute");
+  const flagDataArray = [];
+  const lines = [];
+  const hymnRolls = [];
+  for (const token of affectedTokens) {
+    // Kein Stacking: ein Token mit diesem Sängers Hymnen-Symbol ist
+    // bereits erfasst (Erneutes Wirken bei laufendem Gesang - der
+    // C/M-Dialog öffnet zwar, ein frischer Erstgesang überspringt
+    // bestehende Symbole aber sichtbar als Zeile)
+    const alreadySung = token.actor.effects.some((effect) => {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      return fd?.caster === functionStuff.actor.id && fd?.ability === abilityRef;
+    });
+    if (alreadySung) {
+      lines.push(`<p>${game.i18n.format("POWER_HYMN.ALREADY_ACTIVE", { targetname: token.name })}</p>`);
+      continue;
+    }
+    const attributeChanges = attributeNames.map((attr) => ({ name: attr, value: 1 }));
+    flagDataArray.push({
+      tokenId: token.id,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+      effectDuration: 1,
+      maintained: true,
+      casterId: functionStuff.actor.id,
+      abilityRef: abilityRef,
+      casterResolute: casterResolute,
+      casterName: functionStuff.actingCharName,
+      conditionData: { attrSymbol: true, attributeChanges: attributeChanges },
+    });
+    for (const attr of attributeNames) {
+      flagDataArray.push({ tokenId: token.id, attributeName: attr, attributeChange: 1 });
+    }
+    lines.push(`<p>${game.i18n.format("POWER_HYMN.ALLY_BUFFED", { targetname: token.name, attributes: attributeLabels.join(", ") })}</p>`);
+  }
+  /* Meister-Effekt, 1× pro Szene bei Liedbeginn: Kampfhymne heilt je
+     Betroffenem 1W6 Zähigkeit, Heldenhafte Hymne wäscht je Betroffenem
+     1W4 temporäre Korruption ab - je Betroffenem ein eigener Wurf. */
+  if (functionStuff.powerLvl.level > 2) {
+    const masterUsed = functionStuff.actor.getFlag(game.system.id, "hymnMasterScene")?.[abilityRef] === true;
+    if (masterUsed) {
+      lines.push(`<p>${game.i18n.localize("POWER_HYMN.MASTER_SCENE_USED")}</p>`);
+    } else {
+      const isHeal = functionStuff.hymnMasterHeal === true;
+      const dice = isHeal ? "1d6" : "1d4";
+      for (const token of affectedTokens) {
+        const masterRoll = await new Roll(dice).evaluate();
+        hymnRolls.push(masterRoll);
+        if (isHeal) {
+          flagDataArray.push({ tokenId: token.id, toughnessChange: masterRoll.total });
+          lines.push(`<p>${game.i18n.format("POWER_HYMN.MASTER_HEAL_LINE", { targetname: token.name, count: masterRoll.total })}</p>`);
+        } else {
+          flagDataArray.push({ tokenId: token.id, corruptionChange: -1 * masterRoll.total });
+          lines.push(`<p>${game.i18n.format("POWER_HYMN.MASTER_CLEANSE_LINE", { targetname: token.name, count: masterRoll.total })}</p>`);
+        }
+      }
+      await functionStuff.actor.setFlag(game.system.id, `hymnMasterScene.${abilityRef}`, true);
+      await postTrollSceneResetCard(functionStuff);
+    }
+  }
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.format("POWER_HYMN.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, hymnRolls);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* Ende-Karte: kleiner öffentlicher Hinweis, WARUM der Gesang endete
+   (Maintain-Fehlschlag, andere mystische Kraft). */
+async function postHymnEndCard(functionStuff, lineKey) {
+  const title = `<h4>${game.i18n.localize("POWER_HYMN.CHAT_END")}</h4>`;
+  const line = `<p>${game.i18n.format(lineKey, { actorname: functionStuff.actingCharName, powername: functionStuff.abilityName })}</p>`;
+  await postMaintainChainCard(functionStuff, title, [line], []);
+}
+
+/* Räumt ALLE Hymnen-Symbole eines Sängers über die GM-Anwenden-Karte
+   ab (holyAuraEndCleanup-Muster, beide Hymnen-Referenzen). Ohne
+   aktiven Gesang ist der Lauf ein stiller No-Op. Rückgabe: ob ein
+   Gesang beendet wurde. options.silent unterdrückt die generische
+   Ende-Karte (die Aufrufstelle postet die spezifische Zeile selbst). */
+async function endActiveHymns(actor, options = {}) {
+  if (!actor) return false;
+  const casterId = actor.id;
+  const flagDataArray = [];
+  const endedRefs = new Set();
+  const seen = new Set();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const tokenActor = token.actor;
+    if (!tokenActor?.effects) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster !== casterId || !HYMN_REFERENCES.includes(fd?.ability)) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = token.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      endedRefs.add(fd.ability);
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+    }
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  if (endedRefs.size > 0 && !options.silent) {
+    const casterName = options.casterName ?? actor.name;
+    const lines = [...endedRefs].map((ref) => {
+      const powerLabel = game.i18n.localize(ref === "combathymn" ? "POWER_LABEL.COMBAT_HYMN" : "POWER_LABEL.HEROIC_HYMN");
+      return `<p>${game.i18n.format("POWER_HYMN.CHAT_END_LINE", { actorname: casterName, powername: powerLabel })}</p>`;
+    });
+    const title = `<h4>${game.i18n.localize("POWER_HYMN.CHAT_END")}</h4>`;
+    await postMaintainChainCard({ actor: actor, actingCharName: casterName }, title, lines, []);
+  }
+  return endedRefs.size > 0;
+}
+
+/* SL-Reset-Karte für die 1×/Szene-Verwaltung (dokumentierte Szenen-
+   Grenze, Epilepsie-Präzedenz): geflüsterte GM-Karte mit Button, der
+   hymnMasterScene UND trollRerollScene des Sängers freigibt (Hooks-
+   Handler in hooks.js, GM-only). */
+async function postTrollSceneResetCard(functionStuff) {
+  const html = `<div class="symbaroum chat ability">
+    <div class="foreground">
+      <h4>${game.i18n.localize("POWER_HYMN.SCENE_RESET_TITLE")}</h4>
+      <div class="finalTxt"><p>${game.i18n.format("POWER_HYMN.SCENE_RESET_LINE", { actorname: functionStuff.actingCharName })}</p></div>
+      <p><button id="trollSceneResetButton">${game.i18n.localize("POWER_HYMN.SCENE_RESET_BUTTON")}</button></p>
+    </div>
+  </div>`;
+  const gmList = ChatMessage.getWhisperRecipients("GM");
+  await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: functionStuff.actor.id }),
+    content: html,
+    whisper: gmList.length > 0 ? gmList : undefined,
+    flags: { [game.system.id]: { trollSceneReset: { actorId: functionStuff.actor.id } } },
+  });
+}
+
+/* Runden-Schlüssel der Runden-Frequenz (Adept): aktiver Kampf = Kampf-
+   Runde, sonst Weltzeit-Takt aus dem dotWorldTimeRoundMinutes-Setting.
+   Ohne jeden Takt (Setting 0, kein Kampf) gilt null = SL-Urteil
+   (dokumentierte Grenze, Rudolfs Entscheidung 9). */
+function trollRerollRoundKey() {
+  if (game.combat?.active && game.combat.round > 0) return "c" + game.combat.round;
+  const minutes = Number(game.settings.get("symbaroum", "dotWorldTimeRoundMinutes")) || 0;
+  if (minutes > 0) return "w" + Math.floor(game.time.worldTime / (minutes * 60));
+  return null;
+}
+
+function trollRerollFrequencyFree(actor, level) {
+  if (level >= 3) return true;
+  if (level === 2) {
+    const key = trollRerollRoundKey();
+    if (key === null) return true;
+    return actor.getFlag(game.system.id, "trollRerollRound") !== key;
+  }
+  return actor.getFlag(game.system.id, "trollRerollScene") !== true;
+}
+
+/* Eligibility + Payload der Wiederholungsprobe: nur fehlgeschlagene
+   resolute-Resist-Proben eines Sängers mit Trollsingen; der Payload
+   ist die bereinigte functionStuff-Kopie (resistRoll-Muster: Dokument-
+   Referenzen genullt), Kosten bereits bezahlt (TEMPCORRUPTION_NONE).
+   Novize: KEIN Reroll in Ketten-Gliedern oder Maintain-Runden. */
+function trollRerollPayload(functionStuff, rollData) {
+  const roll = rollData?.[0];
+  if (!roll || roll.trueActorSucceeded !== false) return null;
+  if (functionStuff.targetData?.resistAttributeName !== "resolute") return null;
+  if (functionStuff.zoneActivation) return null;
+  const level = getActorAbilityLevel(functionStuff.actor, "trollsinging");
+  if (level < 1) return null;
+  if (level === 1 && (functionStuff.chain === game.symbaroum.config.CHAIN || functionStuff.isMaintained)) return null;
+  if (!trollRerollFrequencyFree(functionStuff.actor, level)) return null;
+  const emitData = Object.assign({}, functionStuff);
+  emitData.actor = null;
+  emitData.token = null;
+  emitData.targetData = Object.assign({}, functionStuff.targetData);
+  emitData.targetData.token = null;
+  emitData.targetData.actor = null;
+  emitData.trollRerollPayload = null;
+  emitData.trollRerollLevel = level;
+  emitData.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  return emitData;
+}
+
+/* Klick auf die Reroll-Taste (hooks.js-Handler): Frequenz-Verbrauch
+   NUR hier (Novize trollRerollScene, Adept trollRerollRound mit
+   aktuellem Schlüssel, Meister ohne Verbrauch), dann der reguläre
+   buildRolls-Lauf mit dem restaurierten functionStuff. */
+export async function trollRerollInvoke(functionStuff) {
+  const level = functionStuff.trollRerollLevel ?? 1;
+  if (level === 1) {
+    await functionStuff.actor.setFlag(game.system.id, "trollRerollScene", true);
+  } else if (level === 2) {
+    const key = trollRerollRoundKey();
+    if (key !== null) await functionStuff.actor.setFlag(game.system.id, "trollRerollRound", key);
+  }
+  await buildRolls(functionStuff);
 }
 
 /* v2.12 (Rudolfs Freigabe 15.11., Gruppe C) — Fegefeuer (APG Theurgie),
@@ -9175,6 +9630,17 @@ export async function standardPowerResult(rollData, functionStuff) {
   if (functionStuff.autoParams != "") {
     templateData.subText += ", " + functionStuff.autoParams;
   }
+  /* Trollsingen-Reroll (Hymnen-Paket v1, Rudolfs Entscheidungen 8+10,
+     Erstbau): Die Ergebniskarte einer fehlgeschlagenen Geist-Beein-
+     flussungs-Probe (resolute-Resist) eines Trollsängers erhält die
+     Wiederholungs-Taste - buildRolls hat die Eligibility geprüft und
+     den Payload mitgegeben, der Konsum der Frequenz (Novize 1×/Szene,
+     Adept 1×/Runde, Meister beliebig) erfolgt erst beim KLICK über
+     den hooks.js-Handler. */
+  if (functionStuff.trollRerollPayload && !trueActorSucceeded && hasRoll) {
+    templateData.trollReroll = true;
+    templateData.subText += ", " + game.i18n.localize("TROLLSINGING.REROLL_TAG");
+  }
 
   /* if the power / ability have healing effects  */
   if (functionStuff.healFormulaSucceed && !functionStuff.medicusExam) {
@@ -9336,8 +9802,14 @@ export async function standardPowerResult(rollData, functionStuff) {
       chatData.whisper = gmList;
     }
   } else if (rolls.length > 0) {
-    // Only shows rolls if they are displayed to  
+    // Only shows rolls if they are displayed to
     chatData.rolls = [createRollData(rolls)];
+  }
+  // Trollsingen-Reroll: der Payload reist als Nachrichten-Flag mit
+  // (resistRoll-Muster), der hooks.js-Handler hängt die Referenzen beim
+  // Klick wieder an und ruft trollRerollInvoke
+  if (templateData.trollReroll) {
+    chatData[`flags.${game.system.id}.trollReroll`] = functionStuff.trollRerollPayload;
   }
   ChatMessage.applyMode(chatData, "public");
   let NewMessage = await ChatMessage.create(chatData);

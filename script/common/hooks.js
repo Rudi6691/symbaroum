@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -1958,6 +1958,63 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 				// game.symbaroum.log("from hook: ", functionStuff);
 				buildRolls(functionStuff);
 				await chatItem.unsetFlag(game.system.id, 'resistRoll');
+				return;
+			});
+		}
+	}
+	/* Trollsingen-Reroll (Hymnen-Paket v1, Rudolfs Entscheidungen 8+10,
+	   Erstbau - Variante a): Taste auf der eigenen Ergebniskarte. Der
+	   Klick prueft das Eigentum (GM oder Besitzer des Wirkers), haengt
+	   die Token-Referenzen wieder an (resistRoll-Muster) und ruft den
+	   item.js-Export trollRerollInvoke - der Konsum der Frequenz (Novize
+	   1x/Szene, Adept 1x/Runde, Meister beliebig) erfolgt ERST DORT,
+	   dann laeuft der reguläre buildRolls. Das Flag faellt nach dem Klick
+	   weg (eine Karte = eine Wiederholung). */
+	const trollRerollPayload = await chatItem.getFlag(game.system.id, 'trollReroll');
+	if (trollRerollPayload) {
+		const listenArea = html.querySelectorAll('#trollRerollButton');
+		for (const s of listenArea) {
+			s.addEventListener('click', async () => {
+				let tok = canvas.tokens.objects.children.find((token) => token.id === trollRerollPayload.tokenId);
+				let targetToken = canvas.tokens.objects.children.find((token) => token.id === trollRerollPayload.targetData?.tokenId);
+				if (!tok || !targetToken) {
+					ui.notifications.error(game.i18n.localize('ERROR.NO_TARGET_SELECTED'));
+					return;
+				}
+				if (!game.user.isGM && !tok.actor?.isOwner) {
+					ui.notifications.warn(game.i18n.localize('ERROR.NOT_OWNER'));
+					return;
+				}
+				trollRerollPayload.token = tok;
+				trollRerollPayload.actor = tok.actor;
+				trollRerollPayload.targetData.token = targetToken;
+				trollRerollPayload.targetData.actor = targetToken.actor;
+				await chatItem.unsetFlag(game.system.id, 'trollReroll');
+				await trollRerollInvoke(trollRerollPayload);
+				return;
+			});
+		}
+	}
+	/* Hymnen-Paket v1: SL-Reset-Karte der 1x/Szene-Verwaltung (dokumen-
+	   tierte Szenen-Grenze). GM-only: der Klick loescht hymnMasterScene
+	   UND trollRerollScene des Saengers und entfernt die Karte. */
+	const trollSceneReset = await chatItem.getFlag(game.system.id, 'trollSceneReset');
+	if (trollSceneReset) {
+		const listenArea = html.querySelectorAll('#trollSceneResetButton');
+		for (const s of listenArea) {
+			s.addEventListener('click', async () => {
+				if (!game.user.isGM) {
+					ui.notifications.warn(game.i18n.localize('ERROR.GM_ONLY'));
+					return;
+				}
+				const resetActor = game.actors.get(trollSceneReset.actorId) ?? canvas.tokens?.objects?.children?.find((t) => t.actor?.id === trollSceneReset.actorId)?.actor;
+				if (resetActor) {
+					await resetActor.unsetFlag(game.system.id, 'hymnMasterScene');
+					await resetActor.unsetFlag(game.system.id, 'trollRerollScene');
+					ui.notifications.info(game.i18n.format('POWER_HYMN.SCENE_RESET_DONE', { actorname: resetActor.name }));
+				}
+				await chatItem.unsetFlag(game.system.id, 'trollSceneReset');
+				await chatItem.delete();
 				return;
 			});
 		}

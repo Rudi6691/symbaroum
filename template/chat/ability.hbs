@@ -48,6 +48,12 @@
         {{#if haveCorruption}}
         <p>{{removeMarkup corruptionText}}</p>
         {{/if}}
+        {{#if trollReroll}}
+        {{!-- Trollsingen-Reroll (Hymnen-Paket v1, Rudolfs Entscheidung 8,
+            Variante a): Taste auf der eigenen Ergebniskarte; der Klick
+            läuft über den hooks.js-Handler (Flag symbaroum.trollReroll). --}}
+        <p><button id="trollRerollButton">{{localize "TROLLSINGING.REROLL_BUTTON"}}</button></p>
+        {{/if}}
         </div>
     </div>
 </div>

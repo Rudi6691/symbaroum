@@ -704,6 +704,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				duration: zoneCfg?.duration ?? 0,
 				/* v2.1: Zielwahl-Ordnung der automatischen Auslesung */
 				targetOrder: zoneCfg?.targetOrder ?? 'marking',
+				/* Baustein E (Rudolfs Startsignal „Leg los“ 16.11.2026):
+				   Wirker-Einbeziehung der Auto-Auswahl - STRING-Select
+				   'never' (Default) / 'always', getZoneConfig-Kanonik */
+				includeCaster: zoneCfg?.includeCaster ?? 'never',
 			};
 			/* v2.1: Augenblickliche Zonen haben keine Dauer (One-Shot) -
 			   das Template blendet das Dauer-Feld deshalb aus */
@@ -726,6 +730,11 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			}));
 			/* v2.1 (Rudolfs Testrunde-1-Entscheidung 2): Zielwahl-Ordnung */
 			context.aoe_target_order_selection = Object.values(game.symbaroum.config.AOE_TARGET_ORDER_SELECTION).map((c) => ({
+				id: c.id,
+				label: game.i18n.localize(c.label),
+			}));
+			/* Baustein E: Wirker-Einbeziehung der Auto-Auswahl */
+			context.aoe_include_caster_selection = Object.values(game.symbaroum.config.AOE_INCLUDE_CASTER_SELECTION).map((c) => ({
 				id: c.id,
 				label: game.i18n.localize(c.label),
 			}));

@@ -583,6 +583,17 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/powers/banishingseal.svg",
   },
   {
+    /* Hymnen-Paket v1 (Rudolfs Startsignal 16.11.): Kampfhymne-Symbol -
+       liegt auf JEDEM besungenen Token (Sänger + Verbündete), solange
+       der Gesang andauert; die Attributs-Boni (+1) laufen als
+       attributeChanges im flagData mit (attrSymbol-Muster, Revert beim
+       Entfernen über den deleteActiveEffect-Haken). */
+    id: "combathymn",
+    label: "POWER_LABEL.COMBAT_HYMN",
+    name: "POWER_LABEL.COMBAT_HYMN",
+    icon: "systems/symbaroum/asset/image/powers/combathymn.svg",
+  },
+  {
     id: "bendwill",
     label: "POWER_LABEL.BEND_WILL",
     name: "POWER_LABEL.BEND_WILL",
@@ -663,6 +674,15 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.ENTANGLING_VINES",
     name: "POWER_LABEL.ENTANGLING_VINES",
     icon: "systems/symbaroum/asset/image/vines.png",
+  },
+  {
+    /* Hymnen-Paket v1 (Rudolfs Startsignal 16.11.): Heldenhafte-Hymne-
+       Symbol - 1:1-Spiegel des Kampfhymne-Symbols (Sänger + Verbündete,
+       Attributs-Boni als attributeChanges im flagData). */
+    id: "heroichymn",
+    label: "POWER_LABEL.HEROIC_HYMN",
+    name: "POWER_LABEL.HEROIC_HYMN",
+    icon: "systems/symbaroum/asset/image/powers/heroichymn.svg",
   },
   {
     id: "holyaura",
@@ -2112,5 +2132,24 @@ SYMBAROUM.AOE_TARGET_ORDER_SELECTION = {
   scene: {
     id: "scene",
     label: "AOE.ORDER_SCENE",
+  },
+};
+
+/* Hymnen-Paket v1, Baustein E (Rudolfs Entscheidungen 16.11.): Wirker-
+   Ausschluss der Kraft-Zonen-Auto-Auswahl. 'never' (Default) entfernt
+   den Wirker-Token aus der automatischen Zielauslesung (auch beim
+   Zielfilter „Alle”), 'always' ERZWINGT ihn hinein (überschreibt den
+   Dispositionsfilter). MANUELLE Markierungen des Auslösers gewinnen
+   immer (v2.1-Filter-Bypass bleibt unberührt), freie Zonen (SL-
+   Werkzeug) werden nie gefiltert. String-Select statt Boolean:
+   später erweiterbar um weitere Optionen ohne Datenmigration. */
+SYMBAROUM.AOE_INCLUDE_CASTER_SELECTION = {
+  never: {
+    id: "never",
+    label: "AOE.INCLUDE_CASTER_NEVER",
+  },
+  always: {
+    id: "always",
+    label: "AOE.INCLUDE_CASTER_ALWAYS",
   },
 };

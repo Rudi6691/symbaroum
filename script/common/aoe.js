@@ -256,7 +256,19 @@ export function getZoneConfig(item) {
 	   Auslösens überschreiben die Ordnung (siehe _resolveZoneTargets). */
 	const rawOrder = String(zone.targetOrder ?? '').trim();
 	const targetOrder = ['nearest', 'scene'].includes(rawOrder) ? rawOrder : 'marking';
-	return { shape, size, targeting, mode, trigger, duration, targetOrder };
+	/* Baustein E (Rudolfs Startsignal „Leg los“ 16.11.2026): Wirker-
+	   Ausschluss bei Kraft-Zonen. STRING-Select auf dem Zonen-Tab (GM-
+	   only, beide mystical-power-Blätter), additive template.json-
+	   Änderung - 'never' (Default) entfernt den Wirker aus der Auto-
+	   Auswahl (auch beim Filter „Alle“), 'always' erzwingt ihn trotz
+	   Dispositionsfilter (Kraftstufen-Fälle wie Schwächende-Glyphe-
+	   Meister/Schweben). Die manuelle Markierung gewinnt IMMER (v2.1-
+	   Bypass unberührt), freie Zonen bleiben nie gefiltert (aoe.free).
+	   Alte, vor dieser Version platzierte Zonen tragen das Feld nicht
+	   im config-Snapshot -> undefined = unverändertes Verhalten. */
+	const rawIncludeCaster = String(zone.includeCaster ?? '').trim();
+	const includeCaster = rawIncludeCaster === 'always' ? 'always' : 'never';
+	return { shape, size, targeting, mode, trigger, duration, targetOrder, includeCaster };
 }
 
 /**
@@ -323,18 +335,38 @@ function _collectRegionTokens(region) {
  * 'notallied' = alles außer Verbündete (Feinde UND Neutrale) - der
  * Bannsiegel-Fall für neutrale Untote/Abominationen in Davokar.
  */
-function _filterTargets(tokens, targeting, casterToken) {
-	if (targeting === 'all') return tokens;
-	if (targeting === 'enemies') {
-		return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.HOSTILE);
+function _filterTargets(tokens, targeting, casterToken, includeCaster = null) {
+	let filtered;
+	if (targeting === 'all') {
+		filtered = tokens;
+	} else if (targeting === 'enemies') {
+		filtered = tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.HOSTILE);
+	} else if (targeting === 'neutral') {
+		filtered = tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.NEUTRAL);
+	} else if (targeting === 'notallied') {
+		filtered = tokens.filter((td) => (td.disposition ?? 0) !== CONST.TOKEN_DISPOSITIONS.FRIENDLY);
+	} else {
+		filtered = tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.FRIENDLY);
 	}
-	if (targeting === 'neutral') {
-		return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.NEUTRAL);
+	/* Baustein E (Rudolfs Startsignal „Leg los“ 16.11.2026): flexible
+	   Wirker-Politik NUR bei explizit übergebener Einstellung (null =
+	   unverändertes Verhalten, insbesondere freie Zonen und Alte
+	   Zonen ohne includeCaster im Snapshot). 'never' entfernt den
+	   Wirker aus der Auto-Auswahl (auch bei „Alle“), 'always' erzwingt
+	   ihn über den Dispositionsfilter hinweg - VORBEDINGUNG bleibt,
+	   dass er im Zonenbereich steht (er muss im URSPRÜNGLICHEN Token-
+	   Satz liegen). Die manuelle Markierung läuft außerhalb dieses
+	   Filters und gewinnt immer (v2.1-Bypass). */
+	if (!casterToken || !includeCaster) return filtered;
+	if (includeCaster === 'never') {
+		return filtered.filter((td) => td?.id !== casterToken.id);
 	}
-	if (targeting === 'notallied') {
-		return tokens.filter((td) => (td.disposition ?? 0) !== CONST.TOKEN_DISPOSITIONS.FRIENDLY);
+	if (includeCaster === 'always') {
+		if (!filtered.some((td) => td?.id === casterToken.id) && tokens.some((td) => td?.id === casterToken.id)) {
+			return [casterToken, ...filtered];
+		}
 	}
-	return tokens.filter((td) => (td.disposition ?? 0) === CONST.TOKEN_DISPOSITIONS.FRIENDLY);
+	return filtered;
 }
 
 /** Minimal-HTML-Escaping für Namen in Karten. */
@@ -478,7 +510,7 @@ async function _zoneCardContext(region) {
 		size: cfg.size,
 		meters: cfg.size * 2,
 	});
-	const tokens = _filterTargets(_collectRegionTokens(region), cfg.targeting, _casterTokenOfZone(aoe));
+	const tokens = _filterTargets(_collectRegionTokens(region), cfg.targeting, _casterTokenOfZone(aoe), aoe.free ? null : (cfg.includeCaster ?? null));
 	const tokensText =
 		tokens.length > 0
 			? game.i18n.format('AOE.CHAT_TARGETS', { targets: tokens.map((td) => _escapeHtml(td.actor?.name ?? td.name ?? '')).join(', ') })
@@ -704,7 +736,7 @@ function _resolveZoneTargets(region, aoe, { auto = false } = {}) {
 			.filter((td) => regionIds.has(td.id));
 		if (userTargets.length > 0) return userTargets;
 	}
-	const tokens = _filterTargets(regionTokens, aoe.config.targeting, _casterTokenOfZone(aoe));
+	const tokens = _filterTargets(regionTokens, aoe.config.targeting, _casterTokenOfZone(aoe), aoe.free ? null : (aoe.config.includeCaster ?? null));
 	return _sortZoneTokens(region, tokens);
 }
 
@@ -1416,7 +1448,7 @@ export async function aoeZoneEnter(regionId, tokenId) {
 	const tokenDoc = region.parent?.tokens?.get(tokenId) ?? null;
 	if (!tokenDoc?.actor || tokenDoc.hidden) return;
 	// Zielgruppen-Check vor dem Auslösen (Dispositions-Filter gegen Wirker)
-	const filtered = _filterTargets([tokenDoc], aoe.config.targeting, _casterTokenOfZone(aoe));
+	const filtered = _filterTargets([tokenDoc], aoe.config.targeting, _casterTokenOfZone(aoe), aoe.free ? null : (aoe.config.includeCaster ?? null));
 	if (filtered.length === 0) return;
 	await _executeZoneTrigger(region, { manual: false, enteringTokenId: tokenId });
 	// v2.2: Karte nach der Auto-Auslösung aktualisieren (Auslöse-Vermerk)
@@ -1640,7 +1672,11 @@ export async function placeZoneFromItem(item) {
 		sealCategoryId,
 		sealSubtype,
 		userId: game.user.id,
-		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder },
+		/* Baustein E: includeCaster reist mit dem Zonen-Snapshot (Muster
+		   sealCategoryId) - jede Folge-Auslösung (Betreten, Maintain-Runde,
+		   Auto-Auswahl) liest die Platzierungs-Einstellung, auch nach
+		   Blatt-Änderungen. */
+		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder, includeCaster: cfg.includeCaster },
 		metersPerField: 2,
 		/* v2.6 (Rudolfs Testrunde 6, P12): der Zonen-Name nennt den
 		   AUSLÖSER (den Kraft besitzenden Akteur) statt des platzieren-
@@ -1702,7 +1738,7 @@ export async function placeZoneFromItem(item) {
 		   aus - die Aktivierung läuft dort über die Auslöse-Taste, wenn
 		   die Markierungsreihenfolge steht. */
 		if (zone.mode === 'lasting' && zone.trigger === 'enter' && !isMarkingZone) {
-			const standing = _filterTargets(_collectRegionTokens(region), cfg.targeting, casterToken);
+			const standing = _filterTargets(_collectRegionTokens(region), cfg.targeting, casterToken, zone.free ? null : (cfg.includeCaster ?? null));
 			if (standing.length > 0) {
 				await _executeZoneTrigger(region, { manual: false });
 				await _updateZoneCards(region);
@@ -1713,7 +1749,7 @@ export async function placeZoneFromItem(item) {
 
 /** Auto-Targeting EINER platzierten Region (Zielvorschlag wie Stufe 1). */
 async function _autoTargetRegion(region, cfg, casterToken) {
-	const tokens = _filterTargets(_collectRegionTokens(region), cfg.targeting, casterToken);
+	const tokens = _filterTargets(_collectRegionTokens(region), cfg.targeting, casterToken, cfg.includeCaster ?? null);
 	if (tokens.length > 0) {
 		let first = true;
 		for (const tokenDoc of tokens) {
@@ -2235,7 +2271,7 @@ export async function aoeMaintainZoneRound(actor, abilityRef) {
 	const aoe = region.flags.symbaroum.aoe;
 	const item = aoe.sourceItemUuid ? (await fromUuid(aoe.sourceItemUuid)) : null;
 	if (!item || !aoe.activated) return false;
-	const tokens = _filterTargets(_collectRegionTokens(region), aoe.config.targeting, _casterTokenOfZone(aoe));
+	const tokens = _filterTargets(_collectRegionTokens(region), aoe.config.targeting, _casterTokenOfZone(aoe), aoe.config.includeCaster ?? null);
 	/* v2.5 (Rudolfs Testrunde 5, P5-Kommentar): Zielwahl-Sortierung jetzt
 	   auch in der Maintain-Runde (vorher Szenenreihenfolge - "hat zwei Mal
 	   mit dem entferntesten Token begonnen"). */

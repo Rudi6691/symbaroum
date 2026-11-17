@@ -162,6 +162,13 @@
                             {{selectOptions aoe_target_order_selection selected=aoe.targetOrder valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
+                    {{!-- Baustein E (Rudolfs Startsignal „Leg los“ 16.11.2026): Wirker-Einbeziehung der Auto-Auswahl; Nie entfernt den Wirker auch beim Filter „Alle“, Immer erzwingt ihn über den Dispositionsfilter. --}}
+                    <div class="action">
+                        <label for="{{id}}-system.areaZone.includeCaster" data-tooltip="{{localize "AOE.INFO_INCLUDE_CASTER"}}">{{localize "AOE.FIELD_INCLUDE_CASTER"}}</label>
+                        <select id="{{id}}-system.areaZone.includeCaster" name="system.areaZone.includeCaster">
+                            {{selectOptions aoe_include_caster_selection selected=aoe.includeCaster valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
                     {{#unless aoeIsInstant}}
                     <div class="action">
                         <label for="{{id}}-system.areaZone.duration" data-tooltip="{{localize "AOE.INFO_DURATION"}}">{{localize "AOE.FIELD_DURATION"}}</label>
