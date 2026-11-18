@@ -1721,7 +1721,13 @@ function a29ShowReminderDialog(actor, abilityRef, targetCount) {
 }
 
 /* A29 socket: GM -> player reminder (G1) and player -> GM abort answer */
-function a29SocketHandler(message) {
+/* Hymnen-Paket 1.6.1 (Crash-Fix): async - der concentrationFail-Zweig
+   ruft endAllMaintainedPowers mit await; die nicht-async-Deklaration
+   war ein ESM-Syntaxfehler (Unexpected reserved word, node --check
+   prueft .js als CJS/Sloppy und fand ihn nicht) und brach beim
+   Foundry-Start den GESAMTEN System-Import ab (Sheets zeigten nur
+   die Titelzeile, game.symbaroum blieb uninitialisiert). */
+async function a29SocketHandler(message) {
 	if (!message?.type) return;
 	if (message.type === 'a29MaintainReminder' && message.data?.userId === game.user.id) {
 		const actor = game.actors.get(message.data.actorId);
