@@ -94,7 +94,11 @@ function preloadHandlebarsTemplates() {
 function registerHandlebarsHelpers() {
   Handlebars.registerHelper('removeMarkup', function (text) {
     const markup = /<(.*?)>/gi;
-    return new Handlebars.SafeString(text.replace(markup, ''));
+    /* Hymnen 1.7 (P10): (text ?? "") haertet den Helper gegen
+       undefined ab - vorher warf removeMarkup bei fehlendem Feld
+       (Gift-Abkuerzungspfade) einen TypeError und brach das Rendern
+       der kompletten Chat-Karte ab. */
+    return new Handlebars.SafeString((text ?? "").replace(markup, ''));
   });
     
   Handlebars.registerHelper('removeStyling', function (text) {

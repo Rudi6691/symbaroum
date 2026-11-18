@@ -6734,38 +6734,86 @@ async function preDialogThornCloakChoice(functionStuff) {
    Kreaturen daneben = SL-Urteil, dokumentierte Grenze). Messfehler
    schliessen das Ziel EIN (SL-Urteil, Muster getHymnAffected-
    Tokens). */
+/* Zentrum eines Tokens tolerant bestimmen: Placeables haben center,
+   TokenDocuments (getActorToken liefert seit V10 TokenDocuments,
+   nicht Placeables) nicht - dort Bildmitte aus x/y + width/height
+   rekonstruieren, damit die Chebyshev-Messung immer Zentren gegen
+   Zentren stellt (v1.7, Rudolfs Testrunde v1.6.1 Punkt 2). */
+function thornCloakTokenCenter(token) {
+  if (token?.center) return token.center;
+  const width = token?.width ?? 0;
+  const height = token?.height ?? 0;
+  return { x: (token?.x ?? 0) + width / 2, y: (token?.y ?? 0) + height / 2 };
+}
+
 function thornCloakInMeleeRange(tokenA, tokenB) {
   try {
     const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.grid?.size ?? 100;
-    const ax = tokenA?.center?.x ?? tokenA?.x ?? tokenA?.document?.x ?? 0;
-    const ay = tokenA?.center?.y ?? tokenA?.y ?? tokenA?.document?.y ?? 0;
-    const bx = tokenB?.center?.x ?? tokenB?.x ?? tokenB?.document?.x ?? 0;
-    const by = tokenB?.center?.y ?? tokenB?.y ?? tokenB?.document?.y ?? 0;
-    return Math.max(Math.abs(ax - bx), Math.abs(ay - by)) <= cell * 1.5;
+    const a = thornCloakTokenCenter(tokenA);
+    const b = thornCloakTokenCenter(tokenB);
+    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= cell * 1.5;
   } catch (rangeError) {
     return true;
   }
 }
 
 /* Verbuendete in Nahkampfreichweite des Mystikers (benachbarte
-   Felder, szenen-unabhaengig ueber thornCloakInMeleeRange; Disposition
-   relativ zum Mystiker, Muster getHymnAffectedTokens - der Mystiker
-   selbst nie). */
+   Felder, szenen-unabhaengig ueber thornCloakInMeleeRange; Muster
+   getHymnAffectedTokens - der Mystiker selbst nie).
+   v1.7 (Rudolfs Testrunde v1.6.1 + Entscheidungen 18.11.2026):
+   - Dispositions-Regel: FEINDLICHE Token zaehlen nur bei feindlichem
+     Mystiker als Verbuendete; NEUTRALE immer (vorher fielen sie bei
+     freundlichem Mystiker durch das < heraus).
+   - casterToken kann Placeable ODER TokenDocument sein - Disposition
+     tolerant lesen.
+   - Skip-Diagnosezeilen (Muster der Heilaura v2.15): Nahe Token
+     (bis 3 Chebyshev-Zellen), die NICHT gewoben wurden, werden mit
+     GRUND zurueckgeliefert (Disposition/Distanz/bereits gewoben),
+     damit stille Skips auf der Aktivierungs- und Rescan-Karte lesbar
+     sind statt still zu verschwinden. */
 function thornCloakAlliesInRange(functionStuff, casterToken) {
-  const casterDisposition = casterToken.document?.disposition ?? 0;
+  const casterDisposition = casterToken?.document?.disposition ?? casterToken?.disposition ?? 0;
+  const casterId = casterToken?.id ?? casterToken?.document?.id;
+  const casterCenter = thornCloakTokenCenter(casterToken);
   const allies = [];
-  for (const token of canvas.tokens?.placeables ?? []) {
-    if (!token.actor || token.id === casterToken.id) continue;
-    if ((token.document?.disposition ?? 0) < casterDisposition) continue;
-    if (!thornCloakInMeleeRange(casterToken, token)) continue;
-    const alreadyWoven = token.actor.effects.some((effect) => {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      return fd?.caster === functionStuff.actor.id && fd?.ability === "thorncloak";
-    });
-    if (alreadyWoven) continue;
-    allies.push(token);
+  const skipLines = [];
+  try {
+    const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.grid?.size ?? 100;
+    for (const token of canvas.tokens?.placeables ?? []) {
+      if (!token.actor || token.id === casterId) continue;
+      const center = thornCloakTokenCenter(token);
+      const distCells = Math.max(Math.abs(center.x - casterCenter.x), Math.abs(center.y - casterCenter.y)) / cell;
+      /* Ferne Token sind fuer die Karte uninteressant - nur der
+         Nahbereich wird diagnostiziert (bis 3 Felder). */
+      if (distCells > 3) continue;
+      const tokenDisp = token.document?.disposition ?? 0;
+      if (tokenDisp < 0 && casterDisposition >= 0) {
+        skipLines.push(thornCloakSkipLine(token, game.i18n.format("POWER_THORN_CLOAK.SWEEP_REASON_DISPOSITION", { disp: tokenDisp, caster: casterDisposition })));
+        continue;
+      }
+      const alreadyWoven = token.actor.effects.some((effect) => {
+        const fd = effect.getFlag(game.system.id, "flagData");
+        return fd?.caster === functionStuff.actor.id && fd?.ability === "thorncloak";
+      });
+      if (alreadyWoven) {
+        skipLines.push(thornCloakSkipLine(token, game.i18n.localize("POWER_THORN_CLOAK.SWEEP_REASON_WOVEN")));
+        continue;
+      }
+      if (distCells > 1.5) {
+        skipLines.push(thornCloakSkipLine(token, game.i18n.format("POWER_THORN_CLOAK.SWEEP_REASON_DISTANCE", { cells: (Math.round(distCells * 10) / 10).toLocaleString(game.i18n.lang) })));
+        continue;
+      }
+      allies.push(token);
+    }
+  } catch (sweepError) {
+    game.symbaroum.log("Hymnen 1.7: Dornenmantel-Sweep", sweepError);
   }
-  return allies;
+  return { allies, skipLines };
+}
+
+/* Skip-Diagnosezeile der v1.7 (v2.15-Heilaura-Muster): Name + Grund */
+function thornCloakSkipLine(token, reason) {
+  return `<p>${game.i18n.format("POWER_THORN_CLOAK.SWEEP_SKIP", { targetname: token.name, reason })}</p>`;
 }
 
 /* Dornenmantel-Ruestungs-Item am Akteur auf die aktuelle Bonus-Stufe
@@ -6858,7 +6906,9 @@ async function thornCloakResult(rollData, functionStuff) {
     lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ARMOR_LINE", { targetname: functionStuff.actingCharName, dice: "1d6" })}</p>`);
   }
   if (functionStuff.powerLvl.level > 1 && casterToken) {
-    for (const token of thornCloakAlliesInRange(functionStuff, casterToken)) {
+    /* v1.7: Sweep liefert allies + Skip-Diagnosezeilen (Punkt 2) */
+    const sweep = thornCloakAlliesInRange(functionStuff, casterToken);
+    for (const token of sweep.allies) {
       flagDataArray.push({
         tokenId: token.id,
         addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
@@ -6876,6 +6926,9 @@ async function thornCloakResult(rollData, functionStuff) {
         protection: "1d4",
       });
       lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ALLY_LINE", { targetname: token.name })}</p>`);
+    }
+    for (const skipLine of sweep.skipLines) {
+      lines.push(skipLine);
     }
   }
   if (functionStuff.powerLvl.level > 2) {
@@ -6925,7 +6978,10 @@ async function thornCloakRescan(functionStuff) {
         lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ZONE_LEFT", { targetname: entry.token.name })}</p>`);
       }
     }
-    for (const token of thornCloakAlliesInRange(functionStuff, casterToken)) {
+    /* v1.7: Sweep liefert allies + Skip-Diagnosezeilen (Punkt 4,
+       Leaver/Joiner-Diagnose auf der Rescan-Karte) */
+    const sweep = thornCloakAlliesInRange(functionStuff, casterToken);
+    for (const token of sweep.allies) {
       flagDataArray.push({
         tokenId: token.id,
         addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
@@ -6943,6 +6999,9 @@ async function thornCloakRescan(functionStuff) {
         protection: "1d4",
       });
       lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ZONE_JOINED", { targetname: token.name })}</p>`);
+    }
+    for (const skipLine of sweep.skipLines) {
+      lines.push(skipLine);
     }
   }
   if (lines.length > 0) {
@@ -6972,7 +7031,14 @@ async function thornCloakRetaliation(functionStuff, damageTot, rollData) {
        war immer undefined, das Gate brach jeden Rueckschlag ab.
        Flach lesen, system nur als Rueckfalle. */
     const isMeleeWeapon = Boolean(functionStuff.weapon?.isMelee ?? functionStuff.weapon?.system?.isMelee);
-    if (!isMeleeWeapon || functionStuff.isAlternativeDamage || functionStuff.resistRoll) return;
+    /* v1.7 (Rudolfs Testrunde v1.6.1, Punkt 3): resistRoll aus dem
+       Gate ENTFERNT - dialog.js setzt resistRoll=true fuer jeden
+       NSC->PC-Angriff mit aktiver Verteidigung des Spieler-Ziels,
+       das Gate brach deshalb JEDENS NSC->PC-Rueckschlag ab. Der
+       Verteidigungswurf ist bereits ueber die trueActorSucceeded-
+       Probe unten abgedeckt; echte Resistenzzweige laufen ohnehin
+       ueber isAlternativeDamage. */
+    if (!isMeleeWeapon || functionStuff.isAlternativeDamage) return;
     if (!rollData.some((r) => r.trueActorSucceeded)) return;
     const defenderToken = functionStuff.targetData?.token;
     const defenderActor = functionStuff.targetData?.actor;
@@ -9202,6 +9268,11 @@ async function attackResult(rollData, functionStuff) {
       templateData.printPoison = true;
       templateData.poisonChatIntro = functionStuff.actingCharName + game.i18n.localize("COMBAT.CHAT_POISON") + functionStuff.targetData.name;
       templateData.poisonChatResult = functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_NEUTRALIZED");
+      /* v1.7 (P10): combat.hbs rendert bei resistRoll true die
+         poisonResistRollText-Zeile - im Abkuerzungspfad fehlte das
+         Feld, removeMarkup crashte an undefined und riss die ganze
+         Angriffskarte mit (Spieler-Verteidigung). Wert wie poisonCalc. */
+      templateData.poisonResistRollText = functionStuff.targetData.name + game.i18n.localize("ABILITY.RESIST_ROLL");
     } else {
       let targetResMod = checkSpecialResistanceMod(functionStuff.targetData.actor.system.combat.damageReductions, functionStuff.targetData.autoParams, "poisoner");
       // Gift v1.1 P6a: Gunst des Meister-Coats NUR auf die Giftprobe
@@ -9242,6 +9313,9 @@ async function attackResult(rollData, functionStuff) {
       templateData.printPoison = true;
       templateData.poisonChatIntro = game.i18n.format("COMBAT.CHAT_POISON_COATING_INTRO", { poison: functionStuff.poisonCoating.name });
       templateData.poisonChatResult = game.i18n.localize("COMBAT.CHAT_POISON_NOTEXTEND");
+      /* v1.7 (P10): wie im Neutralisations-Pfad - poisonResistRollText
+         fuer die resistRoll-Kartenzeile setzen (removeMarkup-Crash) */
+      templateData.poisonResistRollText = functionStuff.targetData.name + game.i18n.localize("ABILITY.RESIST_ROLL");
     } else {
       // Gift v1 B6 (Handbuch der Gifte): +1 auf die Beschichtungsprobe,
       // wenn der Angreifer das Handbuch traegt UND die Faehigkeit

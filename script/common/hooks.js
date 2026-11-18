@@ -1493,7 +1493,9 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 		await ChatMessage.create({
 			user: game.user.id,
 			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
-			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('POWER_HYMN.CHAT_END')}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+			/* Hymnen 1.7 (P7): Titel mit Kraftnamen statt des generischen
+			   "Gesang beendet" */
+			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
 		});
 	}
 	/* Hymnen-Paket 1.5 (Dornenmantel): A29-"Nein" und "Alle beenden"
@@ -1509,7 +1511,9 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 		await ChatMessage.create({
 			user: game.user.id,
 			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
-			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('POWER_HYMN.CHAT_END')}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+			/* Hymnen 1.7 (P7): Titel mit Kraftnamen statt des generischen
+			   "Gesang beendet" */
+			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
 		});
 	}
 }

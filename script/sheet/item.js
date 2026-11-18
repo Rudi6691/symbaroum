@@ -711,8 +711,14 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				/* Hymnen-Paket 1.1 (Rudolfs Testrunde v1, Punkt Tanzende Waffe):
 				   Zonen-Schalter 'active' - STRING-Select 'yes' (Default) / 'no'.
 				   'no' deaktiviert die Kraft-Zone komplett (keine Warnung,
-				   kein Ausführungsdialog, keine Platzierung), getZoneConfig-Kanonik */
-				active: zoneCfg?.active ?? 'yes',
+				   kein Ausführungsdialog, keine Platzierung), getZoneConfig-Kanonik.
+				   Hymnen 1.7 (P8, Rudolfs Testrunde v1.6.1): ROHER Item-Wert
+				   statt getZoneConfig-Kanonik - getZoneConfig liefert bei
+				   fehlender Form (oder gespeichertem 'no') bewusst null,
+				   der Tab fiel darum immer auf Default 'Ja' zurueck und ein
+				   gespeichertes 'Nein' war unsichtbar (Warnung "Zone ohne
+				   Form" trotz deaktivierter Zone, auch bei Schutzrunen). */
+				active: String(zone?.active ?? 'yes'),
 			};
 			/* v2.1: Augenblickliche Zonen haben keine Dauer (One-Shot) -
 			   das Template blendet das Dauer-Feld deshalb aus */

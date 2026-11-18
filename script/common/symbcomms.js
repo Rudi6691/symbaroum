@@ -84,7 +84,14 @@ export class SymbaroumCommsListener
             const buttons = (d.refs ?? []).map((r) =>
                 `<button class="conc-probe" data-ref="${r.ref}"><i class="fas fa-dice-d20"></i> ${game.i18n.format("CONCENTRATION.BUTTON_PROBE", { powername: r.label ?? r.ref })}</button>`
             ).join(" ");
-            const content = `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize("CONCENTRATION.CARD_TITLE")}</h4><div class="finalTxt"><p>${game.i18n.format("CONCENTRATION.CARD_LINE", { actorname: d.actorName, count: d.damage })}</p><p>${game.i18n.format("CONCENTRATION.CARD_TARGET", { resolute: d.resolute, damage: d.damage, target: d.target })}</p></div><div class="finalTxt">${buttons}</div></div></div>`;
+            /* Hymnen 1.7 (P9b, Rudolfs Testrunde v1.6.1): Optik auf das
+               Upstream-Muster (resistButton.hbs) umgestellt - h4-Zeilen
+               und die Buttons in einem <p> statt der finalTxt-Boxen,
+               damit die Karte wie die uebrigen System-Karten aussieht.
+               Verhalten unveraendert: Buttons behalten class="conc-probe"
+               + data-ref, der Klick-Handler in hooks.js greift genauso
+               zu (Klassen, nicht IDs). */
+            const content = `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize("CONCENTRATION.CARD_TITLE")}</h4><h4>${game.i18n.format("CONCENTRATION.CARD_LINE", { actorname: d.actorName, count: d.damage })}</h4><h4>${game.i18n.format("CONCENTRATION.CARD_TARGET", { resolute: d.resolute, damage: d.damage, target: d.target })}</h4><p>${buttons}</p></div></div>`;
             const chatData = {
                 speaker: ChatMessage.getSpeaker({alias: game.i18n.localize("DIALOG.SYSTEM_MESSAGE")}),
                 whisper: [game.user],
