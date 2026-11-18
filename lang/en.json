@@ -1075,6 +1075,7 @@
   "CONCENTRATION.CARD_TITLE": "Concentration Test",
   "CONCENTRATION.CARD_LINE": "{actorname} suffers {count} damage – check concentration on sustained powers (d20 ≤ Resolute – damage).",
   "CONCENTRATION.CARD_TARGET": "Target number: Resolute {resolute} – damage {damage} = {target}",
+  "CONCENTRATION.GM_INFO": "{actorname} must click the probe button on their own concentration card to test concentration.",
   "CONCENTRATION.BUTTON_PROBE": "Test: {powername}",
   "CONCENTRATION.BUTTON_END_ALL": "End all",
   "CONCENTRATION.PROBE_SUCCESS": "{actorname} keeps concentration ({total} ≤ {target}).",

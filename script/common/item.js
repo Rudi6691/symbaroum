@@ -2602,13 +2602,20 @@ export class SymbaroumItem extends Item {
        Hook hooks.js + je-Runde-Abgleich im A29-Rescan, Rudolfs
        Entscheidungen "automatisches Flag" und "je Runde pruefen");
        Adept+ schuetzt zusaetzlich alle Verbuendeten in Nahkampf-
-       reichweite (2 m = benachbarte Felder, MELEE_RANGE_UNITS) -
+       reichweite (benachbarte Felder, v1.6 szenen-unabhaengig
+       ueber thornCloakInMeleeRange gemessen) -
        der A29-Turnus (Rudolfs Vorschlag) prueft die je-Runde-Naehe
        im Rescan; Meister-Rueckschlag 1W10 (Ruestung ignoriert)
        laeuft automatisch als Reaktions-Karte in attackResult (Rudolfs
        Entscheidung "Ja, automatisch"). Die VerbUndeten-Marker tragen
        maintained + Autor-Marker (A29-Erinnerung feuert am eigenen
-       Zug, "Ja" = Rescan, "Nein" = Ende). */
+       Zug, "Ja" = Rescan, "Nein" = Ende). v1.6 (Rudolfs Test-
+       runde v1.5, Punkte 5a/5c, Entscheidung "Maintain-Modell mit
+       A29-Turnus", 17.11.2026): Das CASTER-Symbol traegt den
+       Maintain-Marker jetzt ebenfalls (thornCloakResult patcht
+       flagData maintained/caster/ability) - die A29-Erinnerung
+       feuert auch beim Solo-Novizen ohne Verbuendete, ein
+       Maintain-WURF bleibt keiner. */
     base.traditions = [game.symbaroum.config.TRAD_WITCHCRAFT];
     base.casting = game.symbaroum.config.CASTING_NOT;
     base.maintain = game.symbaroum.config.MAINTAIN;
@@ -6717,20 +6724,40 @@ async function preDialogThornCloakChoice(functionStuff) {
   await modifierDialog(functionStuff);
 }
 
-/* Verbuendete in Nahkampfreichweite des Mystikers (2 m = benachbarte
-   Felder, MELEE_RANGE_UNITS; Disposition relativ zum Mystiker, Muster
-   getHymnAffectedTokens - der Mystiker selbst nie). */
-function thornCloakAlliesInRange(functionStuff, casterToken, meleeRange) {
+/* v1.6 (Rudolfs Testrunde v1.5, Punkt 5b): Nahkampfreichweite =
+   benachbarte Felder szenen-UNABHAENGIG messen. Die v1.5-Messung
+   (canvas.grid.measureDistance gegen 2 Szenen-Einheiten) haengt an
+   der gridDistance-Einstellung der Szene und filterte in Rudolfs
+   Testszene JEDES benachbarte Token aus; der Zauberstab misst jetzt
+   die Chebyshev-Distanz der Token-Zentren gegen 1.5 Grid-Zellen
+   (benachbarte Felder orthogonal UND diagonal; deutlich groessere
+   Kreaturen daneben = SL-Urteil, dokumentierte Grenze). Messfehler
+   schliessen das Ziel EIN (SL-Urteil, Muster getHymnAffected-
+   Tokens). */
+function thornCloakInMeleeRange(tokenA, tokenB) {
+  try {
+    const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.grid?.size ?? 100;
+    const ax = tokenA?.center?.x ?? tokenA?.x ?? tokenA?.document?.x ?? 0;
+    const ay = tokenA?.center?.y ?? tokenA?.y ?? tokenA?.document?.y ?? 0;
+    const bx = tokenB?.center?.x ?? tokenB?.x ?? tokenB?.document?.x ?? 0;
+    const by = tokenB?.center?.y ?? tokenB?.y ?? tokenB?.document?.y ?? 0;
+    return Math.max(Math.abs(ax - bx), Math.abs(ay - by)) <= cell * 1.5;
+  } catch (rangeError) {
+    return true;
+  }
+}
+
+/* Verbuendete in Nahkampfreichweite des Mystikers (benachbarte
+   Felder, szenen-unabhaengig ueber thornCloakInMeleeRange; Disposition
+   relativ zum Mystiker, Muster getHymnAffectedTokens - der Mystiker
+   selbst nie). */
+function thornCloakAlliesInRange(functionStuff, casterToken) {
   const casterDisposition = casterToken.document?.disposition ?? 0;
   const allies = [];
   for (const token of canvas.tokens?.placeables ?? []) {
     if (!token.actor || token.id === casterToken.id) continue;
     if ((token.document?.disposition ?? 0) < casterDisposition) continue;
-    try {
-      if (canvas.grid.measureDistance(casterToken, token) > meleeRange) continue;
-    } catch (distanceError) {
-      continue;
-    }
+    if (!thornCloakInMeleeRange(casterToken, token)) continue;
     const alreadyWoven = token.actor.effects.some((effect) => {
       const fd = effect.getFlag(game.system.id, "flagData");
       return fd?.caster === functionStuff.actor.id && fd?.ability === "thorncloak";
@@ -6798,8 +6825,27 @@ async function thornCloakResult(rollData, functionStuff) {
     await functionStuff.actor.unsetFlag(game.system.id, "thornCloakMoved");
     return;
   }
-  const meleeRange = game.symbaroum.config.MELEE_RANGE_UNITS ?? 2;
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  /* v1.6 (Rudolfs Testrunde v1.5, Punkte 5a/5c, Rudolfs Entscheidung
+     "Maintain-Modell mit A29-Turnus", 17.11.2026): Das Caster-Symbol
+     traegt jetzt den A29-Autor-Marker (maintained + caster + ability)
+     - die A29-Erinnerung feuert JE EIGENE RUNDE (Ja = thornCloakRescan:
+     1W6-Wiederaufbau ohne Bewegung seit dem letzten eigenen Zug,
+     Leaver raus, Joiner ab Adept rein; Nein = Ende mit vollstaendiger
+     Raeumung), die Konzentration erfasst die Kraft ohne den alten
+     hasCondition-Fallback (der bleibt als Sicherheitsnetz stehen).
+     Ein Maintain-WURF bleibt weiterhin keiner (Toggle ohne Probe). */
+  try {
+    const cloakEffect = functionStuff.actor.effects.find((e) => e.statuses?.has?.("thorncloak"));
+    if (cloakEffect) {
+      const cloakFlagData = cloakEffect.getFlag(game.system.id, "flagData") ?? {};
+      await cloakEffect.update({
+        [`flags.${game.system.id}.flagData`]: { ...cloakFlagData, maintained: true, caster: functionStuff.actor.id, ability: "thorncloak" },
+      });
+    }
+  } catch (cloakFlagError) {
+    game.symbaroum.log("Hymnen 1.6: Dornenmantel-Maintain-Marker", cloakFlagError);
+  }
   const flagDataArray = [];
   const lines = [];
   if (functionStuff.tokenId) {
@@ -6812,7 +6858,7 @@ async function thornCloakResult(rollData, functionStuff) {
     lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ARMOR_LINE", { targetname: functionStuff.actingCharName, dice: "1d6" })}</p>`);
   }
   if (functionStuff.powerLvl.level > 1 && casterToken) {
-    for (const token of thornCloakAlliesInRange(functionStuff, casterToken, meleeRange)) {
+    for (const token of thornCloakAlliesInRange(functionStuff, casterToken)) {
       flagDataArray.push({
         tokenId: token.id,
         addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
@@ -6853,7 +6899,6 @@ async function thornCloakResult(rollData, functionStuff) {
 async function thornCloakRescan(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   if (!casterToken) return;
-  const meleeRange = game.symbaroum.config.MELEE_RANGE_UNITS ?? 2;
   const carrying = new Map();
   for (const token of canvas.tokens?.placeables ?? []) {
     if (!token.actor?.effects) continue;
@@ -6872,12 +6917,7 @@ async function thornCloakRescan(functionStuff) {
   if (functionStuff.powerLvl.level > 1) {
     for (const entry of carrying.values()) {
       if (entry.token.id === casterToken.id) continue;
-      let inRange = true;
-      try {
-        inRange = canvas.grid.measureDistance(casterToken, entry.token) <= meleeRange;
-      } catch (distanceError) {
-        inRange = true;
-      }
+      const inRange = thornCloakInMeleeRange(casterToken, entry.token);
       if (!inRange) {
         const statusId = entry.effect.statuses?.size ? [...entry.effect.statuses][0] : null;
         if (!statusId) continue;
@@ -6885,7 +6925,7 @@ async function thornCloakRescan(functionStuff) {
         lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ZONE_LEFT", { targetname: entry.token.name })}</p>`);
       }
     }
-    for (const token of thornCloakAlliesInRange(functionStuff, casterToken, meleeRange)) {
+    for (const token of thornCloakAlliesInRange(functionStuff, casterToken)) {
       flagDataArray.push({
         tokenId: token.id,
         addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
@@ -6926,7 +6966,13 @@ async function thornCloakRescan(functionStuff) {
 async function thornCloakRetaliation(functionStuff, damageTot, rollData) {
   try {
     if (damageTot <= 0) return;
-    if (!functionStuff.weapon?.system?.isMelee || functionStuff.isAlternativeDamage || functionStuff.resistRoll) return;
+    /* v1.6 (Rudolfs Testrunde v1.5, Punkt 5): attackResult arbeitet
+       mit FLACHEN Waffen-Klonen (actor.system.weapons, Original:
+       functionStuff.weapon.isMelee an 4 Stellen) - system?.isMelee
+       war immer undefined, das Gate brach jeden Rueckschlag ab.
+       Flach lesen, system nur als Rueckfalle. */
+    const isMeleeWeapon = Boolean(functionStuff.weapon?.isMelee ?? functionStuff.weapon?.system?.isMelee);
+    if (!isMeleeWeapon || functionStuff.isAlternativeDamage || functionStuff.resistRoll) return;
     if (!rollData.some((r) => r.trueActorSucceeded)) return;
     const defenderToken = functionStuff.targetData?.token;
     const defenderActor = functionStuff.targetData?.actor;
@@ -6949,13 +6995,9 @@ async function thornCloakRetaliation(functionStuff, damageTot, rollData) {
        Mystikers; bei fehlender Messung wirkt der Schutz (SL-Urteil). */
     if (casterActor !== defenderActor) {
       const casterToken = canvas.tokens?.placeables?.find((t) => t.actor?.id === casterActor.id);
-      if (casterToken) {
-        try {
-          if (canvas.grid.measureDistance(casterToken, defenderToken) > (game.symbaroum.config.MELEE_RANGE_UNITS ?? 2)) return;
-        } catch (distanceError) {
-          // Messung nicht verfuegbar => Schutz wirkt, SL-Urteil
-        }
-      }
+      /* v1.6: szenen-unabhaengige Nachbar-Messung (thornCloakInMelee-
+         Range); Messfehler schliessen ein => Schutz wirkt, SL-Urteil */
+      if (casterToken && !thornCloakInMeleeRange(casterToken, defenderToken)) return;
     }
     const retaliationRoll = await new Roll("1d10").evaluate();
     await createModifyTokenChatButton([{ tokenId: functionStuff.tokenId, actorId: functionStuff.actor.id, toughnessChange: -1 * retaliationRoll.total }]);

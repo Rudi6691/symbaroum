@@ -963,13 +963,14 @@ SYMBAROUM.getCreatureCategory = function (actor) {
    verfügbar (kein Grid/Makro-Kante), greift das SL-Urteil (wirkt). */
 SYMBAROUM.SIGHT_RANGE_UNITS = 50;
 
-/* Hymnen-Paket 1.5 (Dornenmantel): Nahkampfreichweite = 2 m = benach-
-   barte Felder (1 Szenen-Einheit = 2 m, derselbe Maßstab wie oben;
-   Diagonalen nach Szenen-Messmodus). Adept-Stufe webt alle Verbündeten
-   in dieser Distanz in den Mantel, der Rescan prüft sie je Runde, der
-   Meister-Rückschlag misst frisch gegen sie. */
-SYMBAROUM.MELEE_RANGE_UNITS = 2;
-
+/* Hymnen-Paket 1.6 (Rudolfs Testrunde v1.5, Punkt 5b): Die Konstante
+   MELEE_RANGE_UNITS ist ENTFALLEN - die v1.5-Messung in Szenen-
+   Einheiten (canvas.grid.measureDistance gegen 2) hing an der
+   gridDistance-Einstellung der Szene und filterte in Rudolfs Test-
+   szene jedes benachbarte Token aus. Die Nahkampfreichweite wird
+   jetzt szenen-unabhaengig in item.js gemessen (thornCloakInMelee-
+   Range: Chebyshev-Distanz der Token-Zentren gegen 1.5 Grid-Zellen
+   = benachbarte Felder orthogonal und diagonal). */
 SYMBAROUM.isCreatureCategory = function (actor, categoryId) {
 	return !!categoryId && actor?.system?.creatureCategory === categoryId;
 };

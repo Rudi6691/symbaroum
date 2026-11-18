@@ -1075,6 +1075,7 @@
   "CONCENTRATION.CARD_TITLE": "Konzentrationsprobe",
   "CONCENTRATION.CARD_LINE": "{actorname} erleidet {count} Schaden – Konzentration andauernder Kräfte prüfen (W20 ≤ Willenskraft − Schaden).",
   "CONCENTRATION.CARD_TARGET": "Zielwert: Willenskraft {resolute} − Schaden {damage} = {target}",
+  "CONCENTRATION.GM_INFO": "{actorname} muss auf die „Probe\"-Taste der eigenen Konzentrationskarte klicken, um die Konzentration zu prüfen.",
   "CONCENTRATION.BUTTON_PROBE": "Probe: {powername}",
   "CONCENTRATION.BUTTON_END_ALL": "Alle beenden",
   "CONCENTRATION.PROBE_SUCCESS": "{actorname} hält die Konzentration ({total} ≤ {target}).",

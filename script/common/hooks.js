@@ -14,7 +14,7 @@ import { enrichTextEditors } from './enricher.js';
 import { SymbaroumActor } from './actor.js';
 import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
-import { createRollData, getAttributeValue } from './roll.js';
+import { createRollData, getAttributeValue, getOwnerPlayer } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
 // DialogV2 compatibility helper
 import { symbDialog } from './symbDialog.js';
@@ -1551,13 +1551,25 @@ async function postConcentrationCard(actor, damage) {
 	const resolute = getAttributeValue(actor, 'resolute');
 	const target = Math.max(1, resolute - damage);
 	const buttonHtml = [];
+	const concRefs = [];
 	for (const group of groups.values()) {
 		const abilityItem = a29FindAbilityItem(actor, group.abilityRef);
 		const label = game.symbaroum.htmlEscape(abilityItem?.name ?? group.abilityRef);
+		concRefs.push({ ref: group.abilityRef, label: label });
 		buttonHtml.push(`<button class="conc-probe" data-ref="${group.abilityRef}"><i class="fas fa-dice-d20"></i> ${game.i18n.format('CONCENTRATION.BUTTON_PROBE', { powername: label })}</button>`);
 	}
 	buttonHtml.push(`<button class="conc-probe" data-mode="end"><i class="fas fa-times"></i> ${game.i18n.localize('CONCENTRATION.BUTTON_END_ALL')}</button>`);
-	const content = `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('CONCENTRATION.CARD_TITLE')}</h4><div class="finalTxt"><p>${game.i18n.format('CONCENTRATION.CARD_LINE', { actorname: actor.name, count: damage })}</p><p>${game.i18n.format('CONCENTRATION.CARD_TARGET', { resolute: resolute, damage: damage, target: target })}</p></div><div class="finalTxt">${buttonHtml.join(' ')}</div></div></div>`;
+	/* Hymnen-Paket 1.6 (Rudolfs Testrunde v1.5, "Resist-Karte fuer
+	   Spieler"): Der Spieler-Besitzer erhaelt ZUSAETZLICH zur GM-
+	   Karte eine eigene gefluesterte Karte (Muster ResistRoll/
+	   TravelHungerProbe, symbcomms.js-Zweig ConcentrationCard) und
+	   wuerfelt die Probe selbst - die GM-Karte bleibt unberuehrt
+	   (GM behaelt Probe- und "Alle beenden"-Tasten als Fallback),
+	   die GM-Info-Zeile weist auf die Spieler-Karte hin. */
+	const owners = await getOwnerPlayer(actor);
+	const ownerUser = (owners ?? []).find((u) => u && !u.isGM) ?? null;
+	const gmInfoLine = ownerUser ? `<p>${game.i18n.format('CONCENTRATION.GM_INFO', { actorname: actor.name })}</p>` : '';
+	const content = `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('CONCENTRATION.CARD_TITLE')}</h4><div class="finalTxt"><p>${game.i18n.format('CONCENTRATION.CARD_LINE', { actorname: actor.name, count: damage })}</p><p>${game.i18n.format('CONCENTRATION.CARD_TARGET', { resolute: resolute, damage: damage, target: target })}</p></div><div class="finalTxt">${buttonHtml.join(' ')}${gmInfoLine}</div></div></div>`;
 	await ChatMessage.create({
 		user: game.user.id,
 		speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
@@ -1565,6 +1577,12 @@ async function postConcentrationCard(actor, damage) {
 		content: content,
 		[`flags.${game.system.id}.concentrationCard`]: { actorId: actor.id, damage: damage, refs: [...groups.keys()] },
 	});
+	if (ownerUser) {
+		game.symbaroum.emit({
+			type: 'ConcentrationCard',
+			data: { targetUserId: ownerUser.id, actorId: actor.id, actorName: actor.name, damage: damage, resolute: resolute, target: target, refs: concRefs },
+		});
+	}
 }
 
 /* Rudolfs Entscheidung "eine verfehlte Probe beendet ALLE": Abräumen
@@ -1711,6 +1729,16 @@ function a29SocketHandler(message) {
 	} else if (message.type === 'a29MaintainReminderAnswer' && game.user.isActiveGM && message.data?.answer === 'no') {
 		const actor = game.actors.get(message.data.actorId);
 		if (actor) a29AbortMaintainPower(actor, message.data.abilityRef);
+	} else if (message.type === 'concentrationFail' && game.user.isActiveGM) {
+		/* Hymnen-Paket 1.6: Der Spieler hat die Konzentrationsprobe auf
+		   der eigenen Resist-Karte verfehlt - der aktive GM-Client
+		   raeumt ALLE andauernden Kraefte des Actors (die Ende-Karten
+		   je Kraft postet a29AbortMaintainPower, die Wurf-/Misserfolgs-
+		   Zeile hat der Spieler-Client bereits gepostet). */
+		const failActor = game.actors.get(message.data?.actorId) ?? canvas.tokens?.objects?.children?.find((t) => t.actor?.id === message.data?.actorId)?.actor;
+		if (failActor) {
+			await endAllMaintainedPowers(failActor);
+		}
 	} else if (message.type === 'a29MaintainZoneRound' && game.user.isActiveGM) {
 		/* AoE v2.4 (Entscheidung c): Spieler hat im Reminder „Ja" gewählt,
 		   der Wirker ist Zonen-Ursprung - der GM-Client führt die ZONEN-
@@ -2214,6 +2242,42 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 				});
 				if (!success) {
 					await endAllMaintainedPowers(actor);
+					await chatItem.delete();
+				}
+			});
+		}
+	}
+	/* Hymnen-Paket 1.6 (Rudolfs Testrunde v1.5, "Resist-Karte fuer
+	   Spieler"): Die Spieler-Karte der Konzentration (Flag concen-
+	   trationRequest, Erzeugung postConcentrationCard -> symbcomms.js
+	   ConcentrationCard) - der Klick wuerfelt die W20-Probe im Namen
+	   des Spielers (W20 <= max(1, Willenskraft - Schaden)), Erfolg
+	   laesst die Karte fuer die Proben der uebrigen Kraefte stehen,
+	   EIN Misserfolg sendet concentrationFail an den GM-Socket (der
+	   aktive GM raeumt endAllMaintainedPowers, Ende-ALLES-Zeile postet
+	   der Spieler-Wurf selbst). "Alle beenden" bleibt der GM-Karte
+	   vorbehalten (Rudolfs Freigabe 17.11.2026). */
+	const concentrationRequest = await chatItem.getFlag(game.system.id, 'concentrationRequest');
+	if (concentrationRequest) {
+		const listenArea = html.querySelectorAll('.conc-probe');
+		for (const s of listenArea) {
+			s.addEventListener('click', async () => {
+				if (game.user.isGM) return; /* GM nutzt die eigene Fluesterkarte */
+				const actor = game.actors.get(concentrationRequest.actorId) ?? canvas.tokens?.objects?.children?.find((t) => t.actor?.id === concentrationRequest.actorId)?.actor;
+				if (!actor) {
+					return;
+				}
+				const target = Math.max(1, getAttributeValue(actor, 'resolute') - concentrationRequest.damage);
+				const probe = await new Roll('1d20').evaluate();
+				const success = probe.total <= target;
+				await ChatMessage.create({
+					user: game.user.id,
+					speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+					rolls: [createRollData([probe])],
+					content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${success ? game.i18n.format('CONCENTRATION.PROBE_SUCCESS', { actorname: actor.name, total: probe.total, target: target }) : game.i18n.format('CONCENTRATION.PROBE_FAIL', { actorname: actor.name, total: probe.total, target: target })}</p></div></div></div>`,
+				});
+				if (!success) {
+					game.socket.emit('system.symbaroum', { type: 'concentrationFail', data: { actorId: actor.id } });
 					await chatItem.delete();
 				}
 			});

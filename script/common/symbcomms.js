@@ -69,6 +69,30 @@ export class SymbaroumCommsListener
             chatData[flagKey] = comData.data;
             return ChatMessage.create(chatData);
         }
+        /* Hymnen-Paket 1.6 (Rudolfs Testrunde v1.5, "Resist-Karte für
+           Spieler"): Die Konzentrations-Karte des Spieler-Besitzers
+           (emit aus hooks.js postConcentrationCard). Der Spieler
+           würfelt JE ANDAUERNDER KRAFT die W20-Probe selbst (W20 ≤
+           max(1, Willenskraft − Schaden), Auswertung im render-
+           ChatMessageHTML-Handler zum Flag concentrationRequest in
+           hooks.js), ein Misserfolg sendet concentrationFail an den
+           GM-Socket; "Alle beenden" bleibt der GM-Karte vorbehalten
+           (Rudolfs Freigabe 17.11.2026). */
+        else if(comData.type === "ConcentrationCard" && comData.data.targetUserId === game.userId)
+        {
+            const d = comData.data;
+            const buttons = (d.refs ?? []).map((r) =>
+                `<button class="conc-probe" data-ref="${r.ref}"><i class="fas fa-dice-d20"></i> ${game.i18n.format("CONCENTRATION.BUTTON_PROBE", { powername: r.label ?? r.ref })}</button>`
+            ).join(" ");
+            const content = `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize("CONCENTRATION.CARD_TITLE")}</h4><div class="finalTxt"><p>${game.i18n.format("CONCENTRATION.CARD_LINE", { actorname: d.actorName, count: d.damage })}</p><p>${game.i18n.format("CONCENTRATION.CARD_TARGET", { resolute: d.resolute, damage: d.damage, target: d.target })}</p></div><div class="finalTxt">${buttons}</div></div></div>`;
+            const chatData = {
+                speaker: ChatMessage.getSpeaker({alias: game.i18n.localize("DIALOG.SYSTEM_MESSAGE")}),
+                whisper: [game.user],
+                content: content
+            };
+            chatData[`flags.${game.system.id}.concentrationRequest`] = d;
+            return ChatMessage.create(chatData);
+        }
         /* v1.5 (Rudolfs Punkt 2, Hungerprobe): Je-Besitzer-Anfragekarte —
            completeTravelDays sendet nach der Tageskarte pro Hunger-Mitglied
            eine geflüsterte Anfrage an den ersten aktiven Spieler-Besitzer
