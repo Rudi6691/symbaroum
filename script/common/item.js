@@ -7285,10 +7285,9 @@ export async function trollRerollInvoke(functionStuff) {
    Der Schaden 1W12 FEUER laeuft hier selbst je Opfer (deswegen setzt
    das Setup KEIN hasDamage): Aktivierung (Anfangsbestand, stehende
    Tokens im Ring - _executeZoneTrigger feuert placeZoneFromItem einmal)
-   und jede Enter-Ausloesung laufen dialogfrei im Zonen-Batch ueber die
-   zoneChainDone/zoneChainContinue-Kette (Purgatory-Muster, aber OHNE
-   Markierungs-Dialog: die Zone hat targetOrder 'nearest' und liefert
-   die Ziele selbst). Feuergeschmiedet -1 via mathDamageProt
+   und jede Enter-Ausloesung laufen dialogfrei im Zonen-Batch (v1.1,
+   Rudolfs Testrunde 1, P2a: deterministische Kette uber zoneChainTargets-
+   Ids plus offene User-Markierungen, NIE ein Kettendialog). Feuergeschmiedet
    (damageType.fire), Schmerz (Schwelle) als prone-Symbol, Tod wie im
    standardPowerResult-Muster (Kampfteilnehmer defeated, sonst dead-
    Overlay), Summary ueber postMaintainChainCard + GM-Apply-Karte. */
@@ -7339,14 +7338,19 @@ async function flamewallResult(rollData, functionStuff) {
   if (primaryToken) {
     await applyFlamewall(primaryToken);
   }
-  // Zonen-Batch: alle weiteren frisch getroffenen Ziele dialogfrei
-  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_FLAMEWALL.CHAT_NEXT_TARGET"))) {
-    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
-    if (!nextToken) {
-      ui.notifications.warn(game.i18n.localize("POWER_FLAMEWALL.CHAT_NO_NEW_TARGET"));
-      break;
-    }
-    await applyFlamewall(nextToken);
+  // v1.1 (Rudolfs Testrunde 1, P2a): Die Flammenwand-Kette laeuft IMMER
+  // dialogfrei und deterministisch - Primärziel, dann alle zoneChainTargets-
+  // Ids (Zonen-Batch, Reihenfolge wie geliefert), dann zusätzlich noch
+  // manuell markierte User-Ziele. NIE glyphNextTargetConfirmation: die
+  // Ausloesung endet nach dem Wuerfeldialog/Wurf, kein Kettendialog.
+  for (const tokenId of functionStuff?.zoneChainTargets ?? []) {
+    if (handled.has(tokenId)) continue;
+    const token = canvas.tokens?.placeables?.find((t) => t.id === tokenId) ?? null;
+    if (token) await applyFlamewall(token);
+  }
+  for (const token of Array.from(game.user.targets)) {
+    if (handled.has(token.id)) continue;
+    await applyFlamewall(token);
   }
   if (lines.length > 0) {
     const title = `<h4>${game.i18n.format("POWER_FLAMEWALL.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;

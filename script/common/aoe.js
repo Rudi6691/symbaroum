@@ -263,6 +263,28 @@ function _edgeSenseValue(edgeLike, sense) {
 	const doc = edgeLike?.document ?? edgeLike;
 	const raw = doc?.[sense] ?? edgeLike?.[sense] ?? null;
 	if (raw === undefined || raw === null) return 'none';
+	/* v1.1 (Rudolfs Testrunde 1, P9/P11): V14-WallDocuments speichern
+	   move/sight/sound als NUMERISCHE Typ-Codes (CONST.WALL_*_TYPES,
+	   z. B. NONE=0/NORMAL=10/LIMITED=20), nicht als Strings - die v1.0-
+	   String-Normalisierung lief darum IMMER 'none'/'10' und blockte
+	   NIE (volle Foundry-Walls um ein Ziel blockierten nicht). Numerische
+	   Werte werden jetzt über die CONST-Typ-Tabellen (mit Fallback-
+	   Karte 0/10/20) auf den Namensschlüssel gemappt; nur NORMAL
+	   blockt (LIMITED = Fenster/Schneise). Geöffnete Türen blocken
+	   nichts (placeable.isOpen, Fallback dokument.ds). */
+	const openDoor =
+		edgeLike?.isOpen === true ||
+		(doc?.door === CONST.WALL_DOOR_TYPES.DOOR && doc?.ds === CONST.WALL_DOOR_STATES.OPEN);
+	if (openDoor) return 'none';
+	if (typeof raw === 'number') {
+		const types =
+			sense === 'move' ? CONST.WALL_MOVEMENT_TYPES : sense === 'sight' ? CONST.WALL_SIGHT_TYPES : sense === 'sound' ? CONST.WALL_SOUND_TYPES : null;
+		const entry = types ? Object.entries(types).find(([, value]) => value === raw) : null;
+		if (entry?.[0]) return String(entry[0]).toLowerCase();
+		if (raw === 10) return 'normal';
+		if (raw === 20) return 'limited';
+		return 'none';
+	}
 	const text = String(raw).trim().toLowerCase();
 	return text || 'none';
 }
@@ -306,7 +328,15 @@ function _segmentCrossesRestrictingRegion(from, to, sense, ownRegionId = null) {
 		if (region.id === ownRegionId) continue;
 		const restrictions = region.restrictions;
 		if (!restrictions) continue;
-		const list = Array.isArray(restrictions) ? restrictions : typeof restrictions?.[Symbol.iterator] === 'function' ? [...restrictions] : [];
+		/* v1.1: V14-Regionen können Restrictions als Array ODER als
+		   Objekt (Schlüssel = Typ) führen - beide Formen normalisieren. */
+		const list = Array.isArray(restrictions)
+			? restrictions
+			: typeof restrictions?.[Symbol.iterator] === 'function'
+				? [...restrictions]
+				: restrictions && typeof restrictions === 'object'
+					? Object.entries(restrictions).map(([type, cfg]) => ({ type, ...(cfg ?? {}) }))
+					: [];
 		for (const restriction of list) {
 			if (restriction === null || restriction === undefined) continue;
 			const type = String(restriction.type ?? '').trim();
@@ -510,8 +540,16 @@ function _buildShapeData(cfg, gridSize) {
 		case 'cone':
 			return { ...base, type: 'cone', radius: cfg.size * gridSize, angle: 90 };
 		case 'line':
-			// Linien/Wände (Flammenwand & Co.): Länge in Feldern, Breite 1 Feld
-			return { ...base, type: 'line', length: cfg.size * gridSize, width: gridSize };
+			/* v1.1 (Rudolfs Testrunde 1, P2a): Der Anker der Wand ist der
+			   MITTELPUUNKT EINER LANGEN SEITE - als natives Rechteck mit
+			   anchorX 0,5 / anchorY 0 (V14-RectangleShapeData hat die
+			   Anchor-Felder, Release 14.349, Pivot = (x,y)): Die Wand
+			   erstreckt sich ± halbe Länge um den Anker und 1 Feld dick
+			   zur einen Seite, frei rotierbar um den Ankerpunkt. Die
+			   v1.0-'line'-Typ-Ankerung legte den Klickpunkt an die
+			   MITTLERE SCHMALE SEITE (Wand lief eingleisig vom Klick
+			   weg). Breite = 1 Feld, Länge = size Felder. */
+			return { ...base, type: 'rectangle', width: cfg.size * gridSize, height: gridSize, anchorX: 0.5, anchorY: 0 };
 		case 'rectangle':
 			return { ...base, type: 'rectangle', width: cfg.size * gridSize, height: cfg.size * gridSize };
 		/* AoE-Rest Paket 1 (Flammenwand, Rudolfs Detailantwort 3):
@@ -685,7 +723,7 @@ function _zoneRegionData(zone) {
 	if (!shape) return null;
 	const regionData = {
 		name: zone.regionName,
-		color: game.user.color,
+		color: zone.color ?? game.user.color,
 		displayMeasurements: true,
 		highlightMode: 'coverage',
 		shapes: [shape],
@@ -1088,7 +1126,14 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 	const isSealZone =
 		!aoe.free &&
 		(aoe.sourceItemUuid ? fromUuidSync(aoe.sourceItemUuid)?.system?.reference : null) === 'banishingseal';
-	if (tokens.length === 0 && !(isSealZone && enteringTokenId === null)) {
+	/* v1.1 (Rudolfs Testrunde 1, P2a): Flammenwand ist manuell AUCH OHNE
+	   Token in der Fläche auslösbar - die Aktivierung bucht die
+	   Korruptionskosten und markiert die Zone als aktiviert (sie bleibt
+	   Folge-Auslösungen laufen dann gegen den Snapshot). Betreten bleibt
+	   ausgenommen (Eintreten ohne Ziel ist kein Fall). */
+	const isFlamewallZone =
+		!aoe.free && (aoe.sourceItemUuid ? fromUuidSync(aoe.sourceItemUuid)?.system?.reference : null) === 'flamewall';
+	if (tokens.length === 0 && !(isSealZone && enteringTokenId === null) && !(isFlamewallZone && enteringTokenId === null)) {
 		if (manual) {
 			ui.notifications.info(game.i18n.localize('AOE.ERR_NO_TOKENS'));
 		}
@@ -1203,6 +1248,39 @@ async function _runPowerZone(region, tokens) {
 			]);
 			ui.notifications.info(game.i18n.localize('POWER_BANISHINGSEAL.INFO_NO_VALID_TARGETS'));
 			await _endZone(region, 'trigger');
+			return;
+		}
+		/* v1.1 (Rudolfs Testrunde 1, P2a): Flammenwand-Aktivierung mit
+		   LEEREM Bestand (manuelle Ausloese-Taste ohne Token in der
+		   Flaeche) - die Korruptionskosten werden trotzdem abgezogen
+		   (GM-Karte), die Zone bleibt stehen und gilt ab jetzt als
+		   aktiviert: der Aktivierungs-Snapshot wird direkt aus dem
+		   Akteur gebaut (Resolute-Total, Modifikator/Gunst 0), damit
+		   jede Folge-Ausloesung gegen diesen Snapshot laeuft, ohne
+		   einen neuen Dialog zu oeffnen oder Kosten doppelt zu buchen. */
+		const isFlamewallActivation = String(item.system?.reference ?? '') === 'flamewall';
+		if (isFlamewallActivation && activationTokens.length === 0) {
+			const { createModifyTokenChatButton } = await import('./roll.js');
+			const corruptionChange = await _powerZoneActivationCorruption(actor, item);
+			await createModifyTokenChatButton([
+				{
+					tokenId: _casterTokenOfZone(aoe)?.id ?? null,
+					actorId: actor.id,
+					corruptionChange,
+					label: game.i18n.format('POWER_FLAMEWALL.INFO_EMPTY_TRIGGER_COST', { count: corruptionChange }),
+				},
+			]);
+			aoe.activated = true;
+			const attributeValue = Number(actor.system?.attributes?.resolute?.total);
+			aoe.snapshot = {
+				attributeName: 'resolute',
+				attributeValue: Number.isFinite(attributeValue) ? attributeValue : 10,
+				modifier: 0,
+				favour: 0,
+				sealCategoryId: null,
+			};
+			await region.setFlag('symbaroum', 'aoe', aoe);
+			ui.notifications.info(game.i18n.localize('POWER_FLAMEWALL.INFO_EMPTY_TRIGGER'));
 			return;
 		}
 		/* v2.5 (Testrunde 5, P16): In-Flight-Marke setzen - der Dialog
@@ -1996,9 +2074,13 @@ function _flamewallZoneConfig(item) {
 function _flamewallShapeDialog(item) {
 	const level = item?.getLevel?.()?.level ?? 1;
 	const options = [{ id: 'line', label: game.i18n.localize('POWER_FLAMEWALL.FORM_LINE'), icon: 'fa-ruler-horizontal' }];
-	if (level >= 2) options.push({ id: 'circle', label: game.i18n.localize('POWER_FLAMEWALL.FORM_CIRCLE'), icon: 'fa-circle' });
-	if (level >= 3) {
+	/* v1.1 (Rudolfs Testrunde 1, P3): Ring ab ADEPT (vorher Meister-
+	   only - Adept zeigte nur Kreis); Kuppel bleibt Meister. */
+	if (level >= 2) {
+		options.push({ id: 'circle', label: game.i18n.localize('POWER_FLAMEWALL.FORM_CIRCLE'), icon: 'fa-circle' });
 		options.push({ id: 'ring', label: game.i18n.localize('POWER_FLAMEWALL.FORM_RING'), icon: 'fa-circle-notch' });
+	}
+	if (level >= 3) {
 		options.push({ id: 'dome', label: game.i18n.localize('POWER_FLAMEWALL.FORM_DOME'), icon: 'fa-globe' });
 	}
 	return new Promise((resolve) => {
@@ -2220,6 +2302,15 @@ export async function placeZoneFromItem(item) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_NO_SCENE'));
 		return;
 	}
+	/* v1.1 (Rudolfs Testrunde 1, P14): Foundry verweigert Dokument-
+	   Änderungen für Nicht-SLs bei PAUSIERTEN Spiel mit dem kryptischen
+	   „may only be modified by a GM or Assistant GM user" - die Zone-
+	   Platzierung (placeRegions) lief für Spieler genau in diesen
+	   Fehler. Vor der interaktiven Platzierung klar avisieren. */
+	if (!game.user.isGM && game.paused) {
+		ui.notifications.warn(game.i18n.localize('AOE.ERR_PAUSED'));
+		return;
+	}
 	/* AoE-Rest Paket 1: Flammenwand - einzige echte Dauerhaft-Kraft-
 	   Zone; ohne Zone-Tab-Konfiguration gilt die RAW-Grundeinstellung
 	   (_flamewallZoneConfig), die FORM wählt der Wirker im Stufen-
@@ -2257,7 +2348,11 @@ export async function placeZoneFromItem(item) {
 			const metersPerField = Math.max(0.5, Number(canvas.scene.grid?.distance) || 2);
 			cfg.size = Math.max(1, Math.round(20 / metersPerField));
 		} else if (cfg.shape === 'ring') {
-			cfg.size = 1.5;
+			/* v1.1 (Rudolfs Testrunde 1, P3): Radius 2,5 (vorher 1,5) -
+			   der Innenring wächst um ein Feld, die Felder um den
+			   Wirker liegen frei (Innenradius 2 Felder, Band 1 Feld
+			   dick im Abstand 2-3 Felder, deckt Nahkampfangreifer). */
+			cfg.size = 2.5;
 		}
 	}
 	const casterToken = _resolveCasterToken(item);
@@ -2306,6 +2401,9 @@ export async function placeZoneFromItem(item) {
 		   (Pfeile verbrennen = SL-Verwaltung, RAW-Lagehinweis Linie). */
 		endprobe: isFlamewall ? 'resolute' : '',
 		dome,
+		/* v1.1 (Rudolfs Testrunde 1, P2a): Flammenwand-Zone in der
+		   von Rudolf gewählten Farbe #c7561a statt der Nutzer-Farbe. */
+		color: isFlamewall ? '#c7561a' : null,
 		docLines: isFlamewall
 			? [
 					game.i18n.localize('POWER_FLAMEWALL.INFO_ARROWS'),
@@ -2860,6 +2958,11 @@ export async function placeFreeZone() {
 }
 
 async function _placeFreeZoneFromDialog(html) {
+	/* v1.1 (P14): Pausen-Guard auch für die freie Zone (SL-only bei Pause). */
+	if (!game.user.isGM && game.paused) {
+		ui.notifications.warn(game.i18n.localize('AOE.ERR_PAUSED'));
+		return;
+	}
 	const val = (id) => html.querySelector(`#${id}`)?.value?.trim() ?? '';
 	const shape = val('aoe-free-shape');
 	if (!shape) {
