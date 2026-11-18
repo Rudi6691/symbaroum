@@ -311,9 +311,14 @@ function _senseRestrictionType(sense) {
 
 /** Alle sichtbaren Kanten-Placeables der Szene (V14: canvas.edges). */
 function _sceneEdges() {
-	const placeables = canvas.edges?.placeables ?? [];
+	// v1.2.2: canvas.edges ist in V14 das Geometrieobjekt des aktiven Levels, NICHT
+	//  die Walls-Ebene (placeables immer leer) und canvas.scene?.edges existiert nicht
+	//  (Sammlung heißt scene.walls) — der Filter bekam darum seit v1.0 nie Wände.
+	//  Korrekte Quellen: WallsLayer-Placeables bzw. die WallDocuments der Szene.
+	const layer = canvas.getLayerByEmbeddedName?.('Wall') ?? canvas.walls;
+	const placeables = layer?.placeables ?? [];
 	if (Array.isArray(placeables) && placeables.length > 0) return placeables;
-	return [...(canvas.scene?.edges ?? [])];
+	return [...(canvas.scene?.walls ?? [])];
 }
 
 /** Durchquert der Strahl eine AKTIVE Region mit passender Restriktion?
