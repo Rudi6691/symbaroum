@@ -24,6 +24,11 @@
     <div class="aoe-card-detail">{{modeText}} &middot; {{areaText}}</div>
     {{/if}}
     <div class="aoe-card-detail">{{tokensText}}</div>
+    {{!-- AoE-Rest Paket 1 (Flammenwand/S1): Doku-Zeilen der Platzierung
+          (W0/W1-Vermerk, Pfeile verbrennen, RAW-Lagehinweis Linie). --}}
+    {{#each docLines}}
+    <div class="aoe-card-detail">{{this}}</div>
+    {{/each}}
     {{#if effectText}}
     <div class="aoe-card-detail">{{effectText}}</div>
     {{/if}}

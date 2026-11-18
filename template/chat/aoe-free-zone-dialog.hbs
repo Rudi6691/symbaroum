@@ -33,6 +33,18 @@
       {{selectOptions targetingOptions valueAttr="id" labelAttr="label"}}
     </select>
   </div>
+  {{!-- AoE-Rest Paket 1 (S1, Rudolfs Startsignal 18.11.): Sinn-Filter der
+        freien Zone - Default LEER (SL wählt); angehakte Sinne blockieren
+        Ziele hinter passenden Kanten/Regionen (Doppelwirkung: Form-Clip bei
+        der Platzierung + Ziel-Filter je Auslösung). --}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label>{{localize "AOE.FIELD_SENSE_BLOCKER"}}</label>
+    <div class="{{#if renderModern}}m-give-vis{{else}}favour{{/if}}">
+      <label class="lblfavour"><input type="checkbox" id="aoe-free-sense-move" value="move"/> {{localize "AOE.SENSE_MOVE"}}</label>
+      <label class="lblfavour"><input type="checkbox" id="aoe-free-sense-sight" value="sight"/> {{localize "AOE.SENSE_SIGHT"}}</label>
+      <label class="lblfavour"><input type="checkbox" id="aoe-free-sense-sound" value="sound"/> {{localize "AOE.SENSE_SOUND"}}</label>
+    </div>
+  </div>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="aoe-free-resist">{{localize "AOE.FIELD_RESIST"}}</label>
     <select id="aoe-free-resist">

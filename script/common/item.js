@@ -40,7 +40,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 import { itemHasTraditionKnowledge } from "./tradition.js";
-import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions } from "./aoe.js";
+import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, senseBlocked } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -2818,9 +2818,24 @@ export class SymbaroumItem extends Item {
   }
 
   mysticPowerSetupFlamewall(base) {
+    /* AoE-Rest Paket 1 (Rudolfs Startsignal „Baue es“ 18.11.2026, RAW:
+    Flammenwand, Wizardry): KEINE Zauberprobe beim Erschaffen (CASTING_NOT
+    - der Original-Badge war toter Code, die Zone-Aktivierung läuft jetzt
+    wurflos über den buildRolls-CASTING_NOT-Zweig), Maintain-Runden ohne
+    Wurf (A29 wird ohnehin nie getriggert, da keine Maintain-Symbole
+    gesetzt werden). Schaden macht flamewallResult selbst (1W12 Feuer je
+    Opfer, nicht das generische hasDamage-Setup), damageDice/damageType
+    nur als Referenz fuer die Modifikator-Vorschau. */
     base.traditions = [game.symbaroum.config.TRAD_WIZARDRY];
+    base.casting = game.symbaroum.config.CASTING_NOT;
     base.maintain = game.symbaroum.config.MAINTAIN;
-    base.casting = game.symbaroum.config.CASTING;
+    base.introText = game.i18n.localize("POWER_FLAMEWALL.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_FLAMEWALL.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_FLAMEWALL.CHAT_FAILURE");
+    base.damageDice = "1d12";
+    base.damageType = {
+      fire: true,
+    };
     return base;
   }
 
@@ -5151,6 +5166,11 @@ function getPowerResultFunction(functionStuff) {
       return unholyAuraResult;
     case "purgatory":
       return functionStuff.powerLvl.level > 2 ? purgatoryMasterResult : purgatoryResult;
+    // AoE-Rest Paket 1: Flammenwand - Aktivierung und jede Ausloesung
+    // (Enter/Anfangsbestand) laufen ueber flamewallResult (1W12 Feuer
+    // je Opfer), Maintain-Runden bleiben wurflos (keine Symbole)
+    case "flamewall":
+      return flamewallResult;
     case "lifegiver":
       return functionStuff.powerLvl.level > 2 ? lifegiverMasterResult : lifegiverResult;
     default:
@@ -5708,6 +5728,30 @@ async function holyAuraResult(rollData, functionStuff) {
   // dort nur verbündete Token (dispositions-relativ >= Wirker)
   const casterHealTokenId = functionStuff.tokenId ?? functionStuff.token?.id ?? null;
   const casterHealDisposition = functionStuff.token?.document?.disposition ?? 0;
+  /* AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SICHT): Bei
+     aktivem Welt-Setting aoeSenseWalls prüft die Aura je anvisiertem
+     Ziel den Sicht-Blocker (senseBlocked, Ray gegen Kanten
+     edge[sense]==='normal' + Regions-Restriktionen); Messfehler wirken
+     das Ziel weiter (SL-Urteil), ein Blocker überspringt das Ziel
+     sichtbar als skipLine (NIE still). Nah-Distanz bleibt SL-Sache
+     (A36V-Konvention, Hinweiszeile ab 5 Szenen-Einheiten unverändert). */
+  const auraCasterToken =
+    functionStuff.token ?? (casterHealTokenId ? canvas.tokens?.placeables?.find((t) => t.id === casterHealTokenId) ?? null : null);
+  const auraSightPasses = (nextToken) => {
+    if (!auraCasterToken || nextToken.id === auraCasterToken.id) return true;
+    const sightCheck = senseBlocked(auraCasterToken, nextToken, "sight");
+    if (sightCheck.error) {
+      skipLines.push(`<p>${game.i18n.format("AOE.SENSE_MEASURE_FAIL", { targetname: nextToken.name })}</p>`);
+      return true;
+    }
+    if (sightCheck.blocked) {
+      skipLines.push(
+        `<p>${game.i18n.format("AOE.SENSE_SKIP", { targetname: nextToken.name, sense: game.i18n.localize("AOE.SENSE_SIGHT") })}</p>`
+      );
+      return false;
+    }
+    return true;
+  };
   // A36V test round (Rudolf, 25.10.): the damage symbol carries a resist
   // block so the A28 engine runs the per-round opposition (see hooks.js) -
   // the author markers stay identical to the first delivery
@@ -5764,6 +5808,8 @@ async function holyAuraResult(rollData, functionStuff) {
       skipLines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name })}</p>`);
       continue;
     }
+    // S1: Sicht-Blocker prüfen (Setting aoeSenseWalls, Default AN)
+    if (!auraSightPasses(nextToken)) continue;
     // A36V test round (Rudolf, 25.10.): EVERY damage application is opposed
     // - Resolute vs the caster's Resolute, the system's one-roll opposed
     // model (1d20 <= victim value + 10 - caster value). A successful
@@ -5830,6 +5876,8 @@ async function holyAuraResult(rollData, functionStuff) {
         skipLines.push(`<p>${game.i18n.format("POWER_HOLYAURA.CHAT_ALLY_HAS_REGEN", { targetname: nextToken.name })}</p>`);
         return;
       }
+      // S1: Sicht-Blocker prüfen (Setting aoeSenseWalls, Default AN)
+      if (!auraSightPasses(nextToken)) return;
       // A36V test round 2 (Rudolf, 25.10.): the healing corruption goes to
       // the MYSTIC, not to the healed ally - one temporary corruption
       // point per healed ally, summed up and applied to the CASTER via
@@ -6169,31 +6217,57 @@ async function preDialogHymnChoice(functionStuff) {
    _collectRegionTokens) - der Sänger selbst IMMER, unabhängig von
    seiner Position. Ohne Gesangsbereich gilt die v1-Sichtweiten-
    Abstraktion (100 m = SIGHT_RANGE_UNITS, config.js, Messfehler
-   schließen ein - Fegefeuer-Präzedenz). */
+   schließen ein - Fegefeuer-Präzedenz).
+   AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SCHALL):
+   Hymnen sind Gesang - der Wirksinn ist SCHALL, nicht Sicht. Bei
+   aktivem Welt-Setting aoeSenseWalls wird je Verbündetem der Schall-
+   Blocker geprüft (senseBlocked, Ray gegen Kanten edge[sense]==='normal'
+   + Regions-Restriktionen; der Sänger selbst ist IMMER betroffen),
+   Messfehler schließen ein (SL-Urteil wirkt). Blockierte Verbündete
+   werden NIE still übersprungen, sondern als skipLines an hymnResult
+   übergeben (Kartenzeile AOE.SENSE_SKIP mit Sinn-Label). Rückgabe:
+   { tokens, skipLines }. */
 function getHymnAffectedTokens(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
-  if (!casterToken) return [];
+  if (!casterToken) return { tokens: [], skipLines: [] };
   const casterDisposition = casterToken.document?.disposition ?? 0;
+  const skipLines = [];
+  // S1: Schall-Blocker je Verbündetem (Sänger selbst immer betroffen)
+  const soundPasses = (token) => {
+    const soundCheck = senseBlocked(casterToken, token, "sound");
+    if (soundCheck.error) {
+      // Messfehler => Verbündeten einschließen, SL-Urteil wirkt
+      skipLines.push(`<p>${game.i18n.format("AOE.SENSE_MEASURE_FAIL", { targetname: token.name })}</p>`);
+      return true;
+    }
+    if (soundCheck.blocked) {
+      skipLines.push(
+        `<p>${game.i18n.format("AOE.SENSE_SKIP", { targetname: token.name, sense: game.i18n.localize("AOE.SENSE_SOUND") })}</p>`
+      );
+      return false;
+    }
+    return true;
+  };
+  const affected = [];
   if (functionStuff.hymnZone?.regionId) {
     const region = hymnRegionById(functionStuff.hymnZone.regionId);
     if (region) {
       const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
-      const affected = [];
       for (const token of canvas.tokens?.placeables ?? []) {
         if (!token.actor) continue;
         if (token.id !== casterToken.id) {
           if ((token.document?.disposition ?? 0) < casterDisposition) continue;
           if (!inZone.has(token.id)) continue;
+          if (!soundPasses(token)) continue;
         }
         affected.push(token);
       }
-      return affected;
+      return { tokens: affected, skipLines };
     }
     /* Region fehlt (manuell gelöscht oder Szenen-Wechsel): Sichtweiten-
        Fallback, SL-Urteil wirkt. */
   }
   const sightLimit = game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50;
-  const affected = [];
   for (const token of canvas.tokens?.placeables ?? []) {
     if (!token.actor) continue;
     if (token.id !== casterToken.id) {
@@ -6203,10 +6277,11 @@ function getHymnAffectedTokens(functionStuff) {
       } catch (distanceError) {
         // Messung nicht verfügbar => Ziel einschließen, SL-Urteil wirkt
       }
+      if (!soundPasses(token)) continue;
     }
     affected.push(token);
   }
-  return affected;
+  return { tokens: affected, skipLines };
 }
 
 /* Gemeinsame Ergebnis-Funktion beider Hymnen (Dispatch combathymn/
@@ -6226,7 +6301,9 @@ async function hymnResult(rollData, functionStuff) {
   functionStuff.activelyMaintaninedCasterEffect = [];
   await standardPowerResult(rollData, functionStuff);
   functionStuff.activelyMaintaninedCasterEffect = casterEffects;
-  const affectedTokens = getHymnAffectedTokens(functionStuff);
+  const hymnSelection = getHymnAffectedTokens(functionStuff);
+  const affectedTokens = hymnSelection.tokens;
+  const affectedSkipLines = hymnSelection.skipLines;
   if (affectedTokens.length === 0) {
     /* Hymnen-Paket 1.2: Ohne Betroffene startet kein Gesang - eine
        frisch platzierte Gesangsfläche muss wieder weg (mit dem
@@ -6259,7 +6336,9 @@ async function hymnResult(rollData, functionStuff) {
   const attributeLabels = attributeNames.map((attr) => game.i18n.localize(game.symbaroum.config.attributeLabels[attr]));
   const casterResolute = getAttributeValue(functionStuff.actor, "resolute");
   const flagDataArray = [];
-  const lines = [];
+  // S1: Skip-Diagnosezeilen des Schall-Filters fliessen VOR die Wirkungs-
+  // zeilen (NIE stiller Skip, v2.15-P13-max-Muster)
+  const lines = [...affectedSkipLines];
   const hymnRolls = [];
   for (const token of affectedTokens) {
     // Kein Stacking: ein Token mit diesem Sängers Hymnen-Symbol ist
@@ -6550,10 +6629,16 @@ async function preDialogWeakeningHymnChoice(functionStuff) {
    Disposition): Feinde = Disposition KLEINER als die des Saengers;
    der Saenger selbst zaehlt nie. Novize (Stufe 1): nur VERWUNDETE
    Feinde (Zaehigkeit unter Maximum, RAW "jedem verwundeten Feind"),
-   Adept+ alle. */
+   Adept+ alle.
+   AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SCHALL):
+   Hymnen wirken nur auf Ziele, die sie HOEREN koennen - bei aktivem
+   Welt-Setting aoeSenseWalls wird je Feind der Schall-Blocker geprüft
+   (senseBlocked; Messfehler schließen ein, SL-Urteil wirkt). Blockierte
+   Feinde werden NIE still übersprungen, sondern als skipLines an
+   weakeningHymnResult übergeben. Rückgabe: { tokens, skipLines }. */
 function getWeakeningHymnTargets(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
-  if (!casterToken) return [];
+  if (!casterToken) return { tokens: [], skipLines: [] };
   const casterDisposition = casterToken.document?.disposition ?? 0;
   const inZone = new Set();
   if (functionStuff.hymnZone?.regionId) {
@@ -6562,6 +6647,22 @@ function getWeakeningHymnTargets(functionStuff) {
       for (const t of hymnRegionTokens(region)) inZone.add(t.id);
     }
   }
+  const skipLines = [];
+  const soundPasses = (token) => {
+    const soundCheck = senseBlocked(casterToken, token, "sound");
+    if (soundCheck.error) {
+      // Messfehler => Feind einschließen, SL-Urteil wirkt
+      skipLines.push(`<p>${game.i18n.format("AOE.SENSE_MEASURE_FAIL", { targetname: token.name })}</p>`);
+      return true;
+    }
+    if (soundCheck.blocked) {
+      skipLines.push(
+        `<p>${game.i18n.format("AOE.SENSE_SKIP", { targetname: token.name, sense: game.i18n.localize("AOE.SENSE_SOUND") })}</p>`
+      );
+      return false;
+    }
+    return true;
+  };
   const sightLimit = game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50;
   const enemies = [];
   for (const token of canvas.tokens?.placeables ?? []) {
@@ -6576,13 +6677,14 @@ function getWeakeningHymnTargets(functionStuff) {
         // Messung nicht verfuegbar => Ziel einschliessen, SL-Urteil wirkt
       }
     }
+    if (!soundPasses(token)) continue;
     if (functionStuff.powerLvl.level === 1) {
       const toughness = token.actor.system?.health?.toughness;
       if (Number(toughness?.value ?? 0) >= Number(toughness?.max ?? 0)) continue;
     }
     enemies.push(token);
   }
-  return enemies;
+  return { tokens: enemies, skipLines };
 }
 
 /* Hymnen-Paket 1.5 - Ergebnis der Schwaechenden Hymne (nur Erst-
@@ -6601,7 +6703,9 @@ async function weakeningHymnResult(rollData, functionStuff) {
   functionStuff.activelyMaintaninedCasterEffect = [];
   await standardPowerResult(rollData, functionStuff);
   functionStuff.activelyMaintaninedCasterEffect = casterEffects;
-  const affectedEnemies = getWeakeningHymnTargets(functionStuff);
+  const weakeningSelection = getWeakeningHymnTargets(functionStuff);
+  const affectedEnemies = weakeningSelection.tokens;
+  const affectedSkipLines = weakeningSelection.skipLines;
   if (affectedEnemies.length === 0) {
     cleanupFreshHymnZone(functionStuff);
     functionStuff.hymnZoneCommitted = true;
@@ -6623,7 +6727,8 @@ async function weakeningHymnResult(rollData, functionStuff) {
   }
   const flagDataArray = [];
   const rolls = [];
-  const lines = [];
+  // S1: Skip-Diagnosezeilen des Schall-Filters zuerst (NIE stiller Skip)
+  const lines = [...affectedSkipLines];
   if (functionStuff.tokenId) {
     flagDataArray.push({
       tokenId: functionStuff.tokenId,
@@ -7172,6 +7277,86 @@ export async function trollRerollInvoke(functionStuff) {
    zoneChainTargets (Zone = Sichtweiten-Abstraktion, Rudolfs Festlegung
    13.11.). Kein Zauberer-Vorteil/Modifikator im Zonen-Batch (execute-
    ZonePower stellt das ein). */
+/* AoE-Rest Paket 1 (Rudolfs Startsignal „Baue es“ 18.11.2026, RAW:
+   Flammenwand, Wizardry): Die Kraft erschafft die dauerhafte Kraft-Zone
+   (Ausnahme-Regelwerk in aoe.js, Weg b), KEINE Zauberprobe (CASTING_NOT)
+   - standardPowerResult bucht nur die Korruption via A16-Engine und
+   postet die Aktivierungskarte (rollData darf null sein, Erfolg gilt).
+   Der Schaden 1W12 FEUER laeuft hier selbst je Opfer (deswegen setzt
+   das Setup KEIN hasDamage): Aktivierung (Anfangsbestand, stehende
+   Tokens im Ring - _executeZoneTrigger feuert placeZoneFromItem einmal)
+   und jede Enter-Ausloesung laufen dialogfrei im Zonen-Batch ueber die
+   zoneChainDone/zoneChainContinue-Kette (Purgatory-Muster, aber OHNE
+   Markierungs-Dialog: die Zone hat targetOrder 'nearest' und liefert
+   die Ziele selbst). Feuergeschmiedet -1 via mathDamageProt
+   (damageType.fire), Schmerz (Schwelle) als prone-Symbol, Tod wie im
+   standardPowerResult-Muster (Kampfteilnehmer defeated, sonst dead-
+   Overlay), Summary ueber postMaintainChainCard + GM-Apply-Karte. */
+async function flamewallResult(rollData, functionStuff) {
+  await standardPowerResult(rollData, functionStuff);
+  const rolls = [];
+  const lines = [];
+  const flagDataArray = [];
+  const handled = new Set();
+  const applyFlamewall = async (token) => {
+    if (!token?.actor) return;
+    handled.add(token.id);
+    const victim = token.actor;
+    const damageRoll = await new Roll("1d12").evaluate();
+    rolls.push(damageRoll);
+    const finalDmg = await mathDamageProt(victim, damageRoll.total, { fire: true });
+    const damageTot = finalDmg.damage;
+    lines.push(
+      `<p>${game.i18n.format("POWER_FLAMEWALL.CHAT_DAMAGE", { targetname: token.name, count: damageRoll.total })}${finalDmg.text}</p>`
+    );
+    if (damageTot <= 0) return;
+    const targetToughness = victim.system?.health?.toughness?.value;
+    const threshold = victim.system?.health?.toughness?.threshold;
+    if (targetToughness !== undefined && damageTot >= targetToughness) {
+      if (ui.combat.viewed && (ui.combat.viewed.getCombatantsByToken(token.id) ?? []).length > 0) {
+        flagDataArray.push({ tokenId: token.id, defeated: true });
+      } else {
+        flagDataArray.push({
+          tokenId: token.id,
+          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "dead")),
+          overlay: true,
+          effectDuration: 1,
+        });
+      }
+    } else if (threshold !== undefined && damageTot > threshold) {
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "prone")),
+        effectDuration: 1,
+      });
+    }
+    flagDataArray.push({ tokenId: token.id, toughnessChange: -1 * damageTot });
+  };
+  // Primärziel (manuell markiert bzw. Zonen-Batch: erstes Auto-Ziel)
+  const primaryToken = functionStuff.targetData?.hasTarget
+    ? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.targetData.tokenId) ?? null
+    : null;
+  if (primaryToken) {
+    await applyFlamewall(primaryToken);
+  }
+  // Zonen-Batch: alle weiteren frisch getroffenen Ziele dialogfrei
+  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff, "POWER_FLAMEWALL.CHAT_NEXT_TARGET"))) {
+    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
+    if (!nextToken) {
+      ui.notifications.warn(game.i18n.localize("POWER_FLAMEWALL.CHAT_NO_NEW_TARGET"));
+      break;
+    }
+    await applyFlamewall(nextToken);
+  }
+  if (lines.length > 0) {
+    const title = `<h4>${game.i18n.format("POWER_FLAMEWALL.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    await postMaintainChainCard(functionStuff, title, lines, rolls);
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
 async function purgatoryResult(rollData, functionStuff) {
   // Aktionskarte (CASTING_NOT) mit den Korruptionskosten des Wirkens
   await standardPowerResult(rollData, functionStuff);
@@ -7437,6 +7622,27 @@ async function unholyAuraResult(rollData, functionStuff) {
   const casterResolute = getAttributeValue(functionStuff.actor, "resolute");
   const casterTokenId = functionStuff.tokenId ?? functionStuff.token?.id ?? null;
   const casterDisposition = functionStuff.token?.document?.disposition ?? 0;
+  /* AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SICHT): Spiegel
+     der Heiligen Aura - Sicht-Blocker je anvisiertem Ziel bei aktivem
+     Welt-Setting aoeSenseWalls, Messfehler wirken weiter, Blocker nur als
+     skipLine (NIE still). */
+  const auraCasterToken =
+    functionStuff.token ?? (casterTokenId ? canvas.tokens?.placeables?.find((t) => t.id === casterTokenId) ?? null : null);
+  const auraSightPasses = (nextToken) => {
+    if (!auraCasterToken || nextToken.id === auraCasterToken.id) return true;
+    const sightCheck = senseBlocked(auraCasterToken, nextToken, "sight");
+    if (sightCheck.error) {
+      skipLines.push(`<p>${game.i18n.format("AOE.SENSE_MEASURE_FAIL", { targetname: nextToken.name })}</p>`);
+      return true;
+    }
+    if (sightCheck.blocked) {
+      skipLines.push(
+        `<p>${game.i18n.format("AOE.SENSE_SKIP", { targetname: nextToken.name, sense: game.i18n.localize("AOE.SENSE_SIGHT") })}</p>`
+      );
+      return false;
+    }
+    return true;
+  };
   const pushAuraDamageSymbol = (tokenId) => {
     flagDataArray.push({
       tokenId: tokenId,
@@ -7486,6 +7692,8 @@ async function unholyAuraResult(rollData, functionStuff) {
       skipLines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_WRONG_CATEGORY", { targetname: nextToken.name })}</p>`);
       continue;
     }
+    // S1: Sicht-Blocker prüfen (Setting aoeSenseWalls, Default AN)
+    if (!auraSightPasses(nextToken)) continue;
     /* v2.14 (Rudolfs Entscheidung, Testrunde 13, P7): völlig Verdorbene
        (Korruption >= max) werden von der Unheiligen Aura NICHT mehr
        geschädigt - Spiegel-Symmetrie zur Heiligen Aura; dasselbe Kriterium,
@@ -7569,6 +7777,8 @@ async function unholyAuraResult(rollData, functionStuff) {
         skipLines.push(`<p>${game.i18n.format("POWER_UNHOLYAURA.CHAT_ALLY_NOT_UNDEAD", { targetname: nextToken.name })}</p>`);
         return;
       }
+      // S1: Sicht-Blocker prüfen (Setting aoeSenseWalls, Default AN)
+      if (!auraSightPasses(nextToken)) return;
       flagDataArray.push({
         tokenId: nextToken.id,
         addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "regeneration")),
@@ -7724,15 +7934,33 @@ export async function applyCorruptionMasterReactions(actor, tokenId, amount) {
     const victimToken = canvas.tokens?.placeables?.find((t) => t.id === tokenId) ?? null;
     if (!victimToken) return applied;
     const sightLimit = game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50;
+    /* AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SICHT): Bei
+       aktivem Welt-Setting aoeSenseWalls prüft die Sicht neben der
+       Sichtweiten-Abstraktion zusätzlich den Sicht-Blocker (senseBlocked,
+       Ray gegen Kanten edge[sense]==='normal' + Regions-Restriktionen);
+       Messfehler wirken die Reaktion weiter (SL-Urteil), ein Blocker
+       ueberspringt die Reaktion sichtbar als Zeile - NIE still. */
+    const lines = [];
     const inSight = (mysticToken) => {
       try {
-        return canvas.grid.measureDistance(mysticToken, victimToken) <= sightLimit;
+        if (canvas.grid.measureDistance(mysticToken, victimToken) > sightLimit) return false;
       } catch (distanceError) {
+        // Messung nicht verfügbar => Sicht gelten lassen, SL-Urteil wirkt
+      }
+      const sightCheck = senseBlocked(mysticToken, victimToken, "sight");
+      if (sightCheck.error) {
+        lines.push(`<p>${game.i18n.format("AOE.SENSE_MEASURE_FAIL", { targetname: victimToken.name })}</p>`);
         return true;
       }
+      if (sightCheck.blocked) {
+        lines.push(
+          `<p>${game.i18n.format("AOE.SENSE_SKIP", { targetname: victimToken.name, sense: game.i18n.localize("AOE.SENSE_SIGHT") })}</p>`
+        );
+        return false;
+      }
+      return true;
     };
     const rolls = [];
-    const lines = [];
     const flagDataArray = [];
     const victimName = victimToken.name ?? actor?.name ?? "";
     for (const mysticToken of canvas.tokens?.placeables ?? []) {
@@ -7947,6 +8175,30 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.activelyMaintainedTargetEffect = [];
   functionStuff.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
   const handled = new Set([functionStuff.targetData.tokenId]);
+  /* AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SICHT für
+     Glyphen, RAW: „die Glyphe wirkt nur auf Feinde, die das Symbol
+     SEHEN"): Sicht-Guard je Folge-Ziel VOR dem Wurf/„Neues Ziel würfeln"-
+     Kette. Sensor = Zauberer-Token-Zentrum (Approximation - die Glyphen-
+     Zone ist instant und steht bei der Ketten-Auslösung nicht mehr als
+     Region). Messfehler wirken das Ziel weiter (SL-Urteil), ein Blocker
+     überspringt den Wurf sichtbar als Diagnose-Zeile (NIE still). */
+  const glyphCasterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
+  const glyphSightSkipLines = [];
+  const glyphSightPasses = (nextToken) => {
+    if (!glyphCasterToken || nextToken.id === glyphCasterToken.id) return true;
+    const sightCheck = senseBlocked(glyphCasterToken, nextToken, "sight");
+    if (sightCheck.error) {
+      glyphSightSkipLines.push(`<p>${game.i18n.format("AOE.SENSE_MEASURE_FAIL", { targetname: nextToken.name })}</p>`);
+      return true;
+    }
+    if (sightCheck.blocked) {
+      glyphSightSkipLines.push(
+        `<p>${game.i18n.format("AOE.SENSE_SKIP", { targetname: nextToken.name, sense: game.i18n.localize("AOE.SENSE_SIGHT") })}</p>`
+      );
+      return false;
+    }
+    return true;
+  };
   // v2.3 zoneChainDone: alle Zonenziele abgearbeitet = kein Dialog mehr
   while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff))) {
     const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
@@ -7955,6 +8207,8 @@ async function drainingGlyphResult(rollData, functionStuff) {
       break;
     }
     handled.add(nextToken.id);
+    // S1: Sicht-Guard vor dem Folge-Wurf
+    if (!glyphSightPasses(nextToken)) continue;
     functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
     const rollDataNext = [
       await baseRoll(
@@ -7976,6 +8230,11 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.activelyMaintainedTargetEffect = savedMaintainedEffect;
   functionStuff.addTargetEffect = savedAddTargetEffect;
   functionStuff.followUpMaintainedMarker = false;
+  /* S1: gesammelte Sicht-Skip-Diagnosezeilen als eigene Karte (NIE still) */
+  if (glyphSightSkipLines.length > 0) {
+    const title = `<h4>${game.i18n.localize("AOE.SENSE_SKIP_CARD_TITLE")}</h4>`;
+    await postMaintainChainCard(functionStuff, title, glyphSightSkipLines, []);
+  }
   /* v2.8 (Glyphe-Meister-Heilung): nach Durchlauf der Opfer-Zielkette -
      Wahl des Empfängers durch den Mystiker (nur Meisterstufe, nur mit
      mindestens einem betroffenen Opfer). */

@@ -217,7 +217,10 @@
           "trigger": "",
           "duration": 0,
           "targetOrder": "marking",
-          "includeCaster": "never"
+          "includeCaster": "never",
+          "senseMove": false,
+          "senseSight": false,
+          "senseSound": false
         }
       }
     },

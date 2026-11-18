@@ -2049,6 +2049,14 @@ SYMBAROUM.AOE_SHAPE_SELECTION = {
     id: "rectangle",
     label: "AOE.SHAPE_RECT",
   },
+  /* AoE-Rest Paket 1 (Flammenwand, Rudolfs Startsignal „Baue es“
+     18.11.2026): native Ringform (RingShapeData, radius = Mittellinie,
+     Bandbreiten je 0,5 Felder) - Flammenwand-Ring/Kuppel; generisch für
+     jede Zone wählbar. */
+  ring: {
+    id: "ring",
+    label: "AOE.SHAPE_RING",
+  },
 };
 
 /* AoE v2.8 (Rudolfs Grundsatz-Festlegung 13.11. - RAW-Bewertung der
@@ -2133,6 +2141,26 @@ SYMBAROUM.AOE_TARGETING_SELECTION = {
     id: "notallied",
     label: "AOE.TARGETING_NOT_ALLIED",
   },
+};
+
+/* AoE-Rest Paket 1 (Sinn-Paket S1, Rudolfs Startsignal „Baue es“ 18.11.2026):
+   GRUPPEN-DEFAULTS des Sinn-Filters je Kraft-Referenz - Alt-Items ohne die
+   Checkbox-Felder (system.areaZone.senseMove/senseSight/senseSound) fallen
+   auf diese Vorgabe zurück (Rudolfs Festlegung: Hymnen -> Schall, „wirken
+   nur auf Ziele, die sie hören können“; Symbolik-Glyphen -> Sicht, „jeder
+   Feind, der das Symbol sehen kann“; Flammenwand -> Bewegung, die Wand
+   blockiert Gänge). Freie Zonen: Default LEER, die SL wählt im Dialog.
+   Die Fluss-Kräfte ohne Zonen-Tab (Auren, Meister-Reaktionen) nutzen feste
+   Code-Defaults (Sicht) direkt an ihren Einsatzstellen, nicht diese Map. */
+SYMBAROUM.AOE_SENSE_HYMN_DEFAULTS = ["sound"];
+SYMBAROUM.AOE_SENSE_GLYPH_DEFAULTS = ["sight"];
+SYMBAROUM.AOE_SENSE_FLAMEWALL_DEFAULTS = ["move"];
+SYMBAROUM.getZoneSenseDefaults = function (reference) {
+  const ref = String(reference ?? "").trim();
+  if (ref === "flamewall") return [...SYMBAROUM.AOE_SENSE_FLAMEWALL_DEFAULTS];
+  if (SYMBAROUM.HYMN_REFERENCES.includes(ref)) return [...SYMBAROUM.AOE_SENSE_HYMN_DEFAULTS];
+  if (SYMBAROUM.SWEEP_ZONE_POWERS.includes(ref)) return [...SYMBAROUM.AOE_SENSE_GLYPH_DEFAULTS];
+  return [];
 };
 
 /* AoE v2 (Freigabe 2a+2b, 09.11.2026): Wirkungsmodus und Ausloese-Steuerung

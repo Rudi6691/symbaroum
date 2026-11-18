@@ -149,6 +149,17 @@
                             {{selectOptions aoe_include_caster_selection selected=aoe.includeCaster valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
+                    {{!-- AoE-Rest Paket 1 (Sinn-Paket S1, Rudolfs Startsignal „Baue es“ 18.11.2026):
+                        Sinn-Filter der Zone (Bewegung/Sicht/Schall) - Doppelwirkung: Form-Clip
+                        bei Platzierung + Ziel-Filter je Auslösung; Anzeige = effektiver Wert. --}}
+                    <div class="m-inline-field">
+                        <label data-tooltip="{{localize "AOE.INFO_SENSE"}}">{{localize "AOE.FIELD_SENSE_BLOCKER"}}</label>
+                        <div class="m-give-vis">
+                            <label class="lblfavour"><input id="{{id}}-system.areaZone.senseMove" name="system.areaZone.senseMove" type="checkbox" value="true" {{checked aoe.senseMove}}/> {{localize "AOE.SENSE_MOVE"}}</label>
+                            <label class="lblfavour"><input id="{{id}}-system.areaZone.senseSight" name="system.areaZone.senseSight" type="checkbox" value="true" {{checked aoe.senseSight}}/> {{localize "AOE.SENSE_SIGHT"}}</label>
+                            <label class="lblfavour"><input id="{{id}}-system.areaZone.senseSound" name="system.areaZone.senseSound" type="checkbox" value="true" {{checked aoe.senseSound}}/> {{localize "AOE.SENSE_SOUND"}}</label>
+                        </div>
+                    </div>
                     {{#unless aoeIsInstant}}
                     <div class="m-inline-field">
                         <label for="{{id}}-system.areaZone.duration" data-tooltip="{{localize "AOE.INFO_DURATION"}}">{{localize "AOE.FIELD_DURATION"}}</label>

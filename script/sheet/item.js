@@ -33,7 +33,7 @@ import { resolveItemTraditions, knownTraditionSelection, isForbiddenKnowledge, q
 // AoE v2.1 (Rudolfs Freigabe 10.11.): Spieler erreichen die Platzierung
 // über den AUSWAHL-DIALOG der Kraft-Aktivierung (maybeZoneExecutionChoice
 // in aoe.js) - der Zone-Tab ist wieder GM-only.
-import { aoeEnabled, getZoneConfig, placeZoneFromItem, maybeZoneExecutionChoice } from '../common/aoe.js';
+import { aoeEnabled, getZoneConfig, placeZoneFromItem, maybeZoneExecutionChoice, resolveZoneSenses } from '../common/aoe.js';
 
 const { api, sheets } = foundry.applications;
 
@@ -719,6 +719,15 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				   gespeichertes 'Nein' war unsichtbar (Warnung "Zone ohne
 				   Form" trotz deaktivierter Zone, auch bei Schutzrunen). */
 				active: String(zone?.active ?? 'yes'),
+				/* AoE-Rest Paket 1 (S1): Sinn-Filter-Checkboxen - ANZEIGE ist
+				   der EFFEKTIVE Wert (explizite Checkbox ODER Gruppen-Default
+				   je Referenz, config.getZoneSenseDefaults); der Submit schreibt
+				   den angehakten Wert explizit (Stackable-Muster: vorberechnete
+				   Booleans, keine Template-Logik). Ohne konfigurierte Form
+				   (zoneCfg null) greifen dieselben Gruppen-Defaults. */
+				senseMove: (zoneCfg?.senses ?? resolveZoneSenses(zone, String(this.item.system?.reference ?? ''))).includes('move'),
+				senseSight: (zoneCfg?.senses ?? resolveZoneSenses(zone, String(this.item.system?.reference ?? ''))).includes('sight'),
+				senseSound: (zoneCfg?.senses ?? resolveZoneSenses(zone, String(this.item.system?.reference ?? ''))).includes('sound'),
 			};
 			/* v2.1: Augenblickliche Zonen haben keine Dauer (One-Shot) -
 			   das Template blendet das Dauer-Feld deshalb aus */

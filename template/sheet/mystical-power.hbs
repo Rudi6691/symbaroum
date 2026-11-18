@@ -176,6 +176,21 @@
                             {{selectOptions aoe_include_caster_selection selected=aoe.includeCaster valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
+                    {{!-- AoE-Rest Paket 1 (Sinn-Paket S1, Rudolfs Startsignal „Baue es“ 18.11.2026):
+                        Sinn-Filter der Zone - angehakte Sinne blockieren Ziele hinter passenden
+                        Kanten/Regionen (Doppelwirkung: Form-Clip bei Platzierung + Ziel-Filter je
+                        Auslösung); Anzeige = effektiver Wert (Checkbox ODER Gruppen-Default). --}}
+                    <div class="action">
+                        <label data-tooltip="{{localize "AOE.INFO_SENSE"}}">{{localize "AOE.FIELD_SENSE_BLOCKER"}}</label>
+                        <div class="active">
+                            <label for="{{id}}-system.areaZone.senseMove" data-tooltip="{{localize "AOE.INFO_SENSE_MOVE"}}">{{localize "AOE.SENSE_MOVE"}}</label>
+                            <input id="{{id}}-system.areaZone.senseMove" name="system.areaZone.senseMove" type="checkbox" value="true" {{checked aoe.senseMove}}/>
+                            <label for="{{id}}-system.areaZone.senseSight" data-tooltip="{{localize "AOE.INFO_SENSE_SIGHT"}}">{{localize "AOE.SENSE_SIGHT"}}</label>
+                            <input id="{{id}}-system.areaZone.senseSight" name="system.areaZone.senseSight" type="checkbox" value="true" {{checked aoe.senseSight}}/>
+                            <label for="{{id}}-system.areaZone.senseSound" data-tooltip="{{localize "AOE.INFO_SENSE_SOUND"}}">{{localize "AOE.SENSE_SOUND"}}</label>
+                            <input id="{{id}}-system.areaZone.senseSound" name="system.areaZone.senseSound" type="checkbox" value="true" {{checked aoe.senseSound}}/>
+                        </div>
+                    </div>
                     {{#unless aoeIsInstant}}
                     <div class="action">
                         <label for="{{id}}-system.areaZone.duration" data-tooltip="{{localize "AOE.INFO_DURATION"}}">{{localize "AOE.FIELD_DURATION"}}</label>

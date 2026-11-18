@@ -175,6 +175,21 @@ export function registerAoeSettings() {
 		default: 0,
 		config: false,
 	});
+	/* AoE-Rest Paket 1 (Rudolfs Startsignal „Baue es“ 18.11.2026): Sinn-
+	   Paket S1 - Welt-Setting aoeSenseWalls schaltet die WAND-BLOCKER
+	   (Kanten-/Regions-Prüfung für Bewegung/Sicht/Schall) der Zonen und
+	   Flusskräfte GESAMT ab (Muster travelEnabled/aoeZonesEnabled).
+	   Default AN - neue Welten prüfen sofort; rein darstellende
+	   Diagnosezeilen (Skip-Zeilen) bleiben vom Setting unberührt. */
+	game.settings.register('symbaroum', 'aoeSenseWalls', {
+		name: 'AOE.SETTING_SENSE',
+		hint: 'AOE.SETTING_SENSE_HINT',
+		scope: 'world',
+		type: Boolean,
+		default: true,
+		config: true,
+		restricted: true,
+	});
 	/* v2.7 (Testrunde 7, HAUPTBEFUND, Rudolfs v2.6-Befunde P2d/P8/P12):
 	   Initialisierung der Marke HIER, nach der Registrierung. Vorher lief
 	   sie TOP-LEVEL in registerAoeHooks (Modul-Evaluierung von hooks.js)
@@ -191,6 +206,195 @@ export function registerAoeSettings() {
 /** Setting-Gate für alle AoE-Interaktionen (Blatt-Button + Platzierung). */
 export function aoeEnabled() {
 	return !!game.settings.get('symbaroum', 'aoeZonesEnabled');
+}
+
+/* AoE-Rest Paket 1 (Sinn-Paket S1): Wand-Blocker aktiv? Default AN. */
+export function senseWallsEnabled() {
+	return !!game.settings.get('symbaroum', 'aoeSenseWalls');
+}
+
+/* ---------------------------------------------------------------------
+ * Sinn-Paket S1 (Rudolfs Startsignal „Baue es“ 18.11.2026): WAND-BLOCKER
+ * für Bewegung/Sicht/Schall. Helper senseBlocked(from, to, sense) prüft
+ * den Strahl zwischen zwei Token-Zentren gegen
+ *   (a) Kanten (V14: Wände = Edges) mit edge[sense] === NORMAL - LIMITED
+ *       (Fenster) und NONE blocken NICHT (Foundry-Semantik, bewusste
+ *       Rudolf-Entscheidung),
+ *   (b) SL-Regionen mit AKTIVIERTER Restriktion passenden Typs
+ *       (CONST.EDGE_RESTRICTION_TYPES: move / SIGHT / SOUND).
+ * Zentren-Toleranz nach bestimmeZentrum-Muster: Quelle und Ziel bis
+ * 1,5 Zellen entfernt gelten als offen (Nachbarschafts-Konvention der
+ * Dornenmantel-Näheprüfung). Messfehler (keine Szene/Geometrie) blocken
+ * NIE - das SL-Urteil wirkt (Rückgabe error:true, Aufrufer zeigt Diagnose-
+ * zeile statt still zu überspringen). Raycast bewusst im Helper selbst
+ * (canvas.visibility.testVisibility prüft nur die BETRACHTER-Perspektive).
+ * ------------------------------------------------------------------- */
+
+/* Endpunkte einer Kante defensiv extrahieren (V14-EdgeDocument-Feld-
+   varianten; scheitert alles => null => Kante blockt nicht). */
+function _edgeSegmentPoints(edgeLike) {
+	const doc = edgeLike?.document ?? edgeLike;
+	if (!doc) return null;
+	const raw = doc.c ?? doc.points ?? edgeLike?.c ?? null;
+	if (Array.isArray(raw) && raw.length >= 4) {
+		if (typeof raw[0] === 'object' && raw[0] !== null) {
+			return [
+				{ x: Number(raw[0].x) || 0, y: Number(raw[0].y) || 0 },
+				{ x: Number(raw[1].x) || 0, y: Number(raw[1].y) || 0 },
+			];
+		}
+		return [
+			{ x: Number(raw[0]) || 0, y: Number(raw[1]) || 0 },
+			{ x: Number(raw[2]) || 0, y: Number(raw[3]) || 0 },
+		];
+	}
+	const a = doc.a ?? edgeLike?.a ?? null;
+	const c = doc.c2 ?? edgeLike?.c2 ?? doc.b ?? edgeLike?.b ?? null;
+	if (a && c) {
+		const pa = Array.isArray(a) ? { x: Number(a[0]) || 0, y: Number(a[1]) || 0 } : { x: Number(a.x) || 0, y: Number(a.y) || 0 };
+		const pc = Array.isArray(c) ? { x: Number(c[0]) || 0, y: Number(c[1]) || 0 } : { x: Number(c.x) || 0, y: Number(c.y) || 0 };
+		return [pa, pc];
+	}
+	return null;
+}
+
+/** Sense-Wert einer Kante (NONE/LIMITED/NORMAL, tolerant gelesen). */
+function _edgeSenseValue(edgeLike, sense) {
+	const doc = edgeLike?.document ?? edgeLike;
+	const raw = doc?.[sense] ?? edgeLike?.[sense] ?? null;
+	if (raw === undefined || raw === null) return 'none';
+	const text = String(raw).trim().toLowerCase();
+	return text || 'none';
+}
+
+/** Streckenschnitt-Test (Standard-Kreuzungs-Algorithmus, inkl. Endpunkte). */
+function _segmentsIntersect(p1, p2, p3, p4) {
+	const d = (p2.x - p1.x) * (p4.y - p3.y) - (p2.y - p1.y) * (p4.x - p3.x);
+	if (d === 0) return false;
+	const t = ((p3.x - p1.x) * (p4.y - p3.y) - (p3.y - p1.y) * (p4.x - p3.x)) / d;
+	const u = ((p3.x - p1.x) * (p2.y - p1.y) - (p3.y - p1.y) * (p2.x - p1.x)) / d;
+	return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+/** Restriktions-Typ eines Sinns (move/SIGHT/SOUND, EDGE_RESTRICTION_TYPES). */
+function _senseRestrictionType(sense) {
+	if (sense === 'sight') return 'SIGHT';
+	if (sense === 'sound') return 'SOUND';
+	if (sense === 'move') return 'move';
+	return null;
+}
+
+/** Alle sichtbaren Kanten-Placeables der Szene (V14: canvas.edges). */
+function _sceneEdges() {
+	const placeables = canvas.edges?.placeables ?? [];
+	if (Array.isArray(placeables) && placeables.length > 0) return placeables;
+	return [...(canvas.scene?.edges ?? [])];
+}
+
+/** Durchquert der Strahl eine AKTIVE Region mit passender Restriktion?
+ *  Abtastung entlang des Strahls (10 Stützpunkte, Region per testPoint);
+ *  die Quell-Region (Zone selbst) und inaktive Restriktionen blocken
+ *  nicht. Liegt die QUELLE in der Restriktions-Region, blockt sie ebenfalls
+ *  nicht (der Effekt entspringt dort). */
+function _segmentCrossesRestrictingRegion(from, to, sense, ownRegionId = null) {
+	const wantType = _senseRestrictionType(sense);
+	if (!wantType) return false;
+	const scene = canvas.scene;
+	if (!scene) return false;
+	const restricting = [];
+	for (const region of scene.regions ?? []) {
+		if (region.id === ownRegionId) continue;
+		const restrictions = region.restrictions;
+		if (!restrictions) continue;
+		const list = Array.isArray(restrictions) ? restrictions : typeof restrictions?.[Symbol.iterator] === 'function' ? [...restrictions] : [];
+		for (const restriction of list) {
+			if (restriction === null || restriction === undefined) continue;
+			const type = String(restriction.type ?? '').trim();
+			const enabled = restriction.enabled !== false && restriction.enabled !== undefined ? true : !!restriction.enabled;
+			if (type.toUpperCase() === wantType && enabled) {
+				restricting.push(region);
+				break;
+			}
+		}
+	}
+	if (restricting.length === 0) return false;
+	for (const region of restricting) {
+		if (typeof region.testPoint !== 'function') continue;
+		for (let i = 0; i <= 10; i++) {
+			const t = i / 10;
+			const point = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, elevation: canvas.scene?.flags?.elevation ?? 0 };
+			try {
+				const inside = region.testPoint(point);
+				if (inside && i > 0) return true; // i === 0 = Quelle
+				if (inside && i === 0) break;
+			} catch (error) {
+				// testPoint nicht verfügbar => Region blockt nicht
+				break;
+			}
+		}
+	}
+	return false;
+}
+
+/**
+ * Sinn-Blocker-Prüfung (S1): blockiert eine Kante/Region den Strahl
+ * from -> to für den Sinn sense ('move' | 'sight' | 'sound')?
+ * from/to: Token-Placeables ODER TokenDocuments ODER {x,y}-Punkte.
+ * @returns {{blocked: boolean, error: boolean, reason: string|null}}
+ *   error = Messung fehlgeschlagen (nicht blockiert, SL-Urteil wirkt).
+ */
+export function senseBlocked(from, to, sense, { ownRegionId = null, toleranceCells = 1.5 } = {}) {
+	try {
+		const scene = canvas.scene;
+		if (!scene || !senseWallsEnabled()) return { blocked: false, error: false, reason: null };
+		const pointOf = (t) => {
+			if (t && Number.isFinite(t.x) && Number.isFinite(t.y)) return { x: t.x, y: t.y };
+			const center = t?.object?.center ?? t?.center ?? null;
+			if (center && Number.isFinite(center.x)) return { x: center.x, y: center.y };
+			const doc = t?.document ?? t;
+			const w = doc?.width ?? 100;
+			const h = doc?.height ?? 100;
+			return { x: (doc?.x ?? 0) + w / 2, y: (doc?.y ?? 0) + h / 2 };
+		};
+		const a = pointOf(from);
+		const b = pointOf(to);
+		const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.scene?.grid?.size ?? 100;
+		/* Zentren-Toleranz (bestimmeZentrum-Muster): Nachbarschaft ist
+		   offen - keine Kante zwischen unmittelbar benachbarten Token. */
+		if (Math.hypot(b.x - a.x, b.y - a.y) <= cell * toleranceCells) {
+			return { blocked: false, error: false, reason: null };
+		}
+		for (const edge of _sceneEdges()) {
+			if (_edgeSenseValue(edge, sense) !== 'normal') continue;
+			const pts = _edgeSegmentPoints(edge);
+			if (!pts) continue;
+			if (_segmentsIntersect(a, b, pts[0], pts[1])) {
+				return { blocked: true, error: false, reason: 'edge' };
+			}
+		}
+		if (_segmentCrossesRestrictingRegion(a, b, sense, ownRegionId)) {
+			return { blocked: true, error: false, reason: 'region' };
+		}
+		return { blocked: false, error: false, reason: null };
+	} catch (error) {
+		console.warn('Symbaroum AoE: sense check failed', error);
+		return { blocked: false, error: true, reason: null };
+	}
+}
+
+/** Effektive Sinn-Filter einer Zonen-Konfiguration (Checkbox-Wert ODER
+ *  Gruppen-Default je Referenz, siehe config.getZoneSenseDefaults). */
+export function resolveZoneSenses(zoneData, reference) {
+	const zone = zoneData ?? {};
+	const hasExplicit = 'senseMove' in zone || 'senseSight' in zone || 'senseSound' in zone;
+	if (hasExplicit) {
+		const senses = [];
+		if (zone.senseMove === true) senses.push('move');
+		if (zone.senseSight === true) senses.push('sight');
+		if (zone.senseSound === true) senses.push('sound');
+		return senses;
+	}
+	return game.symbaroum.config.getZoneSenseDefaults(String(reference ?? ''));
 }
 
 /** Spieler-Platzierung aktiv (2b): GM bleibt immer berechtigt. */
@@ -239,8 +443,16 @@ export function getZoneConfig(item) {
 	if (String(zone.active ?? 'yes') === 'no') return null;
 	const shape = String(zone.shape ?? '').trim();
 	if (!shape) return null;
-	const rawSize = Math.round(Number(zone.size));
-	const size = Number.isFinite(rawSize) && rawSize >= 1 ? rawSize : 1;
+	/* AoE-Rest Paket 1: RING erlaubt HALBE Felder (Flammenwand-Ring:
+	   radius 1,5 / innerWidth 0,5 / outerWidth 0,5 Felder, Rudolfs
+	   Vorgabe „Dicke 1 Feld“ - Band 1-2 Felder, 3x3 innen frei). */
+	const rawSizeNumber = Number(zone.size);
+	const size =
+		Number.isFinite(rawSizeNumber) && rawSizeNumber >= 1
+			? shape === 'ring'
+				? Math.round(rawSizeNumber * 2) / 2
+				: Math.round(rawSizeNumber)
+			: 1;
 	const rawTargeting = String(zone.targeting ?? '').trim();
 	/* v2.7 (Testrunde 7, P14): 'neutral' (nur Neutrale) und 'notallied'
 	   (alles außer Verbündete) ergänzen die bestehenden Filter. */
@@ -275,7 +487,14 @@ export function getZoneConfig(item) {
 	   im config-Snapshot -> undefined = unverändertes Verhalten. */
 	const rawIncludeCaster = String(zone.includeCaster ?? '').trim();
 	const includeCaster = rawIncludeCaster === 'always' ? 'always' : 'never';
-	return { active: String(zone.active ?? 'yes'), shape, size, targeting, mode, trigger, duration, targetOrder, includeCaster };
+	/* AoE-Rest Paket 1 (S1, Rudolfs 5 Detailantworten 18.11.): Sinn-
+	   Filter der Zone - Checkbox-Werte (system.areaZone.senseMove/
+	   senseSight/senseSound), Alt-Items ohne Felder fallen auf die
+	   GRUPPEN-DEFAULTS je Referenz (config.getZoneSenseDefaults:
+	   Hymnen Schall, Symbolik-Glyphen Sicht, Flammenwand Bewegung,
+	   alles andere leer). Freie Zonen: Default leer, SL wählt im Dialog. */
+	const senses = resolveZoneSenses(zone, String(item?.system?.reference ?? ''));
+	return { active: String(zone.active ?? 'yes'), shape, size, targeting, mode, trigger, duration, targetOrder, includeCaster, senses };
 }
 
 /**
@@ -295,6 +514,15 @@ function _buildShapeData(cfg, gridSize) {
 			return { ...base, type: 'line', length: cfg.size * gridSize, width: gridSize };
 		case 'rectangle':
 			return { ...base, type: 'rectangle', width: cfg.size * gridSize, height: cfg.size * gridSize };
+		/* AoE-Rest Paket 1 (Flammenwand, Rudolfs Detailantwort 3):
+		   nativer V14-RingShapeData - radius = Mittellinie in Feldern,
+		   innerWidth/outerWidth = Bandbreiten je Seite (hier je 0,5
+		   Felder => Band 1 Feld dick, Rudolfs Vorgabe „Dicke 1 Feld“).
+		   Die Zonen-Maschinerie ist form-agnostisch (_regionCenter,
+		   _collectRegionTokens/testPoint, _tokenDistance), der Ring
+		   funktioniert dadurch in Region UND Measured-Template-Optik. */
+		case 'ring':
+			return { ...base, type: 'ring', radius: cfg.size * gridSize, innerWidth: 0.5 * gridSize, outerWidth: 0.5 * gridSize };
 		default:
 			return null;
 	}
@@ -511,11 +739,17 @@ async function _zoneCardContext(region) {
 		cone: 'AOE.SHAPE_CONE',
 		line: 'AOE.SHAPE_LINE',
 		rectangle: 'AOE.SHAPE_RECT',
+		ring: 'AOE.SHAPE_RING',
 	}[cfg.shape];
+	/* AoE-Rest Paket 1: Kuppel = Ring-Geometrie mit eigener Bezeichnung
+	   (Rudolfs Detailantwort 5); Meter je Feld aus dem Zonen-Snapshot
+	   (Flammenwand nutzt scene.grid.distance, alles andere 2 m). */
+	const shapeLabel = aoe.dome ? game.i18n.localize('POWER_FLAMEWALL.FORM_DOME') : localize(shapeLabelKey ?? 'AOE.SHAPE_NONE');
+	const metersPerField = Math.max(0.5, Number(aoe.metersPerField) || 2);
 	const areaText = game.i18n.format('AOE.CHAT_AREA', {
-		shape: localize(shapeLabelKey ?? 'AOE.SHAPE_NONE'),
+		shape: shapeLabel,
 		size: cfg.size,
-		meters: cfg.size * 2,
+		meters: Math.round(cfg.size * metersPerField * 10) / 10,
 	});
 	const tokens = _filterTargets(_collectRegionTokens(region), cfg.targeting, _casterTokenOfZone(aoe), aoe.free ? null : (cfg.includeCaster ?? null));
 	const tokensText =
@@ -563,6 +797,9 @@ async function _zoneCardContext(region) {
 		casterText,
 		isActivated: !!aoe.activated,
 		isInstant,
+		/* AoE-Rest Paket 1: Doku-Zeilen der Platzierung (W0/W1-Vermerk,
+		   Flammenwand-Pfeil-/Lagehinweise) - unter den Wirkungszeilen. */
+		docLines: Array.isArray(aoe.docLines) ? aoe.docLines.filter((line) => !!line) : [],
 		showRound: !!(aoe.free && !isInstant && aoe.effect && (aoe.effect.damagePerRound || aoe.effect.corruptionPerRound)),
 	};
 }
@@ -796,6 +1033,50 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 		enteringTokenId !== null
 			? [region.parent?.tokens?.get(enteringTokenId)].filter((td) => !!td?.actor && !td.hidden)
 			: _resolveZoneTargets(region, aoe, { auto: !manual });
+	/* AoE-Rest Paket 1 (S1, Doppelwirkung b): Ziel-Filter je angehaktem
+	   Sinn - die Zone wirkt nicht auf Token, deren Strahl Quelle->Ziel
+	   eine Kante/Region mit passender Blockade kreuzt. Skip ist NIE
+	   still: Diagnose-Karte je übersprungenem Token (Messfehler =>
+	   Token wirkt weiter, Zeile „SL-Urteil wirkt"). Quelle = Wirker-
+	   Token, Fallback Zonenmittelpunkt. Altzonen ohne Sinn-Snapshot
+	   bleiben ungefiltert. */
+	const zoneSenses = Array.isArray(aoe.config?.senses) ? aoe.config.senses : [];
+	if (senseWallsEnabled() && zoneSenses.length > 0 && tokens.length > 0) {
+		const casterDoc = _casterTokenOfZone(aoe);
+		const sourcePoint = casterDoc ?? _regionCenter(region);
+		if (sourcePoint) {
+			const kept = [];
+			const skipLines = [];
+			for (const tokenDoc of tokens) {
+				let blockedSense = null;
+				let measureFailed = false;
+				for (const sense of zoneSenses) {
+					const result = senseBlocked(sourcePoint, tokenDoc, sense, { ownRegionId: region.id });
+					if (result.error) {
+						measureFailed = true;
+						break;
+					}
+					if (result.blocked) {
+						blockedSense = sense;
+						break;
+					}
+				}
+				if (measureFailed) {
+					skipLines.push(`<p>${game.i18n.format('AOE.SENSE_MEASURE_FAIL', { targetname: _escapeHtml(tokenDoc.actor?.name ?? tokenDoc.name ?? '') })}</p>`);
+					kept.push(tokenDoc);
+					continue;
+				}
+				if (blockedSense) {
+					skipLines.push(`<p>${game.i18n.format('AOE.SENSE_SKIP', { targetname: _escapeHtml(tokenDoc.actor?.name ?? tokenDoc.name ?? ''), sense: game.i18n.localize(`AOE.SENSE_${blockedSense.toUpperCase()}`) })}</p>`);
+					continue;
+				}
+				kept.push(tokenDoc);
+			}
+			if (skipLines.length > 0) await _postZoneDiagCard(region, skipLines);
+			tokens.length = 0;
+			tokens.push(...kept);
+		}
+	}
 	/* v2.7 (Testrunde 7, Rudolfs Schritt 7 wörtlich + Musterablauf v1.1):
 	   Bannsiegel-Zonen laufen auch mit LEEREM Anfangsbestand in die
 	   AKTIVIERUNG - die Aktivierung kostet 1 temporäre Korruption und
@@ -1234,6 +1515,20 @@ async function _applyFreeZoneEffect(region, tokenDoc, eff, cardLines = null) {
 }
 
 /**
+ * Diagnose-Karte einer Zone (S1): übersprungene Ziele je Sinn NIEMALS
+ * still - jede Skip-Zeile landet als eigene Kartenzeile (v2.15-P13-max-
+ * Muster, öffentliche Karte im Zonen-Design).
+ */
+async function _postZoneDiagCard(region, lines) {
+	if (!Array.isArray(lines) || lines.length === 0) return;
+	const html = `<div class="symbaroum chat aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region?.name ?? '')}</b></div><div class="aoe-card-detail">${_escapeHtml(game.i18n.localize('AOE.SENSE_SKIP_CARD_TITLE'))}</div>${lines.map((line) => `<div class="aoe-card-detail">${line}</div>`).join('')}</div>`;
+	await ChatMessage.create({
+		speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
+		content: html,
+	});
+}
+
+/**
  * Standard-Ergebniskarte je Ziel (v2.4, Rudolfs Testrunde 4, Punkt 9 +
  * neuer Punkt; Template aoe-zone-result-card.hbs): Titel „{Zone} wirkt
  * auf {Ziel + Icon}", darunter Probenwerte, Würfelergebnis und Wirkung.
@@ -1406,6 +1701,32 @@ async function _tickZone(region, source) {
 			}
 		}
 	}
+	/* AoE-Rest Paket 1 (Flammenwand, Rudolfs Festlegung „Endprobe 1x/Runde
+	   ab R2 automatisch, ähnlich wie Dornenmantel"): je Runden-Tick würfelt
+	   das System die Willenskraft-Probe des Wirkers automatisch (1W20 <=
+	   Resolute-Total, 20 misslingt immer) - Erfolg: die Wand hält (Karte),
+	   Scheitern: Ende-Karte + Zone wird beendet. Der Tick läuft am Zug des
+	   Auslösers (Combat) bzw. im Weltzeit-Takt - die PLATZIERUNGsrunde zählt
+	   als R1, der erste Tick ist R2. Kein Wurfeldialog, kein A29-Reminder. */
+	if (aoe.endprobe === 'resolute') {
+		const casterActor = aoe.sourceActorUuid ? fromUuidSync(aoe.sourceActorUuid) : null;
+		if (casterActor) {
+			const resolute = Number(casterActor.system?.attributes?.resolute?.total);
+			const target = Number.isFinite(resolute) ? resolute : 10;
+			const probeRoll = await new Roll('1d20').evaluate();
+			const succeeded = probeRoll.total !== 20 && probeRoll.total <= target;
+			const lineKey = succeeded ? 'POWER_FLAMEWALL.CHAT_ENDPROBE_OK' : 'POWER_FLAMEWALL.CHAT_ENDPROBE_FAIL';
+			const html = `<div class="symbaroum chat aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region.name)}</b></div><div class="aoe-card-detail">${_escapeHtml(game.i18n.format(lineKey, { name: casterActor.name ?? '', roll: probeRoll.total, target }))}</div></div>`;
+			await ChatMessage.create({
+				speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
+				content: html,
+			});
+			if (!succeeded) {
+				await _endZone(region, 'endprobe', game.i18n.localize('POWER_FLAMEWALL.END_MESSAGE'));
+				return;
+			}
+		}
+	}
 	// Restdauer: null/0 = unbegrenzt (läuft bis zur Enden-Taste)
 	/* v2.6 (Rudolfs Testrunde 6, P10): die Zonen-Karte wird jetzt bei
 	   JEDEM Runden-Tick aktualisiert (Delete+Recreate ans Chat-Ende) -
@@ -1487,7 +1808,7 @@ export async function aoeEndZone(regionId, sceneId) {
 	await _endZone(region, 'manual');
 }
 
-async function _endZone(region, source) {
+async function _endZone(region, source, customEndText = null) {
 	// v2.2 (Baustein 9): Ziel-Fenster der Zone schließen
 	_closeTargetWindow(region.id);
 	// v2.5: In-Flight-Marke der Aktivierung mitraeumen (verwaister Dialog)
@@ -1549,8 +1870,10 @@ async function _endZone(region, source) {
 			}
 		}
 	}
+	/* AoE-Rest Paket 1: eigener Ende-Text (Flammenwand-Endprobe) vor
+	   den Standard-Texten. */
 	const textKey = source === 'manual' && aoe?.mode === 'instant' ? 'AOE.ABORT_MESSAGE' : 'AOE.END_MESSAGE';
-	await _settleZoneCards(region, game.i18n.localize(textKey));
+	await _settleZoneCards(region, customEndText ?? game.i18n.localize(textKey));
 	try {
 		await region.delete();
 	} catch (error) {
@@ -1631,6 +1954,261 @@ function _sealZoneCategoryDialog(item) {
 	});
 }
 
+/* =====================================================================
+ * AoE-Rest Paket 1 (Rudolfs Startsignal „Baue es“ 18.11.2026):
+ * FLAMMENWAND - Weg (b), die einzige echte DAUERHAFT-Kraft-Zone des
+ * Kraft-Zonen-Inventars (52/53-Ausnahmefall; SWEEP_ZONE_POWERS bleibt
+ * unverändert). RAW: Material Schwefel+Quecksilber, bleibt bis Scheitern
+ * der Willenskraft-Endprobe, Schaden 1W12 Feuer; Form WAHLBAR durch den
+ * Wirker: Novize Linie (20 m fix), Adept Kreis, Meister alle inkl.
+ * Ring/Kuppel (Kuppel = Ring-Geometrie mit eigener Bezeichnung,
+ * abweichende Mechanik bleibt SL-Verwaltung).
+ * =================================================================== */
+
+/** Zonen-Konfiguration der Flammenwand: unaufgelöst (keine Form im
+ *  Zone-Tab) gilt die RAW-Grundeinstellung - dauerhaft, Betreten-Trigger,
+ *  unbegrenzte Dauer (Ende über die automatische Endprobe), Zielfilter
+ *  Feinde. Die Form liefert der Platzierungs-Dialog (Stufen-modelliert). */
+function _flamewallZoneConfig(item) {
+	let cfg = getZoneConfig(item);
+	if (!cfg) {
+		cfg = {
+			active: 'yes',
+			shape: 'line',
+			size: 0,
+			targeting: 'enemies',
+			mode: 'lasting',
+			trigger: 'enter',
+			duration: 0,
+			targetOrder: 'nearest',
+			includeCaster: 'never',
+			senses: ['move'],
+		};
+	}
+	if (!cfg.senses || cfg.senses.length === 0) cfg.senses = game.symbaroum.config.getZoneSenseDefaults('flamewall');
+	return cfg;
+}
+
+/** Form-Auswahl der Flammenwand (stufen-modelliert, Rudolfs Festlegung):
+ *  Novize Linie, Adept +Kreis, Meister +Ring +Kuppel (Meister kann auch
+ *  die Novizen-/Adept-Fassung wirken - RAW). Abbruch = keine Platzierung.
+ *  @returns {Promise<object|null>} {shape, dome} oder null (Abbruch). */
+function _flamewallShapeDialog(item) {
+	const level = item?.getLevel?.()?.level ?? 1;
+	const options = [{ id: 'line', label: game.i18n.localize('POWER_FLAMEWALL.FORM_LINE'), icon: 'fa-ruler-horizontal' }];
+	if (level >= 2) options.push({ id: 'circle', label: game.i18n.localize('POWER_FLAMEWALL.FORM_CIRCLE'), icon: 'fa-circle' });
+	if (level >= 3) {
+		options.push({ id: 'ring', label: game.i18n.localize('POWER_FLAMEWALL.FORM_RING'), icon: 'fa-circle-notch' });
+		options.push({ id: 'dome', label: game.i18n.localize('POWER_FLAMEWALL.FORM_DOME'), icon: 'fa-globe' });
+	}
+	return new Promise((resolve) => {
+		let settled = false;
+		const settle = (value) => {
+			if (settled) return;
+			settled = true;
+			resolve(value);
+		};
+		const radios = options
+			.map(
+				(opt, idx) =>
+					`<label class="lblfavour"><input type="radio" name="flamewall-shape" value="${opt.id}"${idx === 0 ? ' checked' : ''}/> <i class="fas ${opt.icon}"></i> ${opt.label}</label>`
+			)
+			.join('');
+		const modern = isModernDialogActive();
+		const content = `<div class="symbaroum${modern ? ' modern-roll-dialog' : ' dialog'}">
+			<p>${game.i18n.localize('POWER_FLAMEWALL.DIALOG_FORM_HINT')}</p>
+			<div class="favour">${radios}</div>
+			<p class="zone-hint">${game.i18n.localize('POWER_FLAMEWALL.INFO_ARROWS')}</p>
+		</div>`;
+		const dialog = symbDialog({
+			title: item.name,
+			content,
+			classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-flamewall-shape-dialog') : [])],
+			buttons: {
+				cast: {
+					icon: '<i class="fas fa-check"></i>',
+					label: game.i18n.localize('POWER_BANISHINGSEAL.BUTTON_APPLY'),
+					callback: (html) => {
+						const chosen = html[0].querySelector('input[name="flamewall-shape"]:checked')?.value ?? 'line';
+						settle({ shape: chosen === 'dome' ? 'ring' : chosen, dome: chosen === 'dome' });
+					},
+				},
+				cancel: {
+					icon: '<i class="fas fa-times"></i>',
+					label: game.i18n.localize('BUTTON.CANCEL'),
+					callback: () => settle(null),
+				},
+			},
+			default: 'cast',
+			width: 460,
+		});
+		try {
+			dialog.addEventListener('close', () => settle(null));
+		} catch (error) {
+			console.warn('Symbaroum AoE: flamewall shape dialog close listener unavailable', error);
+		}
+	});
+}
+
+/* ---------------------------------------------------------------------
+ * W0-FORM-CLIP (Rudolfs Detailantwort 1: W0 bestätigt, Fallback W1 rein
+ * geometrisch + Doku-Zeile auf der Zonenkarte). Nach der Platzierung
+ * wird die Fläche auf den von der Quelle aus erreichbaren Bereich
+ * beschnitten: Raster-BFS über die überdeckten Zellen, Übergänge über
+ * eine den Sinn blockierende Kante (je angehaktem Sinn) sind verboten;
+ * das Ergebnis wird als Rechteck-Zerlegung (Scanline) als neue Shape-
+ * Liste der Region gesetzt. Jeder Fehler (fehlende API, leeres Raster,
+ * keine erreichbare Zelle) fällt auf W1 zurück: Geometrie bleibt,
+ * Doku-Zeile auf der Zonenkarte - blockierte Bereiche filtert der
+ * Sinn-Filter bei jeder Auslösung (Doppelwirkung b).
+ * ------------------------------------------------------------------- */
+
+/** Erreichbare Zellen einer Region per BFS von der Quell-Zelle aus.
+ *  @returns {Promise<{cells:Set<string>, covered:number, reachable:number, sourceInside:boolean}>|null}
+ *  null = Prototyp-Check fehlgeschlagen (W1-Fallback). */
+async function _w0ReachableCells(region, senses, sourcePoint) {
+	const scene = canvas.scene;
+	if (!scene || typeof region.testPoint !== 'function') return null;
+	const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? scene.grid?.size ?? 100;
+	if (!Number.isFinite(cell) || cell <= 0) return null;
+	if (!Array.isArray(senses) || senses.length === 0) return null;
+	/* Arbeitsfenster: Region-Nachbar-Erweiterung um 4 Zellen um die
+	   Quell-Zelle (BFS läuft ohnehin nur innerhalb der Überdeckung). */
+	const center = sourcePoint ?? _regionCenter(region);
+	if (!center) return null;
+	const halfWindow = 24; // Zellen Radius - großzügig, deckt 20-m-Linien ab
+	const cells = new Set();
+	const covered = (x, y) => {
+		try {
+			return !!region.testPoint({ x: x * cell + cell / 2, y: y * cell + cell / 2, elevation: scene.flags?.elevation ?? 0 });
+		} catch (error) {
+			throw error;
+		}
+	};
+	const cx = Math.floor(center.x / cell);
+	const cy = Math.floor(center.y / cell);
+	const passable = (ax, ay, bx, by) => {
+		const a = { x: ax * cell + cell / 2, y: ay * cell + cell / 2 };
+		const b = { x: bx * cell + cell / 2, y: by * cell + cell / 2 };
+		for (const sense of senses) {
+			const result = senseBlocked(a, b, sense, { ownRegionId: region.id, toleranceCells: 0 });
+			if (result.error) throw new Error('sense measurement failed');
+			if (result.blocked) return false;
+		}
+		return true;
+	};
+	if (!covered(cx, cy)) return null; // Quelle liegt nicht in der Fläche => kein Clip sinnvoll
+	const queue = [[cx, cy]];
+	cells.add(`${cx},${cy}`);
+	let coveredCount = 0;
+	/* Überdeckungszählen im Arbeitsfenster für die Clip-Entscheidung. */
+	for (let y = cy - halfWindow; y <= cy + halfWindow; y++) {
+		for (let x = cx - halfWindow; x <= cx + halfWindow; x++) {
+			if (covered(x, y)) coveredCount++;
+		}
+	}
+	const neighbors = [
+		[1, 0],
+		[-1, 0],
+		[0, 1],
+		[0, -1],
+	];
+	while (queue.length > 0) {
+		const [x, y] = queue.shift();
+		for (const [dx, dy] of neighbors) {
+			const nx = x + dx;
+			const ny = y + dy;
+			const key = `${nx},${ny}`;
+			if (cells.has(key)) continue;
+			if (Math.abs(nx - cx) > halfWindow || Math.abs(ny - cy) > halfWindow) continue;
+			if (!covered(nx, ny)) continue;
+			if (!passable(x, y, nx, ny)) continue;
+			cells.add(key);
+			queue.push([nx, ny]);
+		}
+	}
+	return { cells, covered: coveredCount, reachable: cells.size, sourceInside: true };
+}
+
+/** Scanline-Rechteck-Zerlegung einer Zellenmenge (Shape-Liste für den
+ *  Region-Update; Rectangle-Origin = Ecke, Muster _buildShapeData). */
+function _cellsToRectangles(cellsSet) {
+	const byRow = new Map();
+	for (const key of cellsSet) {
+		const [x, y] = key.split(',').map(Number);
+		if (!byRow.has(y)) byRow.set(y, []);
+		byRow.get(y).push(x);
+	}
+	const rectangles = [];
+	for (const [y, xs] of byRow) {
+		xs.sort((a, b) => a - b);
+		let start = xs[0];
+		let prev = xs[0];
+		for (let i = 1; i <= xs.length; i++) {
+			const current = xs[i];
+			if (current !== prev + 1) {
+				rectangles.push({ type: 'rectangle', x: start, y, width: prev - start + 1, height: 1 });
+				start = current;
+			}
+			prev = current;
+		}
+	}
+	/* Senkrechte Verschmelzung gleicher Spannen (weniger Shapes). */
+	const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.scene?.grid?.size ?? 100;
+	const merged = [];
+	const used = new Array(rectangles.length).fill(false);
+	for (let i = 0; i < rectangles.length; i++) {
+		if (used[i]) continue;
+		const rect = { ...rectangles[i] };
+		used[i] = true;
+		let grown = true;
+		while (grown) {
+			grown = false;
+			for (let j = 0; j < rectangles.length; j++) {
+				if (used[j]) continue;
+				const candidate = rectangles[j];
+				if (candidate.x === rect.x && candidate.width === rect.width && candidate.y === rect.y + rect.height) {
+					rect.height += candidate.height;
+					used[j] = true;
+					grown = true;
+				}
+			}
+		}
+		merged.push({ type: 'rectangle', x: rect.x * cell, y: rect.y * cell, width: rect.width * cell, height: rect.height * cell });
+	}
+	return merged;
+}
+
+/**
+ * W0-Form-Clip einer frisch platzierten Zone (je aktiviertem Sinn).
+ * @returns {Promise<string>} 'clipped' | 'geometry' (nichts zu tun oder
+ *  kein Clip nötig) | 'fallback' (W1 - Doku-Zeile auf der Zonenkarte).
+ */
+async function _w0ClipZoneShapes(region, aoe) {
+	try {
+		const senses = aoe?.config?.senses ?? [];
+		if (!senseWallsEnabled() || senses.length === 0) return 'geometry';
+		const sourcePoint = aoe.casterTokenUuid
+			? (() => {
+					const casterDoc = fromUuidSync(aoe.casterTokenUuid);
+					if (!casterDoc) return null;
+					return { x: (casterDoc.x ?? 0) + (casterDoc.width ?? 100) / 2, y: (casterDoc.y ?? 0) + (casterDoc.height ?? 100) / 2 };
+				})()
+			: null;
+		const result = await _w0ReachableCells(region, senses, sourcePoint);
+		if (!result) return 'fallback';
+		if (result.reachable >= result.covered) return 'geometry';
+		if (result.reachable === 0) return 'fallback';
+		const shapes = _cellsToRectangles(result.cells);
+		if (shapes.length === 0 || shapes.length > 400) return 'fallback';
+		await region.update({ shapes });
+		return 'clipped';
+	} catch (error) {
+		console.warn('Symbaroum AoE: W0 shape clip failed, geometric fallback (W1)', error);
+		return 'fallback';
+	}
+}
+
 export async function placeZoneFromItem(item) {
 	if (!item) return;
 	if (!mayPlaceZone(item)) return;
@@ -1642,10 +2220,45 @@ export async function placeZoneFromItem(item) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_NO_SCENE'));
 		return;
 	}
-	const cfg = getZoneConfig(item);
+	/* AoE-Rest Paket 1: Flammenwand - einzige echte Dauerhaft-Kraft-
+	   Zone; ohne Zone-Tab-Konfiguration gilt die RAW-Grundeinstellung
+	   (_flamewallZoneConfig), die FORM wählt der Wirker im Stufen-
+	   Dialog (Novize Linie, Adept +Kreis, Meister +Ring/Kuppel). */
+	const isFlamewall = String(item.system?.reference ?? '') === 'flamewall';
+	let cfg = getZoneConfig(item);
+	if (isFlamewall && !cfg) cfg = _flamewallZoneConfig(item);
 	if (!cfg) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_NO_CONFIG'));
 		return;
+	}
+	/* Flammenwand-Formwahl (Rudolfs Festlegung: Form WAHLBAR durch den
+	   Wirker, stufen-modelliert; Abbruch = keine Platzierung). Die
+	   Novizen-Linie ist 20 m FIX (10 m je Seite, Mittelpunkt vom SL 1
+	   Feld vor den Wirker gelegt, frei rotierbar) - Meter -> Felder über
+	   scene.grid.distance (2-m-Grid = 10 Felder, Rudolfs Detail-
+	   antwort 4). Ring: radius 1,5 / Band 0,5+0,5 (Detailantwort 3),
+	   Kuppel = Ring-Geometrie mit eigener Bezeichnung (Antwort 5). */
+	let dome = false;
+	if (isFlamewall) {
+		const shapeChoice = await _flamewallShapeDialog(item);
+		if (!shapeChoice) return;
+		cfg.shape = shapeChoice.shape;
+		dome = !!shapeChoice.dome;
+		/* RAW-Kanonik der Ausnahme-Dauerhaft-Zone: dauerhaft, Betreten-
+		   Trigger, unbegrenzt (Ende über die Endprobe), Anfangsbestand
+		   aktiv (Linie auf Feindgruppe = automatische Verwundung) -
+		   Markierungs-Zonen lösen nie automatisch aus, deshalb Zielwahl-
+		   Fallback 'nearest'. */
+		cfg.mode = 'lasting';
+		cfg.trigger = 'enter';
+		cfg.duration = 0;
+		if (cfg.targetOrder === 'marking') cfg.targetOrder = 'nearest';
+		if (cfg.shape === 'line') {
+			const metersPerField = Math.max(0.5, Number(canvas.scene.grid?.distance) || 2);
+			cfg.size = Math.max(1, Math.round(20 / metersPerField));
+		} else if (cfg.shape === 'ring') {
+			cfg.size = 1.5;
+		}
 	}
 	const casterToken = _resolveCasterToken(item);
 	const actor = item.actor ?? null;
@@ -1682,9 +2295,23 @@ export async function placeZoneFromItem(item) {
 		/* Baustein E: includeCaster reist mit dem Zonen-Snapshot (Muster
 		   sealCategoryId) - jede Folge-Auslösung (Betreten, Maintain-Runde,
 		   Auto-Auswahl) liest die Platzierungs-Einstellung, auch nach
-		   Blatt-Änderungen. */
-		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder, includeCaster: cfg.includeCaster },
-		metersPerField: 2,
+		   Blatt-Änderungen. Sinn-Filter (S1) reisen mit - Altzonen ohne
+		   das Feld bleiben ungefiltert. */
+		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder, includeCaster: cfg.includeCaster, senses: cfg.senses ?? [] },
+		metersPerField: isFlamewall ? Math.max(0.5, Number(canvas.scene.grid?.distance) || 2) : 2,
+		/* AoE-Rest Paket 1 - Flammenwand: automatische Willenskraft-
+		   Endprobe 1x je Runde ab R2 (Rudolfs Festlegung „ähnlich wie
+		   Dornenmantel", Endkarte bei Scheitern) + Kuppel-Marker (Ring-
+		   Geometrie, eigene Bezeichnung auf der Karte) + Doku-Zeilen
+		   (Pfeile verbrennen = SL-Verwaltung, RAW-Lagehinweis Linie). */
+		endprobe: isFlamewall ? 'resolute' : '',
+		dome,
+		docLines: isFlamewall
+			? [
+					game.i18n.localize('POWER_FLAMEWALL.INFO_ARROWS'),
+					cfg.shape === 'line' ? game.i18n.localize('POWER_FLAMEWALL.INFO_LINE_PLACEMENT') : '',
+			  ].filter((line) => !!line)
+			: [],
 		/* v2.6 (Rudolfs Testrunde 6, P12): der Zonen-Name nennt den
 		   AUSLÖSER (den Kraft besitzenden Akteur) statt des platzieren-
 		   den USERS - bei GM-Platzierung stand sonst „[GM]" im Namen
@@ -1735,6 +2362,18 @@ export async function placeZoneFromItem(item) {
 		   GESAMTE Standzeit - Platzierung bis Auslösen/Abbrechen (kurze,
 		   intensive Phase; andere User bleiben uneingeschränkt). */
 		if (zone.mode === 'instant') _openTargetWindow(region);
+		/* AoE-Rest Paket 1 (S1 Doppelwirkung a + Flammenwand-W0): Form-
+		   Clip an blockierenden Kanten/Regionen je aktiviertem Sinn -
+		   W0 mit automatischem W1-Fallback (rein geometrisch), Ergebnis
+		   als Doku-Zeile auf der Zonenkarte (Rudolfs Detailantwort 1). */
+		const clipResult = await _w0ClipZoneShapes(region, zone);
+		if (clipResult === 'fallback') {
+			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W1_FALLBACK')];
+			await region.setFlag('symbaroum', 'aoe', zone);
+		} else if (clipResult === 'clipped') {
+			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W0_CLIPPED')];
+			await region.setFlag('symbaroum', 'aoe', zone);
+		}
 		/* v2.2 (Rudolfs Entscheidung 1): Betreten-Trigger MIT Anfangs-
 		   bestand - steht bei der Platzierung bereits mindestens ein
 		   filterpassendes Token in der Fläche, löst die Zone EINMAL
@@ -1957,14 +2596,23 @@ export async function maybeZoneExecutionChoice(item) {
 	// sinnvolle Defaults und lösen die Warnung nicht aus).
 	const rawZone = item?.system?.areaZone ?? null;
 	if (!getZoneConfig(item)) {
-		const partiallyConfigured =
-			!!rawZone &&
-			String(rawZone.shape ?? '').trim() === '' &&
-			(Number(rawZone.size) > 0 || String(rawZone.targeting ?? '').trim() !== '' || String(rawZone.trigger ?? '').trim() !== '' || Number(rawZone.duration) > 0);
-		if (partiallyConfigured) {
-			ui.notifications.warn(game.i18n.localize('AOE.ERR_ZONE_NO_SHAPE'));
+		/* AoE-Rest Paket 1: die Flammenwand ist die Ausnahme-Dauerhaft-
+		   Kraft-Zone - auch OHNE Zone-Tab-Konfiguration führt der
+		   Aktivieren-Button in den Ausführungsdialog (die RAW-Grund-
+		   einstellung liefert _flamewallZoneConfig, die Form wählt der
+		   Wirker bei der Platzierung). */
+		if (String(item.system?.reference ?? '') === 'flamewall') {
+			if (!game.user.isGM && (!playerPlacementEnabled() || !item.isOwner)) return false;
+		} else {
+			const partiallyConfigured =
+				!!rawZone &&
+				String(rawZone.shape ?? '').trim() === '' &&
+				(Number(rawZone.size) > 0 || String(rawZone.targeting ?? '').trim() !== '' || String(rawZone.trigger ?? '').trim() !== '' || Number(rawZone.duration) > 0);
+			if (partiallyConfigured) {
+				ui.notifications.warn(game.i18n.localize('AOE.ERR_ZONE_NO_SHAPE'));
+			}
+			return false;
 		}
-		return false;
 	}
 	/* Hymnen-Paket 1.2 (Rudolfs Entscheidung 4): Beim ERSTGESANG einer
 	   Hymne mit konfigurierter, aktivierter Zone fragt dieser Dialog
@@ -2240,7 +2888,20 @@ async function _placeFreeZoneFromDialog(html) {
 		sourceActorUuid: null,
 		casterTokenUuid: null,
 		userId: game.user.id,
-		config: { shape, size, targeting: val('aoe-free-targeting') || 'all', targetOrder: 'marking' },
+		/* AoE-Rest Paket 1 (S1): Sinn-Filter der freien Zone - Default
+		   leer (SL wählt im Dialog), Checkbox-Wert ODER Gruppe-Leer. */
+		config: {
+			shape,
+			size,
+			targeting: val('aoe-free-targeting') || 'all',
+			targetOrder: 'marking',
+			senses: [
+				...(html.querySelector('#aoe-free-sense-move')?.checked ? ['move'] : []),
+				...(html.querySelector('#aoe-free-sense-sight')?.checked ? ['sight'] : []),
+				...(html.querySelector('#aoe-free-sense-sound')?.checked ? ['sound'] : []),
+			],
+		},
+		docLines: [],
 		effect: {
 			resistAttribute: val('aoe-free-resist'),
 			damage: val('aoe-free-damage'),
@@ -2268,6 +2929,17 @@ async function _placeFreeZoneFromDialog(html) {
 	}
 	if (!regions?.length) return;
 	for (const region of regions) {
+		/* AoE-Rest Paket 1 (S1): W0-Form-Clip auch für freie Zonen mit
+		   aktiviertem Sinn (W1-Fallback mit Doku-Zeile, Muster der
+		   Kraft-Zonen-Platzierung). */
+		const clipResult = await _w0ClipZoneShapes(region, zone);
+		if (clipResult === 'fallback') {
+			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W1_FALLBACK')];
+			await region.setFlag('symbaroum', 'aoe', zone);
+		} else if (clipResult === 'clipped') {
+			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W0_CLIPPED')];
+			await region.setFlag('symbaroum', 'aoe', zone);
+		}
 		await _postZoneCard(region);
 	}
 }
