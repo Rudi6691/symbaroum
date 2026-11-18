@@ -3169,13 +3169,20 @@ async function aoeZoneBehaviorSocketHandler(message) {
 }
 
 export function registerAoeHooks() {
-	/* v1.2 (Rudolfs Testrunde 2, P9): Socket-Handler - ein GM-Client
-	   installiert das Betreten-Behavior auf von SPIELERN platzierten
-	   enter-Zonen nach (V14 erlaubt Nicht-SLs keine Region-Erstellung
-	   mit Behaviors, siehe _zoneRegionData). Nur GM-Clients reagieren,
-	   Rueckgabe true = installiert (der Spieler-Client wertet die
-	   Emit-Antworten aus und warnt ohne GM). */
-	game.socket.on('system.symbaroum', aoeZoneBehaviorSocketHandler);
+	/* v1.2.1 (HOTFIX, Rudolfs Testrunde 3: v1.2-Toetungs-Regression):
+	 * Die v1.2-Socket-Registrierung stand ALS ERSTE ANWEISUNG hier und
+	 * lief damit auf TOP-LEVEL-Module-Import von hooks.js - game.socket
+	 * existiert in dieser Phase NOCH NICHT (der eigene System-Code
+	 * registriert Sockets konsequent erst im Hooks.once('ready'),
+	 * hooks.js:694). Der TypeError brach registerAoeHooks AB: alle
+	 * folgenden Hooks.on-Registrierungen (renderChatMessageHTML-
+	 * Karten-Tasten-Wiring, Combat/Weltzeit-Takt, targetToken-Undo)
+	 * waren TOT - deshalb keine bedienbaren Zonen-Karten-Tasten unter
+	 * v1.2, waehrend Enter (Behavior-Script, unabhaengig) weiter
+	 * funktionierte. Fix: Registrierung in Hooks.once('ready'). */
+	Hooks.once('ready', () => {
+		game.socket?.on('system.symbaroum', aoeZoneBehaviorSocketHandler);
+	});
 	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im
 	// aktiven Zonen-Fenster auf Token INNERHALB der Zone beschränken.
 	// Der targetToken-Hook ist per Hooks.callAll geschaltet (Signatur
