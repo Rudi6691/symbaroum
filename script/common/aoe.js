@@ -263,26 +263,29 @@ function _edgeSenseValue(edgeLike, sense) {
 	const doc = edgeLike?.document ?? edgeLike;
 	const raw = doc?.[sense] ?? edgeLike?.[sense] ?? null;
 	if (raw === undefined || raw === null) return 'none';
-	/* v1.1 (Rudolfs Testrunde 1, P9/P11): V14-WallDocuments speichern
-	   move/sight/sound als NUMERISCHE Typ-Codes (CONST.WALL_*_TYPES,
-	   z. B. NONE=0/NORMAL=10/LIMITED=20), nicht als Strings - die v1.0-
-	   String-Normalisierung lief darum IMMER 'none'/'10' und blockte
-	   NIE (volle Foundry-Walls um ein Ziel blockierten nicht). Numerische
-	   Werte werden jetzt über die CONST-Typ-Tabellen (mit Fallback-
-	   Karte 0/10/20) auf den Namensschlüssel gemappt; nur NORMAL
-	   blockt (LIMITED = Fenster/Schneise). Geöffnete Türen blocken
-	   nichts (placeable.isOpen, Fallback dokument.ds). */
+	/* v1.2 (Rudolfs Testrunde 2, P7/P8): Die v1.1-Annahme der Typ-Codes
+	   war FALSCH - V14 hat die Wall-Typ-Tabellen zu EINER gemeinsamen
+	   Tabelle EDGE_SENSE_TYPES mit NEUEN Codes umgebaut:
+	   NONE=0, LIMITED=10, NORMAL=20, PROXIMITY=30, DISTANCE=40
+	   (nicht wie vor V14 NORMAL=10/LIMITED=20 - CONST.WALL_MOVEMENT_TYPES
+	   existiert in V14 nicht mehr). Der v1.1-Fallback (raw===10 =>
+	   'normal') mappte darum VOLL blockierende Walls auf 'limited' und
+	   der Filter blockte NIE (Rudolfs Testrunde 2: auch W0-Clip wirkte
+	   nicht). Jetzt: Mapping ueber CONST.EDGE_SENSE_TYPES mit korrekten
+	   Fallback-Literalen (10='limited', 20='normal'); nur NORMAL blockt,
+	   LIMITED (Fenster/Schneise) und die neuen PROXIMITY/DISTANCE blocken
+	   nicht. Geoeffnete Tueren blocken nichts (placeable.isOpen,
+	   Fallback dokument.ds === OPEN). */
 	const openDoor =
 		edgeLike?.isOpen === true ||
-		(doc?.door === CONST.WALL_DOOR_TYPES.DOOR && doc?.ds === CONST.WALL_DOOR_STATES.OPEN);
+		doc?.ds === (CONST.EDGE_DOOR_STATES?.OPEN ?? CONST.WALL_DOOR_STATES?.OPEN ?? 1);
 	if (openDoor) return 'none';
 	if (typeof raw === 'number') {
-		const types =
-			sense === 'move' ? CONST.WALL_MOVEMENT_TYPES : sense === 'sight' ? CONST.WALL_SIGHT_TYPES : sense === 'sound' ? CONST.WALL_SOUND_TYPES : null;
+		const types = CONST.EDGE_SENSE_TYPES ?? null;
 		const entry = types ? Object.entries(types).find(([, value]) => value === raw) : null;
 		if (entry?.[0]) return String(entry[0]).toLowerCase();
-		if (raw === 10) return 'normal';
-		if (raw === 20) return 'limited';
+		if (raw === 20) return 'normal';
+		if (raw === 10) return 'limited';
 		return 'none';
 	}
 	const text = String(raw).trim().toLowerCase();
@@ -416,12 +419,23 @@ export function senseBlocked(from, to, sense, { ownRegionId = null, toleranceCel
  *  Gruppen-Default je Referenz, siehe config.getZoneSenseDefaults). */
 export function resolveZoneSenses(zoneData, reference) {
 	const zone = zoneData ?? {};
-	const hasExplicit = 'senseMove' in zone || 'senseSight' in zone || 'senseSound' in zone;
-	if (hasExplicit) {
+	/* v1.2 (Rudolfs Testrunde 2, P3b): Der Zonen-Tab-Submit schreibt
+	   Checkbox-Werte als STRING 'true' (value-Attribut), ungekastet
+	   (additives Feld ohne Datenmodell-Schema) - der strikte === true-
+	   Vergleich las darum JEDE Aktivierung beim naechsten Render wieder
+	   verschwinden ("nicht dauerhaft aktivierbar"). Truthy-Toleranz:
+	   true/'true'/1 gelten als aktiv. Explizit gesetzt = mindestens ein
+	   Feld mit definiertem Wert (false/'false' zaehlt als bewusst aus,
+	   solange KEIN anderes Feld aktiv ist); fehlen ALLE Felder (echte
+	   Alt-Items), greifen die Gruppen-Defaults (getZoneSenseDefaults). */
+	const isExplicit =
+		zone.senseMove !== undefined || zone.senseSight !== undefined || zone.senseSound !== undefined;
+	const truthy = (v) => v === true || v === 'true' || v === 1;
+	if (isExplicit) {
 		const senses = [];
-		if (zone.senseMove === true) senses.push('move');
-		if (zone.senseSight === true) senses.push('sight');
-		if (zone.senseSound === true) senses.push('sound');
+		if (truthy(zone.senseMove)) senses.push('move');
+		if (truthy(zone.senseSight)) senses.push('sight');
+		if (truthy(zone.senseSound)) senses.push('sound');
 		return senses;
 	}
 	return game.symbaroum.config.getZoneSenseDefaults(String(reference ?? ''));
@@ -745,12 +759,30 @@ function _zoneRegionData(zone) {
 	// kein Betreten), damit die Markierungsreihenfolge erst festgelegt
 	// werden kann; wirksam ist nur die Auslöse-Taste.
 	if (zone.mode === 'lasting' && zone.trigger === 'enter' && zone.config?.targetOrder !== 'marking') {
-		regionData.behaviors = [
-			{
-				type: 'executeScript',
-				system: { source: ZONE_ENTER_BEHAVIOR_SOURCE, events: [CONST.REGION_EVENTS.TOKEN_ENTER] },
-			},
-		];
+		/* v1.2 (Rudolfs Testrunde 2, P9): V14-Region-Ownership - Nicht-SLs
+		   duerfen Regionen ERSTELLEN (REGION_CREATE, Default-Role Player),
+		   aber NIE mit BEHAVIORS (Foundry-Regel: "non-GMs cannot add
+		   behaviors to a region or create a region with behaviors" -
+		   die Spieler-Platzierung der enter-Zone scheiterte darum mit dem
+		   kryptischen GM-Fehler). Spieler-Platzierung: Behavior wird
+		   ABGESTRIPPT und nach der Erstellung per System-Socket von einem
+		   GM-Client nachinstalliert (aoeZoneBehaviorInstall-Handler in
+		   registerAoeHooks); ohne GM online degradiert die Zone auf die
+		   Ausloese-Taste (Warnung AOE.WARN_ZONE_BEHAVIOR_NO_GM). */
+		if (game.user.isGM) {
+			regionData.behaviors = [
+				{
+					type: 'executeScript',
+					system: { source: ZONE_ENTER_BEHAVIOR_SOURCE, events: [CONST.REGION_EVENTS.TOKEN_ENTER] },
+				},
+			];
+		}
+	}
+	/* v1.2 (P9): Der platzierende Nutzer bekommt OWNER auf der Region -
+	    sonst koennte er die eigene Zone nicht neu flaggen (Ende-Taste,
+	    Zonen-Karte) oder loeschen (Foundry-Ownership statt GM-Proxy). */
+	if (!game.user.isGM) {
+		regionData.ownership = { [game.user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? CONST.DOCUMENT_PERMISSION_LEVELS?.OWNER ?? 3 };
 	}
 	if (canvas.level) regionData.levels = [canvas.level.id];
 	return regionData;
@@ -2073,11 +2105,14 @@ function _flamewallZoneConfig(item) {
  *  @returns {Promise<object|null>} {shape, dome} oder null (Abbruch). */
 function _flamewallShapeDialog(item) {
 	const level = item?.getLevel?.()?.level ?? 1;
+	/* v1.2 (Rudolfs Testrunde 2, 3a): Rudolf braucht den Kreis nicht -
+	   entfernt. Auswahl: Novize Linie, Adept +Ring, Meister +Kuppel.
+	   Bereits platzierte Kreis-Zonen bleiben funktionfaehig (Shape-Case
+	   bleibt unterstuetzt, Zonenkarte labelt AOE.SHAPE_CIRCLE). */
 	const options = [{ id: 'line', label: game.i18n.localize('POWER_FLAMEWALL.FORM_LINE'), icon: 'fa-ruler-horizontal' }];
 	/* v1.1 (Rudolfs Testrunde 1, P3): Ring ab ADEPT (vorher Meister-
 	   only - Adept zeigte nur Kreis); Kuppel bleibt Meister. */
 	if (level >= 2) {
-		options.push({ id: 'circle', label: game.i18n.localize('POWER_FLAMEWALL.FORM_CIRCLE'), icon: 'fa-circle' });
 		options.push({ id: 'ring', label: game.i18n.localize('POWER_FLAMEWALL.FORM_RING'), icon: 'fa-circle-notch' });
 	}
 	if (level >= 3) {
@@ -2431,6 +2466,21 @@ export async function placeZoneFromItem(item) {
 		return;
 	}
 	if (!regions?.length) return; // Abbruch (Rechtsklick): kein Lärm, keine Karte
+	/* v1.2 (Rudolfs Testrunde 2, P9): enter-Zonen von Spielern wurden
+	   ohne Behavior platzierbar (V14 verbietet Behaviors fuer Nicht-SLs)
+	   - der Betreten-Trigger wird jetzt per System-Socket von einem
+	   GM-Client nachinstalliert. Ohne GM online: Warnung, die Zone
+	   bleibt mit ihrer Ausloese-Taste voll bedienbar. */
+	if (!game.user.isGM && zone.mode === 'lasting' && zone.trigger === 'enter' && zone.config?.targetOrder !== 'marking') {
+		const installResults = await game.socket.emit('system.symbaroum', {
+			type: 'aoeZoneBehaviorInstall',
+			data: { sceneId: canvas.scene?.id, regionIds: regions.map((r) => r.id) },
+		});
+		const installed = Array.isArray(installResults) && installResults.some((r) => r === true);
+		if (!installed) {
+			ui.notifications.warn(game.i18n.localize('AOE.WARN_ZONE_BEHAVIOR_NO_GM'));
+		}
+	}
 	for (const region of regions) {
 		/* v2.1 (Rudolfs Testrunde-1-Entscheidung 1): Augenblickliche
 		   Zonen wirken NICHT mehr sofort bei der Platzierung - sie sind
@@ -3096,7 +3146,36 @@ function _tokenInsideAnyOpenZone(tokenId) {
  * registerAoeHooks in hooks.js - alle AoE-Listener an einem Ort)
  * =================================================================== */
 
+/* v1.2 (Rudolfs Testrunde 2, P9): GM-Seitige Socket-Installation des
+ * Betreten-Behaviors auf Spieler-Zonen (V14 verbietet Behaviors in der
+ * Region-Erstellung durch Nicht-SLs). Rueckgabe true = installiert. */
+async function aoeZoneBehaviorSocketHandler(message) {
+	if (!message || !game.user?.isGM) return undefined;
+	if (message?.type !== 'aoeZoneBehaviorInstall') return undefined;
+	const { sceneId, regionIds } = message.data ?? {};
+	const scene = game.scenes.get(sceneId);
+	if (!scene || !Array.isArray(regionIds)) return false;
+	let installed = false;
+	for (const regionId of regionIds) {
+		const region = scene.regions?.get(regionId);
+		if (!region || region.behaviors?.length) continue;
+		await RegionBehavior.create(
+			{ type: 'executeScript', system: { source: ZONE_ENTER_BEHAVIOR_SOURCE, events: [CONST.REGION_EVENTS.TOKEN_ENTER] } },
+			{ parent: region }
+		);
+		installed = true;
+	}
+	return installed;
+}
+
 export function registerAoeHooks() {
+	/* v1.2 (Rudolfs Testrunde 2, P9): Socket-Handler - ein GM-Client
+	   installiert das Betreten-Behavior auf von SPIELERN platzierten
+	   enter-Zonen nach (V14 erlaubt Nicht-SLs keine Region-Erstellung
+	   mit Behaviors, siehe _zoneRegionData). Nur GM-Clients reagieren,
+	   Rueckgabe true = installiert (der Spieler-Client wertet die
+	   Emit-Antworten aus und warnt ohne GM). */
+	game.socket.on('system.symbaroum', aoeZoneBehaviorSocketHandler);
 	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im
 	// aktiven Zonen-Fenster auf Token INNERHALB der Zone beschränken.
 	// Der targetToken-Hook ist per Hooks.callAll geschaltet (Signatur

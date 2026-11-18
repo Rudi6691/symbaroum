@@ -1468,6 +1468,25 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				if (raw === undefined) continue;
 				foundry.utils.setProperty(update, name, clamp(raw));
 			}
+			/* v1.2 (Rudolfs Testrunde 2, P3b): Die drei Sinn-Checkboxen
+			 * (system.areaZone.senseMove/senseSight/senseSound) dornten:
+			 * (a) der Submit liefert nur den STRING 'true' (value-Attribut,
+			 * ungekastet) - resolveZoneSenses verglich strikt === true und
+			 * die Aktivierung verschwand beim naechsten Render wieder;
+			 * (b) eine ABGEWHLTE Checkbox fehlt im FormData komplett -
+			 * das alte true blieb unberuehrt stehen, Abwaehlen ging nie
+			 * "dauerhaft". Fix: alle drei Felder werden JE Submit explizit
+			 * als BOOLEAN geschrieben (_checkbox im FormData = angehakt),
+			 * gefunden in formData, geschrieben via setProperty in die
+			 * expanded/nested Submit-Daten (V14-Muster wie oben). Nur auf
+			 * Blaettern mit Zonen-Tab (system.areaZone existiert) - andere
+			 * Item-Typen werden nicht veraendert. */
+			if (this.item?.system?.areaZone ?? null) {
+				for (const senseField of ['senseMove', 'senseSight', 'senseSound']) {
+					const path = `system.areaZone.${senseField}`;
+					foundry.utils.setProperty(update, path, formData.get(path) === 'true');
+				}
+			}
 		}
 		return update;
 	}
