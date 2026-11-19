@@ -713,8 +713,20 @@ function _ownerUser(actor) {
  * event?.token als Festival-Alternative, zuletzt der Makro-Fallback
  * 'token' (füllt NUR das Execute-MACRO-Behavior, schadet hier nicht). */
 const ZONE_ENTER_BEHAVIOR_SOURCE = [
-	'if (!game.users.activeGM?.isSelf) return;',
+	/* v1.3 (Rudolfs Testrunde 4, P7): Der Betreten-Ausloeser laeuft
+	   nicht mehr stur auf dem aktiven GM, sondern ROUTET auf den
+	   Zonen-Besitzer (aoe.userId, gesetzt bei der Platzierung): Laeuft
+	   der Besitzer-Spieler, oeffnet der Wuerfeldialog auf SEINEM Client
+	   (reactive payloads, Korruption und Ergebnis-Karten laufen dort
+	   bereits - die Ausloese-Taste der Zonen-Karte arbeitet seit v2.1
+	   genauso). GM bleibt NUR Fallback: Besitzer nicht angemeldet oder
+	   Besitzer ist selbst GM (dann = aktiver GM wie bisher). */
 	'const r = (typeof region !== "undefined") ? region : null;',
+	'const zmeta = r?.flags?.symbaroum?.aoe ?? r?.document?.flags?.symbaroum?.aoe ?? null;',
+	'const zowner = zmeta?.userId ?? null;',
+	'const zownerUser = zowner ? game.users.get(zowner) : null;',
+	'const zexec = (zownerUser?.active && !zownerUser.isGM) ? zowner : (game.users.activeGM?.id ?? null);',
+	'if (!zexec || game.user.id !== zexec) return;',
 	'const ev = (typeof event !== "undefined") ? event : null;',
 	/* v2.5 (Rudolfs Testrunde 5, P16-Root-Cause): Foundry feuert TOKEN_ENTER
 	   auch, wenn das Behavior AKTIV wird (Region-Platzierung) - dann steht
@@ -950,11 +962,18 @@ async function _updateZoneCardsNow(region) {
 				// keine Lösch-Rechte an dieser Karte: alten Stand belassen
 				continue;
 			}
-			await ChatMessage.create({
-				speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
-				content,
-				flags: { symbaroum: { aoeZoneCard: { regionId: region.id, sceneId } } },
-			});
+			/* v1.3 (P8-Haertung): Die Neuerstellung ist fehlertolerant -
+			   Rechte- oder Transportfehler brechen den Ausloesungslauf
+			   nicht mehr ab (die alte Karte ist dann bereits weg). */
+			try {
+				await ChatMessage.create({
+					speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
+					content,
+					flags: { symbaroum: { aoeZoneCard: { regionId: region.id, sceneId } } },
+				});
+			} catch (error) {
+				console.warn('Symbaroum AoE: Zonen-Karte konnte nicht erneuert werden', region.name, error);
+			}
 		}
 	}
 }
@@ -973,7 +992,15 @@ async function _settleZoneCards(region, endText) {
 	for (const message of game.messages ?? []) {
 		const card = message.flags?.symbaroum?.aoeZoneCard;
 		if (card?.regionId === region.id && (card.sceneId === sceneId || !card.sceneId)) {
-			await message.update({ content: `<div class="symbaroum aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region.name)}</b></div><div class="aoe-card-detail">${_escapeHtml(endText)}</div>${casterLine}</div>` });
+			/* v1.3 (P8-Haertung): Auch das Stilllegen (Ende-Karte) ist
+			   fehlertolerant - Spieler ohne Update-Recht an einer GM-Karte
+			   ruempeln die Karte nicht ab, werfen aber keinen Fehler mehr
+			   in den Zonen-Fluss (die Karte bleibt dann schlicht stehen). */
+			try {
+				await message.update({ content: `<div class="symbaroum aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region.name)}</b></div><div class="aoe-card-detail">${_escapeHtml(endText)}</div>${casterLine}</div>` });
+			} catch (error) {
+				console.warn('Symbaroum AoE: Ende-Karte konnte nicht stillgelegt werden', region.name, error);
+			}
 		}
 	}
 }
@@ -1150,6 +1177,17 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 			if (skipLines.length > 0) await _postZoneDiagCard(region, skipLines);
 			tokens.length = 0;
 			tokens.push(...kept);
+			/* v1.3 (Rudolfs Testrunde 5, Defect "Verwirrung ohne
+			   Skip-Karte"): Trace je Ausloesung - Zielanzahl, aktive
+			   Sinne, gefiltert/gehalten und ob die Karte gepostet wurde.
+			   Findet der naechste Testlauf die Karte wieder nicht, zeigt
+			   diese Zeile WO die Zielmenge vor dem Filter geschrumpft
+			   ist (Registry, Disposition, Zielwahl) statt nur zu raten. */
+			console.info(
+				'Symbaroum AoE [trace] Ausl\u00f6sung gepr\u00fcft:',
+				region?.name,
+				JSON.stringify({ tokensVorher: tokens.length + skipLines.length, gefiltert: skipLines.length, gehalten: kept.length, sinne: zoneSenses, manual, enteringTokenId })
+			);
 		}
 	}
 	/* v2.7 (Testrunde 7, Rudolfs Schritt 7 wörtlich + Musterablauf v1.1):
@@ -1637,10 +1675,21 @@ async function _applyFreeZoneEffect(region, tokenDoc, eff, cardLines = null) {
 async function _postZoneDiagCard(region, lines) {
 	if (!Array.isArray(lines) || lines.length === 0) return;
 	const html = `<div class="symbaroum chat aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region?.name ?? '')}</b></div><div class="aoe-card-detail">${_escapeHtml(game.i18n.localize('AOE.SENSE_SKIP_CARD_TITLE'))}</div>${lines.map((line) => `<div class="aoe-card-detail">${line}</div>`).join('')}</div>`;
-	await ChatMessage.create({
-		speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
-		content: html,
-	});
+	/* v1.3 (Rudolfs Testrunde 5, Defect "Verwirrung ohne Skip-Karte"):
+	   Der Kartenversand ist ABSICHTLICH fehlertolerant - wirft das
+	   ChatMessage.create (Rechte, Transient-Client, Socket-Race), bleibt
+	   die AUSLOESUNG trotzdem vollstaendig: Filterung, Wuerfe, Karten-
+	   Updates laufen weiter, der Fehler ist in der Konsole sichtbar,
+	   statt die Zone stimmlos abzubrechen. */
+	try {
+		await ChatMessage.create({
+			speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
+			content: html,
+		});
+		console.info('Symbaroum AoE [trace] Sinn-Skip-Diagnosekarte gepostet:', region?.name, lines.length, 'Zeile(n)');
+	} catch (error) {
+		console.error('Symbaroum AoE: Sinn-Skip-Diagnosekarte konnte nicht gepostet werden', region?.name, error);
+	}
 }
 
 /**
@@ -1880,11 +1929,17 @@ async function _tickZone(region, source) {
  *  Voll-Auslösung über alle Zonen-Token mehr. Markierungs-Zonen (Kraft)
  *  lösen grundsätzlich nicht automatisch aus. */
 export async function aoeZoneEnter(regionId, tokenId) {
-	if (!game.user?.isGM || !aoeEnabled()) return;
+	if (!aoeEnabled()) return;
 	const region = _getZoneRegion(regionId);
 	if (!region) return;
 	// nur Zonen mit Betreten-Trigger lösen automatisch aus
 	const aoe = region.flags.symbaroum.aoe;
+	/* v1.3 (Rudolfs Testrunde 4, P7): Der Enter-Ausloeser darf jetzt
+	   auch auf dem Client des platzierenden Spielers laufen (Behavior-
+	   Guard routet dorthin) - GM bleibt Ausfuehrer fuer GM-Zonen und
+	   als Fallback. Voraussetzung wie bei der Ausloese-Taste:
+	   _mayControlZone (Spieler-Setting + Eigentum an der eigenen Zone). */
+	if (!game.user?.isGM && !_mayControlZone(aoe)) return;
 	if (aoe.trigger !== 'enter' || aoe.mode === 'instant') return;
 	// v2.4 (Entscheidung f): Markierungs-Zonen nie automatisch
 	if (!aoe.free && aoe.config?.targetOrder === 'marking') return;
@@ -2174,135 +2229,165 @@ function _flamewallShapeDialog(item) {
 
 /* ---------------------------------------------------------------------
  * W0-FORM-CLIP (Rudolfs Detailantwort 1: W0 bestätigt, Fallback W1 rein
- * geometrisch + Doku-Zeile auf der Zonenkarte). Nach der Platzierung
- * wird die Fläche auf den von der Quelle aus erreichbaren Bereich
- * beschnitten: Raster-BFS über die überdeckten Zellen, Übergänge über
- * eine den Sinn blockierende Kante (je angehaktem Sinn) sind verboten;
- * das Ergebnis wird als Rechteck-Zerlegung (Scanline) als neue Shape-
- * Liste der Region gesetzt. Jeder Fehler (fehlende API, leeres Raster,
- * keine erreichbare Zelle) fällt auf W1 zurück: Geometrie bleibt,
- * Doku-Zeile auf der Zonenkarte - blockierte Bereiche filtert der
- * Sinn-Filter bei jeder Auslösung (Doppelwirkung b).
+ * geometrisch + Doku-Zeile auf der Zonenkarte). v1.3 (Rudolfs Testrunde 5,
+ * P-3): Der v1.0-Clip arbeitete als Raster-BFS mit Scanline-Rechteck-
+ * Zerlegung - das Ergebnis "zerfiel in Streifen" (Raster-Treppe) oder
+ * fiel gar auf W1 zurück. Rudolfs Vorgabe: Clip WIE FOUNDRY-CORE,
+ * d.h. saubere Polygon-Fläche entlang der blockierenden Kanten. Die
+ * neue Umsetzung ist ein RADIALER KERN-CLIP: Von der Quelle (Wirker-
+ * Token-Mitte, Fallback Regionszentrum) werden Strahlen über ALLE
+ * kritischen Winkel gezogen (Regions-Ecken + Wand-Endpunkte, Zwischen-
+ * schritte <= 2 Grad) und je Strahl der ERSTE Treffer - Regions-Rand
+ * oder blockierende Kante - als Radius gesetzt. Der resultierende
+ * Fächer folgt den Wänden als gerade Kanten (kein Raster) und der
+ * Kreisform als glatter Bogen; gesetzt wird EIN natives Polygon-Shape.
+ * Blockierend ist eine Kante, wenn sie IRGENDEINEN angehakten Sinn
+ * vollständig blockt (dasselbe Urteil wie der Token-Filter; offene
+ * Türen und LIMITED-Kanten blocken nicht). Formen: Kreis + Rechteck
+ * (inkl. Linien); Kegel und Ring fallen bewusst auf W1 zurück
+ * (Kegel-Pivot-Semantik und Ring-Lochgeometrie sind kernseitig nicht
+ * sauber rekonstruierbar - der Token-Filter schützt, Doku-Zeile zeigt
+ * es). Restriktions-REGIONEN clippen nicht (sind im Radar-Sinn-Filter
+ * je Auslösung wirksam). Jeder Fehler (fehlende API, Quelle außerhalb,
+ * leerer Fächer) fällt auf W1 zurück: Geometrie bleibt, Doku-Zeile auf
+ * der Zonenkarte - blockierte Bereiche filtert der Sinn-Filter bei
+ * jeder Auslösung (Doppelwirkung b).
  * ------------------------------------------------------------------- */
 
-/** Erreichbare Zellen einer Region per BFS von der Quell-Zelle aus.
- *  @returns {Promise<{cells:Set<string>, covered:number, reachable:number, sourceInside:boolean}>|null}
- *  null = Prototyp-Check fehlgeschlagen (W1-Fallback). */
-async function _w0ReachableCells(region, senses, sourcePoint) {
-	const scene = canvas.scene;
-	if (!scene || typeof region.testPoint !== 'function') return null;
-	const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? scene.grid?.size ?? 100;
-	if (!Number.isFinite(cell) || cell <= 0) return null;
-	if (!Array.isArray(senses) || senses.length === 0) return null;
-	/* Arbeitsfenster: Region-Nachbar-Erweiterung um 4 Zellen um die
-	   Quell-Zelle (BFS läuft ohnehin nur innerhalb der Überdeckung). */
-	const center = sourcePoint ?? _regionCenter(region);
-	if (!center) return null;
-	const halfWindow = 24; // Zellen Radius - großzügig, deckt 20-m-Linien ab
-	const cells = new Set();
-	const covered = (x, y) => {
-		try {
-			return !!region.testPoint({ x: x * cell + cell / 2, y: y * cell + cell / 2, elevation: scene.flags?.elevation ?? 0 });
-		} catch (error) {
-			throw error;
+/** Subjekt-Polygon (Punktliste {x,y}) des ersten Regions-Shape bauen.
+ *  Kreis => 64-Eck, Rechteck (inkl. Linien-Anker und Rotation um das
+ *  Pivot) => 4 Ecken; alle anderen Formen => null (W1-Fallback). */
+function _shapeSubjectPolygon(shape) {
+	if (!shape) return null;
+	const type = String(shape.type ?? '');
+	if (type === 'circle') {
+		const cx = Number(shape.x) || 0;
+		const cy = Number(shape.y) || 0;
+		const radius = Number(shape.radius) || 0;
+		if (radius <= 0) return null;
+		const pts = [];
+		for (let i = 0; i < 64; i++) {
+			const a = (i / 64) * Math.PI * 2;
+			pts.push({ x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius });
 		}
-	};
-	const cx = Math.floor(center.x / cell);
-	const cy = Math.floor(center.y / cell);
-	const passable = (ax, ay, bx, by) => {
-		const a = { x: ax * cell + cell / 2, y: ay * cell + cell / 2 };
-		const b = { x: bx * cell + cell / 2, y: by * cell + cell / 2 };
-		for (const sense of senses) {
-			const result = senseBlocked(a, b, sense, { ownRegionId: region.id, toleranceCells: 0 });
-			if (result.error) throw new Error('sense measurement failed');
-			if (result.blocked) return false;
-		}
-		return true;
-	};
-	if (!covered(cx, cy)) return null; // Quelle liegt nicht in der Fläche => kein Clip sinnvoll
-	const queue = [[cx, cy]];
-	cells.add(`${cx},${cy}`);
-	let coveredCount = 0;
-	/* Überdeckungszählen im Arbeitsfenster für die Clip-Entscheidung. */
-	for (let y = cy - halfWindow; y <= cy + halfWindow; y++) {
-		for (let x = cx - halfWindow; x <= cx + halfWindow; x++) {
-			if (covered(x, y)) coveredCount++;
-		}
+		return pts;
 	}
-	const neighbors = [
-		[1, 0],
-		[-1, 0],
-		[0, 1],
-		[0, -1],
-	];
-	while (queue.length > 0) {
-		const [x, y] = queue.shift();
-		for (const [dx, dy] of neighbors) {
-			const nx = x + dx;
-			const ny = y + dy;
-			const key = `${nx},${ny}`;
-			if (cells.has(key)) continue;
-			if (Math.abs(nx - cx) > halfWindow || Math.abs(ny - cy) > halfWindow) continue;
-			if (!covered(nx, ny)) continue;
-			if (!passable(x, y, nx, ny)) continue;
-			cells.add(key);
-			queue.push([nx, ny]);
-		}
+	if (type === 'rectangle') {
+		const w = Number(shape.width) || 0;
+		const h = Number(shape.height) || 0;
+		if (w <= 0 || h <= 0) return null;
+		/* Pivot (x,y) liegt bei (anchorX*w, anchorY*h) INNERHALB der
+		   Fläche - Ecken relativ zum Pivot, dann Rotation um Pivot. */
+		const ax = Number(shape.anchorX ?? 0);
+		const ay = Number(shape.anchorY ?? 0);
+		const rot = (Number(shape.rotation) || 0) * (Math.PI / 180);
+		const cos = Math.cos(rot);
+		const sin = Math.sin(rot);
+		const cx = Number(shape.x) || 0;
+		const cy = Number(shape.y) || 0;
+		const corners = [
+			{ x: -ax * w, y: -ay * h },
+			{ x: (1 - ax) * w, y: -ay * h },
+			{ x: (1 - ax) * w, y: (1 - ay) * h },
+			{ x: -ax * w, y: (1 - ay) * h },
+		];
+		return corners.map((corner) => ({
+			x: cx + corner.x * cos - corner.y * sin,
+			y: cy + corner.x * sin + corner.y * cos,
+		}));
 	}
-	return { cells, covered: coveredCount, reachable: cells.size, sourceInside: true };
+	return null;
 }
 
-/** Scanline-Rechteck-Zerlegung einer Zellenmenge (Shape-Liste für den
- *  Region-Update; Rectangle-Origin = Ecke, Muster _buildShapeData). */
-function _cellsToRectangles(cellsSet) {
-	const byRow = new Map();
-	for (const key of cellsSet) {
-		const [x, y] = key.split(',').map(Number);
-		if (!byRow.has(y)) byRow.set(y, []);
-		byRow.get(y).push(x);
+/** Liegt der Punkt AUF einer Polygon-Kante (Abstand < 1,5 px)?
+ *  v1.3: Linien-Zonen platzieren die Quelle absichtlich AUF der
+ *  Anker-Kante (Wirker steht an der Wandlinie) - der reine Innerhalb-
+ *  Test wuerde diese Kernform auf W1 fallen lassen. */
+function _pointOnPolygonEdge(point, pts) {
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		const a = pts[j];
+		const b = pts[i];
+		const ex = b.x - a.x;
+		const ey = b.y - a.y;
+		const lenSq = ex * ex + ey * ey;
+		if (lenSq === 0) {
+			if (Math.hypot(point.x - a.x, point.y - a.y) < 1.5) return true;
+			continue;
+		}
+		const t = Math.max(0, Math.min(1, ((point.x - a.x) * ex + (point.y - a.y) * ey) / lenSq));
+		if (Math.hypot(point.x - (a.x + ex * t), point.y - (a.y + ey * t)) < 1.5) return true;
 	}
-	const rectangles = [];
-	for (const [y, xs] of byRow) {
-		xs.sort((a, b) => a - b);
-		let start = xs[0];
-		let prev = xs[0];
-		for (let i = 1; i <= xs.length; i++) {
-			const current = xs[i];
-			if (current !== prev + 1) {
-				rectangles.push({ type: 'rectangle', x: start, y, width: prev - start + 1, height: 1 });
-				start = current;
-			}
-			prev = current;
+	return false;
+}
+
+/** Even-Odd-Test: Liegt der Punkt im (geschlossenen) Polygon? */
+function _pointInPolygon(point, pts) {
+	let inside = false;
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		const xi = pts[i].x;
+		const yi = pts[i].y;
+		const xj = pts[j].x;
+		const yj = pts[j].y;
+		if (yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi) {
+			inside = !inside;
 		}
 	}
-	/* Senkrechte Verschmelzung gleicher Spannen (weniger Shapes). */
-	const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.scene?.grid?.size ?? 100;
-	const merged = [];
-	const used = new Array(rectangles.length).fill(false);
-	for (let i = 0; i < rectangles.length; i++) {
-		if (used[i]) continue;
-		const rect = { ...rectangles[i] };
-		used[i] = true;
-		let grown = true;
-		while (grown) {
-			grown = false;
-			for (let j = 0; j < rectangles.length; j++) {
-				if (used[j]) continue;
-				const candidate = rectangles[j];
-				if (candidate.x === rect.x && candidate.width === rect.width && candidate.y === rect.y + rect.height) {
-					rect.height += candidate.height;
-					used[j] = true;
-					grown = true;
-				}
+	return inside;
+}
+
+/** Schnitt eines Strahls (Quelle + Richtung) mit einer Strecke a-b.
+ *  @returns Distanz entlang des Strahls in Pixeln oder null. */
+function _raySegmentDistance(source, dir, a, b) {
+	const ex = b.x - a.x;
+	const ey = b.y - a.y;
+	const denom = dir.x * ey - dir.y * ex;
+	if (denom === 0) return null;
+	const t = ((a.x - source.x) * ey - (a.y - source.y) * ex) / denom;
+	const u = ((a.x - source.x) * dir.y - (a.y - source.y) * dir.x) / denom;
+	if (t > 0.0001 && u >= 0 && u <= 1) return t;
+	return null;
+}
+
+/** Erster Rand-Durchtritt des Strahls im Polygon (Abstand). */
+function _rayExitDistance(source, dir, pts) {
+	let best = null;
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		const d = _raySegmentDistance(source, dir, pts[j], pts[i]);
+		if (d !== null && (best === null || d < best)) best = d;
+	}
+	return best;
+}
+
+/** Alle Strecken, die mindestens einen der Sinne voll blockieren. */
+function _blockingWallSegments(senses) {
+	const segments = [];
+	for (const edge of _sceneEdges()) {
+		let blocking = false;
+		for (const sense of senses) {
+			if (_edgeSenseValue(edge, sense) === 'normal') {
+				blocking = true;
+				break;
 			}
 		}
-		merged.push({ type: 'rectangle', x: rect.x * cell, y: rect.y * cell, width: rect.width * cell, height: rect.height * cell });
+		if (!blocking) continue;
+		const pts = _edgeSegmentPoints(edge);
+		if (pts) segments.push(pts);
 	}
-	return merged;
+	return segments;
+}
+
+/** Flaecheninhalt (Shoelace) einer Punktliste. */
+function _polygonArea(pts) {
+	let area = 0;
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		area += pts[j].x * pts[i].y - pts[i].x * pts[j].y;
+	}
+	return Math.abs(area) / 2;
 }
 
 /**
  * W0-Form-Clip einer frisch platzierten Zone (je aktiviertem Sinn).
+ * v1.3: radialer Kern-Clip, siehe Abschnittskommentar oben.
  * @returns {Promise<string>} 'clipped' | 'geometry' (nichts zu tun oder
  *  kein Clip nötig) | 'fallback' (W1 - Doku-Zeile auf der Zonenkarte).
  */
@@ -2310,6 +2395,8 @@ async function _w0ClipZoneShapes(region, aoe) {
 	try {
 		const senses = aoe?.config?.senses ?? [];
 		if (!senseWallsEnabled() || senses.length === 0) return 'geometry';
+		const subject = _shapeSubjectPolygon(_firstRegionShape(region));
+		if (!subject) return 'fallback';
 		const sourcePoint = aoe.casterTokenUuid
 			? (() => {
 					const casterDoc = fromUuidSync(aoe.casterTokenUuid);
@@ -2317,13 +2404,51 @@ async function _w0ClipZoneShapes(region, aoe) {
 					return { x: (casterDoc.x ?? 0) + (casterDoc.width ?? 100) / 2, y: (casterDoc.y ?? 0) + (casterDoc.height ?? 100) / 2 };
 				})()
 			: null;
-		const result = await _w0ReachableCells(region, senses, sourcePoint);
-		if (!result) return 'fallback';
-		if (result.reachable >= result.covered) return 'geometry';
-		if (result.reachable === 0) return 'fallback';
-		const shapes = _cellsToRectangles(result.cells);
-		if (shapes.length === 0 || shapes.length > 400) return 'fallback';
-		await region.update({ shapes });
+		if (!sourcePoint) return 'fallback';
+		if (!_pointInPolygon(sourcePoint, subject) && !_pointOnPolygonEdge(sourcePoint, subject)) return 'fallback';
+		const walls = _blockingWallSegments(senses);
+		if (walls.length === 0) return 'geometry';
+		/* Kritische Winkel: Regions-Ecken + Wand-Endpunkte, sortiert;
+		   Luecken > 2 Grad werden mit Zwischenschritten gefuellt, damit
+		   der Boegen- und Wandverlauf glatt bleibt (kein Raster). */
+		const criticals = new Set();
+		for (const p of subject) criticals.add(Math.atan2(p.y - sourcePoint.y, p.x - sourcePoint.x));
+		for (const seg of walls) {
+			for (const p of seg) criticals.add(Math.atan2(p.y - sourcePoint.y, p.x - sourcePoint.x));
+		}
+		const base = [...criticals].map((a) => ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)).sort((x, y) => x - y);
+		const step = Math.PI / 90; // 2 Grad
+		const angles = [];
+		for (let i = 0; i < base.length; i++) {
+			const from = base[i];
+			const to = i + 1 < base.length ? base[i + 1] : base[0] + Math.PI * 2;
+			const steps = Math.max(1, Math.ceil((to - from) / step));
+			for (let k = 0; k < steps; k++) angles.push(from + ((to - from) * k) / steps);
+		}
+		if (angles.length < 3) return 'geometry';
+		let wallHit = false;
+		const fan = [];
+		for (const angle of angles) {
+			const dir = { x: Math.cos(angle), y: Math.sin(angle) };
+			const exit = _rayExitDistance(sourcePoint, dir, subject);
+			let nearest = null;
+			for (const seg of walls) {
+				const d = _raySegmentDistance(sourcePoint, dir, seg[0], seg[1]);
+				if (d !== null && (nearest === null || d < nearest)) nearest = d;
+			}
+			if (nearest !== null && exit !== null && nearest < exit) wallHit = true;
+			/* Rand-Quelle (Linien-Zonen): Strahlen, die AUSSEN am Polygon
+			   vorbeilaufen, treffen weder Rand noch Wand - sie fallen
+			   weg (kein Stuetzpunkt in der Unendlichkeit, NaN-Schutz). */
+			if (exit === null && nearest === null) continue;
+			const r = Math.min(exit ?? Infinity, nearest ?? Infinity);
+			if (r > 0.0001 && Number.isFinite(r)) fan.push({ x: sourcePoint.x + dir.x * r, y: sourcePoint.y + dir.y * r });
+		}
+		if (!wallHit) return 'geometry';
+		if (fan.length < 3) return 'fallback';
+		if (_polygonArea(fan) >= _polygonArea(subject) * 0.995) return 'geometry';
+		await region.update({ shapes: [{ type: 'polygon', points: fan }] });
+		console.info('Symbaroum AoE [trace] W0-Kern-Clip gesetzt:', region.name, fan.length, 'Punkte');
 		return 'clipped';
 	} catch (error) {
 		console.warn('Symbaroum AoE: W0 shape clip failed, geometric fallback (W1)', error);
@@ -2477,11 +2602,19 @@ export async function placeZoneFromItem(item) {
 	   GM-Client nachinstalliert. Ohne GM online: Warnung, die Zone
 	   bleibt mit ihrer Ausloese-Taste voll bedienbar. */
 	if (!game.user.isGM && zone.mode === 'lasting' && zone.trigger === 'enter' && zone.config?.targetOrder !== 'marking') {
-		const installResults = await game.socket.emit('system.symbaroum', {
-			type: 'aoeZoneBehaviorInstall',
-			data: { sceneId: canvas.scene?.id, regionIds: regions.map((r) => r.id) },
-		});
-		const installed = Array.isArray(installResults) && installResults.some((r) => r === true);
+		/* v1.3 (P4): auch der Transportfehler/Werfen des Emits darf den
+		   Platzierungslauf nicht mehr abstuerzen - ohne installiertes
+		   Behaviour bleibt die Ausloese-Taste (Warnung wie gehabt). */
+		let installed = false;
+		try {
+			const installResults = await game.socket.emit('system.symbaroum', {
+				type: 'aoeZoneBehaviorInstall',
+				data: { sceneId: canvas.scene?.id, regionIds: regions.map((r) => r.id) },
+			});
+			installed = Array.isArray(installResults) && installResults.some((r) => r === true);
+		} catch (error) {
+			console.error('Symbaroum AoE: Behavior-Install-Socket fehlgeschlagen', error);
+		}
 		if (!installed) {
 			ui.notifications.warn(game.i18n.localize('AOE.WARN_ZONE_BEHAVIOR_NO_GM'));
 		}
@@ -3160,16 +3293,41 @@ async function aoeZoneBehaviorSocketHandler(message) {
 	const { sceneId, regionIds } = message.data ?? {};
 	const scene = game.scenes.get(sceneId);
 	if (!scene || !Array.isArray(regionIds)) return false;
+	/* v1.3 (Rudolfs Testrunde 4, P4): RegionBehavior als GLOBALE
+	   Kennung existiert in V14 nicht garantiert - der v1.2-Handler
+	   stuerzte vermutlich mit einem ReferenceError ab, der Spieler
+	   sah die falsche Warnung "keine SL online" und der Socket-Dispatch
+	   spuckte Folgefehler ("ChatMessage ... does not exist"). Jetzt:
+	   (a) Installatrion ueber die EMBEDDED-COLLECTION der Region
+	   (region.createEmbeddedDocuments('RegionBehavior', ...) - dieselbe
+	   Pipeline, die auch das Datamodel validiert), (b) Klassik-Fallback
+	   RegionBehavior.create NUR wenn der Bezeichner wirklich existiert,
+	   (c) je Region ein eigener try/catch - ein Fehler bricht die
+	   restlichen Regionen nicht mehr ab - und (d) eine sichtbare
+	   Trace-Zeile, damit ein Misserfolg nie wieder lautlos untergeht. */
+	const behaviorData = {
+		type: 'executeScript',
+		system: { source: ZONE_ENTER_BEHAVIOR_SOURCE, events: [CONST.REGION_EVENTS.TOKEN_ENTER] },
+	};
 	let installed = false;
 	for (const regionId of regionIds) {
 		const region = scene.regions?.get(regionId);
 		if (!region || region.behaviors?.length) continue;
-		await RegionBehavior.create(
-			{ type: 'executeScript', system: { source: ZONE_ENTER_BEHAVIOR_SOURCE, events: [CONST.REGION_EVENTS.TOKEN_ENTER] } },
-			{ parent: region }
-		);
-		installed = true;
+		try {
+			if (typeof region.createEmbeddedDocuments === 'function') {
+				await region.createEmbeddedDocuments('RegionBehavior', [behaviorData]);
+				installed = true;
+			} else if (typeof globalThis.RegionBehavior === 'function') {
+				await globalThis.RegionBehavior.create(behaviorData, { parent: region });
+				installed = true;
+			} else {
+				console.warn('Symbaroum AoE: keine RegionBehavior-Installations-API verf\u00fcgbar', region.name);
+			}
+		} catch (error) {
+			console.error('Symbaroum AoE: Betreten-Behavior-Installation fehlgeschlagen', region?.name, error);
+		}
 	}
+	console.info('Symbaroum AoE [trace] aoeZoneBehaviorInstall:', { sceneId, regionIds, installed });
 	return installed;
 }
 
