@@ -2261,8 +2261,12 @@ function _shapeSubjectPolygon(shape) {
 	if (!shape) return null;
 	const type = String(shape.type ?? '');
 	if (type === 'circle') {
-		const cx = Number(shape.x) || 0;
-		const cy = Number(shape.y) || 0;
+		/* v1.3.1: bevorzugt die offizielle center-Geometrie (Muster
+		   _regionCenter, Rudolfs v2.2-P9) - je Core-Stand tragen die
+		   Shape-Objekte center statt nackter x/y. */
+		const center = shape.center && Number.isFinite(shape.center.x) && Number.isFinite(shape.center.y) ? shape.center : { x: Number(shape.x) || 0, y: Number(shape.y) || 0 };
+		const cx = center.x;
+		const cy = center.y;
 		const radius = Number(shape.radius) || 0;
 		if (radius <= 0) return null;
 		const pts = [];
@@ -2396,18 +2400,37 @@ async function _w0ClipZoneShapes(region, aoe) {
 		const senses = aoe?.config?.senses ?? [];
 		if (!senseWallsEnabled() || senses.length === 0) return 'geometry';
 		const subject = _shapeSubjectPolygon(_firstRegionShape(region));
-		if (!subject) return 'fallback';
-		const sourcePoint = aoe.casterTokenUuid
+		if (!subject) {
+			console.info('Symbaroum AoE [trace] W0-Clip: W1 (Form nicht rekonstruierbar - Kegel/Ring/mystery)', region?.name, _firstRegionShape(region)?.type ?? 'keine Form');
+			return 'fallback';
+		}
+		/* v1.3.1 (Rudolfs Testrunde 6: "kein Clipping"): Der v1.3-Umbau
+		   hatte den dokumentierten QUEL-FALLBACK (Detailantwort 1:
+		   Wirker-Token, Fallback Zonenmittelpunkt) still entfernt -
+		   freie Zonen (ohne Wirker) und nicht aufloesbare Wirker-UUIDs
+		   liefen darum IMMER auf W1 statt wie unter v1.2.2 zu clippen.
+		   Der Fallback ist restauriert. Ausserdem loggt JEDE Rueckkehr
+		   jetzt ihren Grund in die Konsole (v1.3 tracete nur den
+		   Erfolgsfall - genau die stillen Pfade waren unbeobachtbar). */
+		const casterPoint = aoe.casterTokenUuid
 			? (() => {
 					const casterDoc = fromUuidSync(aoe.casterTokenUuid);
 					if (!casterDoc) return null;
 					return { x: (casterDoc.x ?? 0) + (casterDoc.width ?? 100) / 2, y: (casterDoc.y ?? 0) + (casterDoc.height ?? 100) / 2 };
 				})()
 			: null;
+		const sourcePoint = casterPoint ?? _regionCenter(region);
+		const sourceKind = casterPoint ? 'caster' : 'regionCenter';
 		if (!sourcePoint) return 'fallback';
-		if (!_pointInPolygon(sourcePoint, subject) && !_pointOnPolygonEdge(sourcePoint, subject)) return 'fallback';
+		if (!_pointInPolygon(sourcePoint, subject) && !_pointOnPolygonEdge(sourcePoint, subject)) {
+			console.info('Symbaroum AoE [trace] W0-Clip: W1 (Quelle ausserhalb der Flaeche)', region?.name, sourceKind, sourcePoint);
+			return 'fallback';
+		}
 		const walls = _blockingWallSegments(senses);
-		if (walls.length === 0) return 'geometry';
+		if (walls.length === 0) {
+			console.info('Symbaroum AoE [trace] W0-Clip: geometry (keine blockierenden Waende in der Szene)', region?.name);
+			return 'geometry';
+		}
 		/* Kritische Winkel: Regions-Ecken + Wand-Endpunkte, sortiert;
 		   Luecken > 2 Grad werden mit Zwischenschritten gefuellt, damit
 		   der Boegen- und Wandverlauf glatt bleibt (kein Raster). */
@@ -2444,9 +2467,19 @@ async function _w0ClipZoneShapes(region, aoe) {
 			const r = Math.min(exit ?? Infinity, nearest ?? Infinity);
 			if (r > 0.0001 && Number.isFinite(r)) fan.push({ x: sourcePoint.x + dir.x * r, y: sourcePoint.y + dir.y * r });
 		}
-		if (!wallHit) return 'geometry';
-		if (fan.length < 3) return 'fallback';
-		if (_polygonArea(fan) >= _polygonArea(subject) * 0.995) return 'geometry';
+		if (!wallHit) {
+			console.info('Symbaroum AoE [trace] W0-Clip: geometry (kein Strahl traf eine blockierende Wand)', region?.name, walls.length, 'Wandsegment(e)');
+			return 'geometry';
+		}
+		if (fan.length < 3) {
+			console.info('Symbaroum AoE [trace] W0-Clip: W1 (leerer Faecher)', region?.name);
+			return 'fallback';
+		}
+		const areaRatio = _polygonArea(fan) / _polygonArea(subject);
+		if (areaRatio >= 0.995) {
+			console.info('Symbaroum AoE [trace] W0-Clip: geometry (Flaeche unveraendert)', region?.name, areaRatio.toFixed(4));
+			return 'geometry';
+		}
 		await region.update({ shapes: [{ type: 'polygon', points: fan }] });
 		console.info('Symbaroum AoE [trace] W0-Kern-Clip gesetzt:', region.name, fan.length, 'Punkte');
 		return 'clipped';
