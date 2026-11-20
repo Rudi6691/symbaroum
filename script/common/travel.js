@@ -1808,9 +1808,15 @@ function categoryLabel(category) {
 
 /** Buchungsdialog des Ertrags am Sucher. */
 export function openTravelSupplyBooking(actorId, yieldTotal) {
-	if (!game.user.isGM) return;
+	/* v1.4.2 (Rudolfs Freigabe 20.11., Testrunde-9-Nachfrage): Der
+	   Wuerfelnde soll den Buchungsdialog SELBST sehen und bedienen
+	   koennen (Geben-Dialog-Muster) - die Buchung laeuft ueber normale
+	   Item-Updates, Besitzrechte am Aktor genuegen dafuer, kein GM-
+	   Socket noetig. Die SL bleibt ueber den v2.11-Relay zustandig,
+	   wenn der Wuerfelnde KEINE Besitzrechte hat (NSC-Sucher, fremder
+	   Charakter). */
 	const actor = game.actors.get(actorId);
-	if (!actor) return;
+	if (!actor || !actor.isOwner) return;
 	const n = Math.max(1, Math.round(Number(yieldTotal) || 1));
 	const rows = [];
 	for (const category of RATION_CATEGORIES) {
@@ -1984,7 +1990,7 @@ async function submitTravelSupplyBooking(html, actor, yieldTotal) {
 	}
 }
 
-/** Ergebnis-Karte: gebuchte Stapel + Geben-Knöpfe (nur GM). */
+/** Ergebnis-Karte: gebuchte Stapel + Geben-Knöpfe (SL oder Geber-Besitzer). */
 async function postSupplyBookingCard(actor, yieldTotal, booked) {
 	const lines = booked
 		.map((b) => {
@@ -2179,20 +2185,23 @@ export async function setupTravelRuntime() {
 				if (!game.user.isGM && !(actor && actor.isOwner)) btn.remove();
 			});
 		}
-		// v1.1: Ertrags-Buchungskarte — Geben-Knöpfe nur für die SL
+		// v1.4.2: Ertrags-Buchungskarte — Geben-Knöpfe für die SL ODER
+		// den Besitzer des Geber-Aktors (Spieler buchen seit v1.4.2
+		// selbst; transfer.js kuemmert sich um Rechte und Relay).
 		if (message.getFlag(FLAG_SCOPE, 'travelSupplyBooking')) {
 			const giveBtns = html.querySelectorAll('[data-travel-give]');
-			if (game.user.isGM) {
-				giveBtns.forEach((btn) => {
-					btn.addEventListener('click', () => {
-					const actor = game.actors.get(btn.dataset.travelGiver);
-					const item = actor?.items.get(btn.dataset.travelGive);
-					if (actor && item) openGiveDialog(actor, item);
-					});
+			giveBtns.forEach((btn) => {
+				const actor = game.actors.get(btn.dataset.travelGiver);
+				if (!actor || (!game.user.isGM && !actor.isOwner)) {
+					btn.remove();
+					return;
+				}
+				btn.addEventListener('click', () => {
+					const giver = game.actors.get(btn.dataset.travelGiver);
+					const item = giver?.items.get(btn.dataset.travelGive);
+					if (giver && item) openGiveDialog(giver, item);
 				});
-			} else {
-				giveBtns.forEach((btn) => btn.remove());
-			}
+			});
 		}
 	});
 
@@ -2204,6 +2213,15 @@ export async function setupTravelRuntime() {
 		if (!isTravelEnabled()) return;
 		if (!Number.isFinite(Number(data?.days)) || Number(data?.days) <= 0) return;
 		if (game.user.isGM) {
+			openTravelSupplyBooking(data.actorId, data.days);
+			return;
+		}
+		/* v1.4.2: Spieler-direkt - der Wuerfelnde mit Besitz am Aktor
+		   oeffnet den Buchungsdialog selbst (kein SL-Detour mehr);
+		   der Relay darunter bleibt als Fallback fuer Wuerfelnde ohne
+		   Besitzrechte (Muster bleibt TravelHungerProbe). */
+		const forager = game.actors.get(data.actorId);
+		if (forager?.isOwner) {
 			openTravelSupplyBooking(data.actorId, data.days);
 			return;
 		}

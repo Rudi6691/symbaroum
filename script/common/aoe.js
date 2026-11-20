@@ -920,16 +920,12 @@ async function _ensureCoreZoneRestriction(region, zone) {
 			return null;
 		}
 	}
-	let installed = false;
-	try {
-		const results = await game.socket.emit('system.symbaroum', {
-			type: 'aoeZoneRestrictionInstall',
-			data: { sceneId: canvas.scene?.id, regionIds: [region.id], restriction: { enabled: true, type: wanted.type, priority: 0 } },
-		});
-		installed = Array.isArray(results) && results.some((r) => r === true);
-	} catch (error) {
-		console.error('Symbaroum AoE: Restriction-Install-Socket fehlgeschlagen', error);
-	}
+	/* v1.4.2: Query-Anfrage (User#query) statt direktem Socket. */
+	const installed = await requestAoeZoneInstall('restriction', {
+		sceneId: canvas.scene?.id,
+		regionIds: [region.id],
+		restriction: { enabled: true, type: wanted.type, priority: 0 },
+	});
 	if (!installed) {
 		ui.notifications.warn(game.i18n.localize('AOE.WARN_ZONE_RESTRICTION_NO_GM'));
 		return null;
@@ -2532,16 +2528,13 @@ export async function placeZoneFromItem(item) {
 		/* v1.3 (P4): auch der Transportfehler/Werfen des Emits darf den
 		   Platzierungslauf nicht mehr abstuerzen - ohne installiertes
 		   Behaviour bleibt die Ausloese-Taste (Warnung wie gehabt). */
-		let installed = false;
-		try {
-			const installResults = await game.socket.emit('system.symbaroum', {
-				type: 'aoeZoneBehaviorInstall',
-				data: { sceneId: canvas.scene?.id, regionIds: regions.map((r) => r.id) },
-			});
-			installed = Array.isArray(installResults) && installResults.some((r) => r === true);
-		} catch (error) {
-			console.error('Symbaroum AoE: Behavior-Install-Socket fehlgeschlagen', error);
-		}
+		/* v1.4.2: Query-Anfrage (User#query) statt direktem Socket -
+		   die alte Array-Auswertung konnte die GM-Antwort prinzipiell
+		   nie sehen (siehe aoeZoneInstallQueryHandler). */
+		const installed = await requestAoeZoneInstall('behavior', {
+			sceneId: canvas.scene?.id,
+			regionIds: regions.map((r) => r.id),
+		});
 		if (!installed) {
 			ui.notifications.warn(game.i18n.localize('AOE.WARN_ZONE_BEHAVIOR_NO_GM'));
 		}
@@ -3247,18 +3240,20 @@ function _tokenInsideAnyOpenZone(tokenId) {
  * registerAoeHooks in hooks.js - alle AoE-Listener an einem Ort)
  * =================================================================== */
 
-/* v1.2 (Rudolfs Testrunde 2, P9): GM-Seitige Socket-Installation des
+/* v1.2 (Rudolfs Testrunde 2, P9): GM-Seitige Installation des
  * Betreten-Behaviors auf Spieler-Zonen (V14 verbietet Behaviors in der
  * Region-Erstellung durch Nicht-SLs).
- * v1.4.1 (Rudolfs Testrunde 8, Befund 1): Die zwei Handler (Behavior +
- * Restriction) sind zu EINEM Dispatcher (aoeZoneSocketHandler)
- * zusammengefasst - mit ZWEI parallel registrierten Handlern am selben
- * Namensraum veraenderte sich das Rueckgabe-Muster der Socket-Antwort
- * so, dass der Spieler-Client `installed` als FALSE auswertete und die
- * Warnung "kein SL online" kam, OBWOHL eine SL anwesend war und der
- * GM-Handler erfolgreich installiert hatte (installed: true im Trace).
- * Ein Handler pro Namensraum meldet genau ein true/false - das
- * v1.3.1-Pattern (P4, Testrunde 6 gruen) ist damit wiederhergestellt. */
+ * v1.4.2 (Rudolfs Testrunden 8+9, Fehl-Warnung "Kein SL online"):
+ * Die v1.4.1-These (zwei parallele Handler verdrehten das Antwort-
+ * Muster) war FALSCH - der direkte System-Socket (game.socket.emit)
+ * liefert NIE Handler-Rueckgaben, sondern nur eine Server-Empfangs-
+ * bestaetigung (Foundry-Wiki, Sockets); die Array-Auswertung konnte
+ * also prinzipiell nie `true` sehen und die Warnung feuerte bei jeder
+ * Spieler-Platzierung, egal wie viele Handler registriert waren.
+ * Fix: Transport auf das Foundry-Query-System (V13+, User#query +
+ * CONFIG.queries) - siehe requestAoeZoneInstall und den Query-Handler
+ * in registerAoeHooks. Diese Funktion bleibt eine INTERNE Funktion
+ * des Query-Handlers (sie wird nur GM-seitig ausgefuehrt). */
 async function aoeZoneBehaviorInstall(data) {
 	const { sceneId, regionIds } = data ?? {};
 	const scene = game.scenes.get(sceneId);
@@ -3301,15 +3296,14 @@ async function aoeZoneBehaviorInstall(data) {
 	return installed;
 }
 
-/* v1.4 (Rudolfs Freigabe 19.11.): GM-seitige Socket-Setzung der Core-
-   Wall-Restriction auf Spieler-Zonen (Parallele zum Betreten-Behavior:
+/* v1.4 (Rudolfs Freigabe 19.11.): GM-seitige Setzung der Core-Wall-
+   Restriction auf Spieler-Zonen (Parallele zum Betreten-Behavior:
    falls V14 die Restriction-Anlage durch Nicht-SLs beschraenkt, bleibt
    der Flaechen-Clip fuer Spieler dennoch verfuegbar durch den nachge-
-   lagerten Socket-Weg). Rueckgabe true = gesetzt.
- * v1.4.1: nur noch interne Funktion des Socket-Dispatchers (siehe den
-   Kommentar oben bei aoeZoneBehaviorInstall - zwei parallele Handler
-   am Namensraum machten die Antwort-Auswertung auf dem Spieler-Client
-   kaputt; der Dispatcher stellt das Ein-Handler-Muster wieder her). */
+   lagerten GM-Weg). Rueckgabe true = gesetzt.
+ * v1.4.2: interne Funktion des Query-Handlers (siehe aoeZoneBehavior-
+   Install-Kommentar): der Transport laeuft jetzt ueber das Foundry-
+   Query-System statt des direkten Sockets. */
 async function aoeZoneRestrictionInstall(data) {
 	const { sceneId, regionIds, restriction } = data ?? {};
 	const scene = game.scenes.get(sceneId);
@@ -3331,14 +3325,39 @@ async function aoeZoneRestrictionInstall(data) {
 	return installed;
 }
 
-/* v1.4.1: EINZIGER Socket-Handler am System-Namensraum - verzweigt
-   intern nach message.type und gibt genau einen booleschen Gesamtwert
-   zurueck (siehe den Kommentar oben bei aoeZoneBehaviorInstall). */
-async function aoeZoneSocketHandler(message) {
-	if (!message || !game.user?.isGM) return undefined;
-	if (message?.type === 'aoeZoneBehaviorInstall') return aoeZoneBehaviorInstall(message.data ?? {});
-	if (message?.type === 'aoeZoneRestrictionInstall') return aoeZoneRestrictionInstall(message.data ?? {});
-	return undefined;
+/* v1.4.2: EIN Query-Handler bedient Behavior- und Restriction-
+   Installation (registriert als CONFIG.queries['symbaroum.aoeZoneInstall'],
+   siehe registerAoeHooks); nur der adressierte GM-Client wertet aus.
+   Die Rueckgabe ist JSON-serialisierbar (boolean) und kommt sauber
+   awaited beim anfragenden Client zurueck - genau das, was der direkte
+   Socket nie bot. */
+async function aoeZoneInstallQueryHandler(queryData) {
+	if (!game.user?.isGM) return false;
+	const kind = queryData?.kind;
+	const payload = queryData?.payload ?? {};
+	if (kind === 'behavior') return aoeZoneBehaviorInstall(payload);
+	if (kind === 'restriction') return aoeZoneRestrictionInstall(payload);
+	return false;
+}
+
+/* v1.4.2: Client-seitige Anfrage an den Acting GM. Rueckgabe true =
+   GM meldet die Installation erfolgreich; false = kein GM online,
+   Query-Fehler oder Timeout (Warn-Verhalten unveraendert). */
+async function requestAoeZoneInstall(kind, payload) {
+	const gm = game.users?.activeGM ?? null;
+	if (!gm) {
+		console.info('Symbaroum AoE [trace] Install-Query ohne GM online:', kind);
+		return false;
+	}
+	try {
+		const result = await gm.query('symbaroum.aoeZoneInstall', { kind, payload }, { timeout: 10000 });
+		const installed = result === true;
+		console.info('Symbaroum AoE [trace] Install-Query Antwort:', { kind, installed });
+		return installed;
+	} catch (error) {
+		console.error('Symbaroum AoE: Install-Query fehlgeschlagen', kind, error);
+		return false;
+	}
 }
 
 export function registerAoeHooks() {
@@ -3354,9 +3373,11 @@ export function registerAoeHooks() {
 	 * v1.2, waehrend Enter (Behavior-Script, unabhaengig) weiter
 	 * funktionierte. Fix: Registrierung in Hooks.once('ready'). */
 	Hooks.once('ready', () => {
-		/* v1.4.1: EIN Dispatcher bedient Behavior- und Restriction-
-		   Installation auf Spieler-Zonen (GM-seitig). */
-		game.socket?.on('system.symbaroum', aoeZoneSocketHandler);
+		/* v1.4.2: Query-Registrierung ersetzt die v1.4/v1.4.1-Socket-
+		   Registrierung - Details siehe aoeZoneInstallQueryHandler
+		   (der Transport liefert die GM-Antwort jetzt zurueck). */
+		globalThis.CONFIG.queries ??= {};
+		globalThis.CONFIG.queries['symbaroum.aoeZoneInstall'] = aoeZoneInstallQueryHandler;
 	});
 	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im
 	// aktiven Zonen-Fenster auf Token INNERHALB der Zone beschränken.
