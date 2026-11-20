@@ -33,17 +33,15 @@
       {{selectOptions targetingOptions valueAttr="id" labelAttr="label"}}
     </select>
   </div>
-  {{!-- AoE-Rest Paket 1 (S1, Rudolfs Startsignal 18.11.): Sinn-Filter der
-        freien Zone - Default LEER (SL wählt); angehakte Sinne blockieren
-        Ziele hinter passenden Kanten/Regionen (Doppelwirkung: Form-Clip bei
-        der Platzierung + Ziel-Filter je Auslösung). --}}
+  {{!-- v1.4 (Rudolfs Freigabe 19.11. nach Testrunde 7): EIN Sinn je Zone (Core-
+        Ein-Typ-Grenze der Wall-Restriction) - Dropdown statt der drei Checkboxen;
+        Default KEIN Sinn, die SL waehlt. Der Sinn beschneidet die Flaeche (native
+        Region-Restriction, direkt beim Platzieren sichtbar) und filtert Ziele. --}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
-    <label>{{localize "AOE.FIELD_SENSE_BLOCKER"}}</label>
-    <div class="{{#if renderModern}}m-give-vis{{else}}favour{{/if}}">
-      <label class="lblfavour"><input type="checkbox" id="aoe-free-sense-move" value="move"/> {{localize "AOE.SENSE_MOVE"}}</label>
-      <label class="lblfavour"><input type="checkbox" id="aoe-free-sense-sight" value="sight"/> {{localize "AOE.SENSE_SIGHT"}}</label>
-      <label class="lblfavour"><input type="checkbox" id="aoe-free-sense-sound" value="sound"/> {{localize "AOE.SENSE_SOUND"}}</label>
-    </div>
+    <label for="aoe-free-sense">{{localize "AOE.FIELD_SENSE_BLOCKER"}}</label>
+    <select id="aoe-free-sense">
+      {{selectOptions senseOptions selected="none" valueAttr="id" labelAttr="label"}}
+    </select>
   </div>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="aoe-free-resist">{{localize "AOE.FIELD_RESIST"}}</label>

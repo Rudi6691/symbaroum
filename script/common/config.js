@@ -2143,24 +2143,26 @@ SYMBAROUM.AOE_TARGETING_SELECTION = {
   },
 };
 
-/* AoE-Rest Paket 1 (Sinn-Paket S1, Rudolfs Startsignal „Baue es“ 18.11.2026):
-   GRUPPEN-DEFAULTS des Sinn-Filters je Kraft-Referenz - Alt-Items ohne die
-   Checkbox-Felder (system.areaZone.senseMove/senseSight/senseSound) fallen
-   auf diese Vorgabe zurück (Rudolfs Festlegung: Hymnen -> Schall, „wirken
-   nur auf Ziele, die sie hören können“; Symbolik-Glyphen -> Sicht, „jeder
-   Feind, der das Symbol sehen kann“; Flammenwand -> Bewegung, die Wand
-   blockiert Gänge). Freie Zonen: Default LEER, die SL wählt im Dialog.
-   Die Fluss-Kräfte ohne Zonen-Tab (Auren, Meister-Reaktionen) nutzen feste
-   Code-Defaults (Sicht) direkt an ihren Einsatzstellen, nicht diese Map. */
+/* AoE-Rest Paket 1 (Sinn-Paket S1, 18.11.2026; v1.4 Rudolfs Festlegung
+   19.11. nach Testrunde 7): GRUPPEN-DEFAULT des SINN-DROPDOWNS je Kraft-
+   Referenz - EIN Sinn je Zone (die Core-Wall-Restriction kennt genau einen
+   Typ pro Region). Alt-Items ohne das Dropdown-Feld (system.areaZone.sense)
+   bzw. ohne die LEGACY-Checkboxen fallen auf diese Vorgabe zurück:
+   Flammenwand -> Bewegung (die Wand blockiert Gänge, Rudolf bestätigt
+   19.11.), Hymnen -> Schall („wirken nur auf Ziele, die sie hören können“),
+   ALLE ANDEREN KRÄFTE -> SICHT (Rudolfs Standardfestlegung 19.11.; die
+   Symbolik-Glyphen und Sweep-Kräfte liefen bereits auf Sicht). Freie Zonen:
+   Default LEER, die SL wählt im Dialog. Die Fluss-Kräfte ohne Zonen-Tab
+   (Auren, Meister-Reaktionen) nutzen feste Code-Defaults (Sicht) direkt an
+   ihren Einsatzstellen, nicht diese Map. */
 SYMBAROUM.AOE_SENSE_HYMN_DEFAULTS = ["sound"];
-SYMBAROUM.AOE_SENSE_GLYPH_DEFAULTS = ["sight"];
 SYMBAROUM.AOE_SENSE_FLAMEWALL_DEFAULTS = ["move"];
+SYMBAROUM.AOE_SENSE_POWER_DEFAULTS = ["sight"];
 SYMBAROUM.getZoneSenseDefaults = function (reference) {
   const ref = String(reference ?? "").trim();
   if (ref === "flamewall") return [...SYMBAROUM.AOE_SENSE_FLAMEWALL_DEFAULTS];
   if (SYMBAROUM.HYMN_REFERENCES.includes(ref)) return [...SYMBAROUM.AOE_SENSE_HYMN_DEFAULTS];
-  if (SYMBAROUM.SWEEP_ZONE_POWERS.includes(ref)) return [...SYMBAROUM.AOE_SENSE_GLYPH_DEFAULTS];
-  return [];
+  return [...SYMBAROUM.AOE_SENSE_POWER_DEFAULTS];
 };
 
 /* AoE v2 (Freigabe 2a+2b, 09.11.2026): Wirkungsmodus und Ausloese-Steuerung

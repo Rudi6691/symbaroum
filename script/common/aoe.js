@@ -433,6 +433,15 @@ export function resolveZoneSenses(zoneData, reference) {
 	   Feld mit definiertem Wert (false/'false' zaehlt als bewusst aus,
 	   solange KEIN anderes Feld aktiv ist); fehlen ALLE Felder (echte
 	   Alt-Items), greifen die Gruppen-Defaults (getZoneSenseDefaults). */
+	/* v1.4 (Rudolfs Freigabe 19.11. nach Testrunde 7): EIN Sinn je Zone -
+	   die Core-Wall-Restriction kennt genau einen Typ pro Region, das
+	   Dropdown des Zonen-Tabs schreibt system.areaZone.sense ('none'/
+	   'move'/'sight'/'sound'; '' = nie gesetzt). Rueckgabe bleibt ein
+	   ARRAY mit hchstens EINem Eintrag (Snapshot-Kompatibilitaet mit
+	   schon platzierten Zonen, deren aoe.config.senses Arrays sind). */
+	const sense = String(zone.sense ?? '').trim();
+	if (sense === 'none') return [];
+	if (['move', 'sight', 'sound'].includes(sense)) return [sense];
 	const isExplicit =
 		zone.senseMove !== undefined || zone.senseSight !== undefined || zone.senseSound !== undefined;
 	const truthy = (v) => v === true || v === 'true' || v === 1;
@@ -549,7 +558,10 @@ export function getZoneConfig(item) {
 /**
  * Region-Shape-Daten der Konfiguration (Felder × Szenen-Gridgröße in
  * Pixeln - N Felder auf JEDEM Grid, unabhängig von der Kalibrierung).
- * Kegel-Winkel 90 Grad als Hausregel-Default (RAW definiert keinen).
+ * v1.4 (Rudolfs Freigabe 19.11.): Kegel-Winkel 60 Grad - der STANDARD-
+ * Kegel des Core (Foundrys eigenes Kegel-Werkzeug), kein Hausregel-Winkel
+ * mehr (v1.0-v1.3.1: 90 Grad); Regel-Folgeeffekt kleinere Kegelflaeche
+ * von Rudolf mit der Umstellung abgenickt.
  */
 function _buildShapeData(cfg, gridSize) {
 	const base = { x: 0, y: 0, rotation: 0 };
@@ -557,7 +569,7 @@ function _buildShapeData(cfg, gridSize) {
 		case 'circle':
 			return { ...base, type: 'circle', radius: cfg.size * gridSize };
 		case 'cone':
-			return { ...base, type: 'cone', radius: cfg.size * gridSize, angle: 90 };
+			return { ...base, type: 'cone', radius: cfg.size * gridSize, angle: 60 };
 		case 'line':
 			/* v1.1 (Rudolfs Testrunde 1, P2a): Der Anker der Wand ist der
 			   MITTELPUUNKT EINER LANGEN SEITE - als natives Rechteck mit
@@ -801,8 +813,68 @@ function _zoneRegionData(zone) {
 	if (!game.user.isGM) {
 		regionData.ownership = { [game.user.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? CONST.DOCUMENT_PERMISSION_LEVELS?.OWNER ?? 3 };
 	}
+	/* v1.4 (Rudolfs Freigabe 19.11. nach Testrunde 7: „Restricted Walls"
+	   am Core"): JEDE Zone mit aktiviertem Sinn bekommt die CORE-Wall-
+	   Restriction der Region (V14 RegionDocument.restriction {enabled,
+	   type, priority}, foundryvtt #13365) - Foundry clippt die Flaeche
+	   fuer ALLE Formen (inkl. Ring/Kuppel und Kegel) selbst, live und
+	   identisch zum manuellen Region-Dialog. Der eigene radiale W0-Clip
+	   ist entfernt (Rudolfs Grundsatz: IMMER Core-Funktionen nutzen).
+	   Core kennt EINEN Typ je Region - der Zonen-Snapshot liefert
+	   hoechstens EINEN Sinn (Dropdown, Ein-Sinn-Grenze). GM-Platzierung:
+	   Restriction direkt im Anlege-Datensatz (Clip sofort sichtbar);
+	   Spieler-Platzierung: V14 koennte das Anlegen beschraenken - die
+	   Restriction wird erst nach dem Anlegen per System-Socket von
+	   einem GM-Client gesetzt (_ensureCoreZoneRestriction, Muster
+	   aoeZoneBehaviorInstall). */
+	const zoneSenses = zone.config?.senses ?? [];
+	const zoneSenseType = ['move', 'sight', 'sound'].includes(zoneSenses[0]) ? zoneSenses[0] : null;
+	if (game.user.isGM && zoneSenseType && senseWallsEnabled()) {
+		regionData.restriction = { enabled: true, type: zoneSenseType, priority: 0 };
+		console.info('Symbaroum AoE [trace] W0: Core Wall Restriction gesetzt (Typ ' + zoneSenseType + ')', regionData.name);
+	}
 	if (canvas.level) regionData.levels = [canvas.level.id];
 	return regionData;
+}
+
+/**
+ * v1.4: Sicherstellen, dass die Core-Wall-Restriction auf der frisch
+ * platzierten Region aktiv ist. GM: steht schon aus _zoneRegionData
+ * (oder wird hier nachgesetzt); Spieler: per System-Socket von einem
+ * GM-Client - ohne GM online bleibt die Zone OHNE Flaechen-Clip, der
+ * Token-Sinn-Filter wirkt trotzdem je Ausloesung (Warnung).
+ * @returns {Promise<string|null>} wirksamer Sinn-Typ oder null.
+ */
+async function _ensureCoreZoneRestriction(region, zone) {
+	const senses = zone?.config?.senses ?? [];
+	const senseType = ['move', 'sight', 'sound'].includes(senses[0]) ? senses[0] : null;
+	if (!senseType || !senseWallsEnabled()) return null;
+	if (region?.restriction?.enabled) return region.restriction.type;
+	if (game.user.isGM) {
+		try {
+			await region.update({ restriction: { enabled: true, type: senseType, priority: 0 } });
+			console.info('Symbaroum AoE [trace] W0: Core Wall Restriction nachgesetzt (Typ ' + senseType + ')', region?.name);
+			return region.restriction?.enabled ? region.restriction.type : senseType;
+		} catch (error) {
+			console.error('Symbaroum AoE: Wall-Restriction-Setzung fehlgeschlagen', region?.name, error);
+			return null;
+		}
+	}
+	let installed = false;
+	try {
+		const results = await game.socket.emit('system.symbaroum', {
+			type: 'aoeZoneRestrictionInstall',
+			data: { sceneId: canvas.scene?.id, regionIds: [region.id], restriction: { enabled: true, type: senseType, priority: 0 } },
+		});
+		installed = Array.isArray(results) && results.some((r) => r === true);
+	} catch (error) {
+		console.error('Symbaroum AoE: Restriction-Install-Socket fehlgeschlagen', error);
+	}
+	if (!installed) {
+		ui.notifications.warn(game.i18n.localize('AOE.WARN_ZONE_RESTRICTION_NO_GM'));
+		return null;
+	}
+	return senseType;
 }
 
 /* =====================================================================
@@ -1174,7 +1246,13 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 				}
 				kept.push(tokenDoc);
 			}
-			if (skipLines.length > 0) await _postZoneDiagCard(region, skipLines);
+			/* v1.4 (Rudolfs Entscheidung Testrunde 7, Option C): Bei einer
+			   Ausloesung OHNE verbleibende Ziele (kept.length === 0)
+			   wird KEINE Diagnose-Karte mehr gepostet - der Befund steht
+			   auf der Trace-Zeile unten; die Karte erscheint nur, wenn
+			   neben den Skips mindestens ein Ziel uebrig bleibt. */
+			const postSkipCard = skipLines.length > 0 && kept.length > 0;
+			if (postSkipCard) await _postZoneDiagCard(region, skipLines);
 			tokens.length = 0;
 			tokens.push(...kept);
 			/* v1.3 (Rudolfs Testrunde 5, Defect "Verwirrung ohne
@@ -1186,7 +1264,7 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 			console.info(
 				'Symbaroum AoE [trace] Ausl\u00f6sung gepr\u00fcft:',
 				region?.name,
-				JSON.stringify({ tokensVorher: tokens.length + skipLines.length, gefiltert: skipLines.length, gehalten: kept.length, sinne: zoneSenses, manual, enteringTokenId })
+				JSON.stringify({ tokensVorher: tokens.length + skipLines.length, gefiltert: skipLines.length, gehalten: kept.length, sinne: zoneSenses, manual, enteringTokenId, skipKarte: postSkipCard })
 			);
 		}
 	}
@@ -2228,267 +2306,19 @@ function _flamewallShapeDialog(item) {
 }
 
 /* ---------------------------------------------------------------------
- * W0-FORM-CLIP (Rudolfs Detailantwort 1: W0 bestätigt, Fallback W1 rein
- * geometrisch + Doku-Zeile auf der Zonenkarte). v1.3 (Rudolfs Testrunde 5,
- * P-3): Der v1.0-Clip arbeitete als Raster-BFS mit Scanline-Rechteck-
- * Zerlegung - das Ergebnis "zerfiel in Streifen" (Raster-Treppe) oder
- * fiel gar auf W1 zurück. Rudolfs Vorgabe: Clip WIE FOUNDRY-CORE,
- * d.h. saubere Polygon-Fläche entlang der blockierenden Kanten. Die
- * neue Umsetzung ist ein RADIALER KERN-CLIP: Von der Quelle (Wirker-
- * Token-Mitte, Fallback Regionszentrum) werden Strahlen über ALLE
- * kritischen Winkel gezogen (Regions-Ecken + Wand-Endpunkte, Zwischen-
- * schritte <= 2 Grad) und je Strahl der ERSTE Treffer - Regions-Rand
- * oder blockierende Kante - als Radius gesetzt. Der resultierende
- * Fächer folgt den Wänden als gerade Kanten (kein Raster) und der
- * Kreisform als glatter Bogen; gesetzt wird EIN natives Polygon-Shape.
- * Blockierend ist eine Kante, wenn sie IRGENDEINEN angehakten Sinn
- * vollständig blockt (dasselbe Urteil wie der Token-Filter; offene
- * Türen und LIMITED-Kanten blocken nicht). Formen: Kreis + Rechteck
- * (inkl. Linien); Kegel und Ring fallen bewusst auf W1 zurück
- * (Kegel-Pivot-Semantik und Ring-Lochgeometrie sind kernseitig nicht
- * sauber rekonstruierbar - der Token-Filter schützt, Doku-Zeile zeigt
- * es). Restriktions-REGIONEN clippen nicht (sind im Radar-Sinn-Filter
- * je Auslösung wirksam). Jeder Fehler (fehlende API, Quelle außerhalb,
- * leerer Fächer) fällt auf W1 zurück: Geometrie bleibt, Doku-Zeile auf
- * der Zonenkarte - blockierte Bereiche filtert der Sinn-Filter bei
- * jeder Auslösung (Doppelwirkung b).
+ * v1.4 (Rudolfs Freigabe 19.11., Testrunde 7 / „Restricted Walls"-Beob-
+ * achtung): Der eigengebute radiale W0-Form-Clip (v1.0 Raster-BFS,
+ * v1.3/v1.3.1 radialer Kern-Clip) ist ENTFERNT. Foundry V14 clippt
+ * Regionen selbst ueber die native Wall-Restriction (RegionDocument.
+ * restriction {enabled, type, priority}, foundryvtt-Issue #13365 - genau
+ * die Option, die Rudolf manuell in den Region-Eigenschaften bestaetigt
+ * hat): fuer ALLE Formen (inkl. Ring/Kuppel und Kegel), live und direkt
+ * beim Platzieren sichtbar. Die Restriction setzt JEDE Zonen-Platzierung
+ * (Kraft-, Sweep-, freie Zonen und Hymnen-Gesangsflaechen) in
+ * _zoneRegionData bzw. ueber _ensureCoreZoneRestriction; die Doku-Zeile
+ * auf der Zonenkarte heisst AOE.CHAT_W0_CORE. Der Token-Sinn-Filter
+ * (Sense-Skip-Karten je Ausloesung) bleibt davon unberuehrt.
  * ------------------------------------------------------------------- */
-
-/** Subjekt-Polygon (Punktliste {x,y}) des ersten Regions-Shape bauen.
- *  Kreis => 64-Eck, Rechteck (inkl. Linien-Anker und Rotation um das
- *  Pivot) => 4 Ecken; alle anderen Formen => null (W1-Fallback). */
-function _shapeSubjectPolygon(shape) {
-	if (!shape) return null;
-	const type = String(shape.type ?? '');
-	if (type === 'circle') {
-		/* v1.3.1: bevorzugt die offizielle center-Geometrie (Muster
-		   _regionCenter, Rudolfs v2.2-P9) - je Core-Stand tragen die
-		   Shape-Objekte center statt nackter x/y. */
-		const center = shape.center && Number.isFinite(shape.center.x) && Number.isFinite(shape.center.y) ? shape.center : { x: Number(shape.x) || 0, y: Number(shape.y) || 0 };
-		const cx = center.x;
-		const cy = center.y;
-		const radius = Number(shape.radius) || 0;
-		if (radius <= 0) return null;
-		const pts = [];
-		for (let i = 0; i < 64; i++) {
-			const a = (i / 64) * Math.PI * 2;
-			pts.push({ x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius });
-		}
-		return pts;
-	}
-	if (type === 'rectangle') {
-		const w = Number(shape.width) || 0;
-		const h = Number(shape.height) || 0;
-		if (w <= 0 || h <= 0) return null;
-		/* Pivot (x,y) liegt bei (anchorX*w, anchorY*h) INNERHALB der
-		   Fläche - Ecken relativ zum Pivot, dann Rotation um Pivot. */
-		const ax = Number(shape.anchorX ?? 0);
-		const ay = Number(shape.anchorY ?? 0);
-		const rot = (Number(shape.rotation) || 0) * (Math.PI / 180);
-		const cos = Math.cos(rot);
-		const sin = Math.sin(rot);
-		const cx = Number(shape.x) || 0;
-		const cy = Number(shape.y) || 0;
-		const corners = [
-			{ x: -ax * w, y: -ay * h },
-			{ x: (1 - ax) * w, y: -ay * h },
-			{ x: (1 - ax) * w, y: (1 - ay) * h },
-			{ x: -ax * w, y: (1 - ay) * h },
-		];
-		return corners.map((corner) => ({
-			x: cx + corner.x * cos - corner.y * sin,
-			y: cy + corner.x * sin + corner.y * cos,
-		}));
-	}
-	return null;
-}
-
-/** Liegt der Punkt AUF einer Polygon-Kante (Abstand < 1,5 px)?
- *  v1.3: Linien-Zonen platzieren die Quelle absichtlich AUF der
- *  Anker-Kante (Wirker steht an der Wandlinie) - der reine Innerhalb-
- *  Test wuerde diese Kernform auf W1 fallen lassen. */
-function _pointOnPolygonEdge(point, pts) {
-	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-		const a = pts[j];
-		const b = pts[i];
-		const ex = b.x - a.x;
-		const ey = b.y - a.y;
-		const lenSq = ex * ex + ey * ey;
-		if (lenSq === 0) {
-			if (Math.hypot(point.x - a.x, point.y - a.y) < 1.5) return true;
-			continue;
-		}
-		const t = Math.max(0, Math.min(1, ((point.x - a.x) * ex + (point.y - a.y) * ey) / lenSq));
-		if (Math.hypot(point.x - (a.x + ex * t), point.y - (a.y + ey * t)) < 1.5) return true;
-	}
-	return false;
-}
-
-/** Even-Odd-Test: Liegt der Punkt im (geschlossenen) Polygon? */
-function _pointInPolygon(point, pts) {
-	let inside = false;
-	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-		const xi = pts[i].x;
-		const yi = pts[i].y;
-		const xj = pts[j].x;
-		const yj = pts[j].y;
-		if (yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi) {
-			inside = !inside;
-		}
-	}
-	return inside;
-}
-
-/** Schnitt eines Strahls (Quelle + Richtung) mit einer Strecke a-b.
- *  @returns Distanz entlang des Strahls in Pixeln oder null. */
-function _raySegmentDistance(source, dir, a, b) {
-	const ex = b.x - a.x;
-	const ey = b.y - a.y;
-	const denom = dir.x * ey - dir.y * ex;
-	if (denom === 0) return null;
-	const t = ((a.x - source.x) * ey - (a.y - source.y) * ex) / denom;
-	const u = ((a.x - source.x) * dir.y - (a.y - source.y) * dir.x) / denom;
-	if (t > 0.0001 && u >= 0 && u <= 1) return t;
-	return null;
-}
-
-/** Erster Rand-Durchtritt des Strahls im Polygon (Abstand). */
-function _rayExitDistance(source, dir, pts) {
-	let best = null;
-	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-		const d = _raySegmentDistance(source, dir, pts[j], pts[i]);
-		if (d !== null && (best === null || d < best)) best = d;
-	}
-	return best;
-}
-
-/** Alle Strecken, die mindestens einen der Sinne voll blockieren. */
-function _blockingWallSegments(senses) {
-	const segments = [];
-	for (const edge of _sceneEdges()) {
-		let blocking = false;
-		for (const sense of senses) {
-			if (_edgeSenseValue(edge, sense) === 'normal') {
-				blocking = true;
-				break;
-			}
-		}
-		if (!blocking) continue;
-		const pts = _edgeSegmentPoints(edge);
-		if (pts) segments.push(pts);
-	}
-	return segments;
-}
-
-/** Flaecheninhalt (Shoelace) einer Punktliste. */
-function _polygonArea(pts) {
-	let area = 0;
-	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-		area += pts[j].x * pts[i].y - pts[i].x * pts[j].y;
-	}
-	return Math.abs(area) / 2;
-}
-
-/**
- * W0-Form-Clip einer frisch platzierten Zone (je aktiviertem Sinn).
- * v1.3: radialer Kern-Clip, siehe Abschnittskommentar oben.
- * @returns {Promise<string>} 'clipped' | 'geometry' (nichts zu tun oder
- *  kein Clip nötig) | 'fallback' (W1 - Doku-Zeile auf der Zonenkarte).
- */
-async function _w0ClipZoneShapes(region, aoe) {
-	try {
-		const senses = aoe?.config?.senses ?? [];
-		if (!senseWallsEnabled() || senses.length === 0) return 'geometry';
-		const subject = _shapeSubjectPolygon(_firstRegionShape(region));
-		if (!subject) {
-			console.info('Symbaroum AoE [trace] W0-Clip: W1 (Form nicht rekonstruierbar - Kegel/Ring/mystery)', region?.name, _firstRegionShape(region)?.type ?? 'keine Form');
-			return 'fallback';
-		}
-		/* v1.3.1 (Rudolfs Testrunde 6: "kein Clipping"): Der v1.3-Umbau
-		   hatte den dokumentierten QUEL-FALLBACK (Detailantwort 1:
-		   Wirker-Token, Fallback Zonenmittelpunkt) still entfernt -
-		   freie Zonen (ohne Wirker) und nicht aufloesbare Wirker-UUIDs
-		   liefen darum IMMER auf W1 statt wie unter v1.2.2 zu clippen.
-		   Der Fallback ist restauriert. Ausserdem loggt JEDE Rueckkehr
-		   jetzt ihren Grund in die Konsole (v1.3 tracete nur den
-		   Erfolgsfall - genau die stillen Pfade waren unbeobachtbar). */
-		const casterPoint = aoe.casterTokenUuid
-			? (() => {
-					const casterDoc = fromUuidSync(aoe.casterTokenUuid);
-					if (!casterDoc) return null;
-					return { x: (casterDoc.x ?? 0) + (casterDoc.width ?? 100) / 2, y: (casterDoc.y ?? 0) + (casterDoc.height ?? 100) / 2 };
-				})()
-			: null;
-		const sourcePoint = casterPoint ?? _regionCenter(region);
-		const sourceKind = casterPoint ? 'caster' : 'regionCenter';
-		if (!sourcePoint) return 'fallback';
-		if (!_pointInPolygon(sourcePoint, subject) && !_pointOnPolygonEdge(sourcePoint, subject)) {
-			console.info('Symbaroum AoE [trace] W0-Clip: W1 (Quelle ausserhalb der Flaeche)', region?.name, sourceKind, sourcePoint);
-			return 'fallback';
-		}
-		const walls = _blockingWallSegments(senses);
-		if (walls.length === 0) {
-			console.info('Symbaroum AoE [trace] W0-Clip: geometry (keine blockierenden Waende in der Szene)', region?.name);
-			return 'geometry';
-		}
-		/* Kritische Winkel: Regions-Ecken + Wand-Endpunkte, sortiert;
-		   Luecken > 2 Grad werden mit Zwischenschritten gefuellt, damit
-		   der Boegen- und Wandverlauf glatt bleibt (kein Raster). */
-		const criticals = new Set();
-		for (const p of subject) criticals.add(Math.atan2(p.y - sourcePoint.y, p.x - sourcePoint.x));
-		for (const seg of walls) {
-			for (const p of seg) criticals.add(Math.atan2(p.y - sourcePoint.y, p.x - sourcePoint.x));
-		}
-		const base = [...criticals].map((a) => ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)).sort((x, y) => x - y);
-		const step = Math.PI / 90; // 2 Grad
-		const angles = [];
-		for (let i = 0; i < base.length; i++) {
-			const from = base[i];
-			const to = i + 1 < base.length ? base[i + 1] : base[0] + Math.PI * 2;
-			const steps = Math.max(1, Math.ceil((to - from) / step));
-			for (let k = 0; k < steps; k++) angles.push(from + ((to - from) * k) / steps);
-		}
-		if (angles.length < 3) return 'geometry';
-		let wallHit = false;
-		const fan = [];
-		for (const angle of angles) {
-			const dir = { x: Math.cos(angle), y: Math.sin(angle) };
-			const exit = _rayExitDistance(sourcePoint, dir, subject);
-			let nearest = null;
-			for (const seg of walls) {
-				const d = _raySegmentDistance(sourcePoint, dir, seg[0], seg[1]);
-				if (d !== null && (nearest === null || d < nearest)) nearest = d;
-			}
-			if (nearest !== null && exit !== null && nearest < exit) wallHit = true;
-			/* Rand-Quelle (Linien-Zonen): Strahlen, die AUSSEN am Polygon
-			   vorbeilaufen, treffen weder Rand noch Wand - sie fallen
-			   weg (kein Stuetzpunkt in der Unendlichkeit, NaN-Schutz). */
-			if (exit === null && nearest === null) continue;
-			const r = Math.min(exit ?? Infinity, nearest ?? Infinity);
-			if (r > 0.0001 && Number.isFinite(r)) fan.push({ x: sourcePoint.x + dir.x * r, y: sourcePoint.y + dir.y * r });
-		}
-		if (!wallHit) {
-			console.info('Symbaroum AoE [trace] W0-Clip: geometry (kein Strahl traf eine blockierende Wand)', region?.name, walls.length, 'Wandsegment(e)');
-			return 'geometry';
-		}
-		if (fan.length < 3) {
-			console.info('Symbaroum AoE [trace] W0-Clip: W1 (leerer Faecher)', region?.name);
-			return 'fallback';
-		}
-		const areaRatio = _polygonArea(fan) / _polygonArea(subject);
-		if (areaRatio >= 0.995) {
-			console.info('Symbaroum AoE [trace] W0-Clip: geometry (Flaeche unveraendert)', region?.name, areaRatio.toFixed(4));
-			return 'geometry';
-		}
-		await region.update({ shapes: [{ type: 'polygon', points: fan }] });
-		console.info('Symbaroum AoE [trace] W0-Kern-Clip gesetzt:', region.name, fan.length, 'Punkte');
-		return 'clipped';
-	} catch (error) {
-		console.warn('Symbaroum AoE: W0 shape clip failed, geometric fallback (W1)', error);
-		return 'fallback';
-	}
-}
-
 export async function placeZoneFromItem(item) {
 	if (!item) return;
 	if (!mayPlaceZone(item)) return;
@@ -2675,24 +2505,25 @@ export async function placeZoneFromItem(item) {
 		if (zone.mode === 'instant') {
 			await _autoTargetRegion(region, cfg, casterToken);
 		}
+		/* v1.4 (Rudolfs Freigabe 19.11. nach Testrunde 7): Die Core-Wall-
+		   Restriction (fuer GM in _zoneRegionData gesetzt, fuer Spieler
+		   per GM-Socket) clippt die Flaeche fuer ALLE Formen; die Doku-
+		   Zeile nennt den wirksamen Sinn. Der eigene W0/W1-Einzelclip
+		   ist ersatzlos entfernt (siehe Abschnittskommentar oben). */
+		const restrictedSense = await _ensureCoreZoneRestriction(region, zone);
+		if (restrictedSense) {
+			zone.docLines = [
+				...(zone.docLines ?? []),
+				game.i18n.format('AOE.CHAT_W0_CORE', { sense: game.i18n.localize(`AOE.SENSE_${restrictedSense.toUpperCase()}`) }),
+			];
+			await region.setFlag('symbaroum', 'aoe', zone);
+		}
 		await _postZoneCard(region);
 		/* v2.2 (Baustein 9, Rudolfs Freigabe 10.11.): Einmal-Zonen
 		   beschränken die Zielmarkierung ihres Besitzers über die
 		   GESAMTE Standzeit - Platzierung bis Auslösen/Abbrechen (kurze,
 		   intensive Phase; andere User bleiben uneingeschränkt). */
 		if (zone.mode === 'instant') _openTargetWindow(region);
-		/* AoE-Rest Paket 1 (S1 Doppelwirkung a + Flammenwand-W0): Form-
-		   Clip an blockierenden Kanten/Regionen je aktiviertem Sinn -
-		   W0 mit automatischem W1-Fallback (rein geometrisch), Ergebnis
-		   als Doku-Zeile auf der Zonenkarte (Rudolfs Detailantwort 1). */
-		const clipResult = await _w0ClipZoneShapes(region, zone);
-		if (clipResult === 'fallback') {
-			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W1_FALLBACK')];
-			await region.setFlag('symbaroum', 'aoe', zone);
-		} else if (clipResult === 'clipped') {
-			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W0_CLIPPED')];
-			await region.setFlag('symbaroum', 'aoe', zone);
-		}
 		/* v2.2 (Rudolfs Entscheidung 1): Betreten-Trigger MIT Anfangs-
 		   bestand - steht bei der Platzierung bereits mindestens ein
 		   filterpassendes Token in der Fläche, löst die Zone EINMAL
@@ -2814,6 +2645,11 @@ export async function placeHymnZone(item) {
 		return { configured: true, cancelled: true };
 	}
 	if (!regions?.length) return { configured: true, cancelled: true };
+	/* v1.4 (Rudolfs Freigabe 19.11.): Auch die Gesangsflaeche bekommt die
+	   Core-Wall-Restriction - Hymnen-Default Sinn KLANG (Rudolfs Fest-
+	   legung), Foundry clippt an schallblockierenden Kanten; der Re-Scan
+	   in item.js sieht die geclippte Flaeche. */
+	await _ensureCoreZoneRestriction(regions[0], { config: { senses: cfg.senses ?? [] } });
 	return { configured: true, region: regions[0] };
 }
 
@@ -3128,6 +2964,14 @@ export async function placeFreeZone() {
 	// (Brau-Dialog-Muster).
 	const shapeOptions = Object.values(game.symbaroum.config.AOE_SHAPE_SELECTION).map((c) => ({ id: c.id, label: localize(c.label) }));
 	const targetingOptions = Object.values(game.symbaroum.config.AOE_TARGETING_SELECTION).map((c) => ({ id: c.id, label: localize(c.label) }));
+	/* v1.4: Sinn-Dropdown des freien Zonen-Dialogs - EIN Sinn (Core-
+	   Ein-Typ-Grenze), Default 'none' (kein Sinn). */
+	const senseOptions = [
+		{ id: 'none', label: localize('AOE.SENSE_NONE') },
+		{ id: 'move', label: localize('AOE.SENSE_MOVE') },
+		{ id: 'sight', label: localize('AOE.SENSE_SIGHT') },
+		{ id: 'sound', label: localize('AOE.SENSE_SOUND') },
+	];
 	const attrOptions = [
 		{ id: '', label: localize('AOE.RESIST_NONE') },
 		...game.symbaroum.config.attributes.map((a) => ({ id: a, label: localize(`ATTRIBUTE.${a.toUpperCase()}`) })),
@@ -3144,6 +2988,8 @@ export async function placeFreeZone() {
 		freeName: localize('AOE.FREE_DEFAULT_NAME'),
 		shapeOptions,
 		targetingOptions,
+		senseOptions,
+		
 		attrOptions,
 		conditionOptions,
 	});
@@ -3219,11 +3065,13 @@ async function _placeFreeZoneFromDialog(html) {
 			size,
 			targeting: val('aoe-free-targeting') || 'all',
 			targetOrder: 'marking',
-			senses: [
-				...(html.querySelector('#aoe-free-sense-move')?.checked ? ['move'] : []),
-				...(html.querySelector('#aoe-free-sense-sight')?.checked ? ['sight'] : []),
-				...(html.querySelector('#aoe-free-sense-sound')?.checked ? ['sound'] : []),
-			],
+			/* v1.4 (Rudolfs Freigabe 19.11.): EIN Sinn je Zone (Core-
+			   Ein-Typ-Grenze) - Dropdown statt der drei Checkboxen;
+			   'none' = kein Sinn (kein Clip, kein Filter). */
+			senses: (() => {
+				const freeSense = String(html.querySelector('#aoe-free-sense')?.value ?? 'none');
+				return ['move', 'sight', 'sound'].includes(freeSense) ? [freeSense] : [];
+			})(),
 		},
 		docLines: [],
 		effect: {
@@ -3253,15 +3101,16 @@ async function _placeFreeZoneFromDialog(html) {
 	}
 	if (!regions?.length) return;
 	for (const region of regions) {
-		/* AoE-Rest Paket 1 (S1): W0-Form-Clip auch für freie Zonen mit
-		   aktiviertem Sinn (W1-Fallback mit Doku-Zeile, Muster der
-		   Kraft-Zonen-Platzierung). */
-		const clipResult = await _w0ClipZoneShapes(region, zone);
-		if (clipResult === 'fallback') {
-			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W1_FALLBACK')];
-			await region.setFlag('symbaroum', 'aoe', zone);
-		} else if (clipResult === 'clipped') {
-			zone.docLines = [...(zone.docLines ?? []), game.i18n.localize('AOE.CHAT_W0_CLIPPED')];
+		/* v1.4 (Rudolfs Freigabe 19.11.): Freie Zonen bekommen dieselbe
+		   Core-Wall-Restriction und Doku-Zeile wie Kraft-Zonen (GM in
+		   _zoneRegionData, Spieler per GM-Socket); der eigene v1.3.1-
+		   W0-Clip ist ersatzlos entfernt. */
+		const freeSense = await _ensureCoreZoneRestriction(region, zone);
+		if (freeSense) {
+			zone.docLines = [
+				...(zone.docLines ?? []),
+				game.i18n.format('AOE.CHAT_W0_CORE', { sense: game.i18n.localize(`AOE.SENSE_${freeSense.toUpperCase()}`) }),
+			];
 			await region.setFlag('symbaroum', 'aoe', zone);
 		}
 		await _postZoneCard(region);
@@ -3364,6 +3213,34 @@ async function aoeZoneBehaviorSocketHandler(message) {
 	return installed;
 }
 
+/* v1.4 (Rudolfs Freigabe 19.11.): GM-seitige Socket-Setzung der Core-
+   Wall-Restriction auf Spieler-Zonen (Parallele zum Betreten-Behavior:
+   falls V14 die Restriction-Anlage durch Nicht-SLs beschraenkt, bleibt
+   der Flaechen-Clip fuer Spieler dennoch verfuegbar). Rueckgabe true
+   = gesetzt. */
+async function aoeZoneRestrictionSocketHandler(message) {
+	if (!message || !game.user?.isGM) return undefined;
+	if (message?.type !== 'aoeZoneRestrictionInstall') return undefined;
+	const { sceneId, regionIds, restriction } = message.data ?? {};
+	const scene = game.scenes.get(sceneId);
+	if (!scene || !Array.isArray(regionIds)) return false;
+	const wantedType = ['move', 'sight', 'sound'].includes(restriction?.type) ? restriction.type : 'move';
+	const wanted = { enabled: true, type: wantedType, priority: Number(restriction?.priority) || 0 };
+	let installed = false;
+	for (const regionId of regionIds) {
+		const region = scene.regions?.get(regionId);
+		if (!region) continue;
+		try {
+			await region.update({ restriction: wanted });
+			installed = true;
+		} catch (error) {
+			console.error('Symbaroum AoE: Wall-Restriction-Setzung fehlgeschlagen', region?.name, error);
+		}
+	}
+	console.info('Symbaroum AoE [trace] aoeZoneRestrictionInstall:', { sceneId, regionIds, installed, type: wantedType });
+	return installed;
+}
+
 export function registerAoeHooks() {
 	/* v1.2.1 (HOTFIX, Rudolfs Testrunde 3: v1.2-Toetungs-Regression):
 	 * Die v1.2-Socket-Registrierung stand ALS ERSTE ANWEISUNG hier und
@@ -3378,6 +3255,8 @@ export function registerAoeHooks() {
 	 * funktionierte. Fix: Registrierung in Hooks.once('ready'). */
 	Hooks.once('ready', () => {
 		game.socket?.on('system.symbaroum', aoeZoneBehaviorSocketHandler);
+		/* v1.4: Core-Wall-Restriction auf Spieler-Zonen (GM-seitig). */
+		game.socket?.on('system.symbaroum', aoeZoneRestrictionSocketHandler);
 	});
 	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im
 	// aktiven Zonen-Fenster auf Token INNERHALB der Zone beschränken.

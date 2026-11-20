@@ -218,6 +218,7 @@
           "duration": 0,
           "targetOrder": "marking",
           "includeCaster": "never",
+          "sense": "",
           "senseMove": false,
           "senseSight": false,
           "senseSound": false

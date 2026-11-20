@@ -719,15 +719,16 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				   gespeichertes 'Nein' war unsichtbar (Warnung "Zone ohne
 				   Form" trotz deaktivierter Zone, auch bei Schutzrunen). */
 				active: String(zone?.active ?? 'yes'),
-				/* AoE-Rest Paket 1 (S1): Sinn-Filter-Checkboxen - ANZEIGE ist
-				   der EFFEKTIVE Wert (explizite Checkbox ODER Gruppen-Default
-				   je Referenz, config.getZoneSenseDefaults); der Submit schreibt
-				   den angehakten Wert explizit (Stackable-Muster: vorberechnete
-				   Booleans, keine Template-Logik). Ohne konfigurierte Form
-				   (zoneCfg null) greifen dieselben Gruppen-Defaults. */
-				senseMove: (zoneCfg?.senses ?? resolveZoneSenses(zone, String(this.item.system?.reference ?? ''))).includes('move'),
-				senseSight: (zoneCfg?.senses ?? resolveZoneSenses(zone, String(this.item.system?.reference ?? ''))).includes('sight'),
-				senseSound: (zoneCfg?.senses ?? resolveZoneSenses(zone, String(this.item.system?.reference ?? ''))).includes('sound'),
+				/* v1.4 (Rudolfs Freigabe 19.11. nach Testrunde 7): EIN Sinn
+				   je Zone - DROPDOWN statt der drei Checkboxen (Core-
+				   Ein-Typ-Grenze der Wall-Restriction). ANZEIGE ist der
+				   EFFEKTIVE Wert (system.areaZone.sense bzw. LEGACY-
+				   Checkboxen ODER Gruppen-Default je Referenz, config.
+				   getZoneSenseDefaults: Kraefte Sicht, Flammenwand
+				   Bewegung, Hymnen Klang); der Submit schreibt den
+				   String explizit. Ohne konfigurierte Form (zoneCfg
+				   null) greifen dieselben Gruppen-Defaults. */
+				sense: (zoneCfg?.senses ?? resolveZoneSenses(zone, String(this.item.system?.reference ?? '')))[0] ?? 'none',
 			};
 			/* v2.1: Augenblickliche Zonen haben keine Dauer (One-Shot) -
 			   das Template blendet das Dauer-Feld deshalb aus */
@@ -758,6 +759,15 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				id: c.id,
 				label: game.i18n.localize(c.label),
 			}));
+			/* v1.4: Sinn-Dropdown des Zonen-Tabs - EIN Sinn je Zone
+			   (Core-Ein-Typ-Grenze der Wall-Restriction; kein
+			   Konfig-Objekt, die vier Optionen sind fix). */
+			context.aoe_sense_selection = [
+				{ id: 'none', label: game.i18n.localize('AOE.SENSE_NONE') },
+				{ id: 'move', label: game.i18n.localize('AOE.SENSE_MOVE') },
+				{ id: 'sight', label: game.i18n.localize('AOE.SENSE_SIGHT') },
+				{ id: 'sound', label: game.i18n.localize('AOE.SENSE_SOUND') },
+			];
 			/* Hymnen-Paket 1.1: Zonen-Schalter (aktiviert/deaktiviert) */
 			context.aoe_zone_active_selection = Object.values(game.symbaroum.config.AOE_ZONE_ACTIVE_SELECTION).map((c) => ({
 				id: c.id,
@@ -1468,24 +1478,19 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				if (raw === undefined) continue;
 				foundry.utils.setProperty(update, name, clamp(raw));
 			}
-			/* v1.2 (Rudolfs Testrunde 2, P3b): Die drei Sinn-Checkboxen
-			 * (system.areaZone.senseMove/senseSight/senseSound) dornten:
-			 * (a) der Submit liefert nur den STRING 'true' (value-Attribut,
-			 * ungekastet) - resolveZoneSenses verglich strikt === true und
-			 * die Aktivierung verschwand beim naechsten Render wieder;
-			 * (b) eine ABGEWHLTE Checkbox fehlt im FormData komplett -
-			 * das alte true blieb unberuehrt stehen, Abwaehlen ging nie
-			 * "dauerhaft". Fix: alle drei Felder werden JE Submit explizit
-			 * als BOOLEAN geschrieben (_checkbox im FormData = angehakt),
-			 * gefunden in formData, geschrieben via setProperty in die
-			 * expanded/nested Submit-Daten (V14-Muster wie oben). Nur auf
-			 * Blaettern mit Zonen-Tab (system.areaZone existiert) - andere
-			 * Item-Typen werden nicht veraendert. */
+			/* v1.4 (Rudolfs Freigabe 19.11.): EIN Sinn je Zone - das
+			 * Dropdown liefert einen STRING ('none'/'move'/'sight'/
+			 * 'sound'), direkt kanonisiert beim Submit (Selects LIEFERN
+			 * ihren Wert immer - das v1.2-Checkbox-Problem fehltender
+			 * FormData-Eintraege besteht hier nicht). Die LEGACY-Felder
+			 * (senseMove/senseSight/senseSound) werden NICHT mehr
+			 * geschrieben; resolveZoneSenses liest sie fuer Alt-Zonen
+			 * weiter (erster aktiver Sinn gewinnt). Nur auf Blaettern
+			 * mit Zonen-Tab (system.areaZone existiert). */
 			if (this.item?.system?.areaZone ?? null) {
-				for (const senseField of ['senseMove', 'senseSight', 'senseSound']) {
-					const path = `system.areaZone.${senseField}`;
-					foundry.utils.setProperty(update, path, formData.get(path) === 'true');
-				}
+				const path = 'system.areaZone.sense';
+				const rawSense = String(formData.get(path) ?? 'none');
+				foundry.utils.setProperty(update, path, ['none', 'move', 'sight', 'sound'].includes(rawSense) ? rawSense : 'none');
 			}
 		}
 		return update;
