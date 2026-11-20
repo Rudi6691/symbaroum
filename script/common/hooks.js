@@ -49,7 +49,7 @@ import { registerAmmoSettings } from './ammo.js';
 // „Flächeneffekte (AoE)“ (GM, world, Default AN) + Template-Platzierung
 // mit Auto-Targeting aus dem Kraft-Item - Engine: aoe.js, Datenmodell
 // system.areaZone (template.json, additives Feld).
-import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor, removeHymnZoneRegions } from './aoe.js';
+import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor, removeHymnZoneRegions, removeThornCloakZones } from './aoe.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
@@ -918,7 +918,7 @@ Hooks.on('changeSidebarTabA', (app) => {
 	game.symbaroum.log('In changeSidebarTab - sorting out available compendiums', app, app.rendered);
 });
 
-Hooks.on('preDeleteActiveEffect', (ae) => {
+Hooks.on('preDeleteActiveEffect', async (ae) => {
 	game.symbaroum.log('preDeleteActiveEffect', ae);
 	let holyShield = false;
 	/* Hymnen-Paket 1.5 (Dornenmantel): Spiegel des holyShield-Blocks -
@@ -946,6 +946,16 @@ Hooks.on('preDeleteActiveEffect', (ae) => {
 			const ids = actor.items.filter((i) => i.getFlag(game.system.id, 'thorncloakarmor')).map((i) => i.id);
 			if (ids.length > 0) {
 				actor.deleteEmbeddedDocuments('Item', ids);
+			}
+			/* Hymnen v1.2 (F7, Rudolfs Freigabe 20.11.): Endet das EIGENE
+			   (Caster-)Symbol des Akteurs, raeumt die Dornenmantel-Flaeche
+			   der Szene mit ab - Verbundeten-Marker (fd.caster zeigt auf
+			   einen ANDEREN Akteur) beruehren die Flaeche des Mystikers
+			   nicht. Deckt alle Raeumpfade: A29-Nein, Konzentration,
+			   Abbruch-Dialog, manuelle Symbol-Entfernung. */
+			const tcFlagData = ae.getFlag(game.system.id, 'flagData');
+			if (tcFlagData?.caster === actor.id) {
+				await removeThornCloakZones(actor.id);
 			}
 		}
 	}
@@ -1772,7 +1782,15 @@ registerAoeHooks();
 
 Hooks.on('updateCombat', async (combat, changed) => {
 	if (!game.user.isActiveGM) return;
-	if (!('turn' in changed)) return;
+	/* Hymnen v1.2 (F3, Rudolfs v1.1-Testrunde P3): Das 'turn'-Only-
+	   Gate feuerte bei SOLO-Kaempfern nie - "Naechste Runde" aendert
+	   bei einem einzelnen Kaempfer nur round (turn bleibt 0), der
+	   A29-Reminder der Gesaenge stand still. Zusaetzlicher 'round'-
+	   Check; die Guard-Keys duellieren Doppel-Feuerungen (turn UND
+	   round im selben Rundenwechsel) ueber die turn-Komponente - bei
+	   reinem Rundenwechsel ist turn unverändert 0, der Guard-Key
+	   bleibt pro Runde eindeutig. */
+	if (!('turn' in changed) && !('round' in changed)) return;
 	const actor = combat.combatant?.actor;
 	if (!actor) return;
 	const groups = a29ScanMaintainedPowers(actor);

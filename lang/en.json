@@ -1070,6 +1070,7 @@
   "POWER_THORN_CLOAK.ZONE_JOINED": "{targetname} enters the thorn cloak's reach – +1d4 armor.",
   "POWER_THORN_CLOAK.ALLY_END_LINE": "{targetname}'s thorn cloak protection ends.",
   "POWER_THORN_CLOAK.MASTER_HINT": "Master level: every successful melee attack against a protected character automatically triggers 1d10 damage (armor ignored).",
+  "POWER_THORN_CLOAK.REGION_NAME": "Thorn Cloak [{user}]",
   "POWER_THORN_CLOAK.SWEEP_SKIP": "{targetname}: {reason}",
   "POWER_THORN_CLOAK.SWEEP_REASON_DISPOSITION": "not woven – disposition {disp} (mystic {caster})",
   "POWER_THORN_CLOAK.SWEEP_REASON_DISTANCE": "not woven – distance {cells} squares",

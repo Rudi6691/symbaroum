@@ -223,12 +223,16 @@ export function senseWallsEnabled() {
  *       Rudolf-Entscheidung),
  *   (b) SL-Regionen mit AKTIVIERTER Restriktion passenden Typs
  *       (CONST.EDGE_RESTRICTION_TYPES: move / SIGHT / SOUND).
- * Zentren-Toleranz nach bestimmeZentrum-Muster: Quelle und Ziel bis
- * 1,5 Zellen entfernt gelten als offen (Nachbarschafts-Konvention der
- * Dornenmantel-Näheprüfung). Messfehler (keine Szene/Geometrie) blocken
- * NIE - das SL-Urteil wirkt (Rückgabe error:true, Aufrufer zeigt Diagnose-
- * zeile statt still zu überspringen). Raycast bewusst im Helper selbst
- * (canvas.visibility.testVisibility prüft nur die BETRACHTER-Perspektive).
+ * v1.2 F6 (Rudolfs Entscheidung "strikter Core-Clip", 20.11.2026): Die
+ * v1.0-Zentren-Toleranz (Quelle und Ziel bis 1,5 Zellen gelten als
+ * offen, Nachbarschafts-Konvention der Dornenmantel-Näheprüfung) ist
+ * ABGESCHAFFT - der Dornenmantel entscheidet seit F7 über seine ge-
+ * clippte Region, senseBlocked misst strikt; der Parameter bleibt für
+ * kuenftige bewusste Ausnahmen. Messfehler (keine Szene/Geometrie)
+ * blocken NIE - das SL-Urteil wirkt (Rückgabe error:true, Aufrufer
+ * zeigt Diagnosezeile statt still zu überspringen). Raycast bewusst
+ * im Helper selbst (canvas.visibility.testVisibility prüft nur die
+ * BETRACHTER-Perspektive).
  * ------------------------------------------------------------------- */
 
 /* Endpunkte einer Kante defensiv extrahieren (V14-EdgeDocument-Feld-
@@ -382,7 +386,7 @@ function _segmentCrossesRestrictingRegion(from, to, sense, ownRegionId = null) {
  * @returns {{blocked: boolean, error: boolean, reason: string|null}}
  *   error = Messung fehlgeschlagen (nicht blockiert, SL-Urteil wirkt).
  */
-export function senseBlocked(from, to, sense, { ownRegionId = null, toleranceCells = 1.5 } = {}) {
+export function senseBlocked(from, to, sense, { ownRegionId = null, toleranceCells = 0 } = {}) {
 	try {
 		const scene = canvas.scene;
 		if (!scene || !senseWallsEnabled()) return { blocked: false, error: false, reason: null };
@@ -398,9 +402,11 @@ export function senseBlocked(from, to, sense, { ownRegionId = null, toleranceCel
 		const a = pointOf(from);
 		const b = pointOf(to);
 		const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.scene?.grid?.size ?? 100;
-		/* Zentren-Toleranz (bestimmeZentrum-Muster): Nachbarschaft ist
-		   offen - keine Kante zwischen unmittelbar benachbarten Token. */
-		if (Math.hypot(b.x - a.x, b.y - a.y) <= cell * toleranceCells) {
+		/* v1.2 F6 (Rudolfs Entscheidung "strikter Core-Clip", 20.11.2026):
+		   Toleranz-Default 0 - Nachbarn hinter einer blockierenden Wand
+		   zaehlen nicht mehr als offen; der Zweig greift nur, wenn ein
+		   Aufrufer toleranceCells bewusst uebergibt. */
+		if (toleranceCells > 0 && Math.hypot(b.x - a.x, b.y - a.y) <= cell * toleranceCells) {
 			return { blocked: false, error: false, reason: null };
 		}
 		for (const edge of _sceneEdges()) {
@@ -609,22 +615,39 @@ function _resolveCasterToken(item) {
 
 /**
  * Token der Region sammeln - primär über die Core-Geometrie
- * (RegionDocument.tokens), Fallback über region.testPoint am
- * Token-Mittelpunkt. Versteckte Token bleiben außen vor.
+ * (RegionDocument.tokens), Fallback über TokenDocument#testInsideRegion
+ * (F5; geometrischer Zentrumstest als letzte Rückfalle).
+ * Versteckte Token bleiben außen vor.
  */
 function _collectRegionTokens(region) {
 	let tokens = [...(region.tokens ?? [])];
-	if (tokens.length === 0 && typeof region.testPoint === 'function') {
+	if (tokens.length === 0) {
+		/* F5 (Rudolfs Freigabe 20.11.): Core-Containment statt des toten
+		   testPoint-Fallbacks (V14-Regionen kennen KEIN testPoint-Proto-
+		   koll am RegionDocument) - TokenDocument#testInsideRegion ist
+		   die kanonische Mitgliedschafts-Pruefung (bounds-basiert); der
+		   geometrische Zentrumstest bleibt letzte Rueckfalle. */
 		tokens = [];
 		for (const placeable of canvas.tokens?.placeables ?? []) {
 			const doc = placeable.document;
 			if (!doc?.actor) continue;
-			const point = { x: placeable.center?.x ?? doc.x, y: placeable.center?.y ?? doc.y, elevation: doc.elevation ?? 0 };
-			try {
-				if (region.testPoint(point)) tokens.push(doc);
-			} catch (error) {
-				console.warn('Symbaroum AoE: region.testPoint fallback failed', error);
+			let inside = false;
+			if (typeof doc.testInsideRegion === 'function') {
+				try {
+					inside = doc.testInsideRegion(region);
+			} catch (regionTestError) {
+					console.warn('Symbaroum AoE: testInsideRegion fallback failed', regionTestError);
+				}
 			}
+			if (!inside && typeof region.testPoint === 'function') {
+				const point = { x: placeable.center?.x ?? doc.x, y: placeable.center?.y ?? doc.y, elevation: doc.elevation ?? 0 };
+				try {
+					if (region.testPoint(point)) inside = true;
+				} catch (pointError) {
+					/* geometrische Rueckfalle gescheitert - Token bleibt draussen */
+				}
+			}
+			if (inside) tokens.push(doc);
 		}
 	}
 	return tokens.filter((td) => !!td?.actor && !td?.hidden);
@@ -1264,67 +1287,16 @@ async function _executeZoneTrigger(region, { manual = false, enteringTokenId = n
 		enteringTokenId !== null
 			? [region.parent?.tokens?.get(enteringTokenId)].filter((td) => !!td?.actor && !td.hidden)
 			: _resolveZoneTargets(region, aoe, { auto: !manual });
-	/* AoE-Rest Paket 1 (S1, Doppelwirkung b): Ziel-Filter je angehaktem
-	   Sinn - die Zone wirkt nicht auf Token, deren Strahl Quelle->Ziel
-	   eine Kante/Region mit passender Blockade kreuzt. Skip ist NIE
-	   still: Diagnose-Karte je übersprungenem Token (Messfehler =>
-	   Token wirkt weiter, Zeile „SL-Urteil wirkt"). Quelle = Wirker-
-	   Token, Fallback Zonenmittelpunkt. Altzonen ohne Sinn-Snapshot
-	   bleiben ungefiltert. */
-	const zoneSenses = Array.isArray(aoe.config?.senses) ? aoe.config.senses : [];
-	if (senseWallsEnabled() && zoneSenses.length > 0 && tokens.length > 0) {
-		const casterDoc = _casterTokenOfZone(aoe);
-		const sourcePoint = casterDoc ?? _regionCenter(region);
-		if (sourcePoint) {
-			const kept = [];
-			const skipLines = [];
-			for (const tokenDoc of tokens) {
-				let blockedSense = null;
-				let measureFailed = false;
-				for (const sense of zoneSenses) {
-					const result = senseBlocked(sourcePoint, tokenDoc, sense, { ownRegionId: region.id });
-					if (result.error) {
-						measureFailed = true;
-						break;
-					}
-					if (result.blocked) {
-						blockedSense = sense;
-						break;
-					}
-				}
-				if (measureFailed) {
-					skipLines.push(`<p>${game.i18n.format('AOE.SENSE_MEASURE_FAIL', { targetname: _escapeHtml(tokenDoc.actor?.name ?? tokenDoc.name ?? '') })}</p>`);
-					kept.push(tokenDoc);
-					continue;
-				}
-				if (blockedSense) {
-					skipLines.push(`<p>${game.i18n.format('AOE.SENSE_SKIP', { targetname: _escapeHtml(tokenDoc.actor?.name ?? tokenDoc.name ?? ''), sense: game.i18n.localize(`AOE.SENSE_${blockedSense.toUpperCase()}`) })}</p>`);
-					continue;
-				}
-				kept.push(tokenDoc);
-			}
-			/* v1.4 (Rudolfs Entscheidung Testrunde 7, Option C): Bei einer
-			   Ausloesung OHNE verbleibende Ziele (kept.length === 0)
-			   wird KEINE Diagnose-Karte mehr gepostet - der Befund steht
-			   auf der Trace-Zeile unten; die Karte erscheint nur, wenn
-			   neben den Skips mindestens ein Ziel uebrig bleibt. */
-			const postSkipCard = skipLines.length > 0 && kept.length > 0;
-			if (postSkipCard) await _postZoneDiagCard(region, skipLines);
-			tokens.length = 0;
-			tokens.push(...kept);
-			/* v1.3 (Rudolfs Testrunde 5, Defect "Verwirrung ohne
-			   Skip-Karte"): Trace je Ausloesung - Zielanzahl, aktive
-			   Sinne, gefiltert/gehalten und ob die Karte gepostet wurde.
-			   Findet der naechste Testlauf die Karte wieder nicht, zeigt
-			   diese Zeile WO die Zielmenge vor dem Filter geschrumpft
-			   ist (Registry, Disposition, Zielwahl) statt nur zu raten. */
-			console.info(
-				'Symbaroum AoE [trace] Ausl\u00f6sung gepr\u00fcft:',
-				region?.name,
-				JSON.stringify({ tokensVorher: tokens.length + skipLines.length, gefiltert: skipLines.length, gehalten: kept.length, sinne: zoneSenses, manual, enteringTokenId, skipKarte: postSkipCard })
-			);
-		}
-	}
+	/* v1.2 F8 (Rudolfs Entscheidung "strikter Core-Clip", 20.11.2026):
+	   Der eigene Sinn-Strahlen-Filter je Zone ist ENTFERNT - die
+	   Core-Wall-Restriktion der Region clippt die sichtbare Flaeche
+	   selbst, und die GUI-Optik ist die alleinige Quelle der Ziel-
+	   Wahrheit (Optik = Pruefung). Ein zweiter Ray Quelle->Ziel
+	   verdoppelt die Messung nur noch (Testrunde-v1.1-Diskussion:
+	   Nachbar hinter einer duennen Wand, Sektormessung Saenger->Ziel
+	   vs. Zonen-Clip). Nicht-zonenbasierte Pfade (Auren, Reaktionen,
+	   Sichtweiten-Fallbacks) behalten senseBlocked; Altzonen ohne
+	   Sinn-Snapshot laufen wie bisher ungefiltert. */
 	/* v2.7 (Testrunde 7, Rudolfs Schritt 7 wörtlich + Musterablauf v1.1):
 	   Bannsiegel-Zonen laufen auch mit LEEREM Anfangsbestand in die
 	   AKTIVIERUNG - die Aktivierung kostet 1 temporäre Korruption und
@@ -1800,31 +1772,6 @@ async function _applyFreeZoneEffect(region, tokenDoc, eff, cardLines = null) {
 		rollText: cardLines?.rollText ?? '',
 		outcomeLines: applied,
 	});
-}
-
-/**
- * Diagnose-Karte einer Zone (S1): übersprungene Ziele je Sinn NIEMALS
- * still - jede Skip-Zeile landet als eigene Kartenzeile (v2.15-P13-max-
- * Muster, öffentliche Karte im Zonen-Design).
- */
-async function _postZoneDiagCard(region, lines) {
-	if (!Array.isArray(lines) || lines.length === 0) return;
-	const html = `<div class="symbaroum chat aoe-card"><div class="aoe-card-line"><i class="fas fa-draw-polygon"></i><b>${_escapeHtml(region?.name ?? '')}</b></div><div class="aoe-card-detail">${_escapeHtml(game.i18n.localize('AOE.SENSE_SKIP_CARD_TITLE'))}</div>${lines.map((line) => `<div class="aoe-card-detail">${line}</div>`).join('')}</div>`;
-	/* v1.3 (Rudolfs Testrunde 5, Defect "Verwirrung ohne Skip-Karte"):
-	   Der Kartenversand ist ABSICHTLICH fehlertolerant - wirft das
-	   ChatMessage.create (Rechte, Transient-Client, Socket-Race), bleibt
-	   die AUSLOESUNG trotzdem vollstaendig: Filterung, Wuerfe, Karten-
-	   Updates laufen weiter, der Fehler ist in der Konsole sichtbar,
-	   statt die Zone stimmlos abzubrechen. */
-	try {
-		await ChatMessage.create({
-			speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
-			content: html,
-		});
-		console.info('Symbaroum AoE [trace] Sinn-Skip-Diagnosekarte gepostet:', region?.name, lines.length, 'Zeile(n)');
-	} catch (error) {
-		console.error('Symbaroum AoE: Sinn-Skip-Diagnosekarte konnte nicht gepostet werden', region?.name, error);
-	}
 }
 
 /**
@@ -2707,7 +2654,12 @@ export async function placeHymnZone(item) {
 		regionData.restriction = hymnRestriction;
 		console.info('Symbaroum AoE [trace] W0: Core Wall Restriction gesetzt (Typ ' + hymnRestriction.type + ')', regionData.name);
 	}
-	if (canvas.level) regionData.levels = [canvas.level.id];
+	/* v1.2 F1: Level-Passung des Anhangs - "Attached Token" verlangt die
+	   Region in GENAU EINEM Level, das zum Sänger-Token passt; die Ebene
+	   des TOKENS schlägt die gerade aktive Client-Ebene (die SL darf beim
+	   Platzieren eine andere Ebene gewählt haben). */
+	const casterLevelIdAtPlace = _tokenLevelId(casterToken?.document ?? casterToken ?? null);
+	if (casterLevelIdAtPlace) regionData.levels = [casterLevelIdAtPlace];
 	let regions = null;
 	try {
 		regions = await canvas.regions.placeRegions([regionData]);
@@ -2716,55 +2668,61 @@ export async function placeHymnZone(item) {
 		return { configured: true, cancelled: true };
 	}
 	if (!regions?.length) return { configured: true, cancelled: true };
-	/* Hymnen-Anhang v1.1 (Rudolfs Testrunde v1, P1/P12 + Freigabe
-	   20.11.): Der eigene Follow-Bau (Versatz-Flag + updateToken-
-	   Rechenwerk) ist ERSETZT durch den Core-Token-Anhang - Foundry
-	   V14 fuehrt angehaengte Regionen live mit dem Token (animiert,
-	   rotationssynchron, Hidden-Sync mit dem Token; Feld attachedToken
-	   am RegionDocument, Release 14.353). Zusaetzliche Rudolf-Wuensche:
-	   Die Zone wird bei der Platzierung AUTOMATISCH auf den Sänger
-	   zentriert (P12, vor dem Anhang), und das Wert-Format des Felds
-	   ist hier nicht statisch verifizierbar - deshalb UUID zuerst,
-	   Token-Id als Fallback, und bleibt beides invalid, laeuft der
-	   korrigierte updateToken-Hook als NOTFALL-FOLLOW weiter (siehe
-	   unten, Existenz-Probe traegt das nach). Ohne Wirker-Token
-	   (KonServe-Faelle) weder Anhang noch Zentrierung. */
+	/* Hymnen-Anhang v1.2 (F1/F2, Rudolfs Freigabe 20.11.): Kanonische
+	   Core-Schnittstelle statt des v1.1-Experiments (attachedToken war
+	   KEIN Feld des RegionDocument, Foundry überging das Update still;
+	   Regionen haben KEIN Top-Level x/y, die Position wohnt in den
+	   SHAPE-DATEN): Der Anhang läuft über RegionData.attachment
+	   { token: ROHE Token-_id } (V14.370 Stable), die Zentrierung über
+	   den Punkt-Pfad 'shapes.0.x/.y' auf die Token-Mitte (Fallback
+	   Einzel-Shape-Update, v1.1-Code konserviert), die Level-Passung
+	   über die Ebene des Sänger-Tokens (F1). Reihenfolge: ERST zen-
+	   trieren, DANN anhängen - der Core-Anhang folgt aus der AKTUELLEN
+	   relativen Position (API-Doc), ein Konservieren des SL-Versatzes
+	   ist so ausgeschlossen. Schlägt der Anhang fehl, läuft der Notfall-
+	   Follow im updateToken-Hook weiter (Existenz-Probe trägt nach,
+	   toleranter Doppel-Check für Alt-Zonen vor v1.2). Ohne Wirker-
+	   Token (KonServe-Faelle) weder Anhang noch Zentrierung. */
 	if (casterToken) {
 		const castDoc = casterToken.document ?? casterToken;
 		const tCenter = {
 			x: (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2,
 			y: (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2,
 		};
-		/* Auto-Zentrierung: Shape-Anker auf die Token-Mitte ziehen
-		   (Muster _hymnZoneFollowToken: Shape-Update vor Region-Update,
-		   Nicht-Iterierbare Faelle/_regionShapes decken beide ab). */
-		for (const shape of _regionShapes(regions[0])) {
-			try {
-				if (typeof shape?.update === 'function') await shape.update({ x: tCenter.x, y: tCenter.y });
-				else await regions[0].update({ x: tCenter.x, y: tCenter.y });
-			} catch (error) {
-				console.warn('Symbaroum Hymnen: Auto-Zentrierung fehlgeschlagen', error);
+		let centered = false;
+		try {
+			if ((_regionShapes(regions[0]) ?? []).length === 1) {
+				await regions[0].update({ 'shapes.0.x': tCenter.x, 'shapes.0.y': tCenter.y });
+				centered = true;
+			}
+		} catch (centerError) {
+			console.warn('Symbaroum Hymnen [trace] Zentrierung (shapes.0.x/.y) fehlgeschlagen - Form-Fallback', { regionId: regions[0].id, centerError });
+		}
+		if (!centered) {
+			for (const shape of _regionShapes(regions[0])) {
+				try {
+					if (typeof shape?.update === 'function') await shape.update({ x: tCenter.x, y: tCenter.y });
+					centered = true;
+				} catch (shapeError) {
+					console.warn('Symbaroum Hymnen [trace] Form-Zentrierung fehlgeschlagen', shapeError);
+				}
 			}
 		}
-		/* Core-Anhang: UUID-Referenz bevorzugt, rohe Token-Id als
-		   Fallback (Schema-Validierung entscheidet, was angenommen
-		   wird); beide Fehlschlaege landen im Trace als Warnung. */
 		let attached = null;
-		for (const ref of [castDoc.uuid ?? casterToken.uuid ?? null, castDoc.id ?? casterToken.id ?? null]) {
-			if (!ref) continue;
-			try {
-				await regions[0].update({ attachedToken: ref });
-				attached = ref;
-				break;
-			} catch (error) {
-				console.warn('Symbaroum Hymnen [trace] Core-Anhang fehlgeschlagen, naechstes Format', { ref: String(ref).slice(0, 40), error });
-			}
+		try {
+			const attachPatch = { attachment: { token: castDoc.id } };
+			const attachLevelId = _tokenLevelId(castDoc);
+			if (attachLevelId) attachPatch.levels = [attachLevelId];
+			await regions[0].update(attachPatch);
+			attached = regions[0].attachment?.token ?? null;
+		} catch (attachError) {
+			console.warn('Symbaroum Hymnen [trace] Core-Anhang fehlgeschlagen - Notfall-Follow im updateToken-Hook uebernimmt', { regionId: regions[0].id, attachError });
 		}
 		console.info(
 			attached
-				? 'Symbaroum Hymnen [trace] Gesangszone an Sänger angehängt (Core folgt live)'
-				: 'Symbaroum Hymnen [trace] Core-Anhang NICHT gesetzt - Notfall-Follow im updateToken-Hook übernimmt',
-			{ regionId: regions[0].id, attachedToken: attached }
+				? 'Symbaroum Hymnen [trace] Gesangszone zentriert + angehaengt (attachment.token, Level-Passung nach Sänger-Ebene)'
+				: 'Symbaroum Hymnen [trace] Core-Anhang NICHT gesetzt - Notfall-Follow im updateToken-Hook uebernimmt',
+			{ regionId: regions[0].id, attachedToken: attached, centered }
 		);
 	}
 	/* v1.4 (Rudolfs Freigabe 19.11.): Auch die Gesangsflaeche bekommt die
@@ -2776,9 +2734,9 @@ export async function placeHymnZone(item) {
 }
 
 /**
- * Alle Szenen-Token, deren Mittelpunkt in der Region liegt
- * (Muster _collectRegionTokens: region.tokens mit testPoint-Fallback).
- * @returns {TokenPlaceable[]}
+ * Alle Szenen-Token in der Region (Muster _collectRegionTokens:
+ * region.tokens mit testInsideRegion-Fallback, F5).
+ * @returns {TokenDocument[]}
  */
 export function hymnRegionTokens(region) {
 	if (!region) return [];
@@ -2803,7 +2761,7 @@ function _regionShapes(region) {
 }
 
 /* Hymnen-Anhang v1.1: NOTFALL-FOLLOW - nur Regionen OHNE Core-Anhang
- * (attachedToken) werden auf die Token-Mitte nachgezogen. Der v1-Fehler
+ * (attachment.token) werden auf die Token-Mitte nachgezogen. Der v1-Fehler
  * (Kaster-Flag = ACTOR-Id, Hook-Vergleich = TOKEN-Id, Trefferquote null)
  * ist behoben: Es wird gegen BEIDE Ids verglichen (Token-Id UND
  * Token.actor.id). Mehrere GM-Clients rechnen dieselben Ziel-Koordinaten
@@ -2826,7 +2784,7 @@ async function _hymnZoneFollowToken(tokenDoc) {
 		/* Angehaengte Regionen bewegt der Core selbst - hier nie anfassen
 		   (doppelte Verschiebungen, Flackern; P1-Testrunde-Ursache war
 		   der Id-Vergleich, nicht der Core). */
-		if (region.attachedToken) continue;
+		if (region.attachment?.token || region.attachedToken) continue;
 		for (const shape of _regionShapes(region)) {
 			try {
 				if (typeof shape?.update === 'function') await shape.update({ x: center.x, y: center.y });
@@ -2866,6 +2824,148 @@ export function hymnRegionById(regionId) {
 	const id = String(regionId ?? '');
 	if (!id || !canvas?.scene) return null;
 	return canvas.scene.regions?.get(id) ?? null;
+}
+
+/* ---------------------------------------------------------------------
+ * Hymnen v1.2 (F7, Rudolfs Freigabe 20.11. - Dornenmantel als Zone):
+ * Der Dornenmantel bekommt eine angehängte Core-Region am Träger -
+ * Kreis Radius 1,0 Zelle (Rudolfs Festlegung, bewusst ENTKOPPELT von
+ * der Flammenwand-Radiusangabe), Core-Wall-Restriktion BEWEGUNG („Was
+ * keine Bewegung erlaubt, erlaubt auch keine Berührung" - es gibt
+ * keinen eigenen Berührungs-Sinn, move ist der native Berührungs-
+ * Proxy), Level-Passung wie F1. Die sichtbar geclippte Fläche ist die
+ * Quelle der Verbuendeten-Erfassung (region.tokens / testInsideRegion,
+ * Optik = Pruefung); thornCloakInMeleeRange bleibt als dokumentierte
+ * Notfall-Naehe OHNE Region bestehen (Muster Notfall-Follow).
+ * ------------------------------------------------------------------- */
+
+/* Ebene eines Token-Dokuments bestimmen (F1/F7): explizites
+ * TokenData.level vorrangig, sonst Elevations-Bereichs-Matching der
+ * Scene-Level, sonst die einzige Level, sonst aktive Client-Ebene. */
+function _tokenLevelId(tokenDoc) {
+	try {
+		if (tokenDoc?.level) return String(tokenDoc.level);
+		const levels = canvas?.scene?.levels;
+		if (!levels || levels.size === 0) return canvas?.level?.id ?? null;
+		if (levels.size === 1) {
+			const only = [...levels][0];
+			return only?.id ?? canvas?.level?.id ?? null;
+		}
+		const elevation = Number(tokenDoc?.elevation ?? 0) || 0;
+		for (const level of levels) {
+			const bottom = Number(level?.elevation?.bottom);
+			const top = Number(level?.elevation?.top);
+			if (Number.isFinite(bottom) && Number.isFinite(top) && elevation >= bottom && elevation <= top) return level.id;
+		}
+		return canvas?.level?.id ?? null;
+	} catch (levelError) {
+		return canvas?.level?.id ?? null;
+	}
+}
+
+/** Dornenmantel-Region eines Trägers (Actor-Id) auf der aktuellen Szene. */
+export function thornCloakRegionFor(actorId) {
+	const id = String(actorId ?? '');
+	if (!id || !canvas?.scene) return null;
+	for (const region of canvas.scene.regions ?? []) {
+		const tz = (region.flags?.symbaroum ?? {})?.thorncloakzone;
+		if (tz && String(tz.casterId) === id) return region;
+	}
+	return null;
+}
+
+/** Dornenmantel-Regionen eines Trägers räumen (Deaktivierung,
+ *  Symbol-Ende, Token-Loeschung) - idempotent gegen GM-Rennen. */
+export async function removeThornCloakZones(actorId) {
+	const id = String(actorId ?? '');
+	if (!id || !canvas?.scene) return;
+	const doomed = [];
+	for (const region of canvas.scene.regions ?? []) {
+		const tz = (region.flags?.symbaroum ?? {})?.thorncloakzone;
+		if (tz && String(tz.casterId) === id) doomed.push(region);
+	}
+	for (const region of doomed) {
+		try {
+			await region.delete();
+		} catch (deleteError) {
+			console.warn('Symbaroum Hymnen: Dornenmantel-Flaeche konnte nicht entfernt werden', region?.name, deleteError);
+		}
+	}
+	if (doomed.length > 0) console.info('Symbaroum Hymnen [trace] Dornenmantel-Flaeche entfernt', { casterId: id, removed: doomed.length });
+}
+
+/** Dornenmantel-Region anlegen (F7): angehängt an den Träger, auf die
+ *  Token-Mitte zentriert, Level-passend, move-geschnitten (nur mit
+ *  aktivem Welt-Setting aoeSenseWalls; Spieler brauchen die Client-
+ *  Probe bzw. den GM-Socket-Nachzug - scheitert beides, bleibt die
+ *  Flaeche UNGECLIPPT sichtbar, die Notfall-Naehe entscheidet weiter). */
+export async function placeThornCloakZone(casterToken, casterActor) {
+	if (!casterToken || !canvas?.scene) return null;
+	const castDoc = casterToken.document ?? casterToken;
+	const casterId = casterActor?.id ?? castDoc.actor?.id ?? null;
+	const existing = thornCloakRegionFor(casterId);
+	if (existing) return existing;
+	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
+	const regionData = {
+		name: game.i18n.format('POWER_THORN_CLOAK.REGION_NAME', { user: casterActor?.name ?? castDoc.actor?.name ?? game.user.name }),
+		color: game.user.color,
+		displayMeasurements: true,
+		highlightMode: 'coverage',
+		shapes: [{ type: 'circle', x: (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2, y: (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2, rotation: 0, radius: 1 * gridSize }],
+		visibility: CONST.REGION_VISIBILITY.ALWAYS,
+		'flags.core.MeasuredTemplate': true,
+		flags: {
+			symbaroum: {
+				thorncloakzone: {
+					casterId,
+					casterTokenId: castDoc.id ?? null,
+					casterName: casterActor?.name ?? castDoc.actor?.name ?? game.user.name,
+				},
+			},
+		},
+	};
+	/* F1/F7: Level-Passung - Attached Token verlangt GENAU EIN Level
+	   des Traeger-Tokens. */
+	const cloakLevelId = _tokenLevelId(castDoc);
+	if (cloakLevelId) regionData.levels = [cloakLevelId];
+	await probePlayerRestrictionCreate();
+	if (senseWallsEnabled() && (game.user.isGM || _playerRestrictionCreateCache === true)) {
+		regionData.restriction = { type: 'move', priority: 0, enabled: true };
+	}
+	let region = null;
+	try {
+		const created = await canvas.scene.createEmbeddedDocuments('Region', [regionData]);
+		region = Array.isArray(created) ? created[0] ?? null : null;
+	} catch (createError) {
+		console.warn('Symbaroum Hymnen [trace] Dornenmantel-Flaeche konnte nicht angelegt werden (kein GM?)', createError);
+		return null;
+	}
+	if (!region) return null;
+	/* Spieler ohne Restriction-Recht: GM-Socket-Nachzug (Probe schlug
+	   fehl oder Setting-Reihenfolge) - scheitert er, bleibt die Flaeche
+	   ungeclippt (bewusst, mit Trace). */
+	if (senseWallsEnabled() && !region.restriction?.enabled && !game.user.isGM) {
+		try {
+			const installed = await requestAoeZoneInstall('restriction', {
+				sceneId: canvas.scene?.id,
+				regionIds: [region.id],
+				restriction: { enabled: true, type: 'move', priority: 0 },
+			});
+			if (installed !== true) {
+				console.info('Symbaroum Hymnen [trace] Dornenmantel ohne move-Clip (kein GM erreichbar) - Flaeche ungeclippt sichtbar', { regionId: region.id });
+			}
+		} catch (socketError) {
+			console.warn('Symbaroum Hymnen [trace] Dornenmantel-Restriction-Socket fehlgeschlagen - Flaeche ungeclippt sichtbar', socketError);
+		}
+	}
+	/* Attach zuletzt (aktuelle relative Position, F2-Muster). */
+	try {
+		await region.update({ attachment: { token: castDoc.id } });
+	} catch (attachError) {
+		console.warn('Symbaroum Hymnen [trace] Dornenmantel-Anhang fehlgeschlagen - Notfall-Naehe aktiv', attachError);
+	}
+	console.info('Symbaroum Hymnen [trace] Dornenmantel-Flaeche angelegt (Kreis 1 Zelle, move-Clip, angehaengt)', { regionId: region.id, casterId: String(casterId ?? ''), levelId: cloakLevelId });
+	return region;
 }
 
 /**
@@ -3517,7 +3617,7 @@ export function registerAoeHooks() {
 	// targeted=false und wird ignoriert (keine Rekursion). Pro Client
 	// nur der eigene User; Fenster siehe _openTargetWindow.
 	/* Hymnen-Anhang v1.1: NOTFALL-FOLLOW - feuert nur noch fuer
-	 * Regionen OHNE Core-Anhang (attachedToken); der Core zieht
+	 * Regionen OHNE Core-Anhang (attachment.token); der Core zieht
 	 * angehaengte Regionen selbst live mit. Der v1-Root-Cause
 	 * (hymnzone.casterId = ACTOR-Id, Vergleich gegen TOKEN-Id) ist
 	 * behoben: Existenz-Probe und Follow vergleichen BEIDE Ids.
@@ -3543,7 +3643,7 @@ export function registerAoeHooks() {
 		if (hymnZones.length === 0) return;
 		/* Angehaengte Regionen behandelt der Core - nur hängengebliebene
 		   (Core-Anhang fehlgeschlagen, Alt-Zonen vor v1.1) laufen hier. */
-		if (!hymnZones.some((region) => !region.attachedToken)) return;
+		if (!hymnZones.some((region) => !(region.attachment?.token || region.attachedToken))) return;
 		if (!game.user?.isGM) {
 			console.info('Symbaroum Hymnen [trace] Follow ohne GM-Client: Gesangsflaeche bleibt stehen', { casterTokenId });
 			return;
@@ -3567,6 +3667,11 @@ export function registerAoeHooks() {
 		const actorId = String(tokenDoc?.actor?.id ?? tokenDoc?.actorId ?? '');
 		if (!tokenId && !actorId) return;
 		await _hymnZoneCleanupToken(tokenId, actorId);
+		/* Hymnen v1.2 (F7): Die Dornenmantel-Flaeche des Traegers raeumt
+		   mit dem Token mit (Traeger-Actor-Id, idempotent gegen GM-Rennen;
+		   ein existierender Akteur ohne Token verliert die Flaeche
+		   bewusst - der Anhang hing am geloeschten Token). */
+		await removeThornCloakZones(actorId);
 		try {
 			await hymnTokenDeleted(tokenDoc);
 		} catch (error) {

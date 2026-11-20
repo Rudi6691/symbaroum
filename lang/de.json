@@ -1070,6 +1070,7 @@
   "POWER_THORN_CLOAK.ZONE_JOINED": "{targetname} tritt in die Reichweite des Dornenmantels – +1W4 Rüstung.",
   "POWER_THORN_CLOAK.ALLY_END_LINE": "Der Dornenmantel-Schutz von {targetname} endet.",
   "POWER_THORN_CLOAK.MASTER_HINT": "Meister-Stufe: Jeder erfolgreiche Nahkampfangriff gegen einen Geschützten löst automatisch 1W10 Schaden aus (Rüstung ignoriert).",
+  "POWER_THORN_CLOAK.REGION_NAME": "Dornenmantel [{user}]",
   "POWER_THORN_CLOAK.SWEEP_SKIP": "{targetname}: {reason}",
   "POWER_THORN_CLOAK.SWEEP_REASON_DISPOSITION": "nicht gewoben – Disposition {disp} (Mystiker {caster})",
   "POWER_THORN_CLOAK.SWEEP_REASON_DISTANCE": "nicht gewoben – Distanz {cells} Felder",

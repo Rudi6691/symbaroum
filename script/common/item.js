@@ -40,7 +40,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 import { itemHasTraditionKnowledge } from "./tradition.js";
-import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, senseBlocked } from "./aoe.js";
+import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -2601,9 +2601,10 @@ export class SymbaroumItem extends Item {
        sich seit dem letzten eigenen Zug nicht bewegt hat (Bewegungs-
        Hook hooks.js + je-Runde-Abgleich im A29-Rescan, Rudolfs
        Entscheidungen "automatisches Flag" und "je Runde pruefen");
-       Adept+ schuetzt zusaetzlich alle Verbuendeten in Nahkampf-
-       reichweite (benachbarte Felder, v1.6 szenen-unabhaengig
-       ueber thornCloakInMeleeRange gemessen) -
+       Adept+ schuetzt zusaetzlich alle Verbuendeten IN der Dornen-
+       mantel-Flaeche (v1.2 F7: angehaengte Core-Region, Kreis 1,0
+       Zelle am Traeger, move-geschnitten; Notfall-Naehe v1.6 szenen-
+       unabhaengig als Fallback ohne Flaeche) -
        der A29-Turnus (Rudolfs Vorschlag) prueft die je-Runde-Naehe
        im Rescan; Meister-Rueckschlag 1W10 (Ruestung ignoriert)
        laeuft automatisch als Reaktions-Karte in attackResult (Rudolfs
@@ -6218,15 +6219,14 @@ async function preDialogHymnChoice(functionStuff) {
    seiner Position. Ohne Gesangsbereich gilt die v1-Sichtweiten-
    Abstraktion (100 m = SIGHT_RANGE_UNITS, config.js, Messfehler
    schließen ein - Fegefeuer-Präzedenz).
-   AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SCHALL):
-   Hymnen sind Gesang - der Wirksinn ist SCHALL, nicht Sicht. Bei
-   aktivem Welt-Setting aoeSenseWalls wird je Verbündetem der Schall-
-   Blocker geprüft (senseBlocked, Ray gegen Kanten edge[sense]==='normal'
-   + Regions-Restriktionen; der Sänger selbst ist IMMER betroffen),
-   Messfehler schließen ein (SL-Urteil wirkt). Blockierte Verbündete
-   werden NIE still übersprungen, sondern als skipLines an hymnResult
-   übergeben (Kartenzeile AOE.SENSE_SKIP mit Sinn-Label). Rückgabe:
-   { tokens, skipLines }. */
+   v1.2 F8 (Rudolfs Entscheidung "strikter Core-Clip", 20.11.2026):
+   Der eigene Schall-Strahlen-Filter ist am ZONEN-Pfad ENTFERNT - die
+   sichtbar geclippte Region (Core-Wall-Restriktion) ist die alleinige
+   Quelle der Wahrheit, jeder Token in der Flaeche zaehlt (Optik =
+   Pruefung). Der Sinn-Filter laeuft NUR NOCH im Sichtweiten-Fallback
+   ohne Gesangsbereich (Messfehler schliessen ein, SL-Urteil wirkt;
+   blockierte Verbündete als skipLines an hymnResult, Kartenzeile
+   AOE.SENSE_SKIP mit Sinn-Label). Rückgabe: { tokens, skipLines }. */
 function getHymnAffectedTokens(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   if (!casterToken) return { tokens: [], skipLines: [] };
@@ -6258,7 +6258,8 @@ function getHymnAffectedTokens(functionStuff) {
         if (token.id !== casterToken.id) {
           if ((token.document?.disposition ?? 0) < casterDisposition) continue;
           if (!inZone.has(token.id)) continue;
-          if (!soundPasses(token)) continue;
+          /* v1.2 F8: Kein zweiter Strahl in der Flaeche - die geclippte
+             Region ist die Wahrheit (Nur-Fallback-Filter unten). */
         }
         affected.push(token);
       }
@@ -6700,12 +6701,11 @@ async function preDialogWeakeningHymnChoice(functionStuff) {
    der Saenger selbst zaehlt nie. Novize (Stufe 1): nur VERWUNDETE
    Feinde (Zaehigkeit unter Maximum, RAW "jedem verwundeten Feind"),
    Adept+ alle.
-   AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SCHALL):
-   Hymnen wirken nur auf Ziele, die sie HOEREN koennen - bei aktivem
-   Welt-Setting aoeSenseWalls wird je Feind der Schall-Blocker geprüft
-   (senseBlocked; Messfehler schließen ein, SL-Urteil wirkt). Blockierte
-   Feinde werden NIE still übersprungen, sondern als skipLines an
-   weakeningHymnResult übergeben. Rückgabe: { tokens, skipLines }. */
+   v1.2 F8 (strikter Core-Clip): Am ZONEN-Pfad zaehlt nur die geclippte
+   Flaeche - der Schall-Strahlen-Filter ist entfernt und laeuft NUR NOCH
+   im Sichtweiten-Fallback ohne Flaeche (Messfehler schliessen ein,
+   SL-Urteil wirkt; blockierte Feinde als skipLines an weakening-
+   HymnResult, Kartenzeile AOE.SENSE_SKIP). Rückgabe: { tokens, skipLines }. */
 function getWeakeningHymnTargets(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   if (!casterToken) return { tokens: [], skipLines: [] };
@@ -6746,8 +6746,10 @@ function getWeakeningHymnTargets(functionStuff) {
       } catch (distanceError) {
         // Messung nicht verfuegbar => Ziel einschliessen, SL-Urteil wirkt
       }
+      /* v1.2 F8: Schall-Filter NUR im Sichtweiten-Fallback - in der
+         Flaeche zaehlt die geclippte Region, kein zweiter Strahl. */
+      if (!soundPasses(token)) continue;
     }
-    if (!soundPasses(token)) continue;
     if (functionStuff.powerLvl.level === 1) {
       const toughness = token.actor.system?.health?.toughness;
       if (Number(toughness?.value ?? 0) >= Number(toughness?.max ?? 0)) continue;
@@ -6921,6 +6923,9 @@ function thornCloakTokenCenter(token) {
   return { x: (token?.x ?? 0) + width / 2, y: (token?.y ?? 0) + height / 2 };
 }
 
+/* NOTFALL-Naehe (v1.2 F7, bewusst behalten - Muster Notfall-Follow):
+   benachbarte Felder, szenen-unabhaengig. Laeuft nur, wenn KEINE Dornen-
+   mantel-Flaeche existiert (Anlage gescheitert, geloescht, Rechte). */
 function thornCloakInMeleeRange(tokenA, tokenB) {
   try {
     const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.grid?.size ?? 100;
@@ -6932,21 +6937,44 @@ function thornCloakInMeleeRange(tokenA, tokenB) {
   }
 }
 
-/* Verbuendete in Nahkampfreichweite des Mystikers (benachbarte
-   Felder, szenen-unabhaengig ueber thornCloakInMeleeRange; Muster
-   getHymnAffectedTokens - der Mystiker selbst nie).
-   v1.7 (Rudolfs Testrunde v1.6.1 + Entscheidungen 18.11.2026):
-   - Dispositions-Regel: FEINDLICHE Token zaehlen nur bei feindlichem
-     Mystiker als Verbuendete; NEUTRALE immer (vorher fielen sie bei
-     freundlichem Mystiker durch das < heraus).
+/* v1.2 F7: Zone-Mitgliedschaft eines Tokens - mit Flaeche entscheidet die
+   Region (Core-Containment testInsideRegion, Rueckfall region.tokens-Id-
+   Liste; die geclippte Optik ist die Wahrheit), ohne Flaeche die Notfall-
+   Naehe (thornCloakInMeleeRange, Muster Notfall-Follow). */
+function thornCloakTokenInZone(casterToken, token, region) {
+  if (!region) return thornCloakInMeleeRange(casterToken, token);
+  const doc = token?.document ?? token;
+  if (typeof doc?.testInsideRegion === "function") {
+    try {
+      return doc.testInsideRegion(region);
+    } catch (zoneTestError) {
+      game.symbaroum.log("Hymnen v1.2: Dornenmantel-Zonentest", zoneTestError);
+    }
+  }
+  const zoneIds = new Set(hymnRegionTokens(region).map((t) => t.id));
+  return zoneIds.has(String(doc?.id ?? token?.id ?? ""));
+}
+
+/* Verbuendete in der Dornenmantel-Flaeche des Mystikers (v1.2 F7,
+   Rudolfs Freigabe 20.11.): Mit Flaeche zaehlt die Region-Mitgliedschaft
+   (Core-Containment testInsideRegion auf der geclippten Zone, Optik =
+   Pruefung), ohne Flaeche die szenen-unabhaengige Notfall-Naehe
+   (thornCloakInMeleeRange, Muster Notfall-Follow) - der Mystiker
+   selbst nie.
+   v1.7 (unveraendert uebernommen): Dispositions-Regel - FEINDLICHE
+     Token zaehlen nur bei feindlichem Mystiker als Verbuendete;
+     NEUTRALE immer (vorher fielen sie bei freundlichem Mystiker
+     durch das < heraus).
    - casterToken kann Placeable ODER TokenDocument sein - Disposition
      tolerant lesen.
-   - Skip-Diagnosezeilen (Muster der Heilaura v2.15): Nahe Token
-     (bis 3 Chebyshev-Zellen), die NICHT gewoben wurden, werden mit
-     GRUND zurueckgeliefert (Disposition/Distanz/bereits gewoben),
-     damit stille Skips auf der Aktivierungs- und Rescan-Karte lesbar
-     sind statt still zu verschwinden. */
-function thornCloakAlliesInRange(functionStuff, casterToken) {
+   - Skip-Diagnosezeilen (Muster der Heilaura v2.15): Nahe Token (bis 3
+     Chebyshev-Zellen), die NICHT gewoben wurden, werden mit GRUND
+     zurueckgeliefert (Disposition/Distanz/bereits gewoben), damit
+     stille Skips auf der Aktivierungs- und Rescan-Karte lesbar sind. */
+function thornCloakAlliesInZone(functionStuff, casterToken, region) {
+  if (!region) {
+    console.info("Symbaroum Hymnen [trace] Dornenmantel ohne Flaeche - Notfall-Naehe (Chebyshev 1,5 Zellen) aktiv", { casterId: String(casterToken?.id ?? casterToken?.document?.id ?? "") });
+  }
   const casterDisposition = casterToken?.document?.disposition ?? casterToken?.disposition ?? 0;
   const casterId = casterToken?.id ?? casterToken?.document?.id;
   const casterCenter = thornCloakTokenCenter(casterToken);
@@ -6974,7 +7002,10 @@ function thornCloakAlliesInRange(functionStuff, casterToken) {
         skipLines.push(thornCloakSkipLine(token, game.i18n.localize("POWER_THORN_CLOAK.SWEEP_REASON_WOVEN")));
         continue;
       }
-      if (distCells > 1.5) {
+      /* v1.2 F7: Mitgliedschaft entscheidet die Flaeche (bzw. ohne
+         Flaeche die Notfall-Naehe); die Zellen-Diagnose bleibt fuer
+         die Skip-Zeile. */
+      if (!thornCloakTokenInZone(casterToken, token, region)) {
         skipLines.push(thornCloakSkipLine(token, game.i18n.format("POWER_THORN_CLOAK.SWEEP_REASON_DISTANCE", { cells: (Math.round(distCells * 10) / 10).toLocaleString(game.i18n.lang) })));
         continue;
       }
@@ -7045,10 +7076,19 @@ async function thornCloakResult(rollData, functionStuff) {
   await standardPowerResult(rollData ?? null, functionStuff);
   if (wasActive) {
     await endThornCloakAllies(functionStuff);
+    /* v1.2 F7: Deaktivierung raeumt die Dornenmantel-Flaeche der Szene
+       mit ab (Optik = Pruefung; Muster Gesangs-Ende). */
+    await removeThornCloakZones(functionStuff.actor.id);
     await functionStuff.actor.unsetFlag(game.system.id, "thornCloakMoved");
     return;
   }
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  /* v1.2 F7 (Rudolfs Freigabe 20.11.): Erstaktivierung legt die Dornen-
+     mantel-Flaeche an (angehaengte Core-Region, Kreis 1,0 Zelle am
+     Traeger, move-geschnitten, Level-Passung; Bestand erneuern). Ohne
+     Flaeche (Rechte, Socket-Rest) entscheidet die Notfall-Naehe weiter,
+     der Trace zeichnet den Weg. */
+  const cloakRegion = casterToken ? await placeThornCloakZone(casterToken, functionStuff.actor) : null;
   /* v1.6 (Rudolfs Testrunde v1.5, Punkte 5a/5c, Rudolfs Entscheidung
      "Maintain-Modell mit A29-Turnus", 17.11.2026): Das Caster-Symbol
      traegt jetzt den A29-Autor-Marker (maintained + caster + ability)
@@ -7081,8 +7121,9 @@ async function thornCloakResult(rollData, functionStuff) {
     lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ARMOR_LINE", { targetname: functionStuff.actingCharName, dice: "1d6" })}</p>`);
   }
   if (functionStuff.powerLvl.level > 1 && casterToken) {
-    /* v1.7: Sweep liefert allies + Skip-Diagnosezeilen (Punkt 2) */
-    const sweep = thornCloakAlliesInRange(functionStuff, casterToken);
+    /* v1.7: Sweep liefert allies + Skip-Diagnosezeilen (Punkt 2);
+       v1.2 F7: Sweep gegen die Flaeche statt Chebyshev. */
+    const sweep = thornCloakAlliesInZone(functionStuff, casterToken, cloakRegion);
     for (const token of sweep.allies) {
       flagDataArray.push({
         tokenId: token.id,
@@ -7121,12 +7162,18 @@ async function thornCloakResult(rollData, functionStuff) {
    ueber die A29-Erinnerung, keine Echtzeit-Reaktion auf Bewegung -
    dokumentierte Grenze, Hymnen-Parallele): Bewegungs-Abgleich des
    Mystikers (+1W6 ohne Bewegung seit dem letzten eigenen Zug, sonst
-   +1W4, danach Flag neu), Naehe-Pruefung der geschuetzten Verbuende-
-   ten (2 m = Nachbarfelder; Hinausbewegte verlieren Marker und
-   Ruestung, Hinzugezogene ab Adept erhalten beides automatisch). */
+   +1W4, danach Flag neu), Zonen-Pruefung der geschuetzten Verbuende-
+   ten (v1.2 F7: Dornenmantel-Flaeche; fehlt sie, stellt der Rescan sie
+   erneut her - Self-Heal - und ohne Anlage greift die Notfall-Naehe
+   2 m = Nachbarfelder; Hinausbewegte verlieren Marker und Ruestung,
+   Hinzugezogene ab Adept erhalten beides automatisch). */
 async function thornCloakRescan(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   if (!casterToken) return;
+  /* v1.2 F7: Self-Heal (Muster Notfall-Follow) - fehlt die Flaeche (SL
+     geloescht, Szenen-Rest), legt der Rescan sie erneut an, BEVOR
+     Leaver/Joiner geprueft werden. */
+  const cloakRegion = thornCloakRegionFor(functionStuff.actor.id) ?? (await placeThornCloakZone(casterToken, functionStuff.actor));
   const carrying = new Map();
   for (const token of canvas.tokens?.placeables ?? []) {
     if (!token.actor?.effects) continue;
@@ -7145,7 +7192,7 @@ async function thornCloakRescan(functionStuff) {
   if (functionStuff.powerLvl.level > 1) {
     for (const entry of carrying.values()) {
       if (entry.token.id === casterToken.id) continue;
-      const inRange = thornCloakInMeleeRange(casterToken, entry.token);
+      const inRange = thornCloakTokenInZone(casterToken, entry.token, cloakRegion);
       if (!inRange) {
         const statusId = entry.effect.statuses?.size ? [...entry.effect.statuses][0] : null;
         if (!statusId) continue;
@@ -7154,8 +7201,9 @@ async function thornCloakRescan(functionStuff) {
       }
     }
     /* v1.7: Sweep liefert allies + Skip-Diagnosezeilen (Punkt 4,
-       Leaver/Joiner-Diagnose auf der Rescan-Karte) */
-    const sweep = thornCloakAlliesInRange(functionStuff, casterToken);
+       Leaver/Joiner-Diagnose auf der Rescan-Karte); v1.2 F7: Sweep
+       gegen die Flaeche statt Chebyshev. */
+    const sweep = thornCloakAlliesInZone(functionStuff, casterToken, cloakRegion);
     for (const token of sweep.allies) {
       flagDataArray.push({
         tokenId: token.id,
@@ -7232,13 +7280,14 @@ async function thornCloakRetaliation(functionStuff, damageTot, rollData) {
     }
     const cloakItem = casterActor.items.find((it) => it.system?.reference === "thorncloak");
     if (!cloakItem || (cloakItem.getLevel?.()?.level ?? 0) < 3) return;
-    /* Frische Distanz: Verbuendete nur in Nahkampfreichweite des
-       Mystikers; bei fehlender Messung wirkt der Schutz (SL-Urteil). */
+    /* Frische Zugehoerigkeit (v1.2 F7): Verbuendete nur in der Dornen-
+       mantel-Flaeche des Mystikers; bei fehlender Messung wirkt der
+       Schutz (SL-Urteil). Ohne Flaeche greift die Notfall-Naehe
+       (thornCloakInMeleeRange, v1.6-Fallback). */
     if (casterActor !== defenderActor) {
       const casterToken = canvas.tokens?.placeables?.find((t) => t.actor?.id === casterActor.id);
-      /* v1.6: szenen-unabhaengige Nachbar-Messung (thornCloakInMelee-
-         Range); Messfehler schliessen ein => Schutz wirkt, SL-Urteil */
-      if (casterToken && !thornCloakInMeleeRange(casterToken, defenderToken)) return;
+      const cloakRegion = thornCloakRegionFor(casterActor.id);
+      if (casterToken && !thornCloakTokenInZone(casterToken, defenderToken, cloakRegion)) return;
     }
     const retaliationRoll = await new Roll("1d10").evaluate();
     await createModifyTokenChatButton([{ tokenId: functionStuff.tokenId, actorId: functionStuff.actor.id, toughnessChange: -1 * retaliationRoll.total }]);

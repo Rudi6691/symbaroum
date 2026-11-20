@@ -7,7 +7,7 @@ import { openGiveDialog } from '../common/transfer.js';
 // dem GLOBALEN Umschalter pro Nutzer (Rudolfs Entscheidung 27.10.) - schaltet
 // ein Nutzer sein Spieler-/Monsterblatt um, gelten ALLE seiner Blätter
 // (inkl. Items) als modern; klassische Item-Templates bleiben erhalten.
-import { getModernSheetUserStyle, getModernSheetEffectiveDesign, modernDialogClasses } from '../common/modernSheetConfig.js';
+import { getModernSheetUserStyle, getModernSheetEffectiveDesign, modernDialogClasses, isModernDialogActive } from '../common/modernSheetConfig.js';
 import { symbDialog } from '../common/symbDialog.js';
 import { allocateFromBase, getDenominations } from '../common/currency.js';
 // Elixier-Automatisierung v1: Munitionswirkung nur auf Munitions-Items anzeigen
@@ -169,9 +169,44 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 					await item?.unsetFlag?.('symbaroum', 'gatherTaint');
 					return;
 				}
-				const ok = await Dialog.confirm({
-					title: game.i18n.localize('GATHER.RESET_CONFIRM_TITLE'),
-					content: `<p>${game.i18n.format('GATHER.RESET_CONFIRM_TEXT', { count })}</p>`,
+				/* Hymnen/Alchemie v1.2 (F4, Rudolfs v1.1-Testrunde P7/P8):
+				   Dialog.confirm zeigt die Core-Knopftexte „Yes"/„No" - hier
+				   laeuft der lokalisierte symbDialog (BUTTON.YES/BUTTON.NO,
+				   modernes Design), und Fensterkreuz/ESC gilt wie „Nein"
+				   (close-Event, Settle-Sperre gegen Doppel-Aufloesung). */
+				const ok = await new Promise((resolve) => {
+					let settled = false;
+					const settle = (value) => {
+						if (!settled) {
+							settled = true;
+							resolve(value);
+						}
+					};
+					const resetDialog = symbDialog({
+						title: game.i18n.localize('GATHER.RESET_CONFIRM_TITLE'),
+						content: `<p>${game.i18n.format('GATHER.RESET_CONFIRM_TEXT', { count })}</p>`,
+						classes: isModernDialogActive() ? modernDialogClasses('modern-taint-reset-dialog') : [],
+						buttons: {
+							yes: {
+								icon: '<i class="fas fa-check"></i>',
+								label: game.i18n.localize('BUTTON.YES'),
+								callback: () => settle(true),
+							},
+							no: {
+								icon: '<i class="fas fa-times"></i>',
+								label: game.i18n.localize('BUTTON.NO'),
+								callback: () => settle(false),
+							},
+						},
+						default: 'yes',
+					});
+					try {
+						resetDialog?.addEventListener?.('close', () => settle(false));
+					} catch (closeListenerError) {
+						/* close-Event unerreichbar: Die Knoepfe decken den
+						   Normalfall ab, ein offen stehen gelassenes Fenster
+						   blockiert nicht. */
+					}
 				});
 				if (!ok) return;
 				await purgeTaintedIngredients(item);
@@ -186,9 +221,40 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 					await item?.unsetFlag?.('symbaroum', 'gatherTaintProduct');
 					return;
 				}
-				const ok = await Dialog.confirm({
-					title: game.i18n.localize('ELIXIR.RESET_CONFIRM_TITLE'),
-					content: `<p>${game.i18n.format('ELIXIR.RESET_CONFIRM_TEXT', { count })}</p>`,
+				/* Hymnen/Alchemie v1.2 (F4): lokalisierte Knoepfe + moderne
+				   Optik statt Core-„Yes"/„No" (Muster resetGatherTaint). */
+				const ok = await new Promise((resolve) => {
+					let settled = false;
+					const settle = (value) => {
+						if (!settled) {
+							settled = true;
+							resolve(value);
+						}
+					};
+					const resetDialog = symbDialog({
+						title: game.i18n.localize('ELIXIR.RESET_CONFIRM_TITLE'),
+						content: `<p>${game.i18n.format('ELIXIR.RESET_CONFIRM_TEXT', { count })}</p>`,
+						classes: isModernDialogActive() ? modernDialogClasses('modern-taint-reset-dialog') : [],
+						buttons: {
+							yes: {
+								icon: '<i class="fas fa-check"></i>',
+								label: game.i18n.localize('BUTTON.YES'),
+								callback: () => settle(true),
+							},
+							no: {
+								icon: '<i class="fas fa-times"></i>',
+								label: game.i18n.localize('BUTTON.NO'),
+								callback: () => settle(false),
+							},
+						},
+						default: 'yes',
+					});
+					try {
+						resetDialog?.addEventListener?.('close', () => settle(false));
+					} catch (closeListenerError) {
+						/* close-Event unerreichbar: Knoepfe decken den
+						   Normalfall ab. */
+					}
 				});
 				if (!ok) return;
 				await purgeTaintedDoses(item);
