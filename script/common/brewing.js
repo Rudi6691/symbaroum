@@ -47,7 +47,7 @@
 import { baseRoll, createRollData, getRollResultLevelKey } from './roll.js';
 import { symbDialog } from './symbDialog.js';
 import { modernDialogClasses, isModernDialogActive } from './modernSheetConfig.js';
-import { getResourceTotal, consumeResource, getItemCount } from './resources.js';
+import { getResourceTotal, consumeResource, consumeResourceFromItem, getItemCount } from './resources.js';
 import { isAlchemical, getAlchemyLevel, getElixirEffect, consumeElixirDose } from './elixirs.js';
 import { getItemPriceBase } from './currency.js';
 import { isStackableItem, findStackTarget } from './stacking.js';
@@ -60,6 +60,16 @@ const F = (key, data) => game.i18n.format(key, data);
 
 /* Stufen-Rangfolge für den Stufen-Filter (Kandidaten-Stufe <= eigene). */
 const LEVEL_ORDER = { novice: 1, adept: 2, master: 3 };
+
+/* Zutaten sammeln v1-Verbraucher: Alchemie-Stufe eine Ebene hoeher
+ * (gatherBrewLevelUp, Rudolfs Entscheidung 5a) - Meister cappt; die
+ * Leseart "naechste Braung zaehlt eine Stufe hoeher" wirkt auf
+ * Kandidaten-Filter und RAW-Dosenleiter. */
+function nextAlchemyLevel(level) {
+	if (level === 'novice') return 'adept';
+	if (level === 'adept') return 'master';
+	return 'master';
+}
 
 /* Segen & Lasten S2 Baustein A (Rudolfs „Leg los“, 06.11.2026):
  * Grüner-Daumen-Zeile im Brau-/Analyse-Dialog — RAW gilt der Bonus des
@@ -194,7 +204,7 @@ function rigValueFromArgs(args) {
  * Sammel-Fix v1.3 (Rudolfs Testrunde v1.2, Punkt 6c): favour wird
  * durchgereicht — +1 Gunst = 2d20kl (bester), −1 Missgunst =
  * 2d20kh (schlechtester), 0 = 1d20 (wie der kanonische Würfeldialog). */
-async function alchemyProbe(actor, modifier, favour = 0) {
+export async function alchemyProbe(actor, modifier, favour = 0) {
 	const probe = await baseRoll(actor, 'cunning', null, null, favour, modifier, false);
 	return probe;
 }
@@ -481,6 +491,11 @@ export async function openBrewDialog(abilityItem, { presetRecipeId = null } = {}
 	   Actor-Flag 'nachbrauBonus' entsteht beim bestätigten kritischen
 	   Nachbrau-Erfolg; das Häkchen im Brau-Dialog verbraucht ihn. */
 	const bonusNextAvailable = !!(await actor.getFlag('symbaroum', 'nachbrauBonus'));
+	/* Zutaten sammeln v1-Verbraucher: Stufe+1-Merker (bestaetigter
+	   kritischer Sammel-Erfolg) - Checkbox wie beim Nachbrau-Bonus; die
+	   Braung zaehlt eine Alchemie-Stufe hoeher (Kandidaten-Filter UND
+	   RAW-Dosenleiter). */
+	const levelUpAvailable = !!(await actor.getFlag('symbaroum', 'gatherBrewLevelUp'));
 	/* v1.3: Preset-Kandidat (Rezeptur-Blatt-Knopf) oder der erste. */
 	const presetCand = presetRecipeId ? candidates.find((c) => c.recipe?.id === presetRecipeId) : null;
 	const preselectCand = presetCand ?? candidates[0];
@@ -490,6 +505,7 @@ export async function openBrewDialog(abilityItem, { presetRecipeId = null } = {}
 	const dialogHtml = await foundry.applications.handlebars.renderTemplate('systems/symbaroum/template/chat/brew-dialog.hbs', {
 		renderModern: modern,
 		bonusNext: bonusNextAvailable,
+		levelUp: levelUpAvailable,
 		greenthumb,
 		candidates: candidates.map((c) => ({
 			id: c.key,
@@ -539,7 +555,19 @@ export async function openBrewDialog(abilityItem, { presetRecipeId = null } = {}
 				label: L('BREW.BUTTON'),
 				callback: async (html) => {
 					const key = html[0].querySelector('#brew-elixir')?.value;
-					const cand = candidates.find((c) => c.key === key);
+					/* Zutaten sammeln v1-Verbraucher: Stufe+1-Haekchen (Flag vom
+					   kritischen Sammel-Erfolg) baut die Kandidaten NEU mit
+					   effektiver Stufe (Filter + RAW-Dosenleiter folgen sonst
+					   dem unangehobenen ownLevel); der gewaehlte Kandidat wird
+					   im erweiterten Pool wieder aufgeschluesselt (Dosen-/
+					   Zutaten-Hinweis im Dialog zeigen die UNangehobene
+					   Leiter - bewusst: das Haekchen ist Opt-in je Braung). */
+					const levelUp = levelUpAvailable && !!html[0].querySelector('#brew-levelup')?.checked;
+					const effLevel = levelUp ? nextAlchemyLevel(ownLevel) : ownLevel;
+					const pool = effLevel !== ownLevel
+						? (economy ? buildEconomyCandidates(actor, effLevel) : buildRawCandidates(actor, effLevel))
+						: candidates;
+					const cand = pool.find((c) => c.key === key) ?? candidates.find((c) => c.key === key);
 					if (!cand) return;
 					/* Brauen v1.1 (Punkt 9): gewähltes Labor statt pauschal
 					   dem besten (Fallback bestes, falls das Select fehlt). */
@@ -567,7 +595,7 @@ export async function openBrewDialog(abilityItem, { presetRecipeId = null } = {}
 					for (const radio of html[0].querySelectorAll("input[name='brew-favour']")) {
 						if (radio.checked) favour = Number(radio.value) || 0;
 					}
-					await performBrew(actor, facility, cand, { secret, economy, modifier, bonusNext, favour });
+					await performBrew(actor, facility, cand, { secret, economy, modifier, bonusNext, favour, levelUp });
 				},
 			},
 			cancel: {
@@ -591,9 +619,28 @@ async function rollFormula(formula, rolls) {
 	return roll.total;
 }
 
+/** Zutaten sammeln v1-Verbraucher: verdecktes Produktaeuschungs-Flag
+ *  (gatherTaintProduct) auf einem Dosen-Dokument setzen/mischen - Spoil-
+ *  und Transform-Anteile summieren sich im Stapel; die FALSE-Information
+ *  gehoert zu den transform-Dosen (spoil-Dosen brauchen sie nicht). */
+async function _applyProductTaint(doc, taint) {
+	if (!taint) return;
+	const ex = (await doc.getFlag('symbaroum', 'gatherTaintProduct')) ?? { spoil: 0, transform: 0, falseUuid: null, falseName: '' };
+	await doc.setFlag('symbaroum', 'gatherTaintProduct', {
+		spoil: (Number(ex.spoil) || 0) + (Number(taint.spoil) || 0),
+		transform: (Number(ex.transform) || 0) + (Number(taint.transform) || 0),
+		falseUuid: taint.falseUuid ?? ex.falseUuid ?? null,
+		falseName: taint.falseName || ex.falseName || '',
+	});
+}
+
 /** Dosen dem Inventar gutschreiben: Stapel-Merge, sonst Neuanlage (Übergabe-
- *  Muster). Nicht stapelbare Elixiere erhalten EINE Zeile je Dosis. */
-async function addElixirDoses(actor, elixir, count) {
+ *  Muster). Nicht stapelbare Elixiere erhalten EINE Zeile je Dosis.
+ *  Zutaten sammeln v1-Verbraucher: productTaint (gatherTaintProduct-Daten)
+ *  haengt die verdeckte Taeuschung an die erzeugten Dosen - im Stapel als
+ *  MIXFLAG (Anteile je Modus), nicht stapelbar je Dokument eine Dosis
+ *  (transform-Dosen zuerst zugewiesen, dann spoil). */
+async function addElixirDoses(actor, elixir, count, productTaint = null) {
 	const data = elixir.toObject();
 	delete data._id;
 	delete data.flags?.['symbaroum']?.favorite; // Favoriten nicht mitkopieren (Übergabe-Muster)
@@ -603,16 +650,32 @@ async function addElixirDoses(actor, elixir, count) {
 		const stack = findStackTarget(actor, data);
 		if (stack) {
 			await stack.update({ 'system.number': getItemCount(stack) + amount });
+			await _applyProductTaint(stack, productTaint);
 			return;
 		}
-		await actor.createEmbeddedDocuments('Item', [data]);
+		const created = await actor.createEmbeddedDocuments('Item', [data]);
+		if (created?.[0]) await _applyProductTaint(created[0], productTaint);
 		return;
 	}
 	const rows = [];
-	for (let i = 0; i < Math.max(1, Math.round(count)); i += 1) {
+	const total = Math.max(1, Math.round(count));
+	for (let i = 0; i < total; i += 1) {
 		rows.push(foundry.utils.duplicate(data));
 	}
-	await actor.createEmbeddedDocuments('Item', rows);
+	const created = await actor.createEmbeddedDocuments('Item', rows);
+	if (productTaint && created?.length) {
+		/* je Dokument eine Dosis: transform-Dosen zuerst, dann spoil */
+		const transformCount = Math.min(created.length, Math.max(0, Number(productTaint.transform) || 0));
+		for (let i = 0; i < created.length; i += 1) {
+			const isTransform = i < transformCount;
+			await created[i].setFlag('symbaroum', 'gatherTaintProduct', {
+				spoil: isTransform ? 0 : 1,
+				transform: isTransform ? 1 : 0,
+				falseUuid: isTransform ? productTaint.falseUuid : null,
+				falseName: isTransform ? productTaint.falseName : '',
+			});
+		}
+	}
 }
 
 /** Probe-Zeile im Karten-Muster der Elixier-Karten (Scharfsinn + Labor-Bonus;
@@ -622,7 +685,74 @@ function formatBrewProbeLine(rollData, labBonus, userMod = 0) {
 	return `${rollData.actingAttributeLabel} : (${rollData.actingAttributeValue})  ${L('BREW.LAB_BONUS')} +${labBonus}${modText}`;
 }
 
-async function performBrew(actor, facility, cand, { secret = false, economy = false, modifier = 0, bonusNext = false, favour = 0 } = {}) {
+/* Zutaten sammeln v1-Verbraucher (Rudolfs Freigabe 20.11., Empfehlung
+ * angenommen): Alchemiezutaten-Buchung mit GETAINTEM BESTAND ZUERST.
+ * Die verdeckten gatherTaint-Einheiten (Patzer beim Sammeln, brewing
+ * buchte sie normal auf den Stapel) liegen als Flag am konkreten Stapel-
+ * Item; hier laufen sie VOR dem sauberen Bestand in den Verbrauch
+ * (Rudolfs Empfehlung: verseuchte Einheiten zuerst, damit die
+ * Taeuschung garantiert zuendet). Rueckgabe: je Menge spoil/transform.
+ * Reihenfolge im Stapel: spoil vor transform (spoil zuerst - die
+ * harmlosere Taeuschung zuendet vor dem Verwandlungs-Rest). */
+async function consumeAlchemiezutaten(actor, amount) {
+	const taint = { spoil: 0, transform: 0 };
+	let remaining = Math.max(0, Math.round(Number(amount) || 0));
+	if (remaining <= 0) return taint;
+	const stacks = actor.items.filter(
+		(i) => i?.type === 'equipment' && i?.system?.resourceCategory === 'alchemiezutat'
+	);
+	for (const item of [...stacks]) {
+		if (remaining <= 0) break;
+		const flag = await item.getFlag('symbaroum', 'gatherTaint');
+		if (!flag) continue;
+		let spoilUnits = Math.max(0, Number(flag.spoil) || 0);
+		let transformUnits = Math.max(0, Number(flag.transform) || 0);
+		if (spoilUnits + transformUnits <= 0) {
+			await item.unsetFlag('symbaroum', 'gatherTaint');
+			continue;
+		}
+		const current = getItemCount(item);
+		const takeSpoil = Math.min(current, spoilUnits, remaining);
+		const takeTransform = Math.min(Math.max(0, current - takeSpoil), transformUnits, remaining - takeSpoil);
+		const consumedTotal = takeSpoil + takeTransform;
+		if (consumedTotal <= 0) continue;
+		remaining -= consumedTotal;
+		spoilUnits -= takeSpoil;
+		transformUnits -= takeTransform;
+		taint.spoil += takeSpoil;
+		taint.transform += takeTransform;
+		await consumeResourceFromItem(item, consumedTotal);
+		if (spoilUnits + transformUnits <= 0) await item.unsetFlag('symbaroum', 'gatherTaint');
+		else await item.setFlag('symbaroum', 'gatherTaint', { spoil: spoilUnits, transform: transformUnits });
+	}
+	if (remaining > 0) await consumeResource(actor, 'alchemiezutat', remaining);
+	return taint;
+}
+
+/* Produktaeuschung aufloesen (nur beim BRAU-ERFOLG, Rudolfs Empfehlungen
+ * 7/8 angenommen): transform (bestaetigter Patzer-Anteil verzehrt) =
+ * statt des Ziel-Elixiers wirkt ein ANDERES gleichstufiges (Wiederver-
+ * wendung randomDeceptionSource, Nachbrau-Schein-Muster); fehlt eine
+ * Quelle, faellt die Braung auf spoil zurueck. Rueckgabe = Flag-Daten
+ * fuer die Produkt-Stapel (gatherTaintProduct {spoil, transform,
+ * falseUuid, falseName} auf dem ELIXIER-Stapel, Mengen je Dosis). */
+async function resolveBrewTaint(actor, cand, produced, taint) {
+	if (produced <= 0) return null;
+	const isTransform = taint.transform > 0;
+	let falseInfo = null;
+	if (isTransform) {
+		const src = await randomDeceptionSource(cand.level, cand.elixir.name, actor);
+		if (src) falseInfo = { uuid: src.uuid ?? src.worldUuid ?? null, name: src.name ?? '' };
+	}
+	/* Transform nur mit brauchbarer Quelle, sonst degradiert die Braung
+	   auf spoil (wirkungslos statt verwandelt). */
+	if (isTransform && falseInfo) {
+		return { spoil: 0, transform: produced, falseUuid: falseInfo.uuid, falseName: falseInfo.name };
+	}
+	return { spoil: produced, transform: 0, falseUuid: null, falseName: '' };
+}
+
+async function performBrew(actor, facility, cand, { secret = false, economy = false, modifier = 0, bonusNext = false, favour = 0, levelUp = false } = {}) {
 	const rolls = [];
 	const lines = [];
 	/* Alchemie Modul 3: Schein-Rezeptur / Zeitbombe wirken NUR im
@@ -676,8 +806,15 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 	// 2b) Alchemie Modul 3: verbrauchter Nachbrau-Bonus abmelden (der Flag
 	//     wirkt EIN Mal — Häkchen im Brau-Dialog, Verbrauch hier).
 	if (bonusNext) await actor.unsetFlag('symbaroum', 'nachbrauBonus');
+	/* Zutaten sammeln v1-Verbraucher: Stufe+1-Merker (bestaetigter
+	   kritischer Sammel-Erfolg, gatherBrewLevelUp) wirkt EIN Mal auf
+	   DIESE Braung - Wirker zaehlt eine Alchemie-Stufe hoeher
+	   (Kandidaten-Filter + RAW-Dosenleiter, siehe openBrewDialog). */
+	if (levelUp) await actor.unsetFlag('symbaroum', 'gatherBrewLevelUp');
 	// 3) Buchung + Produktion.
 	let produced = 0;
+	/* Zutaten sammeln v1-Verbraucher: Produkttäuschung dieser Braung (null = sauber). */
+	let brewTaint = null;
 	if (success) {
 		if (economy) {
 			const stock = getResourceTotal(actor, 'alchemiezutat');
@@ -689,8 +826,24 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 				return;
 			}
 			produced = Math.min(doses, maxDoses);
-			await consumeResource(actor, 'alchemiezutat', cand.units * produced);
+			/* Zutaten sammeln v1-Verbraucher: Buchung nimmt GETAINTEN
+			   Bestand zuerst (consumeAlchemiezutaten) - die Mengenzeile
+			   bleibt unveraendert, die Taeuschung ist unsichtbar. */
+			const taintConsumed = await consumeAlchemiezutaten(actor, cand.units * produced);
 			lines.push(F('BREW.CHAT_MATERIALS', { amount: cand.units * produced, units: cand.units }));
+			if (taintConsumed.spoil + taintConsumed.transform > 0) {
+				const gmLines = [
+					F('BREW.WHISPER_TAINT', {
+						amount: taintConsumed.spoil + taintConsumed.transform,
+						spoil: taintConsumed.spoil,
+						transform: taintConsumed.transform,
+						elixir: cand.elixir.name,
+					}),
+				];
+				brewTaint = await resolveBrewTaint(actor, cand, produced, taintConsumed);
+				if (brewTaint?.transform > 0) gmLines.push(F('BREW.WHISPER_TAINT_TRANSFORM', { name: brewTaint.falseName }));
+				await whisperGM(L('SCHEIN.WHISPER_TITLE'), gmLines);
+			}
 			if (produced < doses) {
 				lines.push(F('BREW.CHAT_PRODUCED_PARTIAL', { count: produced, planned: doses }));
 			}
@@ -707,7 +860,10 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 				const residue = Math.max(1, await rollFormula('1d6', rolls));
 				await addResidueDoses(actor, residue);
 			} else {
-				await addElixirDoses(actor, cand.elixir, produced);
+				/* Zutaten sammeln v1-Verbraucher: getainte Braung erhaelt
+				  scheinbar normale Dosen + verdecktes Flag auf dem
+				   Produkt-Stapel (Verbraucher im Konsum, elixirs.js). */
+				await addElixirDoses(actor, cand.elixir, produced, brewTaint);
 			}
 			lines.push(F('BREW.CHAT_PRODUCED', { count: produced, name: cand.elixir.name }));
 		}
@@ -717,8 +873,21 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 		// nichts buchen (Edge, kein negativer Bestand).
 		const stock = getResourceTotal(actor, 'alchemiezutat');
 		if (stock >= cand.units) {
-			await consumeResource(actor, 'alchemiezutat', cand.units);
+			/* Zutaten sammeln v1-Verbraucher: auch der Fehlschlag-
+			   Grundstoff nimmt getainten Bestand zuerst - keine
+			   Produkttaeuschung (kein Erzeugnis), aber die SL
+			   erfaehrt den Verseuchungs-Verbrauch. */
+			const taintConsumed = await consumeAlchemiezutaten(actor, cand.units);
 			lines.push(F('BREW.CHAT_MATERIALS_LOST', { amount: cand.units }));
+			if (taintConsumed.spoil + taintConsumed.transform > 0) {
+				await whisperGM(L('SCHEIN.WHISPER_TITLE'), [
+					F('BREW.WHISPER_TAINT_FAIL', {
+						amount: taintConsumed.spoil + taintConsumed.transform,
+						spoil: taintConsumed.spoil,
+						transform: taintConsumed.transform,
+					}),
+				]);
+			}
 		}
 		lines.push(L('BREW.CHAT_ROUND_LOST'));
 	}

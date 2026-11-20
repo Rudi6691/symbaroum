@@ -55,7 +55,7 @@ import { openAlchemyMenu } from '../common/brewing.js';
 // Zutaten sammeln v1 (Rudolfs Freigabe 20.11.2026): Kontextmenü
 // „Alchemiezutaten sammeln“ am Alchemiezutat-Stapel — Wurf-Dialog,
 // Auswertung und Buchung liegen komplett in gathering.js.
-import { openGatherDialog } from '../common/gathering.js';
+import { openGatherDialog, openGatherAnalyseDialog } from '../common/gathering.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Kräfte-Tab
 // (modern) - Traditions-Chips je Kachel, passiver Geheimnis-Hinweis
 // (Zugang fehlt), „Verbotenes Wissen ({Tradition})“-Titel-Suffix und
@@ -1502,6 +1502,28 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openGatherDialog(this.actor, this._ctxItem(elem));
+				},
+			},
+			{
+				// Zutaten sammeln v1.1 (Rudolfs „Beides“-Freigabe 20.11.):
+				// Kontextmenü „Zutaten analysieren …“ am Alchemiezutat-Stapel —
+				// proaktive Aufdeckung des verdeckten gatherTaint-Bestands
+				// (Scharfsinn-Probe, brewing-Analysieren-Muster). Gleiche
+				// Sichtbarkeits-Regel wie Sammeln (GM/Blattbesitzer, nur im
+				// Ausrüstungs-Tab); auch ohne Scharfsinn-Nutzung sinnvoll
+				// tragbar (Probe dann hart).
+				label: 'GATHER.ANALYSE_MENU',
+				icon: `<i class="fa-solid fa-magnifying-glass"></i>`,
+				visible: (elem) => {
+					return (
+						elem?.type === 'equipment' &&
+						elem?.system?.resourceCategory === 'alchemiezutat' &&
+						elem.isOwner
+					);
+				},
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					openGatherAnalyseDialog(this.actor, this._ctxItem(elem));
 				},
 			},
 			{

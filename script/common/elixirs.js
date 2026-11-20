@@ -987,6 +987,19 @@ export function useElixir(item) {
 	   Tagging-Alt-Daten (Verwendungsform etc.) anliegen. Der Warnhinweis
 	   bleibt den getaggten Elixieren (ohne Verwendungsform) vorbehalten. */
 	if (!isAlchemical(item?.system)) return;
+	/* Zutaten sammeln v1-Verbraucher (Rudolfs Freigabe 20.11.): Ein
+	   Gebräu aus verseuchten Zutaten (gatherTaintProduct vom Brau-Prozess,
+	   Produkttäuschung) wird VOR dem Router abgefangen - die Dose sieht
+	   normal aus, wirkt aber verwandelt (transform: falsches
+	   gleichstufiges Elixier, falseUuid aus dem Schein-Muster) oder
+	   wirkungslos (spoil). Der Trinker MERKT den Unterschied erst beim
+	   Konsum (Karte), die SL erfuhr die Wahrheit bereits beim Brauen.
+	   Reihenfolge im Misch-Stapel: transform-Dosen zuerst (die teuere
+	   Täuschung zuendet vor dem harmlosen Verderb). */
+	const taint = item?.getFlag?.('symbaroum', 'gatherTaintProduct');
+	if (taint && ((Number(taint.spoil) || 0) + (Number(taint.transform) || 0)) > 0) {
+		return consumeTaintedElixirDose(item, taint);
+	}
 	const usage = getElixirUsage(item);
 	if (usage === '') {
 		ui.notifications.warn(F('ELIXIR.ERR_NO_USAGE', { name: item?.name ?? '' }));
@@ -999,6 +1012,53 @@ export function useElixir(item) {
 		return;
 	}
 	return useNarrativeElixir(item);
+}
+
+/* Zutaten sammeln v1-Verbraucher: Konsum Einer getainten Dose - die
+ * Buchung laeuft wie bei allen Dosen-Konsumpfaden (consumeElixirDose), der
+ * Flag-Anteil senkt sich um die verzehrte Dosis, die Karte erzaehlt
+ * dem Trinker WAS WIRKLICH passiert (Illusion bricht bewusst beim
+ * Konsum - die SL erfuhr die Wahrheit schon beim Brauen, deshalb KEINE
+ * zusaetzliche GM-Fluesterkarte hier). transform: falsches Elixier
+ * (falseUuid, Nachbrau-Schein-Quelle); spoil: wirkungslos. */
+async function consumeTaintedElixirDose(item, taint) {
+	const actor = item?.actor ?? null;
+	const mode = (Number(taint.transform) || 0) > 0 ? 'transform' : 'spoil';
+	const spoil = Math.max(0, Number(taint.spoil) || 0);
+	const transform = Math.max(0, Number(taint.transform) || 0);
+	/* Buchung: eine Dose (Dosen-/Bestands-Senke wie alle Konsumpfade) */
+	let consumedOk = true;
+	if (getElixirUsage(item) !== '') {
+		try {
+			consumedOk = await consumeElixirDose(item);
+		} catch (error) {
+			console.error('Symbaroum Elixiere: Taint-Dosen-Buchung fehlgeschlagen', error);
+		}
+	}
+	/* Flag-Anteil um die verzehrte Dose senken, Restflag stehen lassen */
+	const updated = {
+		spoil: mode === 'spoil' ? spoil - 1 : spoil,
+		transform: mode === 'transform' ? transform - 1 : transform,
+		falseUuid: taint.falseUuid ?? null,
+		falseName: taint.falseName ?? '',
+	};
+	try {
+		if (updated.spoil + updated.transform <= 0) await item.unsetFlag('symbaroum', 'gatherTaintProduct');
+		else await item.setFlag('symbaroum', 'gatherTaintProduct', updated);
+	} catch (error) {
+		console.error('Symbaroum Elixiere: Taint-Flag-Senkung fehlgeschlagen', error);
+	}
+	const lines = [];
+	if (mode === 'transform') {
+		const falseItem = taint.falseUuid ? fromUuidSync(String(taint.falseUuid)) : null;
+		const falseName = falseItem?.name ?? taint.falseName ?? '';
+		lines.push(F('ELIXIR.TAINT_TRANSFORM', { name: item?.name ?? '', false: falseName }));
+	} else {
+		lines.push(F('ELIXIR.TAINT_SPOIL', { name: item?.name ?? '' }));
+	}
+	if (!consumedOk) lines.push(L('ELIXIR.TAINT_NO_DOSE_BOOKED'));
+	await postElixirCard(actor, L('ELIXIR.TAINT_TITLE'), lines);
+	return mode;
 }
 
 /* ---------------------------------------------------------------- */

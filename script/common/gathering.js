@@ -44,6 +44,8 @@ import { symbDialog } from './symbDialog.js';
 import { modernDialogClasses, isModernDialogActive } from './modernSheetConfig.js';
 import { getItemCount } from './resources.js';
 import { getActorAbilityLevel } from './item.js';
+// Zutaten sammeln v1.1: Scharfsinn-Proben-Kern des Analysierens (brewing).
+import { alchemyProbe } from './brewing.js';
 
 /* i18n-Helfer nach brewing.js-Muster */
 const L = (key) => game.i18n.localize(key);
@@ -285,4 +287,126 @@ async function performGather(actor, stackItem, { secret = false, modifier = 0, f
 	   Suchtempo 2 Std./ß als SL-Buchhaltungs-Hinweis + 8-Std.-Grenze. */
 	lines.push(L('GATHER.CHAT_REMINDER'));
 	await postGatherCard(actor, F('GATHER.CHAT_TITLE', { name: actor.name }), lines, rolls, secret);
+}
+
+/* ---------------------------------------------------------------- */
+/*  Zutaten sammeln v1.1 — Stapel-Analyse (Rudolfs „Beides“-Freigabe) */
+/* ---------------------------------------------------------------- */
+
+/** Analysieren-Kontextmenü-Einstieg (player.js): Scharfsinn-Probe am
+ *  Zutat-Stapel deckt die VERDECKTEN gatherTaint-Einheiten (spoil/
+ *  transform) proaktiv auf — Erfolgs-Karte an den Analysierer (Öffent-
+ *  lich/Geheim-Option), Fehlschlag ohne Aussage, bestätigter kritischer
+ *  Patzer behauptet FALSCH „alles sauber“ (Analysieren-§6a-Muster:
+ *  Karte ununterscheidbar echt, Wahrheit nur als GM-Flüsterkarte). */
+export function openGatherAnalyseDialog(actor, stackItem) {
+	if (!actor || !stackItem) return;
+	if (stackItem.type !== 'equipment' || stackItem.system?.resourceCategory !== 'alchemiezutat') return;
+	const modern = isModernDialogActive();
+	const rowClass = modern ? 'm-roll-row' : 'attribute';
+	const favourBlock = modern
+		? `<fieldset class="m-ability-frame"><legend class="m-ability-label">${L('DIALOG.FAVOUR_LEGEND')}</legend>
+			<div class="m-give-vis">
+				<label class="lblfavour"><input type="radio" name="gather-analyse-favour" value="0" checked/> ${L('DIALOG.FAVOUR_NORMAL')}</label>
+				<label class="lblfavour"><input type="radio" name="gather-analyse-favour" value="1"/> ${L('DIALOG.FAVOUR_FAVOUR')}</label>
+				<label class="lblfavour"><input type="radio" name="gather-analyse-favour" value="-1"/> ${L('DIALOG.FAVOUR_DISFAVOUR')}</label>
+			</div></fieldset>`
+		: `<div class="favour">
+			<label class="lblfavour"><input type="radio" name="gather-analyse-favour" value="0" checked/> ${L('DIALOG.FAVOUR_NORMAL')}</label>
+			<label class="lblfavour"><input type="radio" name="gather-analyse-favour" value="1"/> ${L('DIALOG.FAVOUR_FAVOUR')}</label>
+			<label class="lblfavour"><input type="radio" name="gather-analyse-favour" value="-1"/> ${L('DIALOG.FAVOUR_DISFAVOUR')}</label>
+		</div>`;
+	const visBlock = modern
+		? `<fieldset class="m-ability-frame"><legend class="m-ability-label">${L('BREW.VISIBILITY')}</legend>
+			<div class="m-give-vis">
+				<label class="lblfavour"><input type="radio" name="gather-analyse-vis" value="public" checked/> ${L('GIVE.VISIBILITY_PUBLIC')}</label>
+				<label class="lblfavour"><input type="radio" name="gather-analyse-vis" value="secret"/> ${L('GIVE.VISIBILITY_WHISPER')}</label>
+			</div></fieldset>`
+		: `<div class="favour">
+			<label class="lblfavour"><input type="radio" name="gather-analyse-vis" value="public" checked/> ${L('GIVE.VISIBILITY_PUBLIC')}</label>
+			<label class="lblfavour"><input type="radio" name="gather-analyse-vis" value="secret"/> ${L('GIVE.VISIBILITY_WHISPER')}</label>
+		</div>`;
+	const content = `<div class="symbaroum dialog${modern ? ' modern-roll-dialog' : ''}">
+		<p>${L('GATHER.ANALYSE_DIALOG_HINT')}</p>
+		<div class="${rowClass}">
+			<label for="gather-analyse-modifier">${L('DIALOG.MODIFIER')}</label>
+			<input id="gather-analyse-modifier" type="number" value="0"/>
+		</div>
+		${favourBlock}
+		${visBlock}
+	</div>`;
+	symbDialog({
+		title: `${L('GATHER.ANALYSE_DIALOG_TITLE')} — ${actor.name}`,
+		content,
+		classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(modern ? modernDialogClasses('modern-roll-dialog') : [])],
+		width: 440,
+		buttons: {
+			analyse: {
+				icon: '<i class="fas fa-search"></i>',
+				label: L('GATHER.ANALYSE_BUTTON'),
+				callback: async (html) => {
+					const userMod = Number(html[0].querySelector('#gather-analyse-modifier')?.value);
+					const modifier = Number.isFinite(userMod) ? userMod : 0;
+					let favour = 0;
+					for (const radio of html[0].querySelectorAll("input[name='gather-analyse-favour']")) {
+						if (radio.checked) favour = Number(radio.value) || 0;
+					}
+					let secret = false;
+					for (const radio of html[0].querySelectorAll("input[name='gather-analyse-vis']")) {
+						if (radio.checked) secret = radio.value === 'secret';
+					}
+					await performGatherAnalyse(actor, stackItem, { secret, modifier, favour });
+				},
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+				callback: () => {},
+			},
+		},
+		default: 'analyse',
+	});
+}
+
+/** Analysier-Kern (Rudolfs „Beides“-Entscheid: proaktive Aufdeckung am
+ *  Stapel; die passive Brau-Flüsterkarte läuft im Ökonomie-Braupfad in
+ *  brewing.js mit, siehe WHISPER_TAINT-Zeilen). */
+async function performGatherAnalyse(actor, stackItem, { secret = false, modifier = 0, favour = 0 } = {}) {
+	const rolls = [];
+	const lines = [];
+	const probe = await alchemyProbe(actor, modifier, favour);
+	rolls.push(...probe.rolls);
+	const success = probe.trueActorSucceeded;
+	lines.push(
+		`<div class="tooltip"><p>${probe.rollResult} — ${L('GATHER.CHAT_ANALYSE_PROBE')}</p><span class="tooltiptext">${probe.toolTip}</span></div>`
+	);
+	if (probe?.rigged) lines.push(F('RIG.CHAT_LINE', { value: probe.rigged }));
+	const taint = await stackItem.getFlag('symbaroum', 'gatherTaint');
+	const spoil = Math.max(0, Number(taint?.spoil) || 0);
+	const transform = Math.max(0, Number(taint?.transform) || 0);
+	const level = probe.resultLevelKey;
+	if (success || level === 'CHAT.OUTSTANDING_SUCCESS' || level === 'CHAT.CRITICAL_SUCCESS') {
+		if (spoil + transform <= 0) {
+			lines.push(L('GATHER.ANALYSE_CLEAN'));
+		} else {
+			lines.push(F('GATHER.ANALYSE_REVEAL', { spoil, transform }));
+			if (level === 'CHAT.CRITICAL_SUCCESS' || level === 'CHAT.OUTSTANDING_SUCCESS') {
+				lines.push(L('GATHER.ANALYSE_REVEAL_FINE'));
+			}
+		}
+	} else if (level === 'CHAT.CRITICAL_FAILURE') {
+		/* Bestätigter kritischer Patzer: Karte behauptet FALSCH „alles
+		   sauber“ (ununterscheidbar von einer echten Entlastung), Wahrheit
+		   nur als GM-Flüsterkarte — Analysieren-§6a-Muster. */
+		lines.push(L('GATHER.ANALYSE_CLEAN'));
+		await whisperGatherGM(L('GATHER.WHISPER_TITLE'), [
+			F('GATHER.ANALYSE_WHISPER_MISSED', { actor: actor.name, stack: stackItem.name, spoil, transform }),
+		]);
+	} else {
+		/* Schlichter Fehlschlag (inkl. unbestätigter Fumble): keine
+		   Aussage — weder Entlastung noch Anklage. */
+		lines.push(L('GATHER.ANALYSE_FAIL'));
+		rolls.length = 0;
+	}
+	await postGatherCard(actor, F('GATHER.CHAT_ANALYSE_TITLE', { name: actor.name }), lines, rolls, secret);
 }

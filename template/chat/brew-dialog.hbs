@@ -103,6 +103,16 @@
     <input id="brew-bonus-next" type="checkbox" checked/>
   </div>
   {{/if}}
+  {{!-- Zutaten sammeln v1-Verbraucher: Stufe+1-Häkchen (Flag vom
+      bestätigten kritischen Sammel-Erfolg, gatherBrewLevelUp) - das
+      Häkchen wirkt EIN Mal auf DIESE Braung (Filter + Dosenleiter
+      zählen eine Alchemie-Stufe höher). Standard: angehakt. --}}
+  {{#if levelUp}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="brew-levelup" data-tooltip="{{localize "BREW.LEVELUP_TOOLTIP"}}">{{localize "BREW.LEVELUP"}}</label>
+    <input id="brew-levelup" type="checkbox" checked/>
+  </div>
+  {{/if}}
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label>{{localize "BREW.DOSES"}}</label>
     <input id="brew-dose-hint" type="text" disabled value="{{doseHint}}" data-tooltip="{{localize "BREW.DOSES_TOOLTIP"}}"/>

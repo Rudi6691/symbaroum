@@ -2715,6 +2715,35 @@ export async function placeHymnZone(item) {
 		return { configured: true, cancelled: true };
 	}
 	if (!regions?.length) return { configured: true, cancelled: true };
+	/* Hymnen-Token-Bindung v1 (Rudolfs Freigabe 20.11., Empfehlung
+	   angenommen): Gesangsflaeche folgt dem Saenger-Token auf jedes
+	   abgeschlossene Zugende (updateToken liefert EINE finale
+	   Positions-Aenderung, die Drag-Animation ist reine Client-Optik
+	   - kein Flackern). Hier wird NUR der relative Versatz Region zu
+	   Token bei der Platzierung vermerkt (follow.dx/dy); das Mitnehmen
+	   uebernimmt der GM-Client im updateToken-Hook (siehe
+	   _hymnZoneFollowToken) - spielerseitige Updates scheiterten an
+	   Szenen-Rechten, deshalb bewusst GM-executed und ABSOLUT statt
+	   relativ gerechnet (mehrfache GM-Clients erzeugen dieselben
+	   Ziel-Koordinaten = idempotent, kein doppeltes Verschieben).
+	   Ohne Wirker-Token kein Follow (KonServe-Faelle, reine Welt-Hymnen). */
+	if (casterToken) {
+		const placed = _regionCenter(regions[0]);
+		const tCenter = {
+			x: (casterToken.x ?? 0) + ((casterToken.document?.width ?? casterToken.width ?? 1) * gridSize) / 2,
+			y: (casterToken.y ?? 0) + ((casterToken.document?.height ?? casterToken.height ?? 1) * gridSize) / 2,
+		};
+		if (placed) {
+			try {
+				await regions[0].setFlag('symbaroum', 'hymnzone.follow', {
+					dx: placed.x - tCenter.x,
+					dy: placed.y - tCenter.y,
+				});
+			} catch (error) {
+				console.warn('Symbaroum Hymnen: Follow-Versatz konnte nicht vermerkt werden', error);
+			}
+		}
+	}
 	/* v1.4 (Rudolfs Freigabe 19.11.): Auch die Gesangsflaeche bekommt die
 	   Core-Wall-Restriction - Hymnen-Default Sinn KLANG (Rudolfs Fest-
 	   legung), Foundry clippt an schallblockierenden Kanten; der Re-Scan
@@ -2731,6 +2760,78 @@ export async function placeHymnZone(item) {
 export function hymnRegionTokens(region) {
 	if (!region) return [];
 	return _collectRegionTokens(region);
+}
+
+/* Hymnen-Token-Bindung v1: Shapes einer Region als iterierbare Liste -
+ * Collection-Fall (contents) wie Array-Fall (_firstRegionShape-Muster,
+ * Testrunde-2-P9) und Ein-Shape-Singleton abdecken. */
+function _regionShapes(region) {
+	const shapes = region?.shapes;
+	if (!shapes) return [];
+	if (Array.isArray(shapes)) return shapes.filter(Boolean);
+	if (Array.isArray(shapes?.contents)) return shapes.contents.filter(Boolean);
+	if (typeof shapes?.[Symbol.iterator] === 'function') {
+		const list = [];
+		for (const shape of shapes) if (shape) list.push(shape);
+		if (list.length > 0) return list;
+		return [shapes].filter(Boolean);
+	}
+	return [shapes].filter(Boolean);
+}
+
+/* Hymnen-Token-Bindung v1: Regionen eines Saenger-Tokens MIT Follow-Flag
+ * und ABSOLUTER Ziel-Position verschieben - die Form (Radius/Winkel) bleibt
+ * unberuehrt, nur x/y je Shape wandern mit. Das Update laeuft auf dem
+ * GM-Client (Szenen-Rechte), mehrfache GM-Clients errechnen dieselben
+ * Koordinaten und sind damit idempotent. */
+async function _hymnZoneFollowToken(tokenDoc) {
+	if (!tokenDoc || !canvas?.scene) return false;
+	const casterId = String(tokenDoc.id ?? tokenDoc._id ?? '');
+	if (!casterId) return false;
+	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
+	const w = (Number(tokenDoc.width) || 1) * gridSize;
+	const h = (Number(tokenDoc.height) || 1) * gridSize;
+	const center = { x: (Number(tokenDoc.x) || 0) + w / 2, y: (Number(tokenDoc.y) || 0) + h / 2 };
+	let moved = 0;
+	for (const region of canvas.scene.regions ?? []) {
+		const hz = (region.flags?.symbaroum ?? {})?.hymnzone;
+		if (!hz || hz.casterId !== casterId) continue;
+		const follow = hz.follow ?? { dx: 0, dy: 0 };
+		for (const shape of _regionShapes(region)) {
+			const targetX = center.x + (Number(follow.dx) || 0);
+			const targetY = center.y + (Number(follow.dy) || 0);
+			/* Form-Mitte, nicht Anchor, gegen die Immergleichheit: bei
+			   nicht-zentrierten Ankornern (Wand/Rectangle-Anchor) bleibt
+			   der Flag-Versatz als Offset erhalten, da beide Seiten um
+			   denselben Betrag wandern. */
+			try {
+				if (typeof shape?.update === 'function') {
+					await shape.update({ x: targetX, y: targetY });
+				} else {
+					await region.update({ x: targetX, y: targetY });
+				}
+				moved += 1;
+			} catch (error) {
+				console.warn('Symbaroum Hymnen: Follow-Update fehlgeschlagen', region?.name, error);
+			}
+		}
+	}
+	if (moved > 0) console.info('Symbaroum Hymnen [trace] Gesangsflaechen folgen Token', { casterId, moved });
+	return moved > 0;
+}
+
+/* Hymnen-Token-Bindung v1: Alle Gesangsflaechen EINES Casters loeschen
+ * (Token von der Szene entfernt) - breiter als removeHymnZoneRegions
+ * (keine ref-Einschraenkung), gleiche Iteration. */
+async function _hymnZoneCleanupToken(tokenId) {
+	if (!canvas?.scene || !tokenId) return;
+	const doomed = [];
+	for (const region of canvas.scene.regions ?? []) {
+		const hz = (region.flags?.symbaroum ?? {})?.hymnzone;
+		if (hz?.casterId === tokenId) doomed.push(region);
+	}
+	for (const region of doomed) await region.delete();
+	if (doomed.length > 0) console.info('Symbaroum Hymnen [trace] Gesangsflaechen mit entferntem Token aufgeraeumt', { tokenId, removed: doomed.length });
 }
 
 /** Regions-Dokument per Id auf der aktuellen Szene suchen. */
@@ -3388,7 +3489,44 @@ export function registerAoeHooks() {
 	// flackert kurz auf). Das eigene Undo feuert targetToken erneut mit
 	// targeted=false und wird ignoriert (keine Rekursion). Pro Client
 	// nur der eigene User; Fenster siehe _openTargetWindow.
-	Hooks.on('targetToken', (user, token, targeted) => {
+	/* Hymnen-Token-Bindung v1 (Rudolfs Freigabe 20.11.): Gesangsflaechen
+	 * folgen ihrem Saenger-Token auf abgeschlossene Zuege. updateToken
+	 * feuert auf JEDEM Client, die Region-Update-Rechte hat nur der GM
+	 * - also fuehrt der GM-Client aus (mehrere GM-Clients idempotent,
+	 * siehe _hymnZoneFollowToken). Ohne GM online bleibt die Flaeche
+	 * stehen (bewusster Grace, mit Trace). */
+	Hooks.on('updateToken', (tokenDoc, change) => {
+		if (!tokenDoc?.parent || !tokenDoc.parent.isView) return;
+		const moved =
+			change?.x !== undefined ||
+			change?.y !== undefined ||
+			change?.delta?.x !== undefined ||
+			change?.delta?.y !== undefined;
+		if (!moved) return;
+		/* Billige Existenz-Probe VOR allem Trace-Log: nur wenn ueberhaupt
+		   eine Gesangsflaeche dieses Casters auf der Szene liegt, wird
+		   geloggt/geschoben (sonst waere jeder Token-Zug Vogelgericht). */
+		const casterId = String(tokenDoc.id ?? tokenDoc._id ?? '');
+		const hasZone = (canvas.scene?.regions ?? []).some((region) => {
+			const hz = (region.flags?.symbaroum ?? {})?.hymnzone;
+			return hz?.casterId !== undefined && hz?.casterId !== null && hz.casterId === casterId;
+		});
+		if (!hasZone) return;
+		if (!game.user?.isGM) {
+			console.info('Symbaroum Hymnen [trace] Follow ohne GM-Client: Gesangsflaeche bleibt stehen', { casterId });
+			return;
+		}
+		_hymnZoneFollowToken(tokenDoc);
+	});
+	/* Hymnen-Token-Bindung v1: Token von der Szene entfernen raeumt die
+	 * Gesangsflaechen des Saengers mit auf (Empfehlung angenommen;
+	 * Unsichtbarkeit/Tod bleiben bewusst SL-Sache). */
+	Hooks.on('deleteToken', (tokenDoc) => {
+		if (!game.user?.isGM) return;
+		_hymnZoneCleanupToken(tokenDoc?.id ?? tokenDoc?._id ?? null);
+	});
+
+Hooks.on('targetToken', (user, token, targeted) => {
 		if (!targeted) return;
 		if (user?.id !== game.user?.id) return;
 		if (_zoneTargetWindows.size === 0) return;
