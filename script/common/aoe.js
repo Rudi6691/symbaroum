@@ -559,7 +559,13 @@ export function getZoneConfig(item) {
 	   Hymnen Schall, Symbolik-Glyphen Sicht, Flammenwand Bewegung,
 	   alles andere leer). Freie Zonen: Default leer, SL wählt im Dialog. */
 	const senses = resolveZoneSenses(zone, String(item?.system?.reference ?? ''));
-	return { active: String(zone.active ?? 'yes'), shape, size, targeting, mode, trigger, duration, targetOrder, includeCaster, senses };
+	/* v1.3 F9a/F9b (Rudolfs Freigabe 20.11.): Autoplatzierung (Default AUS)
+	   und Versteckt (Default AUS) reisen als boolesche Kanonik mit -
+	   Kraft-Zonen schreiben sie in den Config-Snapshot, Hymnen und
+	   Dornenmantel lesen sie direkt am Anlegepfad. */
+	const autoplace = zone.autoplace === true || String(zone.autoplace ?? '') === 'true';
+	const hidden = zone.hidden === true || String(zone.hidden ?? '') === 'true';
+	return { active: String(zone.active ?? 'yes'), shape, size, targeting, mode, trigger, duration, targetOrder, includeCaster, autoplace, hidden, senses };
 }
 
 /**
@@ -794,7 +800,11 @@ function _zoneRegionData(zone) {
 		displayMeasurements: true,
 		highlightMode: 'coverage',
 		shapes: [shape],
-		visibility: CONST.REGION_VISIBILITY.ALWAYS,
+		/* v1.3 F9b (Rudolfs Freigabe 20.11.): Zonen-Tab/Dialog-Schalter
+		   'Versteckt' (hidden) stellt die Sichtbarkeit der Region auf GM -
+		   Spieler sehen die Zone nicht, Clip und Ziel-Erfassung laufen
+		   unangetastet weiter (Optik = Pruefung bleibt fuer die SL). */
+		visibility: zone.config?.hidden === true ? CONST.REGION_VISIBILITY.GM : CONST.REGION_VISIBILITY.ALWAYS,
 		'flags.core.MeasuredTemplate': true,
 		flags: { symbaroum: { aoe: zone } },
 	};
@@ -2424,7 +2434,10 @@ export async function placeZoneFromItem(item) {
 		   Auto-Auswahl) liest die Platzierungs-Einstellung, auch nach
 		   Blatt-Änderungen. Sinn-Filter (S1) reisen mit - Altzonen ohne
 		   das Feld bleiben ungefiltert. */
-		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder, includeCaster: cfg.includeCaster, senses: cfg.senses ?? [] },
+		/* v1.3 F9a/F9b: autoplace/hidden reisen im Snapshot mit (Muster
+		   includeCaster) - jede Anlege-Art liest die Platzierungs-Einstellung,
+		auch nach spaeteren Blatt-Aenderungen. */
+		config: { shape: cfg.shape, size: cfg.size, targeting: cfg.targeting, targetOrder: cfg.targetOrder, includeCaster: cfg.includeCaster, autoplace: cfg.autoplace, hidden: cfg.hidden, senses: cfg.senses ?? [] },
 		metersPerField: isFlamewall ? Math.max(0.5, Number(canvas.scene.grid?.distance) || 2) : 2,
 		/* AoE-Rest Paket 1 - Flammenwand: automatische Willenskraft-
 		   Endprobe 1x je Runde ab R2 (Rudolfs Festlegung „ähnlich wie
@@ -2660,55 +2673,56 @@ export async function placeHymnZone(item) {
 	   Platzieren eine andere Ebene gewählt haben). */
 	const casterLevelIdAtPlace = _tokenLevelId(casterToken?.document ?? casterToken ?? null);
 	if (casterLevelIdAtPlace) regionData.levels = [casterLevelIdAtPlace];
+	/* v1.3 F9a/F9b/F10 (Rudolfs Freigabe 20.11.): Autoplatzierung per
+	   Zonen-Tab (system.areaZone.autoplace, Default AUS). AN: Die Zone
+	   wird DIREKT mittig auf das Sänger-Token gelegt (Anlage ohne
+	   Picker, Position = Token-Mitte in den Shape-Daten) und angehängt -
+	   der Core zieht sie live mit, ein SL-Versatz entsteht nicht (das
+	   v1.2-Zentrieren-danach ist mit dem Notfall-Follow entfallen, F11).
+	   AUS: Interaktive Platzierung (Core-Picker), die Position wählt
+	   die SL, der Anhang konserviert ihren Abstand. hidden (F9b) stellt
+	   die Sichtbarkeit auf GM, die Farbe ist Rudolfs Wunschton #434c43
+	   statt der Nutzerfarbe (Flammenwand-Präzedenz). Ohne Wirker-Token
+	   läuft immer der Picker (KonServe-Faelle, kein Anhang). */
+	const autoplaceOn = (item.system?.areaZone?.autoplace === true) || String(item.system?.areaZone?.autoplace ?? '') === 'true';
+	const hymnHidden = (item.system?.areaZone?.hidden === true) || String(item.system?.areaZone?.hidden ?? '') === 'true';
+	regionData.visibility = hymnHidden ? CONST.REGION_VISIBILITY.GM : CONST.REGION_VISIBILITY.ALWAYS;
+	regionData.color = '#434c43';
+	const hymnCastDoc = casterToken?.document ?? casterToken ?? null;
+	if (autoplaceOn && hymnCastDoc) {
+		shape.x = (Number(hymnCastDoc.x) || 0) + ((Number(hymnCastDoc.width) || 1) * gridSize) / 2;
+		shape.y = (Number(hymnCastDoc.y) || 0) + ((Number(hymnCastDoc.height) || 1) * gridSize) / 2;
+		regionData.shapes = [shape];
+	}
 	let regions = null;
-	try {
-		regions = await canvas.regions.placeRegions([regionData]);
-	} catch (error) {
-		console.error('Symbaroum Hymnen: Gesangsbereich-Platzierung fehlgeschlagen', error);
-		return { configured: true, cancelled: true };
+	if (autoplaceOn && hymnCastDoc) {
+		try {
+			const created = await canvas.scene.createEmbeddedDocuments('Region', [regionData]);
+			regions = Array.isArray(created) ? created : null;
+		} catch (error) {
+			console.error('Symbaroum Hymnen: Gesangsbereich-Anlage fehlgeschlagen', error);
+			return { configured: true, cancelled: true };
+		}
+	} else {
+		try {
+			regions = await canvas.regions.placeRegions([regionData]);
+		} catch (error) {
+			console.error('Symbaroum Hymnen: Gesangsbereich-Platzierung fehlgeschlagen', error);
+			return { configured: true, cancelled: true };
+		}
 	}
 	if (!regions?.length) return { configured: true, cancelled: true };
-	/* Hymnen-Anhang v1.2 (F1/F2, Rudolfs Freigabe 20.11.): Kanonische
-	   Core-Schnittstelle statt des v1.1-Experiments (attachedToken war
-	   KEIN Feld des RegionDocument, Foundry überging das Update still;
-	   Regionen haben KEIN Top-Level x/y, die Position wohnt in den
-	   SHAPE-DATEN): Der Anhang läuft über RegionData.attachment
-	   { token: ROHE Token-_id } (V14.370 Stable), die Zentrierung über
-	   den Punkt-Pfad 'shapes.0.x/.y' auf die Token-Mitte (Fallback
-	   Einzel-Shape-Update, v1.1-Code konserviert), die Level-Passung
-	   über die Ebene des Sänger-Tokens (F1). Reihenfolge: ERST zen-
-	   trieren, DANN anhängen - der Core-Anhang folgt aus der AKTUELLEN
-	   relativen Position (API-Doc), ein Konservieren des SL-Versatzes
-	   ist so ausgeschlossen. Schlägt der Anhang fehl, läuft der Notfall-
-	   Follow im updateToken-Hook weiter (Existenz-Probe trägt nach,
-	   toleranter Doppel-Check für Alt-Zonen vor v1.2). Ohne Wirker-
-	   Token (KonServe-Faelle) weder Anhang noch Zentrierung. */
+	/* Hymnen-Anhang v1.3 (F1/F2/F11): Kanonischer Core-Anhang ueber
+	   attachment: { token: ROHE Token-_id } (V14.370 Stable); der Core
+	   zieht die Region live mit dem Sänger (animiert, Hidden-Sync,
+	   Level-Passung ueber die Ebene des Sänger-Tokens). Der eigene
+	   Notfall-Follow ist ENTFERNT (F11, Rudolfs Entscheidung): Scheitert
+	   der Anhang, bleibt die Flaeche an ihrer Platzierungsposition
+	   stehen (dokumentiert, mit Trace) - Alt-Zonen vor v1.2 bleiben ueber
+	   den toleranten Doppel-Check korrekt erkannt. */
+	let attached = null;
 	if (casterToken) {
 		const castDoc = casterToken.document ?? casterToken;
-		const tCenter = {
-			x: (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2,
-			y: (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2,
-		};
-		let centered = false;
-		try {
-			if ((_regionShapes(regions[0]) ?? []).length === 1) {
-				await regions[0].update({ 'shapes.0.x': tCenter.x, 'shapes.0.y': tCenter.y });
-				centered = true;
-			}
-		} catch (centerError) {
-			console.warn('Symbaroum Hymnen [trace] Zentrierung (shapes.0.x/.y) fehlgeschlagen - Form-Fallback', { regionId: regions[0].id, centerError });
-		}
-		if (!centered) {
-			for (const shape of _regionShapes(regions[0])) {
-				try {
-					if (typeof shape?.update === 'function') await shape.update({ x: tCenter.x, y: tCenter.y });
-					centered = true;
-				} catch (shapeError) {
-					console.warn('Symbaroum Hymnen [trace] Form-Zentrierung fehlgeschlagen', shapeError);
-				}
-			}
-		}
-		let attached = null;
 		try {
 			const attachPatch = { attachment: { token: castDoc.id } };
 			const attachLevelId = _tokenLevelId(castDoc);
@@ -2716,13 +2730,13 @@ export async function placeHymnZone(item) {
 			await regions[0].update(attachPatch);
 			attached = regions[0].attachment?.token ?? null;
 		} catch (attachError) {
-			console.warn('Symbaroum Hymnen [trace] Core-Anhang fehlgeschlagen - Notfall-Follow im updateToken-Hook uebernimmt', { regionId: regions[0].id, attachError });
+			console.warn('Symbaroum Hymnen [trace] Core-Anhang fehlgeschlagen - Gesangsflaeche bleibt an der Platzierungsposition stehen', { regionId: regions[0].id, attachError });
 		}
 		console.info(
 			attached
-				? 'Symbaroum Hymnen [trace] Gesangszone zentriert + angehaengt (attachment.token, Level-Passung nach Sänger-Ebene)'
-				: 'Symbaroum Hymnen [trace] Core-Anhang NICHT gesetzt - Notfall-Follow im updateToken-Hook uebernimmt',
-			{ regionId: regions[0].id, attachedToken: attached, centered }
+				? 'Symbaroum Hymnen [trace] Gesangszone angehaengt (attachment.token, Level-Passung nach Sänger-Ebene)'
+				: 'Symbaroum Hymnen [trace] Core-Anhang NICHT gesetzt - Flaeche folgt NICHT (Notfall-Follow entfernt, F11)',
+			{ regionId: regions[0].id, attachedToken: attached, autoplace: autoplaceOn, hidden: hymnHidden }
 		);
 	}
 	/* v1.4 (Rudolfs Freigabe 19.11.): Auch die Gesangsflaeche bekommt die
@@ -2758,45 +2772,6 @@ function _regionShapes(region) {
 		return [shapes].filter(Boolean);
 	}
 	return [shapes].filter(Boolean);
-}
-
-/* Hymnen-Anhang v1.1: NOTFALL-FOLLOW - nur Regionen OHNE Core-Anhang
- * (attachment.token) werden auf die Token-Mitte nachgezogen. Der v1-Fehler
- * (Kaster-Flag = ACTOR-Id, Hook-Vergleich = TOKEN-Id, Trefferquote null)
- * ist behoben: Es wird gegen BEIDE Ids verglichen (Token-Id UND
- * Token.actor.id). Mehrere GM-Clients rechnen dieselben Ziel-Koordinaten
- * (ABSOLUTE Mitte, kein Versatz-Mehrspiel) und bleiben idempotent. */
-async function _hymnZoneFollowToken(tokenDoc) {
-	if (!tokenDoc || !canvas?.scene) return false;
-	const casterTokenId = String(tokenDoc.id ?? tokenDoc._id ?? '');
-	const casterActorId = String(tokenDoc.actor?.id ?? '');
-	if (!casterTokenId && !casterActorId) return false;
-	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
-	const w = (Number(tokenDoc.width) || 1) * gridSize;
-	const h = (Number(tokenDoc.height) || 1) * gridSize;
-	const center = { x: (Number(tokenDoc.x) || 0) + w / 2, y: (Number(tokenDoc.y) || 0) + h / 2 };
-	let moved = 0;
-	for (const region of canvas.scene.regions ?? []) {
-		const hz = (region.flags?.symbaroum ?? {})?.hymnzone;
-		if (!hz) continue;
-		const match = hz.casterId === casterTokenId || hz.casterId === casterActorId;
-		if (!match) continue;
-		/* Angehaengte Regionen bewegt der Core selbst - hier nie anfassen
-		   (doppelte Verschiebungen, Flackern; P1-Testrunde-Ursache war
-		   der Id-Vergleich, nicht der Core). */
-		if (region.attachment?.token || region.attachedToken) continue;
-		for (const shape of _regionShapes(region)) {
-			try {
-				if (typeof shape?.update === 'function') await shape.update({ x: center.x, y: center.y });
-				else await region.update({ x: center.x, y: center.y });
-				moved += 1;
-			} catch (error) {
-				console.warn('Symbaroum Hymnen: Follow-Update fehlgeschlagen', region?.name, error);
-			}
-		}
-	}
-	if (moved > 0) console.info('Symbaroum Hymnen [trace] Gesangsflaechen folgen Token (Notfall-Follow)', { casterTokenId, moved });
-	return moved > 0;
 }
 
 /* Hymnen-Anhang v1.1: Alle Gesangsflaechen EINES Sängers loeschen
@@ -2836,7 +2811,7 @@ export function hymnRegionById(regionId) {
  * Proxy), Level-Passung wie F1. Die sichtbar geclippte Fläche ist die
  * Quelle der Verbuendeten-Erfassung (region.tokens / testInsideRegion,
  * Optik = Pruefung); thornCloakInMeleeRange bleibt als dokumentierte
- * Notfall-Naehe OHNE Region bestehen (Muster Notfall-Follow).
+ * Notfall-Naehe OHNE Region bestehen (bewusst behalten).
  * ------------------------------------------------------------------- */
 
 /* Ebene eines Token-Dokuments bestimmen (F1/F7): explizites
@@ -2899,20 +2874,38 @@ export async function removeThornCloakZones(actorId) {
  *  aktivem Welt-Setting aoeSenseWalls; Spieler brauchen die Client-
  *  Probe bzw. den GM-Socket-Nachzug - scheitert beides, bleibt die
  *  Flaeche UNGECLIPPT sichtbar, die Notfall-Naehe entscheidet weiter). */
-export async function placeThornCloakZone(casterToken, casterActor) {
-	if (!casterToken || !canvas?.scene) return null;
+export async function placeThornCloakZone(casterToken, casterActor, item = null, { forceAuto = false } = {}) {
+	if (!casterToken || !canvas?.scene) return { region: null, declined: false };
 	const castDoc = casterToken.document ?? casterToken;
 	const casterId = casterActor?.id ?? castDoc.actor?.id ?? null;
 	const existing = thornCloakRegionFor(casterId);
-	if (existing) return existing;
+	if (existing) return { region: existing, declined: false };
 	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
+	/* v1.3 F12 (Rudolfs Testrunde v1.2, T5): Kreisradius aus dem Zonen-
+	   Tab (system.areaZone.size), Default 2,0 Zellen (Rudolfs Vorgabe
+	   „1 Feld groesser”); die Kraft bleibt ein Kreis - die Form-Wiege
+	   des Tabs greift hier nicht. forceAuto (Self-Heal im A29-Rescan)
+	   umgeht den Picker und legt still mittig an. */
+	const rawRadius = Number(item?.system?.areaZone?.size);
+	const radiusCells = Number.isFinite(rawRadius) && rawRadius >= 1 ? Math.round(rawRadius) : 2;
+	/* v1.3 F9a (Rudolfs Freigabe 20.11.): autoplace steuert Picker vs.
+	   Direkt-Anlage (Default AUS = Picker, konsistent mit den Hymnen);
+	   F9b: hidden (Default AUS) stellt die Sichtbarkeit auf GM, die
+	   Wirkung (move-Clip, Verbuendeten-Erfassung) bleibt unangetastet. */
+	const autoplaceRaw = item?.system?.areaZone?.autoplace;
+	const autoplace = autoplaceRaw === true || String(autoplaceRaw ?? '') === 'true' || forceAuto === true;
+	const hiddenRaw = item?.system?.areaZone?.hidden;
+	const hidden = hiddenRaw === true || String(hiddenRaw ?? '') === 'true';
+	const tCenterX = (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2;
+	const tCenterY = (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2;
 	const regionData = {
 		name: game.i18n.format('POWER_THORN_CLOAK.REGION_NAME', { user: casterActor?.name ?? castDoc.actor?.name ?? game.user.name }),
-		color: game.user.color,
+		/* v1.3 F10: Rudolfs Wunschfarbe #1c3e1c statt Nutzerfarbe */
+		color: '#1c3e1c',
 		displayMeasurements: true,
 		highlightMode: 'coverage',
-		shapes: [{ type: 'circle', x: (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2, y: (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2, rotation: 0, radius: 1 * gridSize }],
-		visibility: CONST.REGION_VISIBILITY.ALWAYS,
+		shapes: [{ type: 'circle', x: tCenterX, y: tCenterY, rotation: 0, radius: radiusCells * gridSize }],
+		visibility: hidden ? CONST.REGION_VISIBILITY.GM : CONST.REGION_VISIBILITY.ALWAYS,
 		'flags.core.MeasuredTemplate': true,
 		flags: {
 			symbaroum: {
@@ -2932,15 +2925,32 @@ export async function placeThornCloakZone(casterToken, casterActor) {
 	if (senseWallsEnabled() && (game.user.isGM || _playerRestrictionCreateCache === true)) {
 		regionData.restriction = { type: 'move', priority: 0, enabled: true };
 	}
-	let region = null;
-	try {
-		const created = await canvas.scene.createEmbeddedDocuments('Region', [regionData]);
-		region = Array.isArray(created) ? created[0] ?? null : null;
-	} catch (createError) {
-		console.warn('Symbaroum Hymnen [trace] Dornenmantel-Flaeche konnte nicht angelegt werden (kein GM?)', createError);
-		return null;
+	let regions = null;
+	let declined = false;
+	if (autoplace) {
+		try {
+			const created = await canvas.scene.createEmbeddedDocuments('Region', [regionData]);
+			regions = Array.isArray(created) ? created : null;
+		} catch (createError) {
+			console.warn('Symbaroum Hymnen [trace] Dornenmantel-Flaeche konnte nicht angelegt werden (kein GM?)', createError);
+			return { region: null, declined: false };
+		}
+	} else {
+		/* Picker: SL positioniert den Kreis frei (Vorschau clippt mit
+	   der move-Restriktion); Abbruch = gilt als ABGELEHNT -
+	   declined=true im Rueckgabewert, die Kraft wirkt ohne Flaeche
+	   weiter (Notfall-Naehe), und der A29-Rescan heilt nicht gegen
+	   den bewussten Abbruch (thornCloakZoneDeclined am Akteur). */
+		try {
+			regions = await canvas.regions.placeRegions([regionData]);
+		} catch (placeError) {
+			console.warn('Symbaroum Hymnen [trace] Dornenmantel-Platzierung fehlgeschlagen', placeError);
+			return { region: null, declined: false };
+		}
+		declined = !regions?.length;
 	}
-	if (!region) return null;
+	const region = regions?.[0] ?? null;
+	if (!region) return { region: null, declined };
 	/* Spieler ohne Restriction-Recht: GM-Socket-Nachzug (Probe schlug
 	   fehl oder Setting-Reihenfolge) - scheitert er, bleibt die Flaeche
 	   ungeclippt (bewusst, mit Trace). */
@@ -2958,14 +2968,15 @@ export async function placeThornCloakZone(casterToken, casterActor) {
 			console.warn('Symbaroum Hymnen [trace] Dornenmantel-Restriction-Socket fehlgeschlagen - Flaeche ungeclippt sichtbar', socketError);
 		}
 	}
-	/* Attach zuletzt (aktuelle relative Position, F2-Muster). */
+	/* Anhang (F2-Muster): Auto-Anlage ist bereits zentriert, beim Picker
+	   konserviert der Anhang den gewaehlten Abstand live. */
 	try {
 		await region.update({ attachment: { token: castDoc.id } });
 	} catch (attachError) {
 		console.warn('Symbaroum Hymnen [trace] Dornenmantel-Anhang fehlgeschlagen - Notfall-Naehe aktiv', attachError);
 	}
-	console.info('Symbaroum Hymnen [trace] Dornenmantel-Flaeche angelegt (Kreis 1 Zelle, move-Clip, angehaengt)', { regionId: region.id, casterId: String(casterId ?? ''), levelId: cloakLevelId });
-	return region;
+	console.info('Symbaroum Hymnen [trace] Dornenmantel-Flaeche angelegt (move-Clip, angehaengt)', { regionId: region.id, casterId: String(casterId ?? ''), radiusCells, autoplace: autoplace && !forceAuto, hidden, levelId: cloakLevelId });
+	return { region, declined };
 }
 
 /**
@@ -3346,6 +3357,9 @@ async function _placeFreeZoneFromDialog(html) {
 	const modifier = Number(val('aoe-free-modifier')) || 0;
 	const favourInput = html.querySelector('input[name="aoe-free-favour"]:checked');
 	const favour = Number(favourInput?.value ?? 0) || 0;
+	/* v1.3 F9b: 'Versteckt'-Checkbox des freien Zonen-Dialogs (Default
+	   AUS) - Sichtbarkeit GM statt ALWAYS, Wirkung unangetastet. */
+	const hidden = html.querySelector('#aoe-free-hidden')?.checked === true;
 	const zone = {
 		level: 2,
 		free: true,
@@ -3361,6 +3375,7 @@ async function _placeFreeZoneFromDialog(html) {
 		config: {
 			shape,
 			size,
+			hidden,
 			targeting: val('aoe-free-targeting') || 'all',
 			targetOrder: 'marking',
 			/* v1.4 (Rudolfs Freigabe 19.11.): EIN Sinn je Zone (Core-
@@ -3616,40 +3631,6 @@ export function registerAoeHooks() {
 	// flackert kurz auf). Das eigene Undo feuert targetToken erneut mit
 	// targeted=false und wird ignoriert (keine Rekursion). Pro Client
 	// nur der eigene User; Fenster siehe _openTargetWindow.
-	/* Hymnen-Anhang v1.1: NOTFALL-FOLLOW - feuert nur noch fuer
-	 * Regionen OHNE Core-Anhang (attachment.token); der Core zieht
-	 * angehaengte Regionen selbst live mit. Der v1-Root-Cause
-	 * (hymnzone.casterId = ACTOR-Id, Vergleich gegen TOKEN-Id) ist
-	 * behoben: Existenz-Probe und Follow vergleichen BEIDE Ids.
-	 * Ohne GM online bleibt die Flaeche stehen (bewusster Grace,
-	 * mit Trace). */
-	Hooks.on('updateToken', (tokenDoc, change) => {
-		if (!tokenDoc?.parent || !tokenDoc.parent.isView) return;
-		const moved =
-			change?.x !== undefined ||
-			change?.y !== undefined ||
-			change?.delta?.x !== undefined ||
-			change?.delta?.y !== undefined;
-		if (!moved) return;
-		/* Billige Existenz-Probe VOR allem Trace-Log: nur wenn ueberhaupt
-		   eine Gesangsflaeche dieses Casters auf der Szene liegt, wird
-		   geloggt/geschoben (sonst waere jeder Token-Zug Vogelgericht). */
-		const casterTokenId = String(tokenDoc.id ?? tokenDoc._id ?? '');
-		const casterActorId = String(tokenDoc.actor?.id ?? '');
-		const hymnZones = (canvas.scene?.regions ?? []).filter((region) => {
-			const hz = (region.flags?.symbaroum ?? {})?.hymnzone;
-			return hz?.casterId !== undefined && hz?.casterId !== null && (hz.casterId === casterTokenId || hz.casterId === casterActorId);
-		});
-		if (hymnZones.length === 0) return;
-		/* Angehaengte Regionen behandelt der Core - nur hängengebliebene
-		   (Core-Anhang fehlgeschlagen, Alt-Zonen vor v1.1) laufen hier. */
-		if (!hymnZones.some((region) => !(region.attachment?.token || region.attachedToken))) return;
-		if (!game.user?.isGM) {
-			console.info('Symbaroum Hymnen [trace] Follow ohne GM-Client: Gesangsflaeche bleibt stehen', { casterTokenId });
-			return;
-		}
-		_hymnZoneFollowToken(tokenDoc);
-	});
 	/* Hymnen-Anhang v1.1 (Rudolfs Freigabe 20.11., Testrunde v1 P3/P4):
 	 * Token von der Szene entfernen raeumt die Gesangsflaechen des
 	 * Saengers mit auf UND beendet den Gesang automatisch (Symbole am

@@ -221,7 +221,9 @@
           "sense": "",
           "senseMove": false,
           "senseSight": false,
-          "senseSound": false
+          "senseSound": false,
+          "autoplace": false,
+          "hidden": false
         }
       }
     },

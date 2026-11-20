@@ -827,7 +827,20 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			const sceneActive = !!(game.canvas?.scene ?? canvas?.scene);
 			context.aoe = {
 				shape: zoneCfg?.shape ?? '',
-				size: zoneCfg?.size ?? Math.max(1, Math.round(Number(zone.size) || 0) || 1),
+				/* v1.3 F12 (Rudolfs Testrunde v1.2, T5): Dornenmantel-Default-
+				   Radius 2 Zellen - greift nur, solange das Blatt noch keine
+				   eigene Groesse gespeichert hat; der Zone-Code liest denselben
+				   Default (placeThornCloakZone), Blatt und Wirkung bleiben
+				   deckungsgleich. */
+				size:
+					String(this.item.system?.reference ?? '') === 'thorncloak' && !(Number.isFinite(Number(zone.size)) && Number(zone.size) >= 1)
+						? 2
+						: (zoneCfg?.size ?? Math.max(1, Math.round(Number(zone.size) || 0) || 1)),
+				/* v1.3 F9a/F9b (Rudolfs Freigabe 20.11.): Autoplatzierung und
+				   Versteckt aus dem Zonen-Tab (Checkboxen, Default AUS) -
+				   boolesche Kanonik wie die anderen Zonen-Felder. */
+				autoplace: zoneCfg?.autoplace === true,
+				hidden: zoneCfg?.hidden === true,
 				targeting: zoneCfg?.targeting ?? 'all',
 				/* AoE Stufe 2a (Freigabe 2a+2b, 09.11.2026): Wirkungsmodus
 				   (augenblicklich | dauerhaft), Betreten-Trigger und Dauer
@@ -1625,6 +1638,15 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				const path = 'system.areaZone.sense';
 				const rawSense = String(formData.get(path) ?? 'none');
 				foundry.utils.setProperty(update, path, ['none', 'move', 'sight', 'sound'].includes(rawSense) ? rawSense : 'none');
+				/* v1.3 F9a/F9b (Rudolfs Freigabe 20.11.): Checkboxen liefern
+				 * bei UNANGEHAKT gar keinen FormData-Eintrag (v1.2-Problem,
+				 * gleiche Wurzel wie der Sense-Block) - beide Schalter
+				 * werden deshalb hier explizit boolesch kanonisiert:
+				 * angehakt = true (beliebiger FormData-Wert), fehlend = false. */
+				for (const flag of ['autoplace', 'hidden']) {
+					const flagPath = `system.areaZone.${flag}`;
+					foundry.utils.setProperty(update, flagPath, formData.get(flagPath) !== null);
+				}
 			}
 		}
 		return update;

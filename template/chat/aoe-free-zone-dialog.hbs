@@ -43,6 +43,13 @@
       {{selectOptions senseOptions selected="none" valueAttr="id" labelAttr="label"}}
     </select>
   </div>
+  {{!-- v1.3 F9b (Rudolfs Freigabe 20.11.): „Versteckt“ (Default AUS) - macht die
+        freie Zone fuer Spieler unsichtbar (Sichtbarkeit SL), Wirkung und Clip
+        laufen unangetastet weiter; _placeFreeZoneFromDialog liest #aoe-free-hidden. --}}
+  <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
+    <label for="aoe-free-hidden" data-tooltip="{{localize "AOE.INFO_HIDDEN"}}">{{localize "AOE.FIELD_HIDDEN"}}</label>
+    <input id="aoe-free-hidden" type="checkbox"/>
+  </div>
   <div class="{{#if renderModern}}m-roll-row{{else}}attribute{{/if}}">
     <label for="aoe-free-resist">{{localize "AOE.FIELD_RESIST"}}</label>
     <select id="aoe-free-resist">

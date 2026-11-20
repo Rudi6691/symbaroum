@@ -2602,9 +2602,9 @@ export class SymbaroumItem extends Item {
        Hook hooks.js + je-Runde-Abgleich im A29-Rescan, Rudolfs
        Entscheidungen "automatisches Flag" und "je Runde pruefen");
        Adept+ schuetzt zusaetzlich alle Verbuendeten IN der Dornen-
-       mantel-Flaeche (v1.2 F7: angehaengte Core-Region, Kreis 1,0
-       Zelle am Traeger, move-geschnitten; Notfall-Naehe v1.6 szenen-
-       unabhaengig als Fallback ohne Flaeche) -
+       mantel-Flaeche (v1.2 F7/v1.3 F12: angehaengte Core-Region, Kreis-Radius aus
+       dem Zonen-Tab, Default 2 Zellen, move-geschnitten; Notfall-
+       Naehe szenen-unabhaengig als Fallback ohne Flaeche) -
        der A29-Turnus (Rudolfs Vorschlag) prueft die je-Runde-Naehe
        im Rescan; Meister-Rueckschlag 1W10 (Ruestung ignoriert)
        laeuft automatisch als Reaktions-Karte in attackResult (Rudolfs
@@ -2650,10 +2650,11 @@ export class SymbaroumItem extends Item {
        Ausstrahlung<-Willenskraft JE Feind in der Gesangsflaeche
        (Novize nur verwundete Feinde, Adept+ alle; je Feind ein
        eigener Wurf, Maintain-Chain-Muster baseRoll), danach wirkt
-       sie WURFLOS "solange der Gesang weitergeht" (A29-"Ja"-Runde
-       still, kein Re-Scan, keine neuen Proben - Rudolfs Entschei-
-       dung: kein automatisches Nachziehen spaeter eintretender
-       Feinde, Neuaufnahme = neuer Erstgesang ueber die SL). Betraf-
+       sie "solange der Gesang weitergeht" (v1.3 F14, Rudolfs Freigabe
+       20.11.: A29-"Ja"-Runde laeuft jetzt der hymnZoneRescan - die
+       Hymne haelt die Dauerzone AUCH leer, Nachzuegler ziehen je
+       Feind mit opponierter Erstgesangs-Probe nach, Hinausgegangene
+       verlieren den Missgunst-Marker). Betraf-
        fene Feinde tragen den Missgunst-Marker (weakeninghymn-Symbol,
        favourMod -1-Vorbelegung in BEIDEN Wurfdialogen - Rudolfs
        Systemabbildung fuer "eine zweite Chance, alle Erfolgsproben
@@ -6426,6 +6427,14 @@ async function hymnZoneRescan(functionStuff) {
   if (!casterToken) return;
   const casterDisposition = casterToken.document?.disposition ?? 0;
   const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
+  /* v1.3 F14 (Rudolfs Freigabe 20.11.): Die Schwächende Hymne teilt jetzt
+     die Hymnen-Maschine - Dauerzone AUCH leer, Joiner/Leaver je Runde im
+     Rescan. Ihr Zweig braucht KEINE Attribut-Liste vom Vorlage-Symbol
+     (Missgunst-Marker statt Attribut-Buff, Guard nur für die Buff-Hymnen),
+     Joiner sind FEINDE (Disposition relativ zum Sänger), die je Joiner
+     mit der opponierten Erstgesangs-Probe nachziehen; Novize zieht nur
+     verwundete Feinde nach (getWeakeningHymnTargets-Muster). */
+  const isWeakening = abilityRef === "weakeninghymn";
   /* Bestand: alle Token der Szene mit einem Hymnen-Symbol dieses Sängers */
   const carrying = new Map();
   for (const token of canvas.tokens?.placeables ?? []) {
@@ -6449,7 +6458,7 @@ async function hymnZoneRescan(functionStuff) {
     }
   }
   templateFd ??= carrying.get(casterToken.id)?.fd ?? null;
-  if (!templateFd) return;
+  if (!isWeakening && !templateFd) return;
   /* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P4 - Root-Cause): Die
      Vorlage liest die Attribut-Liste FLACH vom Effekt-Flag
      (flags.symbaroum.flagData.attributeChanges). addCondition
@@ -6464,10 +6473,13 @@ async function hymnZoneRescan(functionStuff) {
      Join/Leave-Vergleich: Joiner und Leaver wurden nie erkannt (beide
      Wirkungsmodi, eine Wurzel). Der conditionData-Fallback bleibt als
      Gürtel für Symbole aus der Zeit vor diesem Fix. */
-  const attributeNames = (templateFd.attributeChanges ?? templateFd.conditionData?.attributeChanges ?? []).map((c) => c.name);
-  if (attributeNames.length === 0) return;
+  const attributeNames = isWeakening
+    ? []
+    : (templateFd.attributeChanges ?? templateFd.conditionData?.attributeChanges ?? []).map((c) => c.name);
+  if (!isWeakening && attributeNames.length === 0) return;
   const attributeLabels = attributeNames.map((attr) => game.i18n.localize(game.symbaroum.config.attributeLabels[attr]));
   const flagDataArray = [];
+  const rolls = [];
   const lines = [];
   for (const token of canvas.tokens?.placeables ?? []) {
     if (!token.actor || token.id === casterToken.id) continue;
@@ -6479,34 +6491,69 @@ async function hymnZoneRescan(functionStuff) {
       flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
       lines.push(`<p>${game.i18n.format("POWER_HYMN.ZONE_LEFT", { targetname: token.name })}</p>`);
     } else if (!hasBuff && inZone.has(token.id)) {
-      /* Eingetreten: nur Verbündete (Disposition relativ zum Sänger,
-         Sichtweiten-Muster des Erstgesangs) ziehen automatisch nach */
-      if ((token.document?.disposition ?? 0) < casterDisposition) continue;
-      const attributeChanges = attributeNames.map((attr) => ({ name: attr, value: 1 }));
-      flagDataArray.push({
-        tokenId: token.id,
-        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
-        effectDuration: 1,
-        maintained: true,
-        casterId: functionStuff.actor.id,
-        abilityRef: abilityRef,
-        /* 1.3: Auf dem Effekt heißt das Snapshot-Feld 'resolute'
-           (Apply-Handler), nicht 'casterResolute' - der 1.2-Fallback
-           griff sonst auf den AKTUELLEN statt des Erstschafts-Werts
-           zurück. Beide Namen als Kette für Alt-Symbole. */
-        casterResolute: templateFd.resolute ?? templateFd.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
-        casterName: templateFd.casterName ?? functionStuff.actingCharName,
-        conditionData: { attrSymbol: true, attributeChanges: attributeChanges },
-      });
-      for (const attr of attributeNames) {
-        flagDataArray.push({ tokenId: token.id, attributeName: attr, attributeChange: 1 });
+      if (isWeakening) {
+        /* Eingetreten (FEIND): opponierte Erstgesangs-Probe je Joiner
+           (Messfehler schließen ein, baseRoll/SL-Urteil), Novize nur
+           verwundete Feinde; Widerstand = RESIST_LINE, kein Marker. */
+        if ((token.document?.disposition ?? 0) >= casterDisposition) continue;
+        if (functionStuff.powerLvl?.level === 1) {
+          const toughness = token.actor.system?.health?.toughness;
+          if (Number(toughness?.value ?? 0) >= Number(toughness?.max ?? 0)) continue;
+        }
+        const probe = await baseRoll(
+          functionStuff.actor,
+          functionStuff.castingAttributeName ?? "persuasive",
+          token.actor,
+          functionStuff.targetResistAttribute ?? "resolute",
+          functionStuff.favour,
+          functionStuff.modifier,
+          false
+        );
+        rolls.push(...(probe.rolls ?? []));
+        if (probe.trueActorSucceeded) {
+          flagDataArray.push({
+            tokenId: token.id,
+            addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+            effectDuration: 1,
+            maintained: true,
+            casterId: functionStuff.actor.id,
+            abilityRef: abilityRef,
+            casterName: functionStuff.actingCharName,
+          });
+          lines.push(`<p>${game.i18n.format("POWER_WEAKENING_HYMN.WEAKENED_LINE", { targetname: token.name })}</p>`);
+        } else {
+          lines.push(`<p>${game.i18n.format("POWER_WEAKENING_HYMN.RESIST_LINE", { targetname: token.name })}</p>`);
+        }
+      } else {
+        /* Eingetreten (VERBÜNDETER): Disposition relativ zum Sänger,
+           Sichtweiten-Muster des Erstgesangs, wufloses Nachziehen */
+        if ((token.document?.disposition ?? 0) < casterDisposition) continue;
+        const attributeChanges = attributeNames.map((attr) => ({ name: attr, value: 1 }));
+        flagDataArray.push({
+          tokenId: token.id,
+          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+          effectDuration: 1,
+          maintained: true,
+          casterId: functionStuff.actor.id,
+          abilityRef: abilityRef,
+          /* 1.3: Auf dem Effekt heißt das Snapshot-Feld 'resolute'
+             (Apply-Handler), nicht 'casterResolute' - der 1.2-Fallback
+             griff sonst auf den AKTUELLEN statt des Erstschafts-Werts
+             zurück. Beide Namen als Kette für Alt-Symbole. */
+          casterResolute: templateFd.resolute ?? templateFd.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
+          casterName: templateFd.casterName ?? functionStuff.actingCharName,
+          conditionData: { attrSymbol: true, attributeChanges: attributeChanges },
+        });
+        for (const attr of attributeNames) {
+          flagDataArray.push({ tokenId: token.id, attributeName: attr, attributeChange: 1 });
+        }
+        lines.push(`<p>${game.i18n.format("POWER_HYMN.ZONE_JOINED", { targetname: token.name, attributes: attributeLabels.join(", ") })}</p>`);
       }
-      lines.push(`<p>${game.i18n.format("POWER_HYMN.ZONE_JOINED", { targetname: token.name, attributes: attributeLabels.join(", ") })}</p>`);
     }
   }
   if (lines.length === 0) return;
   const title = `<h4>${game.i18n.format("POWER_HYMN.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
-  await postMaintainChainCard(functionStuff, title, lines, []);
+  await postMaintainChainCard(functionStuff, title, lines, rolls);
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
   }
@@ -6663,7 +6710,14 @@ export async function hymnAutoRescanRound() {
    Parallele), sonst der volle Wurfeldialog (Casting CASTING, Modifi-
    kator/Gunst/Segen-Zeilen wie im Fluch-Maintain-Dialog). */
 async function preDialogWeakeningHymnChoice(functionStuff) {
-  if (functionStuff.presetMaintain) return;
+  /* v1.3 F14 (Rudolfs Freigabe 20.11.): A29-"Ja" laeuft jetzt wie bei
+     den Buff-Hymnen durch hymnZoneRescan - Hinausgegangene verlieren
+     den Missgunst-Marker, eindringende Feinde ziehen mit opponierter
+     Erstgesangs-Probe nach (das v1.2-Ruhe-Modell entfaellt). */
+  if (functionStuff.presetMaintain) {
+    await hymnZoneRescan(functionStuff);
+    return;
+  }
   const runningRef = hymnActiveForCaster(functionStuff.actor);
   if (runningRef === "weakeninghymn") {
     symbDialog({
@@ -6778,16 +6832,11 @@ async function weakeningHymnResult(rollData, functionStuff) {
   const weakeningSelection = getWeakeningHymnTargets(functionStuff);
   const affectedEnemies = weakeningSelection.tokens;
   const affectedSkipLines = weakeningSelection.skipLines;
-  if (affectedEnemies.length === 0) {
-    cleanupFreshHymnZone(functionStuff);
-    functionStuff.hymnZoneCommitted = true;
-    ui.notifications.warn(game.i18n.localize("POWER_HYMN.NO_TOKENS"));
-    return;
-  }
-  /* Gesangsflaeche am Akteur vermerken (hymnResult-Muster: vorherige
-     Flaeche desselben Refs raeumen, verwaiste Flaechen duerfen nicht
-     stehen bleiben; der Close-Waechter des Dialogs darf sie jetzt
-     nicht mehr anfassen). */
+  /* v1.3 F14 (Rudolfs Freigabe 20.11.): Gesangsflaeche VERMERKEN, BEVOR
+     die Feind-Zaehlung entscheidet - die Hymne haelt die Dauerzone AUCH
+     LEER (Leer-Karte, Nachzuegler kommen je Runde per hymnZoneRescan;
+     hymnResult-Muster: vorherige Flaeche desselben Refs raeumen, der
+     Close-Waechter des Dialogs darf sie jetzt nicht mehr anfassen). */
   if (functionStuff.hymnZone?.regionId) {
     const previousZone = functionStuff.actor.getFlag(game.system.id, `hymnZone.${abilityRef}`);
     if (previousZone?.regionId && previousZone.regionId !== functionStuff.hymnZone.regionId) {
@@ -6796,6 +6845,16 @@ async function weakeningHymnResult(rollData, functionStuff) {
     }
     await functionStuff.actor.setFlag(game.system.id, `hymnZone.${abilityRef}`, functionStuff.hymnZone);
     functionStuff.hymnZoneCommitted = true;
+  }
+  if (affectedEnemies.length === 0) {
+    /* Ohne platzierte Flaeche (Abbruch/Rechte-Rest) bleibt beim Leer-
+       Wurf der alte Raeum-Pfad - die committete Zone bleibt hingegen
+       stehen und bekommt die Leer-Karte. */
+    if (!functionStuff.hymnZoneCommitted) cleanupFreshHymnZone(functionStuff);
+    const emptyTitle = `<h4>${game.i18n.format("POWER_HYMN.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+    const emptyLines = [...affectedSkipLines, `<p>${game.i18n.localize("POWER_WEAKENING_HYMN.EMPTY_ZONE")}</p>`];
+    await postMaintainChainCard(functionStuff, emptyTitle, emptyLines, []);
+    return;
   }
   const flagDataArray = [];
   const rolls = [];
@@ -6923,7 +6982,7 @@ function thornCloakTokenCenter(token) {
   return { x: (token?.x ?? 0) + width / 2, y: (token?.y ?? 0) + height / 2 };
 }
 
-/* NOTFALL-Naehe (v1.2 F7, bewusst behalten - Muster Notfall-Follow):
+/* NOTFALL-Naehe (v1.2 F7, bewusst behaltener Notfall-Pfad mit Trace):
    benachbarte Felder, szenen-unabhaengig. Laeuft nur, wenn KEINE Dornen-
    mantel-Flaeche existiert (Anlage gescheitert, geloescht, Rechte). */
 function thornCloakInMeleeRange(tokenA, tokenB) {
@@ -6940,7 +6999,7 @@ function thornCloakInMeleeRange(tokenA, tokenB) {
 /* v1.2 F7: Zone-Mitgliedschaft eines Tokens - mit Flaeche entscheidet die
    Region (Core-Containment testInsideRegion, Rueckfall region.tokens-Id-
    Liste; die geclippte Optik ist die Wahrheit), ohne Flaeche die Notfall-
-   Naehe (thornCloakInMeleeRange, Muster Notfall-Follow). */
+   Naehe (thornCloakInMeleeRange, Notfall-Pfad mit Trace). */
 function thornCloakTokenInZone(casterToken, token, region) {
   if (!region) return thornCloakInMeleeRange(casterToken, token);
   const doc = token?.document ?? token;
@@ -6959,7 +7018,7 @@ function thornCloakTokenInZone(casterToken, token, region) {
    Rudolfs Freigabe 20.11.): Mit Flaeche zaehlt die Region-Mitgliedschaft
    (Core-Containment testInsideRegion auf der geclippten Zone, Optik =
    Pruefung), ohne Flaeche die szenen-unabhaengige Notfall-Naehe
-   (thornCloakInMeleeRange, Muster Notfall-Follow) - der Mystiker
+   (thornCloakInMeleeRange, Notfall-Pfad mit Trace) - der Mystiker
    selbst nie.
    v1.7 (unveraendert uebernommen): Dispositions-Regel - FEINDLICHE
      Token zaehlen nur bei feindlichem Mystiker als Verbuendete;
@@ -7083,12 +7142,25 @@ async function thornCloakResult(rollData, functionStuff) {
     return;
   }
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
-  /* v1.2 F7 (Rudolfs Freigabe 20.11.): Erstaktivierung legt die Dornen-
-     mantel-Flaeche an (angehaengte Core-Region, Kreis 1,0 Zelle am
-     Traeger, move-geschnitten, Level-Passung; Bestand erneuern). Ohne
-     Flaeche (Rechte, Socket-Rest) entscheidet die Notfall-Naehe weiter,
-     der Trace zeichnet den Weg. */
-  const cloakRegion = casterToken ? await placeThornCloakZone(casterToken, functionStuff.actor) : null;
+  /* v1.2 F7/v1.3 F9a/F12 (Rudolfs Freigabe 20.11.): Erstaktivierung
+     folgt dem Zonen-Tab - Autoplatzierung AN = Direkt-Anlage mittig,
+     AUS = interaktiver SL-Picker (konsistent mit den Hymnen); Kreis-
+     Radius aus dem Tab (F12, Default 2 Zellen), hidden optional (F9b).
+     Ohne Flaeche (Rechte, Socket-Rest) entscheidet die Notfall-Naehe
+     weiter, der Trace zeichnet den Weg. */
+  await functionStuff.actor.unsetFlag(game.system.id, "thornCloakZoneDeclined");
+  const placement = casterToken
+    ? await placeThornCloakZone(casterToken, functionStuff.actor, functionStuff.ability)
+    : { region: null, declined: false };
+  const cloakRegion = placement?.region ?? null;
+  if (placement?.declined) {
+    /* Bewusster Picker-Abbruch: Merker am Akteur - der A29-Self-Heal
+       legt gegen den Abbruch NICHT still nach. */
+    await functionStuff.actor.setFlag(game.system.id, "thornCloakZoneDeclined", true);
+    console.info("Symbaroum Hymnen [trace] Dornenmantel-Platzierung abgebrochen - Notfall-Naehe uebernimmt (Rescan heilt nicht gegen den Abbruch)", {
+      actorId: functionStuff.actor.id,
+    });
+  }
   /* v1.6 (Rudolfs Testrunde v1.5, Punkte 5a/5c, Rudolfs Entscheidung
      "Maintain-Modell mit A29-Turnus", 17.11.2026): Das Caster-Symbol
      traegt jetzt den A29-Autor-Marker (maintained + caster + ability)
@@ -7170,10 +7242,17 @@ async function thornCloakResult(rollData, functionStuff) {
 async function thornCloakRescan(functionStuff) {
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   if (!casterToken) return;
-  /* v1.2 F7: Self-Heal (Muster Notfall-Follow) - fehlt die Flaeche (SL
-     geloescht, Szenen-Rest), legt der Rescan sie erneut an, BEVOR
-     Leaver/Joiner geprueft werden. */
-  const cloakRegion = thornCloakRegionFor(functionStuff.actor.id) ?? (await placeThornCloakZone(casterToken, functionStuff.actor));
+  /* v1.2 F7/v1.3 F9a: Self-Heal - fehlt die Flaeche (SL geloescht,
+     Szenen-Rest), legt der Rescan sie erneut an, BEVOR Leaver/Joiner
+     geprueft werden - STILL mit forceAuto (kein Picker mitten im
+     Rundenzug), ABER nie gegen einen bewussten Picker-Abbruch des
+     Wirkers (thornCloakZoneDeclined - die Notfall-Naehe bleibt dann
+     gewollt aktiv). */
+  let cloakRegion = thornCloakRegionFor(functionStuff.actor.id);
+  if (!cloakRegion && functionStuff.actor.getFlag(game.system.id, "thornCloakZoneDeclined") !== true) {
+    cloakRegion = (await placeThornCloakZone(casterToken, functionStuff.actor, functionStuff.ability, { forceAuto: true }))?.region ?? null;
+  }
+
   const carrying = new Map();
   for (const token of canvas.tokens?.placeables ?? []) {
     if (!token.actor?.effects) continue;

@@ -149,6 +149,15 @@
                             {{selectOptions aoe_include_caster_selection selected=aoe.includeCaster valueAttr="id" labelAttr="label"}}
                         </select>
                     </div>
+                    {{!-- v1.3 F9a/F9b (Rudolfs Freigabe 20.11.): Autoplatzierung (Default AUS) - Zone wird bei Hymnen und Dornenmantel direkt mittig auf den Sänger gelegt; Versteckt (Default AUS) - fuer Spieler unsichtbare Zone (Sichtbarkeit SL), Wirkung laeuft weiter. --}}
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.areaZone.autoplace" data-tooltip="{{localize "AOE.INFO_AUTOPLACE"}}">{{localize "AOE.FIELD_AUTOPLACE"}}</label>
+                        <input id="{{id}}-system.areaZone.autoplace" name="system.areaZone.autoplace" type="checkbox" value="autoplace" {{checked aoe.autoplace}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.areaZone.hidden" data-tooltip="{{localize "AOE.INFO_HIDDEN"}}">{{localize "AOE.FIELD_HIDDEN"}}</label>
+                        <input id="{{id}}-system.areaZone.hidden" name="system.areaZone.hidden" type="checkbox" value="hidden" {{checked aoe.hidden}}/>
+                    </div>
                     {{!-- v1.4 (Rudolfs Freigabe 19.11. nach Testrunde 7): EIN Sinn je Zone (Core-
                         Ein-Typ-Grenze der Wall-Restriction) - Dropdown statt der drei Checkboxen;
                         Form-Clip ueber die native Region-Restriction + Ziel-Filter je Ausloesung. --}}

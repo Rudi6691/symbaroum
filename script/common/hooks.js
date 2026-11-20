@@ -1521,9 +1521,10 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 		await ChatMessage.create({
 			user: game.user.id,
 			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
-			/* Hymnen 1.7 (P7): Titel mit Kraftnamen statt des generischen
-			   "Gesang beendet" */
-			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+			/* v1.3 F13 (Rudolfs Freigabe 20.11.): Die Ende-Karte trägt die
+			   Dornenmantel-Verwelk-Formel statt des Hymnen-Abbruch-Texts
+			   (der Titel behält den Kraftnamen, Hymnen-1.7-Muster). */
+			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_THORN_CLOAK.CHAT_RESULT_DEACTIVATE', { actorname: actor.name })}</p></div></div></div>`,
 		});
 	}
 }
