@@ -6851,6 +6851,24 @@ async function weakeningHymnResult(rollData, functionStuff) {
        Wurf der alte Raeum-Pfad - die committete Zone bleibt hingegen
        stehen und bekommt die Leer-Karte. */
     if (!functionStuff.hymnZoneCommitted) cleanupFreshHymnZone(functionStuff);
+    /* v1.4 F17 (Rudolfs Testrunde v1.3.1, T9/T10): Der LEERE Erstgesang
+       traegt jetzt ebenfalls das Caster-Symbol (Muster des besetzten
+       Pfads) - darueber laufen A29-Runde, Abbruch und der Join/Leave-
+       Rescan; vorher endete die Hymne still nach der Leer-Karte (kein
+       Maintain, kein Abbruch, hymnActiveForCaster leer, kein Rescan). */
+    if (functionStuff.hymnZoneCommitted && functionStuff.tokenId) {
+      await createModifyTokenChatButton([
+        {
+          tokenId: functionStuff.tokenId,
+          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+          effectDuration: 1,
+          maintained: true,
+          casterId: functionStuff.actor.id,
+          abilityRef: abilityRef,
+          casterName: functionStuff.actingCharName,
+        },
+      ]);
+    }
     const emptyTitle = `<h4>${game.i18n.format("POWER_HYMN.SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
     const emptyLines = [...affectedSkipLines, `<p>${game.i18n.localize("POWER_WEAKENING_HYMN.EMPTY_ZONE")}</p>`];
     await postMaintainChainCard(functionStuff, emptyTitle, emptyLines, []);

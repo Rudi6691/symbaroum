@@ -804,7 +804,10 @@ function _zoneRegionData(zone) {
 		   'Versteckt' (hidden) stellt die Sichtbarkeit der Region auf GM -
 		   Spieler sehen die Zone nicht, Clip und Ziel-Erfassung laufen
 		   unangetastet weiter (Optik = Pruefung bleibt fuer die SL). */
-		visibility: zone.config?.hidden === true ? CONST.REGION_VISIBILITY.GM : CONST.REGION_VISIBILITY.ALWAYS,
+		/* v1.4 F16 (Rudolfs Testrunde v1.3.1, T7): ENUM-Korrektur - v13/v14
+		   kennen GAMEMASTER, nicht GM (undefined fiel auf den Default
+		   LAYER zurueck, die Zone verschwang auch fuer die SL). */
+		visibility: zone.config?.hidden === true ? (CONST.REGION_VISIBILITY?.GAMEMASTER ?? CONST.REGION_VISIBILITY.ALWAYS) : CONST.REGION_VISIBILITY.ALWAYS,
 		'flags.core.MeasuredTemplate': true,
 		flags: { symbaroum: { aoe: zone } },
 	};
@@ -911,7 +914,7 @@ async function probePlayerRestrictionCreate() {
 			{
 				name: 'Symbaroum AoE Restriction Probe',
 				shapes: [{ type: 'circle', x: 0, y: 0, radius: 1 }],
-				visibility: CONST.REGION_VISIBILITY?.GM ?? CONST.REGION_VISIBILITY.ALWAYS,
+				visibility: CONST.REGION_VISIBILITY?.GAMEMASTER ?? CONST.REGION_VISIBILITY.ALWAYS,
 				restriction: { enabled: true, type: 'move', priority: 0 },
 			},
 		]);
@@ -2336,6 +2339,14 @@ function _flamewallShapeDialog(item) {
 export async function placeZoneFromItem(item) {
 	if (!item) return;
 	if (!mayPlaceZone(item)) return;
+	/* v1.4 F15: Dornenmantel nie generisch anlegen (eigene Maschine,
+	   siehe maybeZoneExecutionChoice) - deckt auch den Platzieren-
+	   Knopf im Zonen-Tab ab (Alt-Regionen aus v1.3.1-Tests bitte
+	   manuell loeschen). */
+	if (String(item.system?.reference ?? '') === 'thorncloak') {
+		console.info('Symbaroum Hymnen [trace] Dornenmantel: generische Zonen-Anlage unterdrueckt (F15)');
+		return;
+	}
 	if (!aoeEnabled()) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_DISABLED'));
 		return;
@@ -2686,7 +2697,7 @@ export async function placeHymnZone(item) {
 	   läuft immer der Picker (KonServe-Faelle, kein Anhang). */
 	const autoplaceOn = (item.system?.areaZone?.autoplace === true) || String(item.system?.areaZone?.autoplace ?? '') === 'true';
 	const hymnHidden = (item.system?.areaZone?.hidden === true) || String(item.system?.areaZone?.hidden ?? '') === 'true';
-	regionData.visibility = hymnHidden ? CONST.REGION_VISIBILITY.GM : CONST.REGION_VISIBILITY.ALWAYS;
+	regionData.visibility = hymnHidden ? (CONST.REGION_VISIBILITY?.GAMEMASTER ?? CONST.REGION_VISIBILITY.ALWAYS) : CONST.REGION_VISIBILITY.ALWAYS;
 	regionData.color = '#434c43';
 	const hymnCastDoc = casterToken?.document ?? casterToken ?? null;
 	if (autoplaceOn && hymnCastDoc) {
@@ -2790,7 +2801,19 @@ async function _hymnZoneCleanupToken(tokenId, actorId = null) {
 		if (!hz) continue;
 		if (hz.casterId === tokenId || hz.casterId === actorId) doomed.push(region);
 	}
-	for (const region of doomed) await region.delete();
+	for (const region of doomed) {
+		/* v1.4 F18: Core-angehaengte Flaechen raeumt der Core beim
+		   Token-Loeschen selbst ab - ein zweites Delete lief ins
+		   Server-Rennen ('Region ... does not exist'); nur freie
+		   Reste (Anhang fehlt) loeschen wir, Rennen tolerieren. */
+		if (region.attachment?.token) continue;
+		try {
+			if (!canvas?.scene?.regions?.get(region.id)) continue;
+			await region.delete();
+		} catch (deleteError) {
+			console.warn('Symbaroum Hymnen: Gesangsflaeche konnte nicht mit aufgeraeumt werden', region?.name, deleteError);
+		}
+	}
 	if (doomed.length > 0) console.info('Symbaroum Hymnen [trace] Gesangsflaechen mit entferntem Token aufgeraeumt', { tokenId, actorId, removed: doomed.length });
 }
 
@@ -2850,8 +2873,12 @@ export function thornCloakRegionFor(actorId) {
 }
 
 /** Dornenmantel-Regionen eines Trägers räumen (Deaktivierung,
- *  Symbol-Ende, Token-Loeschung) - idempotent gegen GM-Rennen. */
-export async function removeThornCloakZones(actorId) {
+ *  Symbol-Ende, Token-Loeschung) - idempotent gegen GM-Rennen.
+ *  v1.4 F18: skipAttached=true laesst Core-angehaengte Flaechen stehen
+ *  (Token-Loeschung: der Core raeumt angehaengte Regionen selbst ab,
+ *  unser zusaetzliches Delete lief sonst ins Server-Rennen und zeigte
+ *  "Region ... does not exist"). */
+export async function removeThornCloakZones(actorId, { skipAttached = false } = {}) {
 	const id = String(actorId ?? '');
 	if (!id || !canvas?.scene) return;
 	const doomed = [];
@@ -2860,6 +2887,8 @@ export async function removeThornCloakZones(actorId) {
 		if (tz && String(tz.casterId) === id) doomed.push(region);
 	}
 	for (const region of doomed) {
+		if (skipAttached && region.attachment?.token) continue;
+		if (!canvas?.scene?.regions?.get(region.id)) continue;
 		try {
 			await region.delete();
 		} catch (deleteError) {
@@ -2914,7 +2943,7 @@ export async function placeThornCloakZone(casterToken, casterActor, item = null,
 		displayMeasurements: true,
 		highlightMode: 'coverage',
 		shapes: [{ type: 'circle', x: tCenterX, y: tCenterY, rotation: 0, radius: radiusCells * gridSize }],
-		visibility: hidden ? CONST.REGION_VISIBILITY.GM : CONST.REGION_VISIBILITY.ALWAYS,
+		visibility: hidden ? (CONST.REGION_VISIBILITY?.GAMEMASTER ?? CONST.REGION_VISIBILITY.ALWAYS) : CONST.REGION_VISIBILITY.ALWAYS,
 		'flags.core.MeasuredTemplate': true,
 		flags: {
 			symbaroum: {
@@ -3056,6 +3085,15 @@ export async function maybeZoneExecutionChoice(item) {
 	   ihren EIGENEN Ausführungsdialog - siehe den Hymnen-Block nach der
 	   Teil-Konfigurations-Warnung. */
 	const isHymn = game.symbaroum.config.HYMN_REFERENCES.includes(String(item.system?.reference ?? ''));
+	/* v1.4 F15 (Rudolfs Testrunde v1.3.1, T4/T5): Der Dornenmantel
+	   traegt EIGENE Zonen-Maschinerie (placeThornCloakZone - Radius,
+	   Autoplatzierung und Versteckt aus dem Zonen-Tab). Der generische
+	   Zonen-Ausfuehrungsdialog legte bei KONFIGURIERTEM Tab zusaetzlich
+	   eine zweite, frei platzierte Nutzerfarben-Region an (eigene
+	   "Zone beenden"-Karte, Rundenende wertete die falsche Zone aus).
+	   Der Tab ist fuer ihn reiner Datenspeicher - Rueckgabe false =
+	   normaler manueller Ablauf wie bei Hymnen. */
+	if (String(item.system?.reference ?? '') === 'thorncloak') return false;
 	/* Hymnen-Paket 1.1: „Zone aktivieren: Nein“ = keine Warnung, kein
 	   Ausführungsdialog (Vor dem Teil-Konfigurations-Check, damit auch
 	   die Form-Warnung von deaktivierten Zonen schweigt). */
@@ -3660,8 +3698,11 @@ export function registerAoeHooks() {
 		/* Hymnen v1.2 (F7): Die Dornenmantel-Flaeche des Traegers raeumt
 		   mit dem Token mit (Traeger-Actor-Id, idempotent gegen GM-Rennen;
 		   ein existierender Akteur ohne Token verliert die Flaeche
-		   bewusst - der Anhang hing am geloeschten Token). */
-		await removeThornCloakZones(actorId);
+		   bewusst - der Anhang hing am geloeschten Token).
+		   v1.4 F18: skipAttached - angehaengte Flaechen loescht der
+		   Core beim Token-Loeschen selbst (siehe removeThornCloakZones);
+		   nur freie Anh-lose Reste raeumen wir hier. */
+		await removeThornCloakZones(actorId, { skipAttached: true });
 		try {
 			await hymnTokenDeleted(tokenDoc);
 		} catch (error) {
