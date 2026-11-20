@@ -2252,3 +2252,19 @@ SYMBAROUM.AOE_ZONE_ACTIVE_SELECTION = {
     label: "AOE.ZONE_ACTIVE_NO",
   },
 };
+
+/* Zutaten sammeln v1 (Rudolfs Freigabe 20.11.2026, Alchemie-Ökonomie —
+   Baustein Sammeln): Bonus-Registry des Sammelns. JE anrechenbarer
+   Fähigkeit summieren sich die Stufen (je perLevel), begrenzt durch
+   GATHER_BONUS_CAP — Rudolfs expliziter Erweiterungswunsch: spätere
+   Einträge (z. B. ein Segen „Buschwissen für Gebirge“) ergänzen NUR
+   diese Liste. itemType 'ability' = Stufe über system.reference/
+   getLevel (getActorAbilityLevel), 'boon' = Stufe über system.level
+   (Buschwissen trägt seit APG DREI Stufen — Rudolfs Korrektur, kein
+   flaches +1). Grüner Daumen bewusst NICHT drin (Zutaten sind nicht
+   nur pflanzlich, Konzeptrunde 20.11.). */
+SYMBAROUM.GATHER_BONUS_ABILITIES = [
+  { reference: 'alchemy', itemType: 'ability', perLevel: 1 },
+  { reference: 'bushcraft', itemType: 'boon', perLevel: 1 },
+];
+SYMBAROUM.GATHER_BONUS_CAP = 3;

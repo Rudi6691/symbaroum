@@ -52,6 +52,10 @@ import { useElixir, isAlchemical } from '../common/elixirs.js';
 // Alchemie-Menü läuft jetzt über das FÄHIGKEITS-ICON der Alchemie-
 // Kachel (siehe den capture-Klick in _onRender; Menü: brewing.js).
 import { openAlchemyMenu } from '../common/brewing.js';
+// Zutaten sammeln v1 (Rudolfs Freigabe 20.11.2026): Kontextmenü
+// „Alchemiezutaten sammeln“ am Alchemiezutat-Stapel — Wurf-Dialog,
+// Auswertung und Buchung liegen komplett in gathering.js.
+import { openGatherDialog } from '../common/gathering.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): Kräfte-Tab
 // (modern) - Traditions-Chips je Kachel, passiver Geheimnis-Hinweis
 // (Zugang fehlt), „Verbotenes Wissen ({Tradition})“-Titel-Suffix und
@@ -1472,6 +1476,32 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openGiveDialog(this.actor, this._ctxItem(elem));
+				},
+			},
+			{
+				// Zutaten sammeln v1 (Rudolfs Freigabe 20.11.2026,
+				// Alchemie-Ökonomie): Kontextmenü „Alchemiezutaten
+				// sammeln …“ NUR am Alchemiezutat-Stapel (resourceCategory,
+				// bewusst nicht an anderen Ressourcen) - Aufmerksamkeits-
+				// Wurf mit Bonus-Vorbefüllung, Ausbeute wird auf den
+				// GEKLICKTEN Stapel gebucht (leerer Stapel erlaubt, kein
+				// Bestand-Gate wie beim Verbrauchen). GM und Blattbesitzer
+				// (elem.isOwner deckt den GM mit ab), nur im Ausrüstungs-
+				// Tab (gleiche visibleEl-Regel wie Geben), vom Welt-Setting
+				// unabhängig (reine Inventar-Aktion; Settings wirken nur in
+				// der Auswertung).
+				label: 'GATHER.MENU',
+				icon: `<i class="fa-solid fa-leaf"></i>`,
+				visible: (elem) => {
+					return (
+						elem?.type === 'equipment' &&
+						elem?.system?.resourceCategory === 'alchemiezutat' &&
+						elem.isOwner
+					);
+				},
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					openGatherDialog(this.actor, this._ctxItem(elem));
 				},
 			},
 			{
