@@ -827,14 +827,75 @@ function _zoneRegionData(zone) {
 	   Restriction wird erst nach dem Anlegen per System-Socket von
 	   einem GM-Client gesetzt (_ensureCoreZoneRestriction, Muster
 	   aoeZoneBehaviorInstall). */
-	const zoneSenses = zone.config?.senses ?? [];
-	const zoneSenseType = ['move', 'sight', 'sound'].includes(zoneSenses[0]) ? zoneSenses[0] : null;
-	if (game.user.isGM && zoneSenseType && senseWallsEnabled()) {
-		regionData.restriction = { enabled: true, type: zoneSenseType, priority: 0 };
-		console.info('Symbaroum AoE [trace] W0: Core Wall Restriction gesetzt (Typ ' + zoneSenseType + ')', regionData.name);
+	/* v1.4.1 (Freigabe 20.11.): auch SPIELER-Anlagen bringen die
+	   Restriction gleich im Anlege-Datensatz mit (Vorschau-Clip beim
+	   Positionieren), wenn die Client-Probe (probePlayerRestriction-
+	   Create, einmalig gecacht) die Anlage erlaubt; andernfalls bleibt
+	   es beim v1.4-Nachweg ueber den GM-Socket. */
+	const zoneRestriction = _zoneRestrictionData(zone);
+	if (zoneRestriction && (game.user.isGM || _playerRestrictionCreateCache === true)) {
+		regionData.restriction = zoneRestriction;
+		console.info('Symbaroum AoE [trace] W0: Core Wall Restriction gesetzt (Typ ' + zoneRestriction.type + ')', regionData.name);
 	}
 	if (canvas.level) regionData.levels = [canvas.level.id];
 	return regionData;
+}
+
+/**
+ * v1.4.1: Restrikions-Datensatz (Core-Ein-Typ-Grenze) der Zone - null,
+ * wenn kein Sinn aktiviert oder das Wall-Setting aus ist.
+ */
+function _zoneRestrictionData(zone) {
+	const senses = zone?.config?.senses ?? [];
+	const senseType = ['move', 'sight', 'sound'].includes(senses[0]) ? senses[0] : null;
+	if (!senseType || !senseWallsEnabled()) return null;
+	return { enabled: true, type: senseType, priority: 0 };
+}
+
+/* v1.4.1 (Rudolfs Testrunde 8, Spielertest-Punkt 2 + Freigabe 20.11.):
+   EINMALIGE Probe je Spieler-Client: Darf eine Spieler-Anlage die
+   Restriction GLEICH im Anlege-Datensatz mitbringen (dann clippt die
+   Vorschau schon beim Positionieren, wie beim GM) oder verwirft V14
+   sie fuer Nicht-SLs (dann bleibt der nachgelagerte Socket-Weg)?
+   Die Probe legt eine winzige, nur-SL-sichtbare Testregion MIT
+   Restriction an und loescht sie sofort - Ergebnis wird gecacht, der
+   Versuch laeuft je Client maximal einmal (GM wird direkt als erlaubt
+   behandelt). Bei Ablehnung bleibt alles wie unter v1.4: Anlage ohne
+   Restriction, Nachsetzung per GM-Socket (_ensureCoreZoneRestriction). */
+let _playerRestrictionCreateCache = null;
+async function probePlayerRestrictionCreate() {
+	if (game.user.isGM) return true;
+	if (_playerRestrictionCreateCache !== null) return _playerRestrictionCreateCache;
+	if (!canvas?.scene || !senseWallsEnabled()) {
+		_playerRestrictionCreateCache = false;
+		return false;
+	}
+	let allowed = false;
+	let created = null;
+	try {
+		created = await canvas.scene.createEmbeddedDocuments('Region', [
+			{
+				name: 'Symbaroum AoE Restriction Probe',
+				shapes: [{ type: 'circle', x: 0, y: 0, radius: 1 }],
+				visibility: CONST.REGION_VISIBILITY?.GM ?? CONST.REGION_VISIBILITY.ALWAYS,
+				restriction: { enabled: true, type: 'move', priority: 0 },
+			},
+		]);
+		allowed = Array.isArray(created) && created.length > 0;
+	} catch (error) {
+		allowed = false;
+		console.info('Symbaroum AoE [trace] Spieler-Restriction-Anlage abgelehnt (Socket-Fallback aktiv):', error?.message ?? error);
+	}
+	if (Array.isArray(created) && created.length) {
+		try {
+			await canvas.scene.deleteEmbeddedDocuments('Region', created.map((d) => d.id));
+		} catch (error) {
+			console.warn('Symbaroum AoE: Restriction-Probe konnte nicht aufgeraeumt werden', error);
+		}
+	}
+	_playerRestrictionCreateCache = allowed;
+	console.info('Symbaroum AoE [trace] Spieler-Restriction-Anlage erlaubt:', allowed);
+	return allowed;
 }
 
 /**
@@ -846,15 +907,14 @@ function _zoneRegionData(zone) {
  * @returns {Promise<string|null>} wirksamer Sinn-Typ oder null.
  */
 async function _ensureCoreZoneRestriction(region, zone) {
-	const senses = zone?.config?.senses ?? [];
-	const senseType = ['move', 'sight', 'sound'].includes(senses[0]) ? senses[0] : null;
-	if (!senseType || !senseWallsEnabled()) return null;
+	const wanted = _zoneRestrictionData(zone);
+	if (!wanted) return null;
 	if (region?.restriction?.enabled) return region.restriction.type;
 	if (game.user.isGM) {
 		try {
-			await region.update({ restriction: { enabled: true, type: senseType, priority: 0 } });
-			console.info('Symbaroum AoE [trace] W0: Core Wall Restriction nachgesetzt (Typ ' + senseType + ')', region?.name);
-			return region.restriction?.enabled ? region.restriction.type : senseType;
+			await region.update({ restriction: { enabled: true, type: wanted.type, priority: 0 } });
+			console.info('Symbaroum AoE [trace] W0: Core Wall Restriction nachgesetzt (Typ ' + wanted.type + ')', region?.name);
+			return region.restriction?.enabled ? region.restriction.type : wanted.type;
 		} catch (error) {
 			console.error('Symbaroum AoE: Wall-Restriction-Setzung fehlgeschlagen', region?.name, error);
 			return null;
@@ -864,7 +924,7 @@ async function _ensureCoreZoneRestriction(region, zone) {
 	try {
 		const results = await game.socket.emit('system.symbaroum', {
 			type: 'aoeZoneRestrictionInstall',
-			data: { sceneId: canvas.scene?.id, regionIds: [region.id], restriction: { enabled: true, type: senseType, priority: 0 } },
+			data: { sceneId: canvas.scene?.id, regionIds: [region.id], restriction: { enabled: true, type: wanted.type, priority: 0 } },
 		});
 		installed = Array.isArray(results) && results.some((r) => r === true);
 	} catch (error) {
@@ -874,7 +934,7 @@ async function _ensureCoreZoneRestriction(region, zone) {
 		ui.notifications.warn(game.i18n.localize('AOE.WARN_ZONE_RESTRICTION_NO_GM'));
 		return null;
 	}
-	return senseType;
+	return wanted.type;
 }
 
 /* =====================================================================
@@ -2445,6 +2505,10 @@ export async function placeZoneFromItem(item) {
 		   (kein Akteur) behalten den platzierenden Nutzer. */
 		regionName: game.i18n.format('AOE.REGION_NAME', { name: item.name, user: actor?.name ?? game.user.name }),
 	};
+	/* v1.4.1: Spieler-Restric-Probe (einmalig gecacht) VOR dem Datensatz-
+	   Bau - erlaubt V14 die Anlage mit Restriction, bringt der Spieler-
+	   Zone den Vorschau-Clip beim Positionieren mit. */
+	await probePlayerRestrictionCreate();
 	const regionData = _zoneRegionData(zone);
 	if (!regionData) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_NO_CONFIG'));
@@ -2636,6 +2700,19 @@ export async function placeHymnZone(item) {
 			},
 		},
 	};
+	/* v1.4.1 (Rudolfs Testrunde 8, Punkt 7): Gesangsflaechen-Restric-
+	   tion DIREKT im Anlege-Datensatz (GM; Spieler, wenn die Client-
+	   Probe es erlaubt) - die Vorschau clippt damit beim POSITIONIE-
+	   REN wie bei allen anderen Zonen. Vorher lief die Restriction
+	   erst nach dem Bestaetigungs-Klick ueber _ensureCoreZone-
+	   Restriction nach (trace 'nachgesetzt'). Der _ensure-Aufruf
+	   bleibt als Fallback (fruehe Rueckgabe, wenn schon gesetzt). */
+	await probePlayerRestrictionCreate();
+	const hymnRestriction = _zoneRestrictionData({ config: { senses: cfg.senses ?? [] } });
+	if (hymnRestriction && (game.user.isGM || _playerRestrictionCreateCache === true)) {
+		regionData.restriction = hymnRestriction;
+		console.info('Symbaroum AoE [trace] W0: Core Wall Restriction gesetzt (Typ ' + hymnRestriction.type + ')', regionData.name);
+	}
 	if (canvas.level) regionData.levels = [canvas.level.id];
 	let regions = null;
 	try {
@@ -3086,6 +3163,10 @@ async function _placeFreeZoneFromDialog(html) {
 		metersPerField: 2,
 		regionName: val('aoe-free-name') || game.i18n.localize('AOE.FREE_DEFAULT_NAME'),
 	};
+	/* v1.4.1: Spieler-Restric-Probe (einmalig gecacht) VOR dem Datensatz-
+	   Bau - erlaubt V14 die Anlage mit Restriction, bringt der Spieler-
+	   Zone den Vorschau-Clip beim Positionieren mit. */
+	await probePlayerRestrictionCreate();
 	const regionData = _zoneRegionData(zone);
 	if (!regionData) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_NO_CONFIG'));
@@ -3168,11 +3249,18 @@ function _tokenInsideAnyOpenZone(tokenId) {
 
 /* v1.2 (Rudolfs Testrunde 2, P9): GM-Seitige Socket-Installation des
  * Betreten-Behaviors auf Spieler-Zonen (V14 verbietet Behaviors in der
- * Region-Erstellung durch Nicht-SLs). Rueckgabe true = installiert. */
-async function aoeZoneBehaviorSocketHandler(message) {
-	if (!message || !game.user?.isGM) return undefined;
-	if (message?.type !== 'aoeZoneBehaviorInstall') return undefined;
-	const { sceneId, regionIds } = message.data ?? {};
+ * Region-Erstellung durch Nicht-SLs).
+ * v1.4.1 (Rudolfs Testrunde 8, Befund 1): Die zwei Handler (Behavior +
+ * Restriction) sind zu EINEM Dispatcher (aoeZoneSocketHandler)
+ * zusammengefasst - mit ZWEI parallel registrierten Handlern am selben
+ * Namensraum veraenderte sich das Rueckgabe-Muster der Socket-Antwort
+ * so, dass der Spieler-Client `installed` als FALSE auswertete und die
+ * Warnung "kein SL online" kam, OBWOHL eine SL anwesend war und der
+ * GM-Handler erfolgreich installiert hatte (installed: true im Trace).
+ * Ein Handler pro Namensraum meldet genau ein true/false - das
+ * v1.3.1-Pattern (P4, Testrunde 6 gruen) ist damit wiederhergestellt. */
+async function aoeZoneBehaviorInstall(data) {
+	const { sceneId, regionIds } = data ?? {};
 	const scene = game.scenes.get(sceneId);
 	if (!scene || !Array.isArray(regionIds)) return false;
 	/* v1.3 (Rudolfs Testrunde 4, P4): RegionBehavior als GLOBALE
@@ -3216,12 +3304,14 @@ async function aoeZoneBehaviorSocketHandler(message) {
 /* v1.4 (Rudolfs Freigabe 19.11.): GM-seitige Socket-Setzung der Core-
    Wall-Restriction auf Spieler-Zonen (Parallele zum Betreten-Behavior:
    falls V14 die Restriction-Anlage durch Nicht-SLs beschraenkt, bleibt
-   der Flaechen-Clip fuer Spieler dennoch verfuegbar). Rueckgabe true
-   = gesetzt. */
-async function aoeZoneRestrictionSocketHandler(message) {
-	if (!message || !game.user?.isGM) return undefined;
-	if (message?.type !== 'aoeZoneRestrictionInstall') return undefined;
-	const { sceneId, regionIds, restriction } = message.data ?? {};
+   der Flaechen-Clip fuer Spieler dennoch verfuegbar durch den nachge-
+   lagerten Socket-Weg). Rueckgabe true = gesetzt.
+ * v1.4.1: nur noch interne Funktion des Socket-Dispatchers (siehe den
+   Kommentar oben bei aoeZoneBehaviorInstall - zwei parallele Handler
+   am Namensraum machten die Antwort-Auswertung auf dem Spieler-Client
+   kaputt; der Dispatcher stellt das Ein-Handler-Muster wieder her). */
+async function aoeZoneRestrictionInstall(data) {
+	const { sceneId, regionIds, restriction } = data ?? {};
 	const scene = game.scenes.get(sceneId);
 	if (!scene || !Array.isArray(regionIds)) return false;
 	const wantedType = ['move', 'sight', 'sound'].includes(restriction?.type) ? restriction.type : 'move';
@@ -3241,6 +3331,16 @@ async function aoeZoneRestrictionSocketHandler(message) {
 	return installed;
 }
 
+/* v1.4.1: EINZIGER Socket-Handler am System-Namensraum - verzweigt
+   intern nach message.type und gibt genau einen booleschen Gesamtwert
+   zurueck (siehe den Kommentar oben bei aoeZoneBehaviorInstall). */
+async function aoeZoneSocketHandler(message) {
+	if (!message || !game.user?.isGM) return undefined;
+	if (message?.type === 'aoeZoneBehaviorInstall') return aoeZoneBehaviorInstall(message.data ?? {});
+	if (message?.type === 'aoeZoneRestrictionInstall') return aoeZoneRestrictionInstall(message.data ?? {});
+	return undefined;
+}
+
 export function registerAoeHooks() {
 	/* v1.2.1 (HOTFIX, Rudolfs Testrunde 3: v1.2-Toetungs-Regression):
 	 * Die v1.2-Socket-Registrierung stand ALS ERSTE ANWEISUNG hier und
@@ -3254,9 +3354,9 @@ export function registerAoeHooks() {
 	 * v1.2, waehrend Enter (Behavior-Script, unabhaengig) weiter
 	 * funktionierte. Fix: Registrierung in Hooks.once('ready'). */
 	Hooks.once('ready', () => {
-		game.socket?.on('system.symbaroum', aoeZoneBehaviorSocketHandler);
-		/* v1.4: Core-Wall-Restriction auf Spieler-Zonen (GM-seitig). */
-		game.socket?.on('system.symbaroum', aoeZoneRestrictionSocketHandler);
+		/* v1.4.1: EIN Dispatcher bedient Behavior- und Restriction-
+		   Installation auf Spieler-Zonen (GM-seitig). */
+		game.socket?.on('system.symbaroum', aoeZoneSocketHandler);
 	});
 	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im
 	// aktiven Zonen-Fenster auf Token INNERHALB der Zone beschränken.
