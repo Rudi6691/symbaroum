@@ -1638,14 +1638,28 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				const path = 'system.areaZone.sense';
 				const rawSense = String(formData.get(path) ?? 'none');
 				foundry.utils.setProperty(update, path, ['none', 'move', 'sight', 'sound'].includes(rawSense) ? rawSense : 'none');
-				/* v1.3 F9a/F9b (Rudolfs Freigabe 20.11.): Checkboxen liefern
-				 * bei UNANGEHAKT gar keinen FormData-Eintrag (v1.2-Problem,
-				 * gleiche Wurzel wie der Sense-Block) - beide Schalter
-				 * werden deshalb hier explizit boolesch kanonisiert:
-				 * angehakt = true (beliebiger FormData-Wert), fehlend = false. */
+				/* v1.3.1 Fix A (Rudolfs Testrunde v1.3 ROT, 20.11.): Der
+				 * v1.3-Kanonisierer pruefte formData.get(flagPath) !== null -
+				 * FormDataExtended liefert fuer Checkboxen MIT value-
+				 * Attribut beim ABGEWAEHLTEN Feld aber KEIN sauberes
+				 * "fehlend", sondern einen null-Eintrag, der im FormData-
+				 * Speicher als JSON-String landet (Foundry-Konvention seit
+				 * V10, gilt in V14): der !== null-Vergleich hielt JEDES
+				 * unangehakte Feld fuer angehakt und schrieb BEIDE Schalter
+				 * bei jedem Submit auf true (Rudolfs Befunde 1+2: Versteckt
+				 * klebte an, nichts war einzeln stellbar oder abwaehlbar).
+				 * Doppelt gesichert: (1) Die Checkboxen im Template tragen
+				 * kein value-Attribut mehr, der Core liefert damit echte
+				 * true/false-Booleans (Standard-Verhalten ohne value).
+				 * (2) Die Kanonisierung liest die DOM-Wahrheit des
+				 * Formulars (input.checked) statt der Core-Casts und ist
+				 * damit gegen jede FormData-Variante immun; unangehakt wird
+				 * ausdruecklich false erzwungen, das Abwaehlen bleibt
+				 * garantiert. */
 				for (const flag of ['autoplace', 'hidden']) {
 					const flagPath = `system.areaZone.${flag}`;
-					foundry.utils.setProperty(update, flagPath, formData.get(flagPath) !== null);
+					const box = form?.querySelector?.(`input[name="${flagPath}"][type="checkbox"]`) ?? null;
+					foundry.utils.setProperty(update, flagPath, box?.checked === true);
 				}
 			}
 		}

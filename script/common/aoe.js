@@ -2886,15 +2886,24 @@ export async function placeThornCloakZone(casterToken, casterActor, item = null,
 	   „1 Feld groesser”); die Kraft bleibt ein Kreis - die Form-Wiege
 	   des Tabs greift hier nicht. forceAuto (Self-Heal im A29-Rescan)
 	   umgeht den Picker und legt still mittig an. */
-	const rawRadius = Number(item?.system?.areaZone?.size);
+	/* v1.3.1 Fix B (Rudolfs Testrunde v1.3 ROT, 20.11.): Der dritte
+	   Parameter ist functionStuff.ability - das ist laut
+	   getFunctionStuffDefault das SYSTEM-Datenobjekt (ability:
+	   this.system), NICHT das Item. Der v1.3-Code las deshalb
+	   item.system.areaZone - doppelt verschachtelt, immer undefined:
+	   autoplace wirkte nie (immer Picker), Radius/Versteckt fielen
+	   still auf ihre Defaults (Rudolfs Befund 3). Toleranter Doppel-
+	   Pfad: Item ODER System-Datenobjekt (System-Muster). */
+	const zoneData = item?.areaZone ?? item?.system?.areaZone ?? {};
+	const rawRadius = Number(zoneData.size);
 	const radiusCells = Number.isFinite(rawRadius) && rawRadius >= 1 ? Math.round(rawRadius) : 2;
 	/* v1.3 F9a (Rudolfs Freigabe 20.11.): autoplace steuert Picker vs.
 	   Direkt-Anlage (Default AUS = Picker, konsistent mit den Hymnen);
 	   F9b: hidden (Default AUS) stellt die Sichtbarkeit auf GM, die
 	   Wirkung (move-Clip, Verbuendeten-Erfassung) bleibt unangetastet. */
-	const autoplaceRaw = item?.system?.areaZone?.autoplace;
+	const autoplaceRaw = zoneData.autoplace;
 	const autoplace = autoplaceRaw === true || String(autoplaceRaw ?? '') === 'true' || forceAuto === true;
-	const hiddenRaw = item?.system?.areaZone?.hidden;
+	const hiddenRaw = zoneData.hidden;
 	const hidden = hiddenRaw === true || String(hiddenRaw ?? '') === 'true';
 	const tCenterX = (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2;
 	const tCenterY = (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2;
