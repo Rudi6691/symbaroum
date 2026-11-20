@@ -19,7 +19,7 @@ import { boonNextLevel } from '../common/boon.js';
 // Alchemie Modul 3 (Rudolfs Startsignal 04.11.2026): Alchemie-Menü
 // (Brauen/Analysieren/Nachbrauen), Nachbrau-Dialog mit Rezeptur-Preset
 // und die §6a-Täuschungs-Helfer (brewing.js).
-import { openBrewDialog, findAlchemyAbility, restoreDeception, exposeScheinRecipe } from '../common/brewing.js';
+import { openBrewDialog, findAlchemyAbility, restoreDeception, exposeScheinRecipe, purgeTaintedIngredients, purgeTaintedDoses } from '../common/brewing.js';
 // Traditionen v1 (Rudolfs Startsignal „Leg los“ 03.11.2026): zentrale
 // Traditions-Kanonik (tradition.js — Single Source für Labels, Feld-
 // Auflösung, Zugangsprüfung, Qualitäts-Geheimnisse und die Liste der
@@ -151,6 +151,47 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				event.preventDefault();
 				if (!game.user.isGM) return;
 				await restoreDeception(this.item);
+			},
+			/* Hymnen/Elixier v1.1 (Rudolfs Entscheidungen 20.11.): GM-Reset
+			   der Schein-Bestände im Status-Tab - Flag löschen bucht die
+			   Schein-Menge PHYSISCH ab (brewing.js purgeTaintedIngredients/
+			   purgeTaintedDoses, Semantik (a): nur der Schein-Anteil sinkt,
+			   saubere Mitläufer bleiben). Bestätigungsdialog mit Mengen-
+			   angabe; irreversibel (transform-Dosen verlieren falseUuid/
+			   falseName mit). */
+			resetGatherTaint: async function (event) {
+				event.preventDefault();
+				if (!game.user.isGM) return;
+				const item = this.item;
+				const flag = item?.getFlag('symbaroum', 'gatherTaint');
+				const count = Math.max(0, Number(flag?.spoil) || 0) + Math.max(0, Number(flag?.transform) || 0);
+				if (count <= 0) {
+					await item?.unsetFlag?.('symbaroum', 'gatherTaint');
+					return;
+				}
+				const ok = await Dialog.confirm({
+					title: game.i18n.localize('GATHER.RESET_CONFIRM_TITLE'),
+					content: `<p>${game.i18n.format('GATHER.RESET_CONFIRM_TEXT', { count })}</p>`,
+				});
+				if (!ok) return;
+				await purgeTaintedIngredients(item);
+			},
+			resetProductTaint: async function (event) {
+				event.preventDefault();
+				if (!game.user.isGM) return;
+				const item = this.item;
+				const flag = item?.getFlag('symbaroum', 'gatherTaintProduct');
+				const count = Math.max(0, Number(flag?.spoil) || 0) + Math.max(0, Number(flag?.transform) || 0);
+				if (count <= 0) {
+					await item?.unsetFlag?.('symbaroum', 'gatherTaintProduct');
+					return;
+				}
+				const ok = await Dialog.confirm({
+					title: game.i18n.localize('ELIXIR.RESET_CONFIRM_TITLE'),
+					content: `<p>${game.i18n.format('ELIXIR.RESET_CONFIRM_TEXT', { count })}</p>`,
+				});
+				if (!ok) return;
+				await purgeTaintedDoses(item);
 			},
 			/* Alchemie Modul 3 v1.2 (§6a, Rudolfs Freigabe 04.11., P10):
 			   Schein-Rezeptur ENTLARVEN (GM-Knopf am Rezeptur-Banner) —
@@ -497,6 +538,33 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 				this.item.actor?.getFlag('symbaroum', 'nachbrauBonus')
 			) {
 				context.scheinBonusBanner = game.i18n.localize('SCHEIN.BONUS_BANNER');
+			}
+			/* Hymnen/Elixier v1.1 (Rudolfs Testrunde v1, P5/P9 + Entscheidun-
+			   gen 20.11.): GM-Anzeige der VERDECKTEN Schein-Bestände im
+			   Status-Tab - Zutaten-Stapel (gatherTaint) und Elixier-Dosen
+			   (gatherTaintProduct), read-only Banner mit Reset-Knopf
+			   (Löschen bucht die Schein-Menge PHYSISCH ab, brewing.js
+			   purgeTaintedIngredients/purgeTaintedDoses, Semantik (a)):
+			   nur der Schein-Anteil sinkt, saubere Mitläufer bleiben. */
+			if (this.item.type === 'equipment') {
+				const gatherTaintFlag = this.item.getFlag('symbaroum', 'gatherTaint');
+				const taintSpoil = Math.max(0, Number(gatherTaintFlag?.spoil) || 0);
+				const taintTransform = Math.max(0, Number(gatherTaintFlag?.transform) || 0);
+				if (taintSpoil + taintTransform > 0) {
+					context.gatherTaintBanner = {
+						text: game.i18n.format('GATHER.BANNER_TAINT', { spoil: taintSpoil, transform: taintTransform }),
+					};
+				}
+				const productTaintFlag = this.item.getFlag('symbaroum', 'gatherTaintProduct');
+				const prodSpoil = Math.max(0, Number(productTaintFlag?.spoil) || 0);
+				const prodTransform = Math.max(0, Number(productTaintFlag?.transform) || 0);
+				if (prodSpoil + prodTransform > 0) {
+					let productText = game.i18n.format('ELIXIR.BANNER_TAINT', { spoil: prodSpoil, transform: prodTransform });
+					if (prodTransform > 0 && productTaintFlag?.falseName) {
+						productText += ' — ' + game.i18n.format('ELIXIR.BANNER_TAINT_FALSE', { falsename: String(productTaintFlag.falseName) });
+					}
+					context.productTaintBanner = { text: productText };
+				}
 			}
 		}
 		/* Munitionsverbrauch v1: waffenseitige Munitions-Konfiguration

@@ -6523,12 +6523,17 @@ async function postHymnEndCard(functionStuff, lineKey) {
    ab (holyAuraEndCleanup-Muster, beide Hymnen-Referenzen). Ohne
    aktiven Gesang ist der Lauf ein stiller No-Op. Rückgabe: ob ein
    Gesang beendet wurde. options.silent unterdrückt die generische
-   Ende-Karte (die Aufrufstelle postet die spezifische Zeile selbst). */
+   Ende-Karte (die Aufrufstelle postet die spezifische Zeile selbst).
+   Hymnen-Anhang v1.1: exportiert fuer hymnTokenDeleted (Token-
+   Löschungs-Auto-Ende, aoe.js deleteToken-Hook); options.extraRefs
+   (Set) ergänzt Referenzen, deren Symbole NICHT mehr über Szene-
+   Token erreichbar sind (Sänger-Symbol am Akteur bereits gelöscht)
+   in der Ende-Karte. */
 async function endActiveHymns(actor, options = {}) {
   if (!actor) return false;
   const casterId = actor.id;
   const flagDataArray = [];
-  const endedRefs = new Set();
+  const endedRefs = new Set(options.extraRefs ?? []);
   const seen = new Set();
   for (const token of canvas.tokens?.placeables ?? []) {
     const tokenActor = token.actor;
@@ -6579,6 +6584,71 @@ async function endActiveHymns(actor, options = {}) {
 export function hymnPowerLabel(ref) {
   const labelKey = ref === "combathymn" ? "POWER_LABEL.COMBAT_HYMN" : ref === "heroichymn" ? "POWER_LABEL.HEROIC_HYMN" : "POWER_LABEL.WEAKENING_HYMN";
   return game.i18n.localize(labelKey);
+}
+
+/* Hymnen-Anhang v1.1 (Rudolfs Testrunde v1, P3 + Freigabe 20.11.):
+   Token von der Szene entfernt => Gesang endet AUTOMATISCH vollstän-
+   dig. Erst fallen vom AKTEUR des Sängers selbst (der Token ist weg,
+   die Szene-Symbol-Schleife des endActiveHymns sieht ihn nicht mehr)
+   dessen eigene Hymnen-Symbole (Effekt-Löschung reverts die Attribut-
+   Buffs über den deleteActiveEffect-Haken wie die GM-Karten auch),
+   dann räumt die endActiveHymns-Maschine Betroffenen-Symbole, Gesangs-
+   flächen (Actor-Flags hymnZone.{ref}) und postet die Ende-Karte.
+   Wird vom korrigierten deleteToken-Hook in aoe.js aufgerufen (GM). */
+export async function hymnTokenDeleted(tokenDoc) {
+  const actor = tokenDoc?.actor ?? null;
+  if (!actor) return false;
+  const refs = new Set();
+  for (const effect of [...(actor.effects ?? [])]) {
+    const fd = effect.getFlag(game.system.id, "flagData");
+    if (!fd || fd.caster !== actor.id) continue;
+    if (!game.symbaroum.config.HYMN_REFERENCES.includes(fd.ability)) continue;
+    refs.add(fd.ability);
+    try {
+      await effect.delete();
+    } catch (error) {
+      console.warn("Symbaroum Hymnen: Sänger-Symbol konnte nicht entfernt werden", error);
+    }
+  }
+  return endActiveHymns(actor, { extraRefs: refs });
+}
+
+/* Hymnen-Anhang v1.1 (Rudolfs Testrunde v1, P12 - Freigabe 20.11.):
+   Rundenwechsel-/Weltzeit-Maintain-Scan. Fuer jeden Sänger-Akteur auf
+   der Szene mit eigenem Hymnen-Symbol UND vermerkter aktiver Gesangs-
+   flaeche laeuft der gewurflose hymnZoneRescan nach (Heraus-Bewegte
+   verlieren das Symbol, Hinein-Bewegte ziehen es automatisch nach,
+   wie die A29-"Ja"-Maintain-Runde auch - dieselbe Maschine, nur ohne
+   Spielerklick). GM-only (Aufrufstelle updateCombat/updateWorldTime
+   in aoe.js ist bereits GM-gated); ein zweimaliger Lauf je Runde
+   (Kampf + Weltzeit) ist idempotent - der Vergleich setzt Symbole
+   nur bei Bestands-Abweichung. */
+export async function hymnAutoRescanRound() {
+  if (!game.user?.isGM) return;
+  const seenActors = new Set();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const actor = token.actor;
+    if (!actor || seenActors.has(actor.id)) continue;
+    let ref = null;
+    for (const effect of actor.effects ?? []) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === actor.id && game.symbaroum.config.HYMN_REFERENCES.includes(fd?.ability)) {
+        ref = fd.ability;
+        break;
+      }
+    }
+    if (!ref) continue;
+    if (!actor.getFlag(game.system.id, `hymnZone.${ref}`)?.regionId) continue;
+    seenActors.add(actor.id);
+    await hymnZoneRescan({
+      actor: actor,
+      token: token,
+      tokenId: token.id,
+      ability: { reference: ref },
+      abilityName: hymnPowerLabel(ref),
+      actingCharName: actor.name,
+    });
+  }
 }
 
 /* Hymnen-Paket 1.5 - Schwaechende Hymne, Ausfuehrungs-Vorlauf

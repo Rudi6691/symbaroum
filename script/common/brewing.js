@@ -729,6 +729,65 @@ async function consumeAlchemiezutaten(actor, amount) {
 	return taint;
 }
 
+/* v1.1 (Rudolfs Freigaben 20.11., Testrunde v1 P5/P9 + Entscheidungen
+ * vom 20.11.): VERBLEIBENDEN verseuchten Zutatenbestand eines Akteurs
+ * summieren - fuer die GM-Fluesterkarte „vor -> nach\" (P5: die SL muss
+ * die Flag-Senkung ohne Konsole sehen koennen). */
+export async function gatherTaintBalance(actor) {
+	let total = 0;
+	for (const item of actor?.items ?? []) {
+		if (item?.type !== 'equipment' || item?.system?.resourceCategory !== 'alchemiezutat') continue;
+		const flag = await item.getFlag('symbaroum', 'gatherTaint');
+		total += Math.max(0, Number(flag?.spoil) || 0) + Math.max(0, Number(flag?.transform) || 0);
+	}
+	return total;
+}
+
+/* v1.1 (Rudolfs Entscheidung „Löschen = physisch abbuchen“, 20.11.):
+ * Schein-Einheiten EINES Zutaten-Stapels ausbuchen und das Flag
+ * entfernen. Genutzt von der STAPEL-ANALYSE bei Erfolg (vollautomatische
+ * Abbuchung, Rudolfs Entscheidung P9: die Stapelschrumpfung ist ein
+ * FEATURE) und vom GM-Reset-Knopf im Status-Tab (sheet/item.js).
+ * Klemmung: Abbuchung nie ueber die Restmenge (zwischenzeitlicher
+ * Verbrauch senkte Flag UND Menge gleich mit - tainted-first). */
+export async function purgeTaintedIngredients(item) {
+	const flag = await item?.getFlag?.('symbaroum', 'gatherTaint');
+	const spoil = Math.max(0, Number(flag?.spoil) || 0);
+	const transform = Math.max(0, Number(flag?.transform) || 0);
+	const take = Math.min(getItemCount(item) || 0, spoil + transform);
+	if (spoil + transform > 0) await item.unsetFlag('symbaroum', 'gatherTaint');
+	if (take <= 0) return { removed: 0, spoil, transform };
+	await consumeResourceFromItem(item, take);
+	console.info('Symbaroum AoE [trace] Schein-Zutaten ausgebucht', { item: item?.name, spoil, transform, removed: take });
+	return { removed: take, spoil, transform };
+}
+
+/* v1.1 (Rudolfs Entscheidung (a), 20.11.): Schein-Dosen EINES
+ * Elixier-Dokuments ausbuchen und das Flag entfernen - NUR der
+ * Schein-Anteil sinkt, saubere Mitlaeufer-Dosen im selben Dokument
+ * bleiben (Menge um take senken), das Dokument faellt erst bei
+ * Menge 0 (kein Leer-Doc). Beim Gemisch-Stapel reicht das Flag
+ * {spoil, transform} je Dokument; falseUuid/falseName gehen bewusst
+ * mit verloren (SL-Retcon, Bestaetigungsdialog beim Knopf). Eine
+ * Transaktion: erst buchen, dann Flag, dann Leer-Doc-Pruefung. */
+export async function purgeTaintedDoses(item) {
+	const flag = await item?.getFlag?.('symbaroum', 'gatherTaintProduct');
+	const spoil = Math.max(0, Number(flag?.spoil) || 0);
+	const transform = Math.max(0, Number(flag?.transform) || 0);
+	const take = spoil + transform;
+	if (take <= 0) return { removed: 0, spoil, transform, deleted: false };
+	const quantity = getItemCount(item) || 0;
+	if (quantity <= take) {
+		await item.delete();
+		console.info('Symbaroum AoE [trace] Schein-Dosen-Dokument geloescht (Menge 0)', { item: item?.name, spoil, transform });
+		return { removed: quantity, spoil, transform, deleted: true };
+	}
+	await item.update({ 'system.number': quantity - take });
+	await item.unsetFlag('symbaroum', 'gatherTaintProduct');
+	console.info('Symbaroum AoE [trace] Schein-Dosen ausgebucht', { item: item?.name, spoil, transform, removed: take });
+	return { removed: take, spoil, transform, deleted: false };
+}
+
 /* Produktaeuschung aufloesen (nur beim BRAU-ERFOLG, Rudolfs Empfehlungen
  * 7/8 angenommen): transform (bestaetigter Patzer-Anteil verzehrt) =
  * statt des Ziel-Elixiers wirkt ein ANDERES gleichstufiges (Wiederver-
@@ -840,6 +899,11 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 						elixir: cand.elixir.name,
 					}),
 				];
+				/* v1.1 (Rudolfs Testrunde v1, P5): verbleibender verseuchter
+				   Bestand auf derselben Flüsterkarte - die SL sieht die
+				   Flag-Senkung ohne Konsole (vor = Abbuchung + Rest). */
+				const balanceAfter = await gatherTaintBalance(actor);
+				gmLines.push(F('BREW.WHISPER_TAINT_BALANCE', { after: balanceAfter, before: taintConsumed.spoil + taintConsumed.transform + balanceAfter }));
 				brewTaint = await resolveBrewTaint(actor, cand, produced, taintConsumed);
 				if (brewTaint?.transform > 0) gmLines.push(F('BREW.WHISPER_TAINT_TRANSFORM', { name: brewTaint.falseName }));
 				await whisperGM(L('SCHEIN.WHISPER_TITLE'), gmLines);
@@ -880,13 +944,17 @@ async function performBrew(actor, facility, cand, { secret = false, economy = fa
 			const taintConsumed = await consumeAlchemiezutaten(actor, cand.units);
 			lines.push(F('BREW.CHAT_MATERIALS_LOST', { amount: cand.units }));
 			if (taintConsumed.spoil + taintConsumed.transform > 0) {
-				await whisperGM(L('SCHEIN.WHISPER_TITLE'), [
+				const failGmLines = [
 					F('BREW.WHISPER_TAINT_FAIL', {
 						amount: taintConsumed.spoil + taintConsumed.transform,
 						spoil: taintConsumed.spoil,
 						transform: taintConsumed.transform,
 					}),
-				]);
+				];
+				/* v1.1 (P5): vor/nach-Bilanz auch auf der Fehlschlag-Karte. */
+				const balanceAfterFail = await gatherTaintBalance(actor);
+				failGmLines.push(F('BREW.WHISPER_TAINT_BALANCE', { after: balanceAfterFail, before: taintConsumed.spoil + taintConsumed.transform + balanceAfterFail }));
+				await whisperGM(L('SCHEIN.WHISPER_TITLE'), failGmLines);
 			}
 		}
 		lines.push(L('BREW.CHAT_ROUND_LOST'));

@@ -21,6 +21,28 @@
     </div>
     {{/if}}
     {{/if}}
+    {{!-- Hymnen/Elixier v1.1 (Rudolfs Testrunde v1, P5/P9 + Entscheidun-
+        gen 20.11.): Schein-Bestands-Banner (GM) - gatherTaint am Zutaten-
+        Stapel, gatherTaintProduct am Elixier-(Dosen-)Dokument. Read-only
+        Anzeige; der Reset-Knopf bucht die Schein-Menge PHYSISCH ab
+        (Bestaetigungsdialog mit Menge, brewing.js purgeTaintedIngredients/
+        purgeTaintedDoses ueber die actions resetGatherTaint/
+        resetProductTaint in sheet/item.js - Semantik (a): saubere
+        Mitlaeufer-Dosen bleiben). --}}
+    {{#if symbaroumOptions.isGM}}
+    {{#if gatherTaintBanner}}
+    <div class="m-inline-field">
+        <label>{{gatherTaintBanner.text}}</label>
+        <button type="button" data-action="resetGatherTaint" data-tooltip="{{localize "GATHER.RESET_TOOLTIP"}}">{{localize "GATHER.RESET_BUTTON"}}</button>
+    </div>
+    {{/if}}
+    {{#if productTaintBanner}}
+    <div class="m-inline-field">
+        <label>{{productTaintBanner.text}}</label>
+        <button type="button" data-action="resetProductTaint" data-tooltip="{{localize "ELIXIR.RESET_TAINT_TOOLTIP"}}">{{localize "ELIXIR.RESET_TAINT_BUTTON"}}</button>
+    </div>
+    {{/if}}
+    {{/if}}
     <div class="m-grid">
         {{#if symbaroumOptions.isGM}}
         <div class="m-inline-field m-check">

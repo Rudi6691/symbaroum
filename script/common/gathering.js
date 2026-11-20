@@ -45,7 +45,7 @@ import { modernDialogClasses, isModernDialogActive } from './modernSheetConfig.j
 import { getItemCount } from './resources.js';
 import { getActorAbilityLevel } from './item.js';
 // Zutaten sammeln v1.1: Scharfsinn-Proben-Kern des Analysierens (brewing).
-import { alchemyProbe } from './brewing.js';
+import { alchemyProbe, purgeTaintedIngredients } from './brewing.js';
 
 /* i18n-Helfer nach brewing.js-Muster */
 const L = (key) => game.i18n.localize(key);
@@ -393,6 +393,14 @@ async function performGatherAnalyse(actor, stackItem, { secret = false, modifier
 			if (level === 'CHAT.CRITICAL_SUCCESS' || level === 'CHAT.OUTSTANDING_SUCCESS') {
 				lines.push(L('GATHER.ANALYSE_REVEAL_FINE'));
 			}
+			/* v1.1 (Rudolfs Testrunde v1, P9 + Freigabe 20.11.): Die
+			   aufgedeckten Schein-Einheiten werden VOLLAUTOMATISCH aus-
+			   gebucht (Rudolfs Entscheidung: die Stapelschrumpfung ist ein
+			   Feature, auch bei geheimer Analyse - der Bestand ver-
+			   raeht sich ueber die Zahl). Klemmung/Transaktion im
+			   purgeTaintedIngredients (brewing.js). */
+			const purged = await purgeTaintedIngredients(stackItem);
+			if (purged.removed > 0) lines.push(F('GATHER.ANALYSE_PURGED', { count: purged.removed }));
 		}
 	} else if (level === 'CHAT.CRITICAL_FAILURE') {
 		/* Bestätigter kritischer Patzer: Karte behauptet FALSCH „alles
