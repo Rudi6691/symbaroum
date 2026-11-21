@@ -534,20 +534,50 @@ SYMBAROUM.OWN_ZONE_REFERENCES = ["thorncloak", "holyaura", "unholyaura", "draini
    stumm. */
 SYMBAROUM.SYMBOL_ZONE_REFERENCES = ["drainingglyph"];
 
-/* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11., Buendel F39+G7+F41):
-   Die vier Symbolkraefte legen DAUERHAFTE Zonen-Regionen statt
-   Sweeps an (Verdrahtung: aoe.js getZoneConfig + placeZoneFromItem
-   + Verlassen-Logik, item.js Abbruch-Dialog-Schiene). Ausloesung:
-   EINMAL die Platzierung (automatisch wie der Schwachende-Glyphe-
-   Erstgesang, inkl. Anfangsbestand), danach je BETRETTENDEM Token
-   die Enter-Kette als voller opposed Kraftwurf gegen den Wirker
-   (kein separates Ergebnis-Speicher noetig - der Betretende
-   probiert ohnehin frisch gegen die aktuellen Werte). Korruption
-   nur bei der Erstplatzierung (A16-Engine). Verlassen: zonenlokale
-   Merker weg (Ausnahmen Bannsiegel, Blendend ab Adept bis Heilung,
-   siehe aoe.js). Ende: Abbruch-Dialog ueber erneute Icon-Anwahl
-   (A29-Glyphen-Modell), danach ist das Siegel verbraucht. */
+/* v2.8.1 G7 (Rudolfs v2.8-Testrunde, Option B und Glyphe-Paritaets-
+   Runde, Freigabe 21.11.): Die vier Symbolkraefte sind KEINE generi-
+   schen Zonen-Kraefte mehr - sie laufen GLEICH WIE DIE GLYPHE:
+   Erstzauber ueber das Icon (Abbruch-Dialog bei laufender Zone),
+   Picker-Platzierung im Zauberlauf (aoe.js placeSymbolZone, eigenes
+   Region-Flag symbolzone), Erstgesang je Feind mit voller Standard-
+   Karte und opposed Probe (item.js symbolZoneResult, Korruption
+   EINMAL je Zauber, A16-Engine), Joiner/Leaver je Stufe sofort
+   (SYMBOL_ZONE_IMMEDIATE_LEVELS, stille Probe plus Sammelkarte)
+   oder im Maintain-Runden-Rescan (symbolZoneRescan, Glyphe-
+   Muster). Verlassen: sofort-Stufen verlieren ihre Marker, Blendend
+   ab Adept haelt bis Heilung (Rudolfs Anmerkung). Ende: nur Icon-
+   Abbruch/A29/Wirker-Token-Loeschung - Zonen-Karten und End-Tasten
+   entfallen komplett (kein aoe-Flag mehr an der Region). */
 SYMBAROUM.SYMBOL_ZONE_POWERS = ["banishingseal", "battlesymbol", "blindingsymbol", "markoftorment"];
+
+/* v2.8.1 G7 (Rudolfs v2.8-Testrunde + Option B, Freigabe 21.11.):
+   Die vier Symbolkraefte laufen ab sofort GLEICH WIE DIE GLYPHE
+   (Familie Symbolismus, Rudolf: "alle fuenf so aehnlich wie
+   moeglich"): Icon-Zauber ohne Zielzwang mit Picker-Platzierung
+   im Zauberlauf (item.js symbolZoneResult, aoe.js placeSymbolZone),
+   dauerhafte Region unter EIGENEM Region-Flag flags.symbaroum.
+   symbolzone - unsichtbar fuer die generische Zonen-Maschine
+   (getZoneConfig null, Zone-Tab-Platzierknopf entfaellt). Die
+   SOFORT-Stufen (Joiner/Leaver je Bewegung, stille Probe plus
+   Sammelkarte) stehen in der Map unten; alle anderen Stufen
+   wertet der Maintain-Runden-Rescan aus (item.js symbolZone-
+   Rescan, Glyphe-Muster). */
+SYMBAROUM.SYMBOL_ZONE_IMMEDIATE_LEVELS = {
+  banishingseal: [1, 2, 3],
+  battlesymbol: [1],
+  blindingsymbol: [1],
+  markoftorment: [3],
+};
+
+/* v2.8.1 G7: Marker-Status je Kraft fuer Zonen-Ausloesungen
+   (Sofort-Joiner und Maintain-Rescan; der Erstgesang wirkt ueber
+   die Setup-Engine standardPowerResult). */
+SYMBAROUM.SYMBOL_ZONE_MARKER = {
+  banishingseal: "banishingseal",
+  battlesymbol: "berserker",
+  blindingsymbol: "blind",
+  markoftorment: "stun",
+};
 
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];

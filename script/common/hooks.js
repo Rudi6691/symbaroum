@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -1469,12 +1469,21 @@ function a29ScanMaintainedPowers(actor) {
    scene tokens (A24-Anathema mechanic) plus the power's configured
    caster-side maintain symbol (activelyMaintaninedCasterEffect) */
 async function a29AbortMaintainPower(actor, abilityRef) {
+	/* v2.8.1 G7 (Rudolfs Anmerkung zur v2.8-Testrunde): Blendendes
+	   Symbol ab Adept haelt seine blind-Marker BIS HEILUNG - das
+	   A29-"Nein" beendet die ZONE (Symbolzonen-Zweig unten), die
+	   Symbole dieses Casts bleiben stehen; ihr maintained-Flag wird
+	   abgeraeumt (die Erinnerung endet damit, Heilung oder SL
+	   entfernt die Marker). */
+	const blindingKeep =
+		abilityRef === 'blindingsymbol' && Number(actor.getFlag(game.system.id, 'symbolzone.blindingsymbol')?.symbolLevel ?? 1) >= 2;
 	const doomed = [];
 	for (const token of canvas.tokens.placeables) {
 		const tokenActor = token.actor;
 		if (!tokenActor) continue;
 		for (const effect of tokenActor.effects) {
 			const flagData = effect.getFlag(game.system.id, 'flagData');
+			if (blindingKeep) continue;
 			if (flagData?.caster === actor.id && flagData?.ability === abilityRef) doomed.push([tokenActor, effect]);
 		}
 	}
@@ -1517,6 +1526,25 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 				content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
 			});
 		}
+	}
+	/* v2.8.1 G7 (Rudolfs v2.8-Testrunde, Befund 3): Fuer die vier
+	   Symbolkraefte beendet das A29-"Nein" die Zone KOMPLETT -
+	   Region und Akteur-Flag raeumt endActiveSymbolZone (die Marker
+	   lief die generische Schleife oben, mit der Blendend-ab-Adept-
+	   Ausnahme samt abgeraeumtem maintained-Flag), die kleine Ende-
+	   Karte dokumentiert (Hymnen-/Glyphen-Muster). */
+	if ((game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(abilityRef)) {
+		if (blindingKeep) {
+			await setSymbolMarkersUnmaintained(actor.id, abilityRef);
+		}
+		const powerLabel = symbolZonePowerLabel(abilityRef);
+		await endActiveSymbolZone(actor, abilityRef);
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+		});
+		return;
 	}
 	/* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P5 - Root-Cause): Für
 	   Hymnen räumt der A29-"Nein"-Abbruch jetzt AUCH die Gesangsfläche

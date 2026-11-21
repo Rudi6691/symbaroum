@@ -41,7 +41,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 import { itemHasTraditionKnowledge } from "./tradition.js";
-import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, removeAuraZoneRegions, removeGlyphZoneRegions, removeSymbolZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
+import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, removeAuraZoneRegions, removeGlyphZoneRegions, removeSymbolZoneRegions, placeAuraZone, placeGlyphZone, placeSymbolZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -2326,6 +2326,12 @@ export class SymbaroumItem extends Item {
   }
 
   mysticPowerSetupBanishingseal(base) {
+    /* v2.8.1 G7 (Rudolfs Option B): KEIN Zielzwang - das Bannsiegel
+       ist eine frei platzierbare Zone (Picker im Zauberlauf), die
+       Kategorie waehlt der preDialog, der Erstgesang filtert die
+       Feinde der Region gegen sie. */
+    base.getTarget = false;
+    base.targetMandatory = false;
     base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
     base.targetResistAttribute = "resolute";
     base.casting = game.symbaroum.config.CASTING_RES;
@@ -2374,8 +2380,10 @@ export class SymbaroumItem extends Item {
   }
 
   mysticPowerSetupBattlesymbol(base) {
-    base.getTarget = true;
-    base.targetMandatory = true;
+    /* v2.8.1 G7 (Rudolfs Option B): KEIN Zielzwang - Picker-Platzierung
+       im Zauberlauf, Erstgesang je Feind der Region (Glyphe-Modell). */
+    base.getTarget = false;
+    base.targetMandatory = false;
     base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
     base.targetResistAttribute = "resolute";
     base.casting = game.symbaroum.config.CASTING_RES;
@@ -2491,8 +2499,10 @@ export class SymbaroumItem extends Item {
   }
 
   mysticPowerSetupBlindingsymbol(base) {
-    base.getTarget = true;
-    base.targetMandatory = true;
+    /* v2.8.1 G7 (Rudolfs Option B): KEIN Zielzwang - Picker-Platzierung
+       im Zauberlauf, Erstgesang je Feind der Region (Glyphe-Modell). */
+    base.getTarget = false;
+    base.targetMandatory = false;
     base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
     base.casting = game.symbaroum.config.CASTING_RES;
     base.targetResistAttribute = "resolute";
@@ -3032,8 +3042,10 @@ export class SymbaroumItem extends Item {
   }
 
   mysticPowerSetupMarkoftorment(base) {
-    base.getTarget = true;
-    base.targetMandatory = true;
+    /* v2.8.1 G7 (Rudolfs Option B): KEIN Zielzwang - Picker-Platzierung
+       im Zauberlauf, Erstgesang je Feind der Region (Glyphe-Modell). */
+    base.getTarget = false;
+    base.targetMandatory = false;
     base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
     base.targetResistAttribute = "resolute";
     base.casting = game.symbaroum.config.CASTING_RES;
@@ -5075,7 +5087,11 @@ function getPowerResultFunction(functionStuff) {
     case "staffprojectile":
       return staffProjectileChainResult;
     case "banishingseal":
-      return banishingSealChainResult;
+      /* v2.8.1 G7: Der Bannsiegel-Zauber legt die Zone (Erstgesang je
+         Feind der Region, Kategorie-Filter); die alte SL-Zielkette
+         (banishingSealChainResult) laeuft nicht mehr - ihr Flucht- und
+         Schadens-Muster lebt im Erstgesang weiter. */
+      return symbolZoneResult;
     case "drainingglyph":
       /* v2.1 F22 (Hymnen-Ablauf): Maintain-Runde = Standard-Kette plus
          glypheRegionRescan (Joiner/Leaver des Glyphen-Kreises). */
@@ -5114,7 +5130,11 @@ function getPowerResultFunction(functionStuff) {
     // Mind Throw chains at Master only with a marked target - the object
     // attack without a target stays a local roll
     case "blindingsymbol":
-      return functionStuff.isMaintained ? maintainChainResult : blindingsymbolChainResult;
+      /* v2.8.1 G7 (Glyphe-Muster drainingGlyphMaintainResult): Erst-
+         zauber = symbolZoneResult (Platzierung + Erstgesang), Maintain-
+         runde = Standard-Kette plus Zonen-Rescan (Joiner/Leaver der
+         Maintain-Stufen ab Adept). Die alte SL-Zielkette entfaellt. */
+      return functionStuff.isMaintained ? symbolZoneMaintainResult : symbolZoneResult;
     case "mindthrow":
       return functionStuff.powerLvl.level > 2 && !functionStuff.isMaintained && functionStuff.targetData?.hasTarget
         ? mindThrowChainResult
@@ -5140,7 +5160,9 @@ function getPowerResultFunction(functionStuff) {
           ? maintainChainResult
           : standardPowerResult;
     case "battlesymbol":
-      return functionStuff.isMaintained ? maintainChainResult : battlesymbolChainResult;
+      /* v2.8.1 G7: wie Blendendes Symbol - Maintain-Stufen (ab Adept)
+         rescanen die Zone je Runde, der Rest laeuft sofort. */
+      return functionStuff.isMaintained ? symbolZoneMaintainResult : symbolZoneResult;
     // Hymnen-Paket 1.5: Schwaechende Hymne (Erstgesang mit je-Feind-
     // Proben; die A29-Maintain-Runde laeuft still ueber preDialog-
     // WeakeningHymnChoice und erreicht den Dispatch nie) und Dornen-
@@ -5155,11 +5177,15 @@ function getPowerResultFunction(functionStuff) {
     case "trueform":
       return functionStuff.powerLvl.level > 1 ? trueformChainResult : standardPowerResult;
     case "markoftorment":
-      // A33: novice/adept maintain rounds run the maintain chain (the stun
-      // symbols stay while maintained); the initial cast and the master
-      // one-shot chain run the sequence (master has NO maintain by
-      // Rudolf's rule)
-      return functionStuff.isMaintained ? maintainChainResult : markoftormentChainResult;
+      /* A33: novice/adept maintain rounds run the maintain chain (the stun
+         symbols stay while maintained); the master one-shot has NO
+         maintain by Rudolf's rule.
+         v2.8.1 G7 (Glyphe-Muster): Erstzauber mit Zonen-Platzierung,
+         Maintain-Runden (Novize/Adept) als Standard-Kette plus Zonen-
+         Rescan, Meister ausserdem als sofort-Stufe (Bewegungs-Tracker,
+         config SYMBOL_ZONE_IMMEDIATE_LEVELS). Die alte SL-Zielkette
+         (markoftormentChainResult) laeuft nicht mehr. */
+      return functionStuff.isMaintained ? symbolZoneMaintainResult : symbolZoneResult;
     case "levitate":
       return functionStuff.isMaintained
         ? levitateMaintainResult
@@ -7314,20 +7340,371 @@ async function preDialogGlyphChoice(functionStuff) {
   });
 }
 
-/* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Beendet eine laufen-
-   de Symbolzone vollstaendig (alle Szenen-Marker ueber die F40-
-   Auto-Raeumung, Region, Akteur-Flag) - endActiveGlyph-Muster.
-   Danach ist das Siegel VERBRAUCHT: eine neue Nutzung bedeutet NEUE
-   Platzierung (Adept: Siegel zeichnen in einer Aktion). */
+/* v2.8.1 G7 (Rudolfs Option B, Glyphe-Paritaet, Freigabe 21.11.):
+   Gemeinsame Maschinen der vier Symbolzonen (Bannsiegel, Blendendes
+   Symbol, Zeichen der Pein, Kampfsymbol) - die Familie Symbolismus
+   laeuft so aehnlich wie moeglich wie die Schwaeche-Glyphe:
+   - symbolZoneResult (ERSTZAUBER): Picker-Platzierung im Zauberlauf
+     (zoneErstgesangFrame + placeSymbolZone), Akteur-Flag symbolzone.<ref>
+     mit Stufen-/Kategorie-Snapshot, Erstgesang JE Feind in der Region
+     mit voller Standard-Karte (opposed Probe, Marker je Stufe aus dem
+     Setup) - Korruption EINMAL je Zauber (erster Feind oder Leer-
+     stand-Karte, A16-Engine), jeder weitere Feind kostenfrei; Bannsiegel
+     filtert gegen die Kategorie (Skip-Zeilen auf der SL-Karte) und
+     behaelt Flucht-/Schadens-Muster der alten Kette.
+   - symbolZoneMaintainResult + symbolZoneRescan (MAINTAIN-RUNDEN,
+     Blendend ab Adept, Kampfsymbol ab Adept, Pein Novize/Adept):
+     Standard-Maintain-Kette plus stiller Joiner/Leaver-Rescan mit
+     Sammelkarte (glypheRegionRescan-Zwilling).
+   - symbolZoneImmediateJoiner (SOFORT-STUFEN per Bewegungs-Tracker
+     in aoe.js: Blendend/Kampfsymbol Novize, Pein Meister, Bannsiegel
+     alle Stufen): stille opposed Probe je Betreter, EINE Sammelkarte
+     im Maintain-Ketten-Optik (Rudolfs Vorgabe), Marker je Kraft.
+   - endActiveSymbolZone / symbolZoneTokenDeleted (ENDE, nur Icon-
+     Abbruch/A29/Wirker-Token-Loeschung): Region, Flag und Marker raeumen
+     - AUSNAHME Blendendes Symbol ab Adept: die bis-Heilung-Marker
+     bleiben mit abgeraeumtem maintained-Flag stehen (Rudolfs Anmerkung:
+     Erhalten bei ALLEM). Danach ist die Zone verbraucht: neue Nutzung
+     = NEUE Platzierung (Adept: zeichnen in einer Aktion). */
+
+function symbolZoneMarkerId(ref) {
+  return game.symbaroum.config.SYMBOL_ZONE_MARKER?.[String(ref)] ?? String(ref ?? "");
+}
+
+export function symbolZonePowerLabel(ref) {
+  return game.i18n.localize(
+    ref === "banishingseal"
+      ? "POWER_LABEL.BANISHING_SEAL"
+      : ref === "blindingsymbol"
+        ? "POWER_LABEL.BLINDING_SYMBOL"
+        : ref === "markoftorment"
+          ? "POWER_LABEL.MARK_OF_TORMENT"
+          : "POWER_LABEL.BATTLE_SYMBOL"
+  );
+}
+
+/* v2.8.1 G7: maintained-Flag der verbleibenden Blendend-ab-Adept-
+   Marker abdraeumen (bis Heilung - keine A29-Erinnerung mehr, da die
+   Zone und ihr Maintain weg sind). */
+export async function setSymbolMarkersUnmaintained(actorId, ref) {
+  if (!actorId || !ref) return;
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor?.effects) continue;
+    for (const effect of token.actor.effects) {
+      const flagData = effect.getFlag(game.system.id, "flagData");
+      if (!flagData || flagData.caster !== actorId || flagData.ability !== ref) continue;
+      try {
+        if (flagData.maintained !== false) {
+          await effect.update({ [`flags.${game.system.id}.flagData.maintained`]: false });
+        }
+      } catch (markerFlagError) {
+        console.warn("Symbaroum Hymnen: Blendend-Marker konnte nicht abgeraeumt werden", markerFlagError);
+      }
+    }
+  }
+}
+
+async function symbolZoneResult(rollData, functionStuff) {
+  const ref = functionStuff.ability?.reference ?? "";
+  const powerLvl = functionStuff.powerLvl?.level ?? 1;
+  const savedCorruption = functionStuff.corruption;
+  const savedMaintain = functionStuff.maintain;
+  const savedActivelyMaintained = functionStuff.activelyMaintainedTargetEffect;
+  /* Picker-Platzierung + Akteur-Flag + Bestands-Trace: der v2.8 F39-
+     Rahmen (loest hier den aoe-seitigen v2.8-Ansatz ab). */
+  const frame = await zoneErstgesangFrame(functionStuff, {
+    refs: game.symbaroum.config.SYMBOL_ZONE_POWERS,
+    flagPrefix: "symbolzone",
+    flagLabel: "Symbolzonen-Flag",
+    placeRegion: (frameCasterToken) =>
+      placeSymbolZone(frameCasterToken, functionStuff.actor, ref, functionStuff.ability, {
+        symbolLevel: powerLvl,
+        sealCategoryId: functionStuff.sealCategoryId ?? null,
+        sealSubtype: functionStuff.sealSubtype ?? "",
+      }),
+    flagPayload: (region) => ({
+      regionId: region.id,
+      sceneId: canvas.scene?.id ?? null,
+      symbolLevel: powerLvl,
+      sealCategoryId: functionStuff.sealCategoryId ?? null,
+    }),
+  });
+  const region = frame?.region ?? null;
+  const skipLines = [];
+  const fleeing = [];
+  let firstEnemy = true;
+  if (region) {
+    for (const nextTokenId of frame.zoneIds) {
+      const nextToken = canvas.tokens?.placeables?.find((t) => t.id === nextTokenId) ?? null;
+      if (!nextToken?.actor || nextTokenId === frame.casterToken?.id) continue;
+      if ((nextToken.document?.disposition ?? 0) >= frame.casterDisposition) continue;
+      if (ref === "banishingseal" && functionStuff.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== functionStuff.sealCategoryId) {
+        skipLines.push(`<p>${game.i18n.format("POWER_SYMBOL.ZONE_SKIPPED", { targetname: nextToken.name })}</p>`);
+        continue;
+      }
+      if (!firstEnemy) {
+        /* die Folgewuerfe eines Zauber: kostenfrei, kein Maintain-
+           reset (F10-Glyphen-Muster); maintained-Marker der Stufe
+           bleiben ueber followUpMaintainedMarker erhalten. */
+        functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+        functionStuff.maintain = game.symbaroum.config.MAINTAIN_NOT;
+        functionStuff.followUpMaintainedMarker = savedMaintain !== game.symbaroum.config.MAINTAIN_NOT;
+      }
+      functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+      const rollDataNext = [
+        await baseRoll(
+          functionStuff.actor,
+          functionStuff.castingAttributeName,
+          nextToken.actor,
+          functionStuff.targetResistAttribute,
+          functionStuff.favour,
+          functionStuff.modifier,
+          false
+        ),
+      ];
+      await standardPowerResult(rollDataNext, functionStuff);
+      firstEnemy = false;
+      /* Bannsiegel: Flucht-/Schadens-Muster der alten v2.7-Kette -
+         Erfolge fliehen (fear-GM-Karte + Hinweis unten), Adept/Meister
+         nehmen bei misslungener Probe die Schadenskarte (Novize
+         bleibt ohne Schaden, RAW). */
+      if (ref === "banishingseal") {
+        if (rollDataNext[0]?.trueActorSucceeded === true) {
+          fleeing.push(nextToken.id);
+        } else if (powerLvl > 1) {
+          await banishingSealFailedProbe(functionStuff, functionStuff.targetData);
+        }
+      }
+    }
+  }
+  functionStuff.corruption = savedCorruption;
+  functionStuff.maintain = savedMaintain;
+  functionStuff.activelyMaintainedTargetEffect = savedActivelyMaintained;
+  functionStuff.followUpMaintainedMarker = false;
+  /* Picker-Abbruch: kein Wirken, keine Karte, keine Korruption
+     (dokumentierte Grenze des Option-B-Ablaufs). */
+  if (frame?.declined) return;
+  /* Leerstand (oder alle uebersprungen): Aktivierungsgebuehr wie
+     beim Glyphen-Leerstand (F23-Modell: getCorruption + GM-Karte +
+     kleine Gebuehr-Karte). */
+  if (firstEnemy) {
+    const emptyCorruption = await functionStuff.actor.getCorruption(functionStuff);
+    if (emptyCorruption.value > 0) {
+      await createModifyTokenChatButton([
+        {
+          tokenId: functionStuff.tokenId,
+          actorId: functionStuff.actor.id,
+          corruptionChange: emptyCorruption.value,
+        },
+      ]);
+    }
+    await postMaintainChainCard(
+      functionStuff,
+      `<h4>${functionStuff.abilityName}</h4>`,
+      [`<p>${game.i18n.format("POWER_SYMBOL.CHAT_NO_TARGET_COST", { count: emptyCorruption.value })}</p>`],
+      emptyCorruption.corruptionRoll ? [emptyCorruption.corruptionRoll] : []
+    );
+  }
+  if (skipLines.length > 0) {
+    await postSealCategoryGmCard(skipLines, functionStuff.actor ?? null);
+  }
+  if (ref === "banishingseal" && fleeing.length > 0) {
+    const fearEffect = CONFIG.statusEffects.find((e) => e.id === "fear") ?? CONFIG.statusEffects["fear"];
+    await createModifyTokenChatButton(fleeing.map((tokenId) => ({ tokenId: tokenId, addEffect: foundry.utils.duplicate(fearEffect) })));
+    ui.notifications.info(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_FLEEING_INFO"));
+  }
+}
+
+async function symbolZoneMaintainResult(rollData, functionStuff) {
+  /* v2.8.1 G7: die Maintain-Runde der Symbolzonen ist das Glyphen-
+     Modell drainingGlyphMaintainResult - Standard-Kette je gehaltenem
+     Marker plus stiller Zonen-Rescan (Joiner/Leaver). */
+  await maintainChainResult(rollData, functionStuff);
+  await symbolZoneRescan(functionStuff);
+}
+
+async function symbolZoneRescan(functionStuff) {
+  /* v2.8.1 G7: glypheRegionRescan-Zwilling - stille opposed Probe je
+     Joiner (Erfolg: Marker mit maintained-Flag; Widerstand: nur dieses
+     eine Symbol), Leaver verliert den Marker mit ZONE_LEFT-Zeile,
+     alles auf EINER Sammelkarte im Maintain-Ketten-Optik. AUSNAHME:
+     Blendendes Symbol ab Adept haelt bis Heilung - der Leaver behaelt
+     seinen Marker (v2.8-Verhalten, Rudolfs Anmerkung). */
+  const keepBlinding =
+    functionStuff.ability?.reference === "blindingsymbol" &&
+    Number(functionStuff.actor.getFlag(game.system.id, "symbolzone.blindingsymbol")?.symbolLevel ?? 1) >= 2;
+  const frame = await zoneRegionScanFrame(functionStuff, {
+    flagPrefix: "symbolzone",
+    guard: (ref) => (game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(ref),
+  });
+  if (!frame) return;
+  const { abilityRef, casterToken, casterDisposition, inZone, carriers: carrying } = frame;
+  const templateFd = zoneTemplateFd(carrying, casterToken);
+  const flagDataArray = [];
+  const rolls = [];
+  const lines = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor || token.id === casterToken.id) continue;
+    const hasMarker = carrying.has(token.id);
+    if (hasMarker && !inZone.has(token.id)) {
+      if (keepBlinding) continue;
+      flagDataArray.push({ tokenId: token.id, removeEffect: carrying.get(token.id).statusId });
+      lines.push(`<p>${game.i18n.format("POWER_SYMBOL.ZONE_LEFT", { targetname: token.name })}</p>`);
+      continue;
+    }
+    if (hasMarker || !inZone.has(token.id)) continue;
+    if ((token.document?.disposition ?? 0) >= casterDisposition) continue;
+    const probe = await baseRoll(
+      functionStuff.actor,
+      functionStuff.castingAttributeName ?? "resolute",
+      token.actor,
+      functionStuff.targetResistAttribute ?? "resolute",
+      functionStuff.favour ?? 0,
+      functionStuff.modifier ?? 0,
+      false
+    );
+    rolls.push(...(probe.rolls ?? []));
+    if (probe.trueActorSucceeded) {
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === symbolZoneMarkerId(abilityRef))),
+        effectDuration: 1,
+        maintained: true,
+        casterId: functionStuff.actor.id,
+        abilityRef: abilityRef,
+        casterResolute: templateFd?.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
+        casterName: templateFd?.casterName ?? functionStuff.actingCharName,
+      });
+      lines.push(`<p>${game.i18n.format("POWER_SYMBOL.ZONE_JOINED", { targetname: token.name })}</p>`);
+    } else {
+      lines.push(`<p>${game.i18n.format("POWER_SYMBOL.ZONE_RESIST", { targetname: token.name })}</p>`);
+    }
+  }
+  if (lines.length === 0) return;
+  const title = `<h4>${game.i18n.format("POWER.MAINTAIN_CHAIN_SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+  await postMaintainChainCard(functionStuff, title, lines, rolls);
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+export async function symbolZoneImmediateJoiner(regionDoc) {
+  /* v2.8.1 G7: SOFORT-Ausloesung der sofort-Stufen bei BETRETEN der
+     Region (aoe.js Bewegungs-Tracker); Main-Runden der Maintain-
+     Stufen laufen in symbolZoneRescan. Stille opposed Probe je
+     Betreter (ein Widerstand verhindert nur dieses eine Symbol),
+     EINE Sammelkarte im Maintain-Ketten-Optik, Marker je Kraft OHNE
+     maintained (Sofort-Stufen sind maintain-los), Bannsiegel filtert
+     gegen die gespeicherte Kategorie. KEINE Korruption (die zahlt
+     die Erstplatzierung, A16). Der Wirker wird ueber das Region-Flag
+     aufgeloest - ist er nicht mehr greifbar, wertet die SL manuell
+     (Trace). */
+  const zf = regionDoc?.flags?.symbaroum?.symbolzone ?? null;
+  const ref = String(zf?.ref ?? "");
+  if (!zf || !(game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(ref)) return;
+  if (!((game.symbaroum.config.SYMBOL_ZONE_IMMEDIATE_LEVELS?.[ref] ?? []).includes(Number(zf.symbolLevel ?? 1)))) return;
+  const caster = zf.casterActorUuid ? fromUuidSync(zf.casterActorUuid) : null;
+  if (!caster?.id) {
+    console.warn("Symbaroum Hymnen [trace] Symbolzone-Sofort-Ausloesung ohne Wirker (SL wertet manuell)", { ref, regionId: regionDoc.id });
+    return;
+  }
+  const casterDisposition = Number(zf.casterDisposition ?? 0);
+  const tokenIds = hymnRegionTokens(regionDoc).map((t) => t.id);
+  const flagDataArray = [];
+  const rolls = [];
+  const lines = [];
+  for (const nextTokenId of tokenIds) {
+    const nextToken = canvas.tokens?.placeables?.find((t) => t.id === nextTokenId) ?? null;
+    if (!nextToken?.actor || nextTokenId === zf.casterTokenId) continue;
+    if ((nextToken.document?.disposition ?? 0) >= casterDisposition) continue;
+    if (ref === "banishingseal" && zf.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== zf.sealCategoryId) {
+      lines.push(`<p>${game.i18n.format("POWER_SYMBOL.ZONE_SKIPPED", { targetname: nextToken.name })}</p>`);
+      continue;
+    }
+    const probe = await baseRoll(caster, "resolute", nextToken.actor, "resolute", 0, 0, false);
+    rolls.push(...(probe.rolls ?? []));
+    if (probe.trueActorSucceeded) {
+      flagDataArray.push({
+        tokenId: nextToken.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === symbolZoneMarkerId(ref))),
+        effectDuration: 1,
+        maintained: false,
+        casterId: caster.id,
+        abilityRef: ref,
+        casterResolute: getAttributeValue(caster, "resolute"),
+        casterName: zf.casterName ?? caster.name ?? "",
+      });
+      lines.push(`<p>${game.i18n.format("POWER_SYMBOL.ZONE_JOINED", { targetname: nextToken.name })}</p>`);
+    } else {
+      lines.push(`<p>${game.i18n.format("POWER_SYMBOL.ZONE_RESIST", { targetname: nextToken.name })}</p>`);
+    }
+  }
+  if (lines.length === 0) return;
+  const title = `<h4>${game.i18n.format("POWER.MAINTAIN_CHAIN_SUMMARY", { powername: symbolZonePowerLabel(ref) })}</h4>`;
+  await postMaintainChainCard(
+    { actor: caster, actingCharName: zf.casterName ?? caster.name ?? "", tokenId: zf.casterTokenId ?? null },
+    title,
+    lines,
+    rolls
+  );
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  console.info("Symbaroum Hymnen [trace] Symbolzone sofort ausgeloest", { ref, regionId: regionDoc.id, lines: lines.length, markers: flagDataArray.length });
+}
+
+export async function symbolZoneTokenDeleted(tokenDoc) {
+  /* v2.8.1 G7 (Rudolfs Anmerkung): Geloeschter WIRKER-Token beendet
+     seine Symbolzonen komplett (Region, Flag, Marker - glypheToken-
+     Deleted-Muster) - AUSNAHME Blendendes Symbol ab Adept: die bis-
+     Heilung-Marker bleiben (endActiveSymbolZone). */
+  const actor = tokenDoc?.actor ?? null;
+  if (!actor) return false;
+  const refs = game.symbaroum.config.SYMBOL_ZONE_POWERS ?? [];
+  const changed = [];
+  for (const ref of refs) {
+    if (!actor.getFlag(game.system.id, `symbolzone.${ref}`)?.regionId) continue;
+    await endActiveSymbolZone(actor, ref);
+    await postHymnEndCard(
+      { actor: actor, actingCharName: actor.name, abilityName: symbolZonePowerLabel(ref) },
+      "POWER_HYMN.CHAT_END_ABORTED"
+    );
+    changed.push(ref);
+  }
+  if (changed.length === 0) return false;
+  console.info("Symbaroum Hymnen [trace] Symbolzonen nach Wirker-Token-Loeschung beendet", { actorId: actor.id, refs: changed });
+  return true;
+}
+
+/* v2.8.1 G7 (Rudolfs finale Konzeptrunde 21.11. + v2.8-Testrunde):
+   Beendet eine laufende Symbolzone vollstaendig (Region, Akteur-Flag,
+   Szenen-Marker ueber die F40-Auto-Raeumung) - EIGENE Raeumschleife
+   statt zoneSweepClose wegen der Blendend-ab-Adept-Ausnahme: die bis-
+   Heilung-Marker bleiben stehen (Rudolfs Anmerkung: Erhalten bei
+   ALLEM - Icon-Abbruch, A29-Nein, Wirker-Token-Loeschung), verlieren
+   nur ihr maintained-Flag (keine weitere A29-Erinnerung). Danach ist
+   die Zone verbraucht: eine neue Nutzung bedeutet NEUE Platzierung
+   (Adept: zeichnen in einer Aktion). */
 export async function endActiveSymbolZone(actor, ref) {
   if (!actor || !ref) return false;
   if (!(game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(ref)) return false;
-  /* v2.2 F26: gemeinsame Ende-Maschine (zoneSweepClose). */
-  return zoneSweepClose(actor, ref, {
-    removeRegions: removeSymbolZoneRegions,
-    flagPrefix: "symbolzone",
-    flagLabel: "Symbolzonen-Flag",
-  });
+  const keepBlinding = ref === "blindingsymbol" && Number(actor.getFlag(game.system.id, `symbolzone.${ref}`)?.symbolLevel ?? 1) >= 2;
+  const { flagDataArray, seen } = zoneAllMarkerRemovals(actor.id, [ref]);
+  const doomed = keepBlinding ? [] : flagDataArray;
+  /* v2.7 F40: Ende-Raeumung automatisch (GM-Client, keine Karte). */
+  if (doomed.length > 0) {
+    await createModifyTokenAutoApply(doomed);
+  }
+  if (keepBlinding) {
+    await setSymbolMarkersUnmaintained(actor.id, ref);
+  }
+  await removeSymbolZoneRegions(actor.id, [ref]);
+  try {
+    await actor.unsetFlag(game.system.id, `symbolzone.${ref}`);
+  } catch (flagError) {
+    console.warn("Symbaroum Hymnen: Symbolzonen-Flag konnte nicht entfernt werden", flagError);
+  }
+  return seen.size > 0;
 }
 
 /* v2.8 G7: Erneute Icon-Anwahl bei LAUFENDER Symbolzone = Abbruch-
@@ -7350,15 +7727,7 @@ async function preDialogSymbolZoneChoice(functionStuff) {
     await modifierDialog(functionStuff);
     return;
   }
-  const labelKey =
-    ref === "banishingseal"
-      ? "POWER_LABEL.BANISHING_SEAL"
-      : ref === "blindingsymbol"
-        ? "POWER_LABEL.BLINDING_SYMBOL"
-        : ref === "markoftorment"
-          ? "POWER_LABEL.MARK_OF_TORMENT"
-          : "POWER_LABEL.BATTLE_SYMBOL";
-  const runningLabel = game.i18n.localize(labelKey);
+  const runningLabel = symbolZonePowerLabel(ref);
   symbDialog({
     title: functionStuff.abilityName,
     content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: runningLabel })}</p>`,
@@ -7995,15 +8364,36 @@ async function thornCloakResult(rollData, functionStuff) {
   const wasActive = Boolean(
     functionStuff.actor.hasCondition(functionStuff.flagTest) || functionStuff.actor.getFlag(game.system.id, functionStuff.flagTest)
   );
-  await standardPowerResult(rollData ?? null, functionStuff);
   if (wasActive) {
+    /* v2.8.1 (Rudolfs v2.8-Testrunde, Punkt-11-Anmerkung): Der Icon-
+       Abbruch postet die Ende-Karte im F41-Satz (CHAT_END_POWER-Titel
+       plus CHAT_END_ABORTED-Zeile, Hymnen-Muster) statt der "entlaesst"-
+       Standardkarte. Maschinenraeumung wie im alten standardPowerResult-
+       Pfad: Caster-Symbol (removeCondition inkl. preDeleteActiveEffect-
+       Kette fuer die Ruestungs-Items), Verbundete, Flaeche, Bewegungs-
+       Flag. */
+    try {
+      await functionStuff.actor.removeCondition(functionStuff.flagTest);
+    } catch (deactivateError) {
+      console.warn("Symbaroum Hymnen: Dornenmantel-Symbol konnte nicht entfernt werden", deactivateError);
+    }
+    try {
+      await functionStuff.actor.unsetFlag(game.system.id, functionStuff.flagTest);
+    } catch (legacyFlagError) {
+      game.symbaroum.log("Hymnen: Dornenmantel-Legacy-Flag-Raeumung", legacyFlagError);
+    }
     await endThornCloakAllies(functionStuff);
     /* v1.2 F7: Deaktivierung raeumt die Dornenmantel-Flaeche der Szene
        mit ab (Optik = Pruefung; Muster Gesangs-Ende). */
     await removeThornCloakZones(functionStuff.actor.id);
     await functionStuff.actor.unsetFlag(game.system.id, "thornCloakMoved");
+    await postHymnEndCard(
+      { actor: functionStuff.actor, actingCharName: functionStuff.actingCharName, abilityName: game.i18n.localize("POWER_LABEL.THORN_CLOAK") },
+      "POWER_HYMN.CHAT_END_ABORTED"
+    );
     return;
   }
+  await standardPowerResult(rollData ?? null, functionStuff);
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   /* v1.2 F7/v1.3 F9a/F12 (Rudolfs Freigabe 20.11.): Erstaktivierung
      folgt dem Zonen-Tab - Autoplatzierung AN = Direkt-Anlage mittig,
@@ -12468,16 +12858,12 @@ async function preDialogBanishingSeal(functionStuff) {
     });
     return;
   }
-  // A36V test round (Rudolf, 25.10.): the chain runs on fresh targeting in
-  // banishingSealChainResult (glyph style) - a multi-selection made before
-  // the casting only feeds the PRIMARY target, any further pre-selected
-  // tokens are ignored
-  if (!functionStuff.targetData.hasTarget && functionStuff.targets?.length) {
+  /* v2.8.1 G7 (Rudolfs Option B): KEIN Zielzwang mehr - das Bannsiegel
+     ist eine frei platzierbare Zone (Picker im Zauberlauf). Ein vorab
+     markiertes Token dient nur als Kategorie-Prefill des Dialogs, keins
+     ist noetig. */
+  if (!functionStuff.targetData?.hasTarget && functionStuff.targets?.length) {
     functionStuff.targetData = functionStuff.targets[0];
-  }
-  if (!functionStuff.targetData.hasTarget) {
-    ui.notifications.error(game.i18n.localize("POWER_BANISHINGSEAL.CHAT_NO_TARGET"));
-    return;
   }
   // A36-Verbraucher (Bannsiegel): the free-text creature type dialog becomes
   // a category dropdown (CREATURE_CATEGORY_SELECTION) plus a free subtype
@@ -12488,8 +12874,10 @@ async function preDialogBanishingSeal(functionStuff) {
   // whole chain. A36V test round 3 (Rudolf, 25.10.): the confirm button no
   // longer pretends to roll - it adopts the category choice and hands over
   // to the roll dialog ("Übernehmen" instead of "Würfeln").
-  const primaryActor = functionStuff.targetData?.token?.actor ?? functionStuff.targetData?.actor;
-  const presetCategory = game.symbaroum.config.getCreatureCategory(primaryActor);
+  const primaryActor = functionStuff.targetData?.token?.actor ?? functionStuff.targetData?.actor ?? null;
+  /* v2.8.1 G7: ohne Ziel (Regelfall) bleibt der Prefill leer - die
+     Kategorie waehlt der SL frei. */
+  const presetCategory = primaryActor ? game.symbaroum.config.getCreatureCategory(primaryActor) : null;
   const presetSubtype = primaryActor?.system?.creatureSubtype ?? "";
   const categoryOptions = Object.values(game.symbaroum.config.CREATURE_CATEGORY_SELECTION)
     .map(
@@ -12530,7 +12918,10 @@ async function preDialogBanishingSeal(functionStuff) {
              (kein Würfeln mehr gegen ein falsches Ziel, der v2.6-Prüf-
              punkt im Roll-Button entfällt damit). Ohne gewählte Kategorie
              bleibt der Check aus (SL-Buchhaltung). */
-          if (!banishingSealPrimaryCategoryCheck(functionStuff)) {
+          /* v2.8.1 G7: der Primarziel-Check laeuft nur mit
+             markiertem Ziel (ohne Zielzwang ist der Regelfall ohne
+             Ziel - der Erstgesang filtert je Feind der Region). */
+          if (functionStuff.targetData?.hasTarget && !banishingSealPrimaryCategoryCheck(functionStuff)) {
             return;
           }
           /* v2.8 (Rudolfs Festlegung 13.11., ersetzt den v2.7-Schritt-4-
