@@ -4251,6 +4251,20 @@ export function registerAoeHooks() {
 	   x/y (z. B. nur Rotation) bleiben ignoriert. */
 	Hooks.on('preUpdateToken', _symbolTrackPreTokenMove);
 	Hooks.on('updateToken', (doc, changes) => {
+		/* v2.8.2 (Rudolfs Testrunde v2.8.1, 10/16): Der Kommentar
+		   versprach bis v2.8.1 einen x/y-Filter, im Code fehlte er -
+		   JEDES Token-Update (Marker-Anwendung, HUD, Zwischen-
+		   staende) wertete die Mitgliedschaft neu aus: Tokens
+		   OHNE Bewegungs-Tracker-Eintrag (beim Erstplatzieren schon
+		   in der Region stehend) zaehlten als "Betreten" und
+		   feuerten den Sofort-Joiner JEDES Update erneut
+		   (Mehrfachfeuerung Erstplatzieren UND Beenden, je Feuer
+		   EINE Sammelkarte plus GM-Anwenden-Karte). Guard: nur
+		   echte Positionsaenderungen (x ODER y) laufen in die
+		   Auswertung - der preUpdate-Tracker befuellt nur bei
+		   denselben x/y-Updates, Enter/Leave trifft damit NUR bei
+		   echten Bewegungen zu. */
+		if (!changes || (changes.x === undefined && changes.y === undefined)) return;
 		void _symbolZoneTokenMoved(doc, changes);
 	});
 	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im

@@ -3087,6 +3087,16 @@ export class SymbaroumItem extends Item {
         base.powerLvl.level > 1 ? "POWER_MARKOFTORMENT.CHAT_ADEPT" : "POWER_MARKOFTORMENT.CHAT_NOVICE"
       );
     }
+    // v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Zeichen der Pein
+    // legt eine DAUERHAFTE Symbolzone an - erneute Anwahl bei laufen-
+    // der Zone oeffnet den Abbruch-Dialog (preDialogSymbolZoneChoice).
+    // v2.8.2 (Rudolfs Testrunde v2.8.1, 4/5): Der Dialog sass bis
+    // v2.8.1 als Apply-Fehler im MINDTHROW-Setup - Pein hatte dadurch
+    // keinen Abbruch und der Icon-Klick lief als stiller Replace
+    // durch (neue Platzierung, alte Zone geloescht). Jetzt sitzt er
+    // hier: Klick bei laufender Zone = Abbruch (F41-Karte), kein
+    // Neuwurf im selben Klick.
+    base.preDialogFunction = preDialogSymbolZoneChoice;
     return base;
   }
 
@@ -3110,10 +3120,6 @@ export class SymbaroumItem extends Item {
       // A25 stage 2: Master can throw a chain of enemies (GRW)
       base.chain = game.symbaroum.config.CHAIN;
     }
-    // v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Zeichen der Pein
-    // legt eine DAUERHAFTE Symbolzone an - erneute Anwahl bei laufen-
-    // der Zone oeffnet den Abbruch-Dialog (preDialogSymbolZoneChoice).
-    base.preDialogFunction = preDialogSymbolZoneChoice;
     return base;
   }
 
@@ -6218,6 +6224,17 @@ async function holyAuraEndCleanup(functionStuff) {
    Regionen). */
 function cleanupFreshHymnZone(functionStuff) {
   if (!functionStuff?.hymnZone?.regionId || functionStuff.hymnZoneCommitted) return;
+  /* v2.8.2 G7 (Rudolfs Testrunde v2.8.1, 1a/3): Auch die frisch
+     platzierte SYMBOLZONE laeuft als hymnZone-Pending durch dieses
+     Netz (Picker-Platzierung VOR dem Wuerfeldialog, Glyphe-
+     Paritaet) - Cancel/X/ESC des Wuerfeldialogs raeumt dann die
+     Symbol-Region statt der Hymnen-Region (removeSymbolZone-
+     Regions, kein aoe-Flag auf der Region). */
+  const cleanupRef = String(functionStuff.ability?.reference ?? "");
+  if ((game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(cleanupRef)) {
+    removeSymbolZoneRegions(functionStuff.actor?.id ?? null, [cleanupRef]);
+    return;
+  }
   removeHymnZoneRegions(functionStuff.actor?.id ?? null, [functionStuff.ability?.reference]);
 }
 
@@ -7429,6 +7446,12 @@ async function symbolZoneResult(rollData, functionStuff) {
       sealCategoryId: functionStuff.sealCategoryId ?? null,
     }),
   });
+  /* v2.8.2 G7: Die Region pendet meist schon aus preDialog (Picker
+     VOR dem Wuerfeldialog, Glyphe-Paritaet) - beim Commit das
+     Committed-Flag setzen, damit der Cancel-/Close-Waechter des
+     Wuerfeldialogs sie nicht mehr wegraeumt (Hymnen-1.2-Muster,
+     cleanupFreshHymnZone prueft hymnZoneCommitted). */
+  if (frame?.committed) functionStuff.hymnZoneCommitted = true;
   const region = frame?.region ?? null;
   const skipLines = [];
   const fleeing = [];
@@ -7712,6 +7735,31 @@ export async function endActiveSymbolZone(actor, ref) {
    F41); ohne laufende Zone der normale Wuerfeldialog. Gilt fuer
    Blendendes Symbol, Zeichen der Pein und Kampfsymbol (Bannsiegel
    hat seinen eigenen preDialog-Zweig, siehe preDialogBanishingSeal). */
+/* v2.8.2 G7 (Rudolfs Testrunde v2.8.1, 1a/3 - GLYPHEN-Ablauf-
+   Paritaet): Picker-Platzierung VOR dem Wuerfeldialog. Die platzierte
+   Region pendet als functionStuff.hymnZone (Hymnen-1.2-Netz): der
+   Erstgesang uebernimmt sie ueber zoneErstgesangFrame (pendingRegion),
+   Cancel/X/ESC des Wuerfeldialogs raeumen sie bei Abbruch still
+   (cleanupFreshHymnZone, oben um die Symbolzonen erweitert).
+   Rueckgabe false = Picker-Abbruch: Zauber endet still und
+   KOSTENLOS (Rudolfs Test 2 blieb gruen). */
+async function symbolZonePlaceBeforeDialog(functionStuff, ref) {
+  const casterToken =
+    functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
+  const placement = await placeSymbolZone(casterToken, functionStuff.actor, String(ref ?? ""), functionStuff.ability, {
+    symbolLevel: functionStuff.powerLvl?.level ?? 1,
+    sealCategoryId: functionStuff.sealCategoryId ?? null,
+    sealSubtype: functionStuff.sealSubtype ?? "",
+  });
+  if (!placement?.region) return false;
+  functionStuff.hymnZone = {
+    ref: String(ref ?? ""),
+    sceneId: canvas.scene?.id ?? null,
+    regionId: placement.region.id,
+  };
+  return true;
+}
+
 async function preDialogSymbolZoneChoice(functionStuff) {
   const ref = functionStuff.ability?.reference;
   if (!(game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(ref)) {
@@ -7724,6 +7772,17 @@ async function preDialogSymbolZoneChoice(functionStuff) {
   }
   const running = functionStuff.actor?.getFlag(game.system.id, `symbolzone.${ref}`)?.regionId ? ref : null;
   if (!running) {
+    /* v2.8.2 G7 (Rudolfs Testrunde v2.8.1, 1a/3 - GLYPHEN-Ablauf-
+       Paritaet): Beim FRISCHEN Zauber laeuft die Picker-Platzierung
+       VOR dem Wuerfeldialog (Schwaeche-Glyphe: Ausfuehrungs-Dialog,
+       PLATZIERUNG, dann Wuerfeldialog), nicht mehr erst im Erstgesang
+       hinter dem Wurf. Die Region pendet als functionStuff.hymnZone
+       (Hymnen-1.2-Netz), der Erstgesang uebernimmt sie ueber
+       zoneErstgesangFrame, Cancel/X/ESC des Wuerfeldialogs raeumt
+       still ab (cleanupFreshHymnZone). Picker-Abbruch: Zauber endet
+       ohne Karte und KOSTENLOS (Rudolfs Test 2 blieb gruen). */
+    const placed = await symbolZonePlaceBeforeDialog(functionStuff, ref);
+    if (!placed) return;
     await modifierDialog(functionStuff);
     return;
   }
@@ -12896,7 +12955,7 @@ async function preDialogBanishingSeal(functionStuff) {
       cast: {
         icon: '<i class="fas fa-check"></i>',
         label: game.i18n.localize("POWER_BANISHINGSEAL.BUTTON_APPLY"),
-        callback: (html) => {
+        callback: async (html) => {
           const categoryId = html[0].querySelector("#creatureCategory").value;
           const subtype = html[0].querySelector("#creatureSubtype").value.trim();
           // A36V test round 2 (Rudolf, 25.10.): the chosen category is no
@@ -12932,6 +12991,17 @@ async function preDialogBanishingSeal(functionStuff) {
              Der Hardcode wird NICHT mehr gesetzt: alle anderen Wirker
              zahlen die Standard-Kraftkorruption 1W4 (Modus aus dem
              Setup, getCorruption würfelt). Manuell = Master. */
+          /* v2.8.2 G7 (Rudolfs Testrunde v2.8.1, 1a/3 - GLYPHEN-
+             Paritaet): Auch beim Bannsiegel laeuft die Picker-
+             Platzierung VOR dem Wuerfeldialog - hinter dem Kategorie-
+             Dialog, weil die Region die Kategorie im Flag traegt
+             (Erstgesang-Filter). sealSubtype fuer das Region-Flag
+             mitgeben; der Erstgesang uebernimmt die pendente Region
+             (kein Zweit-Picker), Cancel des Wuerfeldialogs raeumt
+             (cleanupFreshHymnZone). */
+          functionStuff.sealSubtype = subtype;
+          const placedSeal = await symbolZonePlaceBeforeDialog(functionStuff, "banishingseal");
+          if (!placedSeal) return;
           modifierDialog(functionStuff);
         },
       },
