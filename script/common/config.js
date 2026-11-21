@@ -492,6 +492,13 @@ SYMBAROUM.scriptedAbilities = [
    Marker auf den betroffenen Feinden. */
 SYMBAROUM.HYMN_REFERENCES = ["combathymn", "heroichymn", "weakeninghymn"];
 
+/* v2 (Rudolfs Freigabe 20.11.): Heilige und Unheilige Aura laufen ueber
+   die Hymnen-Zonen-Maschine (angehaengte Sicht-Region fixer Sichtweite,
+   Join/Leave je Runde per Rescan). HYMN_REFERENCES selbst bleibt
+   semantisch auf die Gesaenge beschraenkt - die Auren lesen diese
+   eigene Liste (F9). */
+SYMBAROUM.AURA_REFERENCES = ["holyaura", "unholyaura"];
+
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];
 
@@ -2084,7 +2091,10 @@ SYMBAROUM.SWEEP_ZONE_POWERS = [
   "banishingseal",
   "battlesymbol",
   "blindingsymbol",
-  "drainingglyph",
+  /* v2 (Rudolfs Freigabe 20.11.): drainingglyph ist aus der Sweep-Liste
+     entfernt - die Glyphe legt kuenftig einen dauerhaften Zonen-Kreis an
+     (placeGlyphZone, Radius aus dem Zonen-Tab, Default 1) und probt je
+     Feind in der Region (F10); Regionstokens statt Sweep-Zielwahl. */
   "markoftorment",
   /* v2.10 (Gruppe B): die zwölf Kettenkräfte - Zone = Zielwahl-Automatik
      für den Erstzauber-Sweep, Kette/Stufen/Maintain laufen über die

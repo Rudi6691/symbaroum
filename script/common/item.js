@@ -40,7 +40,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 import { itemHasTraditionKnowledge } from "./tradition.js";
-import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
+import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, removeAuraZoneRegions, removeGlyphZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -2876,6 +2876,10 @@ export class SymbaroumItem extends Item {
     base.resultTextSuccess = game.i18n.localize("POWER_HOLYAURA.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_HOLYAURA.CHAT_FAILURE");
     base.activelyMaintaninedCasterEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "holyaura"))];
+    /* v2 F9 (Rudolfs Freigabe 20.11.): Erneute Icon-Anwahl bei LAUFENDER
+       Aura fragt den Abbruch ab (Hymnen-Modell, preDialogAuraChoice);
+       ohne laufende Aura laeuft der normale Erstcast. */
+    base.preDialogFunction = preDialogAuraChoice;
     // A36-Verbraucher (Heilige Aura, GRW): the aura dice per level - 1d6/
     // 1d8/1d10 damage against abominations and undead, 1d4/1d6 healing for
     // allies from Adept on. The values used to be printed as an informative
@@ -3350,6 +3354,9 @@ export class SymbaroumItem extends Item {
     base.resultTextSuccess = game.i18n.localize("POWER_UNHOLYAURA.CHAT_SUCCESS");
     base.resultTextFail = game.i18n.localize("POWER_UNHOLYAURA.CHAT_FAILURE");
     base.activelyMaintaninedCasterEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "unholyaura"))];
+    /* v2 F9: siehe Heilige Aura - erneute Icon-Anwahl bei LAUFENDER Aura
+       fragt den Abbruch ab (Hymnen-Modell), sonst normaler Erstcast. */
+    base.preDialogFunction = preDialogAuraChoice;
     base.auraDamageDice = "1d6";
     base.auraHealDice = "1d8";
     if (base.powerLvl.level === 3) base.auraDamageDice = "1d8";
@@ -5698,10 +5705,13 @@ async function holyAuraResult(rollData, functionStuff) {
   // (added on cast success, removed on maintain failure by the standard path)
   await standardPowerResult(rollData, functionStuff);
   if (functionStuff.isMaintained) {
-    // maintain round: success keeps every symbol ticking (nothing to do),
-    // a failed roll ends the aura and removes all its scene symbols
+    // v2 F9: maintain round - success runs the aura rescan (joiners/
+    // leavers like the hymns), a failed roll ends the aura, its symbols
+    // AND the attached zone region
     if (!succeeded) {
       await holyAuraEndCleanup(functionStuff);
+    } else {
+      await auraZoneRescan(functionStuff);
     }
     return;
   }
@@ -5711,6 +5721,35 @@ async function holyAuraResult(rollData, functionStuff) {
     // not enforce it, the notification just tells the table
     ui.notifications.warn(game.i18n.localize("POWER_HOLYAURA.SCENE_BLOCKED"));
     return;
+  }
+  /* v2 F9 (Rudolfs Freigabe 20.11.): Erstaktivierung durch PLATZIEREN -
+     die Aura legt eine am WIRKER angehaengte Sicht-Region fixer Sicht-
+     weite an (placeAuraZone, Hymnen-Mechanik: ERST platzieren DANN
+     attachment). Die Bestands-Loops laufen danach dialogfrei als
+     Zonen-Batch ueber die Regions-Token (zoneChainTargets + Ziel-
+     markierungen): die Region entscheidet die Geometrie, die Kategorie-
+     Filter wirken darunter, Proben/Sofortwirkung/Symbol-DOTs bleiben
+     Bestandscode. Picker-Abbruch (declined): Fallback auf die SL-
+     Markierkette (dokumentiert). */
+  const auraPlacement = await placeAuraZone(functionStuff.token ?? null, functionStuff.actor, "holyaura", functionStuff.ability);
+  if (auraPlacement?.region) {
+    try {
+      await functionStuff.actor.setFlag(game.system.id, "aurazone.holyaura", { regionId: auraPlacement.region.id, sceneId: canvas.scene?.id ?? null });
+    } catch (auraFlagError) {
+      console.warn("Symbaroum Hymnen [trace] Auren-Flag konnte nicht gesetzt werden", auraFlagError);
+    }
+    const auraZoneIds = hymnRegionTokens(auraPlacement.region).map((t) => t.id);
+    functionStuff.zoneChainTargets = new Set(auraZoneIds);
+    for (const auraZoneId of auraZoneIds) {
+      const auraZoneToken = canvas.tokens?.placeables?.find((t) => t.id === auraZoneId);
+      if (auraZoneToken) {
+        try {
+          auraZoneToken.setTarget(true, { releaseOthers: false });
+        } catch (auraTargetError) {
+          /* Ziel-Markierung nur Kosmetik fuer die Batch-Loops */
+        }
+      }
+    }
   }
   const flagDataArray = [];
   const auraRolls = [];
@@ -6027,7 +6066,10 @@ async function holyAuraEndCleanup(functionStuff) {
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
-  }
+  }  /* v2 F9 (Rudolfs Freigabe 20.11.): Mit den Symbolen endet auch die
+     Auren-Region (Loeschen + Akteur-Flag, endAuraZoneState). */
+  await endAuraZoneState(functionStuff.actor, abilityRef);
+
 }
 
 /* =====================================================================
@@ -6610,7 +6652,16 @@ async function endActiveHymns(actor, options = {}) {
     const zoneFlag = actor.getFlag(game.system.id, `hymnZone.${ref}`);
     if (!zoneFlag?.regionId) continue;
     const region = hymnRegionById(zoneFlag.regionId);
-    if (region) await region.delete();
+    if (region) {
+      /* v2 F19a (Rudolfs Hymnen-Nachtest): der dritte, ungeschuetzte
+         region.delete-Pfad - Existenz-Check + try/catch wie alle
+         anderen Raeumungen, keine "does not exist"-Meldung mehr. */
+      try {
+        await region.delete();
+      } catch (hymnRegionError) {
+        console.warn("Symbaroum Hymnen: Gesangsflaeche konnte nicht entfernt werden", hymnRegionError);
+      }
+    }
     await actor.unsetFlag(game.system.id, `hymnZone.${ref}`);
   }
   if (endedRefs.size > 0 && !options.silent) {
@@ -6632,6 +6683,238 @@ async function endActiveHymns(actor, options = {}) {
 export function hymnPowerLabel(ref) {
   const labelKey = ref === "combathymn" ? "POWER_LABEL.COMBAT_HYMN" : ref === "heroichymn" ? "POWER_LABEL.HEROIC_HYMN" : "POWER_LABEL.WEAKENING_HYMN";
   return game.i18n.localize(labelKey);
+}
+
+/* v2 F19b (Rudolfs Testrunde V5b): Geloeschter WIRKER-Token - die
+   Dornenmantel-Effekte blieben am AKTEUR gespeichert. Die Funktion
+   raeumt das Wirker-Symbol und alle Betroffenen-Marker (fd.ability ===
+   "thorncloak", fd.caster === Akteur) NACH der verzoegerten Region-
+   Raeumung (aoe.js deleteToken-Hook, F19a) und postet die kleine
+   Ende-Karte. Ohne Dornenmantel-Bestand stiller No-Op (kein Karten-
+   Spam bei gewoehnlichen Token-Loeschungen). */
+export async function thorncloakTokenDeleted(tokenDoc) {
+  const actor = tokenDoc?.actor ?? null;
+  if (!actor) return false;
+  let changed = false;
+  for (const effect of [...(actor.effects ?? [])]) {
+    const fd = effect.getFlag(game.system.id, "flagData");
+    if (fd?.ability !== "thorncloak" || fd?.caster !== actor.id) continue;
+    try {
+      await effect.delete();
+      changed = true;
+    } catch (error) {
+      console.warn("Symbaroum Hymnen: Dornenmantel-Symbol konnte nicht entfernt werden", error);
+    }
+  }
+  const flagDataArray = [];
+  const seen = new Set();
+  for (const sceneToken of canvas.tokens?.placeables ?? []) {
+    const tokenActor = sceneToken.actor;
+    if (!tokenActor?.effects) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.ability !== "thorncloak" || fd?.caster !== actor.id) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = sceneToken.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: sceneToken.id, removeEffect: statusId });
+    }
+  }
+  if (seen.size > 0) changed = true;
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  if (!changed) return false;
+  const powerLabel = game.i18n.localize("POWER_LABEL.THORN_CLOAK");
+  const endTitle = `<h4>${game.i18n.format("POWER_HYMN.CHAT_END_POWER", { powername: powerLabel })}</h4>`;
+  const endLine = `<p>${game.i18n.format("POWER_THORN_CLOAK.CHAT_TOKEN_DELETED", { actorname: actor.name })}</p>`;
+  await postMaintainChainCard({ actor: actor, actingCharName: actor.name }, endTitle, [endLine], []);
+  return true;
+}
+
+/* v2 F9 (Rudolfs Freigabe 20.11.): Auren-Kraftname (Deaktivierungs- und
+   Rescan-Karten, hymnPowerLabel-Muster). */
+export function auraPowerLabel(ref) {
+  return game.i18n.localize(ref === "unholyaura" ? "POWER_LABEL.UNHOLY_AURA" : "POWER_LABEL.HOLY_AURA");
+}
+
+/* v2 F9: Wirk-Klassen-Kategorien der Auren (Bestands-Loop-Konventionen,
+   fuer den Rescan - Heilige Aura schaedigt Untote/Abscheulichkeiten/
+   voellig Korrumpierte und heilt lebende Verbuendete; Unheilige Aura
+   schaedigt Zivilisierte/Bestien und heilt untote/verdorbene
+   Verbuendete). */
+function auraHurtsCategory(ref, targetActor) {
+  const category = game.symbaroum.config.getCreatureCategory(targetActor);
+  if (ref === "unholyaura") return category === "civilized" || category === "beast";
+  return category === "undead" || category === "abomination" || game.symbaroum.config.isThoroughlyCorruptTarget(targetActor);
+}
+
+function auraHealsCategory(ref, targetActor) {
+  const category = game.symbaroum.config.getCreatureCategory(targetActor);
+  if (ref === "unholyaura") return category === "undead" || category === "abomination" || game.symbaroum.config.isThoroughlyCorruptTarget(targetActor);
+  return category !== "undead" && category !== "abomination";
+}
+
+/* v2 F9: Auren-Region + Akteur-Flag abraeumen (Ende egal warum). */
+async function endAuraZoneState(actor, ref) {
+  if (!actor || !ref) return;
+  await removeAuraZoneRegions(actor.id ?? null, [ref]);
+  try {
+    await actor.unsetFlag(game.system.id, `aurazone.${ref}`);
+  } catch (error) {
+    console.warn("Symbaroum Hymnen: Auren-Flag konnte nicht entfernt werden", error);
+  }
+}
+
+/* v2 F9: Beendet eine laufende Aura vollstaendig (alle Szenen-Symbole
+   ueber die GM-Anwenden-Karte, Region, Flag) - Deaktivierung durch
+   erneute Icon-Anwahl. */
+export async function endActiveAura(actor, ref) {
+  if (!actor || !ref) return false;
+  const casterId = actor.id;
+  const flagDataArray = [];
+  const seen = new Set();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const tokenActor = token.actor;
+    if (!tokenActor?.effects) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster !== casterId || fd?.ability !== ref) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = token.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+    }
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  await endAuraZoneState(actor, ref);
+  return seen.size > 0;
+}
+
+/* v2 F9: Auren-Rescan (hymnZoneRescan-Muster) - Join/Leave je Runde:
+   Herausge bewegte Symbole enden (removeEffect, Revert), neue Token in
+   der Region ziehen das Symbol ihrer Wirk-Klasse nach (Kopie des
+   Vorlage-dot-Blocks: Wuerfel, resist-Snapshot, Regenerations-Formel).
+   Schadens-Klasse = dot.resource "toughness" (Kategorie-Filter,
+   Bestands-Konvention), Heil-Klasse = dot.resource "heal" (Verbuendete,
+   Kategorie, Korruptionsgebuehr nur Heilige Aura). Stille Runde ohne
+   Bewegung (keine Karte). */
+export async function auraZoneRescan(functionStuff) {
+  const abilityRef = functionStuff.ability?.reference;
+  if (!(game.symbaroum.config.AURA_REFERENCES ?? []).includes(abilityRef)) return;
+  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `aurazone.${abilityRef}`);
+  if (!zoneFlag?.regionId) return;
+  const region = hymnRegionById(zoneFlag.regionId);
+  if (!region) return;
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  if (!casterToken) return;
+  const casterDisposition = casterToken.document?.disposition ?? 0;
+  const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
+  const carrying = new Map();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor?.effects) continue;
+    for (const effect of token.actor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === functionStuff.actor.id && fd?.ability === abilityRef) {
+        const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+        if (statusId) carrying.set(token.id, { token, fd, statusId });
+        break;
+      }
+    }
+  }
+  const templateByClass = new Map();
+  for (const entry of carrying.values()) {
+    const cls = entry.fd?.dot?.resource === "heal" ? "heal" : "toughness";
+    if (!templateByClass.has(cls)) templateByClass.set(cls, entry);
+  }
+  const joinedKey = abilityRef === "holyaura" ? "POWER_HOLYAURA.ZONE_JOINED" : "POWER_UNHOLYAURA.ZONE_JOINED";
+  const leftKey = abilityRef === "holyaura" ? "POWER_HOLYAURA.ZONE_LEFT" : "POWER_UNHOLYAURA.ZONE_LEFT";
+  const flagDataArray = [];
+  const lines = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor || token.id === casterToken.id) continue;
+    const hasBuff = carrying.has(token.id);
+    if (hasBuff && !inZone.has(token.id)) {
+      flagDataArray.push({ tokenId: token.id, removeEffect: carrying.get(token.id).statusId });
+      lines.push(`<p>${game.i18n.format(leftKey, { targetname: token.name })}</p>`);
+      continue;
+    }
+    if (hasBuff || !inZone.has(token.id)) continue;
+    const joinClass = (token.document?.disposition ?? 0) >= casterDisposition ? "heal" : "toughness";
+    const templateEntry = templateByClass.get(joinClass);
+    if (!templateEntry) continue;
+    if (joinClass === "toughness" && !auraHurtsCategory(abilityRef, token.actor)) continue;
+    if (joinClass === "heal" && !auraHealsCategory(abilityRef, token.actor)) continue;
+    flagDataArray.push({
+      tokenId: token.id,
+      addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === templateEntry.statusId)),
+      maintained: true,
+      casterId: functionStuff.actor.id,
+      abilityRef: abilityRef,
+      casterResolute: templateEntry.fd.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
+      casterName: templateEntry.fd.casterName ?? functionStuff.actingCharName,
+      dot: foundry.utils.duplicate(templateEntry.fd.dot),
+    });
+    lines.push(`<p>${game.i18n.format(joinedKey, { targetname: token.name })}</p>`);
+    if (joinClass === "heal" && abilityRef === "holyaura") {
+      /* Heilige Aura: 1 temporEre Korruption je geheilttem Verbuendeten
+         an den MYSTIKER (Bestands-Konvention des Erstcasts). */
+      flagDataArray.push({ tokenId: casterToken.id, corruptionChange: 1 });
+      lines.push(`<p>${game.i18n.format("POWER_HOLYAURA.ALLY_CORRUPTION", { targetname: token.name, castername: functionStuff.actingCharName })}</p>`);
+    }
+  }
+  if (lines.length === 0) return;
+  const title = `<h4>${game.i18n.format("POWER.MAINTAIN_CHAIN_SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+  await postMaintainChainCard(functionStuff, title, lines, []);
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* v2 F9: Erneute Icon-Anwahl bei LAUFENDER Aura = Abbruch-Dialog
+   (Hymnen-Modell, preDialogThornCloakChoice-Muster). Ohne laufende Aura
+   laeuft der normale Erstcast (Wuerfeldialog). */
+async function preDialogAuraChoice(functionStuff) {
+  const ref = functionStuff.ability?.reference;
+  if (!(game.symbaroum.config.AURA_REFERENCES ?? []).includes(ref)) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  const running = functionStuff.actor?.getFlag(game.system.id, `aurazone.${ref}`)?.regionId ? ref : null;
+  if (!running) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  const runningLabel = auraPowerLabel(running);
+  symbDialog({
+    title: functionStuff.abilityName,
+    content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: runningLabel })}</p>`,
+    classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+    buttons: {
+      yes: {
+        icon: '<i class="fas fa-check"></i>',
+        label: game.i18n.localize("BUTTON.YES"),
+        callback: async () => {
+          await postHymnEndCard(
+            { actor: functionStuff.actor, actingCharName: functionStuff.actingCharName, abilityName: runningLabel },
+            "POWER_HYMN.CHAT_END_ABORTED"
+          );
+          await endActiveAura(functionStuff.actor, running);
+        },
+      },
+      no: {
+        icon: '<i class="fas fa-times"></i>',
+        label: game.i18n.localize("BUTTON.NO"),
+      },
+    },
+    default: "yes",
+  });
 }
 
 /* Hymnen-Anhang v1.1 (Rudolfs Testrunde v1, P3 + Freigabe 20.11.):
@@ -6694,6 +6977,34 @@ export async function hymnAutoRescanRound() {
       tokenId: token.id,
       ability: { reference: ref },
       abilityName: hymnPowerLabel(ref),
+      actingCharName: actor.name,
+    });
+  }
+  /* v2 F9 (Rudolfs Freigabe 20.11.): Die Auren laufen im selben Runden-
+     Rhythmus mit (Hymnen-Modell) - je WIRKER mit Auren-Symbol (fd.caster
+     === Akteur, fd.ability in AURA_REFERENCES) und vermerkter Auren-
+     Region laeuft der auraZoneRescan (Joiner/Leaver, s.u.) nach.
+     GM-gated wie oben, idempotent, seenActors verhindert Doppel-Laeufe. */
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const actor = token.actor;
+    if (!actor || seenActors.has(actor.id)) continue;
+    let auraRef = null;
+    for (const effect of actor.effects ?? []) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === actor.id && (game.symbaroum.config.AURA_REFERENCES ?? []).includes(fd?.ability)) {
+        auraRef = fd.ability;
+        break;
+      }
+    }
+    if (!auraRef) continue;
+    if (!actor.getFlag(game.system.id, `aurazone.${auraRef}`)?.regionId) continue;
+    seenActors.add(actor.id);
+    await auraZoneRescan({
+      actor: actor,
+      token: token,
+      tokenId: token.id,
+      ability: { reference: auraRef },
+      abilityName: auraPowerLabel(auraRef),
       actingCharName: actor.name,
     });
   }
@@ -7815,10 +8126,12 @@ async function unholyAuraResult(rollData, functionStuff) {
   // Standard-Karte: Probe, Korruption, Maintain-Symbol des Wirkers
   await standardPowerResult(rollData, functionStuff);
   if (functionStuff.isMaintained) {
-    // Maintain-Runde: Erfolg hält alle Symbole am Ticken, Fehlschlag
-    // beendet die Aura und räumt alle ihre Szenen-Symbole
+    // v2 F9: Maintain-Runde - Erfolg zieht Joiner/Leaver nach (auraZone-
+    // Rescan, Hymnen-Modell), Fehlschlag beendet die Aura samt Region
     if (!succeeded) {
       await unholyAuraEndCleanup(functionStuff);
+    } else {
+      await auraZoneRescan(functionStuff);
     }
     return;
   }
@@ -7828,6 +8141,29 @@ async function unholyAuraResult(rollData, functionStuff) {
     // für DIESE Kraft, RAW schreibt sie hier nicht)
     ui.notifications.warn(game.i18n.localize("POWER_UNHOLYAURA.CHAT_FAILED_CAST"));
     return;
+  }
+  /* v2 F9: siehe Heilige Aura - Erstaktivierung durch Platzieren, die
+     Bestands-Loops laufen dialogfrei als Zonen-Batch ueber die
+     Regions-Token (Kategorie-Filter unterhalb der Geometrie). */
+  const auraPlacement = await placeAuraZone(functionStuff.token ?? null, functionStuff.actor, "unholyaura", functionStuff.ability);
+  if (auraPlacement?.region) {
+    try {
+      await functionStuff.actor.setFlag(game.system.id, "aurazone.unholyaura", { regionId: auraPlacement.region.id, sceneId: canvas.scene?.id ?? null });
+    } catch (auraFlagError) {
+      console.warn("Symbaroum Hymnen [trace] Auren-Flag konnte nicht gesetzt werden", auraFlagError);
+    }
+    const auraZoneIds = hymnRegionTokens(auraPlacement.region).map((t) => t.id);
+    functionStuff.zoneChainTargets = new Set(auraZoneIds);
+    for (const auraZoneId of auraZoneIds) {
+      const auraZoneToken = canvas.tokens?.placeables?.find((t) => t.id === auraZoneId);
+      if (auraZoneToken) {
+        try {
+          auraZoneToken.setTarget(true, { releaseOthers: false });
+        } catch (auraTargetError) {
+          /* Ziel-Markierung nur Kosmetik fuer die Batch-Loops */
+        }
+      }
+    }
   }
   const flagDataArray = [];
   const auraRolls = [];
@@ -8118,7 +8454,10 @@ async function unholyAuraEndCleanup(functionStuff) {
   }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
-  }
+  }  /* v2 F9 (Rudolfs Freigabe 20.11.): Mit den Symbolen endet auch die
+     Auren-Region (Loeschen + Akteur-Flag, endAuraZoneState). */
+  await endAuraZoneState(functionStuff.actor, abilityRef);
+
 }
 
 /* v2.12 (Rudolfs Freigabe 15.11.) — Korruptions-Reaktion der beiden
@@ -8395,66 +8734,56 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.activelyMaintainedTargetEffect = [];
   functionStuff.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
   const handled = new Set([functionStuff.targetData.tokenId]);
-  /* AoE-Rest Paket 1 (Sinn-Paket S1, fester Code-Default SICHT für
-     Glyphen, RAW: „die Glyphe wirkt nur auf Feinde, die das Symbol
-     SEHEN"): Sicht-Guard je Folge-Ziel VOR dem Wurf/„Neues Ziel würfeln"-
-     Kette. Sensor = Zauberer-Token-Zentrum (Approximation - die Glyphen-
-     Zone ist instant und steht bei der Ketten-Auslösung nicht mehr als
-     Region). Messfehler wirken das Ziel weiter (SL-Urteil), ein Blocker
-     überspringt den Wurf sichtbar als Diagnose-Zeile (NIE still). */
+  /* v2 F10 (Rudolfs Freigabe 20.11.): Die Glyphe ist KEINE Sweep-Kraft
+     mehr (config.js) - der Erstgesang legt einen dauerhaften Zonen-Kreis
+     an (placeGlyphZone, Radius aus dem Zonen-Tab, Default 1 Zelle =
+     Nah, modulweit einheitlich mit dem Dornenmantel) und probt JE Feind
+     in der Region die opponierte Glyphe-Probe (weakening-Muster: Dispo-
+     sition relativ zum Wirker, eine Probe pro Ziel, ein Widerstand
+     verhindert nur dieses eine Symbol). Die SL-Zielkette mit dem
+     Zauberer-Zentren-Sicht-Guard (S1-Approximation, die instant-Zone
+     stand bei der Ketten-Ausloesung nie als Region) ist ENTFERNT - die
+     Region entscheidet die Geometrie (Sicht-Clip ueber aoeSenseWalls),
+     das Primaerziel bleibt das vor dem Wurf angezielte Token (in der
+     Region nicht doppelt probiert; ausserhalb: SL-Anvisierung gewinnt,
+     dokumentiert). Picker-Abbruch: Nur-Primaerziel-Zauber ohne Region
+     (dokumentiert); Maintain-Kette/A29/F11-Rundenschaden unberuehrt. */
   const glyphCasterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
-  const glyphSightSkipLines = [];
-  const glyphSightPasses = (nextToken) => {
-    if (!glyphCasterToken || nextToken.id === glyphCasterToken.id) return true;
-    const sightCheck = senseBlocked(glyphCasterToken, nextToken, "sight");
-    if (sightCheck.error) {
-      glyphSightSkipLines.push(`<p>${game.i18n.format("AOE.SENSE_MEASURE_FAIL", { targetname: nextToken.name })}</p>`);
-      return true;
+  const glyphCasterDisposition = glyphCasterToken?.document?.disposition ?? 0;
+  const glyphPlacement = await placeGlyphZone(glyphCasterToken, functionStuff.actor, "drainingglyph", functionStuff.ability);
+  const glyphRegion = glyphPlacement?.region ?? null;
+  if (glyphRegion) {
+    try {
+      await functionStuff.actor.setFlag(game.system.id, "glyphzone.drainingglyph", { regionId: glyphRegion.id, sceneId: canvas.scene?.id ?? null });
+    } catch (glyphFlagError) {
+      console.warn("Symbaroum Hymnen [trace] Glyphen-Zonen-Flag konnte nicht gesetzt werden", glyphFlagError);
     }
-    if (sightCheck.blocked) {
-      glyphSightSkipLines.push(
-        `<p>${game.i18n.format("AOE.SENSE_SKIP", { targetname: nextToken.name, sense: game.i18n.localize("AOE.SENSE_SIGHT") })}</p>`
-      );
-      return false;
+    for (const nextToken of hymnRegionTokens(glyphRegion)) {
+      if (!nextToken?.actor || handled.has(nextToken.id)) continue;
+      handled.add(nextToken.id);
+      if ((nextToken.document?.disposition ?? 0) >= glyphCasterDisposition) continue;
+      functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
+      const rollDataNext = [
+        await baseRoll(
+          functionStuff.actor,
+          functionStuff.castingAttributeName,
+          nextToken.actor,
+          functionStuff.targetResistAttribute,
+          functionStuff.favour,
+          functionStuff.modifier,
+          false
+        ),
+      ];
+      // one independent test per target: a failure does not end the sequence
+      await standardPowerResult(rollDataNext, functionStuff);
+      if (rollDataNext[0]?.trueActorSucceeded === true) affectedTargets++;
     }
-    return true;
-  };
-  // v2.3 zoneChainDone: alle Zonenziele abgearbeitet = kein Dialog mehr
-  while (!zoneChainDone(functionStuff, handled) && (await zoneChainContinue(functionStuff))) {
-    const nextToken = Array.from(game.user.targets).find((token) => !handled.has(token.id));
-    if (!nextToken) {
-      ui.notifications.warn(game.i18n.localize("POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET"));
-      break;
-    }
-    handled.add(nextToken.id);
-    // S1: Sicht-Guard vor dem Folge-Wurf
-    if (!glyphSightPasses(nextToken)) continue;
-    functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
-    const rollDataNext = [
-      await baseRoll(
-        functionStuff.actor,
-        functionStuff.castingAttributeName,
-        nextToken.actor,
-        functionStuff.targetResistAttribute,
-        functionStuff.favour,
-        functionStuff.modifier,
-        false
-      ),
-    ];
-    // one independent test per target: a failure does not end the sequence
-    await standardPowerResult(rollDataNext, functionStuff);
-    if (rollDataNext[0]?.trueActorSucceeded === true) affectedTargets++;
   }
   functionStuff.corruption = savedCorruption;
   functionStuff.maintain = savedMaintain;
   functionStuff.activelyMaintainedTargetEffect = savedMaintainedEffect;
   functionStuff.addTargetEffect = savedAddTargetEffect;
   functionStuff.followUpMaintainedMarker = false;
-  /* S1: gesammelte Sicht-Skip-Diagnosezeilen als eigene Karte (NIE still) */
-  if (glyphSightSkipLines.length > 0) {
-    const title = `<h4>${game.i18n.localize("AOE.SENSE_SKIP_CARD_TITLE")}</h4>`;
-    await postMaintainChainCard(functionStuff, title, glyphSightSkipLines, []);
-  }
   /* v2.8 (Glyphe-Meister-Heilung): nach Durchlauf der Opfer-Zielkette -
      Wahl des Empfängers durch den Mystiker (nur Meisterstufe, nur mit
      mindestens einem betroffenen Opfer). */

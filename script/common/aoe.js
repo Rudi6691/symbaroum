@@ -129,7 +129,7 @@
 import { symbDialog } from './symbDialog.js';
 import { modernDialogClasses, isModernDialogActive } from './modernSheetConfig.js';
 import { baseRoll } from './roll.js';
-import { hymnTokenDeleted, hymnAutoRescanRound } from './item.js';
+import { hymnTokenDeleted, hymnAutoRescanRound, thorncloakTokenDeleted } from './item.js';
 
 /* Welt-Settings (Registrierung im init-Hook, hooks.js - direkt unter den
  * Reise-Settings). aoeZonesEnabled: Gate für alles (Default AN,
@@ -2886,16 +2886,22 @@ export async function removeThornCloakZones(actorId, { skipAttached = false } = 
 		const tz = (region.flags?.symbaroum ?? {})?.thorncloakzone;
 		if (tz && String(tz.casterId) === id) doomed.push(region);
 	}
+	let removedCount = 0;
+	let skippedAttached = 0;
 	for (const region of doomed) {
-		if (skipAttached && region.attachment?.token) continue;
+		if (skipAttached && region.attachment?.token) {
+			skippedAttached += 1;
+			continue;
+		}
 		if (!canvas?.scene?.regions?.get(region.id)) continue;
 		try {
 			await region.delete();
+			removedCount += 1;
 		} catch (deleteError) {
 			console.warn('Symbaroum Hymnen: Dornenmantel-Flaeche konnte nicht entfernt werden', region?.name, deleteError);
 		}
 	}
-	if (doomed.length > 0) console.info('Symbaroum Hymnen [trace] Dornenmantel-Flaeche entfernt', { casterId: id, removed: doomed.length });
+	if (doomed.length > 0) console.info('Symbaroum Hymnen [trace] Dornenmantel-Flaeche entfernt', { casterId: id, removed: removedCount, skippedAttached });
 }
 
 /** Dornenmantel-Region anlegen (F7): angehängt an den Träger, auf die
@@ -3032,8 +3038,237 @@ export async function removeHymnZoneRegions(casterId, refs) {
 		if (hz.casterId === casterId && wanted.has(hz.ref)) doomed.push(region);
 	}
 	for (const region of doomed) {
-		await region.delete();
+		if (!canvas?.scene?.regions?.get(region.id)) continue;
+		try {
+			await region.delete();
+		} catch (deleteError) {
+			console.warn('Symbaroum Hymnen: Gesangsflaeche konnte nicht entfernt werden', region?.name, deleteError);
+		}
 	}
+}
+
+/** v2 F9 (Rudolfs Freigabe 20.11.): Bestehende Auren-Region eines Wirkers
+ *  fuer eine Referenz suchen (Neucast ersetzt die Flaeche). */
+export function auraRegionFor(casterId, abilityRef) {
+	for (const region of canvas.scene?.regions ?? []) {
+		const az = (region.flags?.symbaroum ?? {})?.aurazone;
+		if (az && String(az.casterId) === String(casterId ?? '') && String(az.ref) === String(abilityRef ?? '')) return region;
+	}
+	return null;
+}
+
+/** v2 F9 (Rudolfs Freigabe 20.11.): Auren-Regionen eines Wirkers raeumen
+ *  (Auren-Ende egal warum - Abbruch, Maintain-Fehlschlag, Token-Delete).
+ *  Idempotent, Existenz-Check + try/catch je Loeschung (F19a-Stil). */
+export async function removeAuraZoneRegions(casterId, refs) {
+	if (!canvas?.scene || !Array.isArray(refs) || refs.length === 0) return;
+	const wanted = new Set(refs);
+	const doomed = [];
+	for (const region of canvas.scene.regions ?? []) {
+		const az = region.flags?.symbaroum?.aurazone;
+		if (!az) continue;
+		if (String(az.casterId) === String(casterId ?? '') && wanted.has(String(az.ref))) doomed.push(region);
+	}
+	for (const region of doomed) {
+		if (!canvas?.scene?.regions?.get(region.id)) continue;
+		try {
+			await region.delete();
+		} catch (deleteError) {
+			console.warn('Symbaroum Hymnen: Auren-Flaeche konnte nicht entfernt werden', region?.name, deleteError);
+		}
+	}
+}
+
+/** v2 F10 (Rudolfs Freigabe 20.11.): Glyphen-Kreise eines Wirkers raeumen
+ *  (Neucast ersetzt die Flaeche, A29-Abbruch beendet sie). */
+export async function removeGlyphZoneRegions(casterId, refs) {
+	if (!canvas?.scene || !Array.isArray(refs) || refs.length === 0) return;
+	const wanted = new Set(refs);
+	const doomed = [];
+	for (const region of canvas.scene.regions ?? []) {
+		const gz = region.flags?.symbaroum?.glyphzone;
+		if (!gz) continue;
+		if (String(gz.casterId) === String(casterId ?? '') && wanted.has(String(gz.ref))) doomed.push(region);
+	}
+	for (const region of doomed) {
+		if (!canvas?.scene?.regions?.get(region.id)) continue;
+		try {
+			await region.delete();
+		} catch (deleteError) {
+			console.warn('Symbaroum Hymnen: Glyphen-Flaeche konnte nicht entfernt werden', region?.name, deleteError);
+		}
+	}
+}
+
+/** v2 F9 (Rudolfs Freigabe 20.11.): Heilige/Unheilige Aura als ANGEHAENGTE
+ *  SICHT-REGION auf dem WIRKER-Token - fixe Sichtweite (SIGHT_RANGE_UNITS
+ *  Szenen-Einheiten, Sichtweiten-Abstraktion 100 m wie die Hymnen),
+ *  live mitwandernd ueber den Core-Anhang (F1/F2-Mechanik: ERST
+ *  platzieren, DANN attachment), Level-Passung _tokenLevelId. hidden aus
+ *  dem Zonen-Tab stellt die Sichtbarkeit auf GM (GAMEMASTER, F16-Enum,
+ *  Rudolf: "Auren sind auch Kandidat fuer VERSTECKTE Zonen"). Restriction
+ *  'sight' nur mit aktivem Welt-Setting aoeSenseWalls (Sicht-Clip),
+ *  sonst wirkt die Flaeche rein geometrisch. Rueckgabe { region, declined }
+ *  - Picker-Abbruch (declined) laesst die SL-Kette als Fallback laufen. */
+export async function placeAuraZone(casterToken, casterActor, abilityRef, item = null) {
+	if (!casterToken || !canvas?.scene) return { region: null, declined: false };
+	const castDoc = casterToken.document ?? casterToken;
+	const casterId = casterActor?.id ?? castDoc.actor?.id ?? null;
+	const zoneData = item?.areaZone ?? item?.system?.areaZone ?? {};
+	const autoplace = zoneData.autoplace === true || String(zoneData.autoplace ?? '') === 'true';
+	const hidden = zoneData.hidden === true || String(zoneData.hidden ?? '') === 'true';
+	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
+	const gridUnits = Math.max(1, Number(canvas.scene.grid?.units ?? 1));
+	const sightLimit = Math.max(1, Number(game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50));
+	const radiusPx = Math.round((sightLimit * gridSize) / gridUnits);
+	const existing = auraRegionFor(casterId, abilityRef);
+	if (existing) return { region: existing, declined: false };
+	const centerX = (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2;
+	const centerY = (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2;
+	const refKey = String(abilityRef ?? '') === 'unholyaura' ? 'POWER_UNHOLYAURA.REGION_NAME' : 'POWER_HOLYAURA.REGION_NAME';
+	const regionData = {
+		name: game.i18n.format(refKey, { user: casterActor?.name ?? castDoc.actor?.name ?? game.user.name }),
+		color: '#434c43',
+		displayMeasurements: true,
+		highlightMode: 'coverage',
+		shapes: [{ type: 'circle', x: centerX, y: centerY, rotation: 0, radius: radiusPx }],
+		visibility: hidden ? (CONST.REGION_VISIBILITY?.GAMEMASTER ?? CONST.REGION_VISIBILITY.ALWAYS) : CONST.REGION_VISIBILITY.ALWAYS,
+		'flags.core.MeasuredTemplate': true,
+		flags: {
+			symbaroum: {
+				aurazone: {
+					ref: String(abilityRef ?? ''),
+					casterId,
+					casterTokenId: castDoc.id ?? null,
+					casterName: casterActor?.name ?? castDoc.actor?.name ?? game.user.name,
+				},
+			},
+		},
+	};
+	const auraLevelId = _tokenLevelId(castDoc);
+	if (auraLevelId) regionData.levels = [auraLevelId];
+	await probePlayerRestrictionCreate();
+	if (senseWallsEnabled() && (game.user.isGM || _playerRestrictionCreateCache === true)) {
+		regionData.restriction = { type: 'sight', priority: 0, enabled: true };
+	}
+	let regions = null;
+	let declined = false;
+	if (autoplace) {
+		try {
+			const created = await canvas.scene.createEmbeddedDocuments('Region', [regionData]);
+			regions = Array.isArray(created) ? created : null;
+		} catch (createError) {
+			console.warn('Symbaroum Hymnen [trace] Auren-Flaeche konnte nicht angelegt werden', createError);
+			return { region: null, declined: false };
+		}
+	} else {
+		try {
+			regions = await canvas.regions.placeRegions([regionData]);
+		} catch (placeError) {
+			console.warn('Symbaroum Hymnen [trace] Auren-Platzierung fehlgeschlagen', placeError);
+			return { region: null, declined: false };
+		}
+		declined = !regions?.length;
+	}
+	const region = regions?.[0] ?? null;
+	if (!region) return { region: null, declined };
+	if (!region.restriction?.enabled && senseWallsEnabled() && !game.user.isGM) {
+		try {
+			await requestAoeZoneInstall('restriction', {
+				sceneId: canvas.scene?.id,
+				regionIds: [region.id],
+				restriction: { enabled: true, type: 'sight', priority: 0 },
+			});
+		} catch (socketError) {
+			console.warn('Symbaroum Hymnen [trace] Auren-Sicht-Restriction-Socket fehlgeschlagen - Flaeche ungeclippt', socketError);
+		}
+	}
+	try {
+		await region.update({ attachment: { token: castDoc.id } });
+	} catch (attachError) {
+		console.warn('Symbaroum Hymnen [trace] Auren-Anhang fehlgeschlagen - Flaeche folgt NICHT', attachError);
+	}
+	console.info('Symbaroum Hymnen [trace] Auren-Flaeche angelegt (Sicht, angehaengt)', { regionId: region.id, casterId: String(casterId ?? ''), ref: String(abilityRef ?? ''), radiusPx, autoplace, hidden, declined });
+	return { region, declined };
+}
+
+/** v2 F10 (Rudolfs Freigabe 20.11.): Entkraeftende Glyphe als DAUERHAFTE
+ *  Zonen-Region - Kreis mit Radius aus dem Zonen-Tab (system.areaZone.size,
+ *  Default 1 Zelle = Nah, modulweit einheitlich mit dem Dornenmantel).
+ *  KEIN Anhang (das Symbol liegt am Boden), Picker per Default, autoplace
+ *  zentriert still auf den Wirker. hidden aus dem Zonen-Tab auf GM.
+ *  Alte Glyphen-Regionen des Wirkers werden VOR der Anlage ger aeumt
+ *  (Neucast ersetzt die Flaeche). Rueckgabe { region, declined }. */
+export async function placeGlyphZone(casterToken, casterActor, abilityRef, item = null) {
+	if (!casterToken || !canvas?.scene) return { region: null, declined: false };
+	const castDoc = casterToken.document ?? casterToken;
+	const casterId = casterActor?.id ?? castDoc.actor?.id ?? null;
+	await removeGlyphZoneRegions(casterId, abilityRef);
+	const zoneData = item?.areaZone ?? item?.system?.areaZone ?? {};
+	const rawRadius = Number(zoneData.size);
+	const radiusCells = Number.isFinite(rawRadius) && rawRadius >= 1 ? Math.round(rawRadius) : 1;
+	const autoplace = zoneData.autoplace === true || String(zoneData.autoplace ?? '') === 'true';
+	const hidden = zoneData.hidden === true || String(zoneData.hidden ?? '') === 'true';
+	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
+	const centerX = (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2;
+	const centerY = (Number(castDoc.y) || 0) + ((Number(castDoc.height) || 1) * gridSize) / 2;
+	const regionData = {
+		name: game.i18n.format('POWER_DRAININGGLYPH.REGION_NAME', { user: casterActor?.name ?? castDoc.actor?.name ?? game.user.name }),
+		color: game.user.color,
+		displayMeasurements: true,
+		highlightMode: 'coverage',
+		shapes: [{ type: 'circle', x: centerX, y: centerY, rotation: 0, radius: radiusCells * gridSize }],
+		visibility: hidden ? (CONST.REGION_VISIBILITY?.GAMEMASTER ?? CONST.REGION_VISIBILITY.ALWAYS) : CONST.REGION_VISIBILITY.ALWAYS,
+		'flags.core.MeasuredTemplate': true,
+		flags: {
+			symbaroum: {
+				glyphzone: {
+					ref: String(abilityRef ?? ''),
+					casterId,
+					casterTokenId: castDoc.id ?? null,
+					casterName: casterActor?.name ?? castDoc.actor?.name ?? game.user.name,
+				},
+			},
+		},
+	};
+	await probePlayerRestrictionCreate();
+	if (senseWallsEnabled() && (game.user.isGM || _playerRestrictionCreateCache === true)) {
+		regionData.restriction = { type: 'sight', priority: 0, enabled: true };
+	}
+	let regions = null;
+	let declined = false;
+	if (autoplace) {
+		try {
+			const created = await canvas.scene.createEmbeddedDocuments('Region', [regionData]);
+			regions = Array.isArray(created) ? created : null;
+		} catch (createError) {
+			console.warn('Symbaroum Hymnen [trace] Glyphen-Kreis konnte nicht angelegt werden', createError);
+			return { region: null, declined: false };
+		}
+	} else {
+		try {
+			regions = await canvas.regions.placeRegions([regionData]);
+		} catch (placeError) {
+			console.warn('Symbaroum Hymnen [trace] Glyphen-Platzierung fehlgeschlagen', placeError);
+			return { region: null, declined: false };
+		}
+		declined = !regions?.length;
+	}
+	const region = regions?.[0] ?? null;
+	if (!region) return { region: null, declined };
+	if (!region.restriction?.enabled && senseWallsEnabled() && !game.user.isGM) {
+		try {
+			await requestAoeZoneInstall('restriction', {
+				sceneId: canvas.scene?.id,
+				regionIds: [region.id],
+				restriction: { enabled: true, type: 'sight', priority: 0 },
+			});
+		} catch (socketError) {
+			console.warn('Symbaroum Hymnen [trace] Glyphen-Sicht-Restriction-Socket fehlgeschlagen - Flaeche ungeclippt', socketError);
+		}
+	}
+	console.info('Symbaroum Hymnen [trace] Glyphen-Kreis angelegt (Sicht)', { regionId: region.id, casterId: String(casterId ?? ''), radiusCells, autoplace, hidden, declined });
+	return { region, declined };
 }
 
 /** Auto-Targeting EINER platzierten Region (Zielvorschlag wie Stufe 1). */
@@ -3694,20 +3929,44 @@ export function registerAoeHooks() {
 		const tokenId = String(tokenDoc?.id ?? tokenDoc?._id ?? '');
 		const actorId = String(tokenDoc?.actor?.id ?? tokenDoc?.actorId ?? '');
 		if (!tokenId && !actorId) return;
-		await _hymnZoneCleanupToken(tokenId, actorId);
-		/* Hymnen v1.2 (F7): Die Dornenmantel-Flaeche des Traegers raeumt
-		   mit dem Token mit (Traeger-Actor-Id, idempotent gegen GM-Rennen;
-		   ein existierender Akteur ohne Token verliert die Flaeche
-		   bewusst - der Anhang hing am geloeschten Token).
-		   v1.4 F18: skipAttached - angehaengte Flaechen loescht der
-		   Core beim Token-Loeschen selbst (siehe removeThornCloakZones);
-		   nur freie Anh-lose Reste raeumen wir hier. */
-		await removeThornCloakZones(actorId, { skipAttached: true });
-		try {
-			await hymnTokenDeleted(tokenDoc);
-		} catch (error) {
-			console.warn('Symbaroum Hymnen: Gesangs-Auto-Ende nach Token-Loeschung fehlgeschlagen', error);
-		}
+		/* v2 F19a (Rudolfs Kernsole-Beweis V5, Test C): Der deleteToken-Hook
+		   laeuft INNERHALB der Core-Delete-Response-Verarbeitung - der
+		   Server hat die angehaengte Region im selben Commit bereits
+		   geloescht, das attachment-Feld im Client-Cache ist dort noch
+		   unzuverlaessig (skipAttached griff nicht, V5-Runde). Die
+		   Raeumungen laufen deshalb VERZOEGERT (~500 ms), NACH Abschluss
+		   der Core-Kaskade: Existenz-Checks + try/catch je Loeschung,
+		   das Rennen ist damit strukturell zu. Reihenfolge: Regionen
+		   zuerst, Effekte danach (der deleteActiveEffect-Hook riefe
+		   sonst removeThornCloakZones ohne skip ins offene Messer). */
+		setTimeout(() => {
+			void (async () => {
+				try {
+					await _hymnZoneCleanupToken(tokenId, actorId);
+				} catch (e1) {
+					console.warn('Symbaroum Hymnen [trace] Gesangsflaeche-Raeumung nach Token-Loeschung fehlgeschlagen', e1);
+				}
+				try {
+					await removeThornCloakZones(actorId, { skipAttached: true });
+				} catch (e2) {
+					console.warn('Symbaroum Hymnen [trace] Dornenmantel-Flaeche-Raeumung nach Token-Loeschung fehlgeschlagen', e2);
+				}
+				try {
+					await hymnTokenDeleted(tokenDoc);
+				} catch (e3) {
+					console.warn('Symbaroum Hymnen: Gesangs-Auto-Ende nach Token-Loeschung fehlgeschlagen', e3);
+				}
+				/* v2 F19b (V5b): Der geloeschte WIRKER behielt sonst seine
+				   Dornenmantel-Effekte am AKTEUR - thorncloakTokenDeleted
+				   raeumt Wirker- und Betroffenen-Symbole nach und postet
+				   die kleine Ende-Karte. */
+				try {
+					await thorncloakTokenDeleted(tokenDoc);
+				} catch (e4) {
+					console.warn('Symbaroum Hymnen: Dornenmantel-Auto-Ende nach Token-Loeschung fehlgeschlagen', e4);
+				}
+			})();
+		}, 500);
 	});
 
 Hooks.on('targetToken', (user, token, targeted) => {

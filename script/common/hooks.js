@@ -49,7 +49,7 @@ import { registerAmmoSettings } from './ammo.js';
 // „Flächeneffekte (AoE)“ (GM, world, Default AN) + Template-Platzierung
 // mit Auto-Targeting aus dem Kraft-Item - Engine: aoe.js, Datenmodell
 // system.areaZone (template.json, additives Feld).
-import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor, removeHymnZoneRegions, removeThornCloakZones } from './aoe.js';
+import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor, removeHymnZoneRegions, removeThornCloakZones, removeAuraZoneRegions, removeGlyphZoneRegions } from './aoe.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
@@ -1485,6 +1485,27 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 	const casterEffects = actor.system.combat.combatMods.abilities?.[abilityItem?.id]?.activelyMaintaninedCasterEffect ?? [];
 	for (const effect of casterEffects) {
 		await actor.removeCondition(effect);
+	}
+	/* v2 F9/F10 (Rudolfs Freigabe 20.11.): Der A29-Abbruch beendet auch
+	   die Auren-Region am Wirker bzw. den Glyphen-Kreis am Platzierungs-
+	   ort (Region loeschen, Akteur-Flag entfernen - die Symbole raeumt
+	   die generische Schleife oben schon ab). Läuft wie der Hymnen-Zweig
+	   immer auf dem GM-Client. */
+	if ((game.symbaroum.config.AURA_REFERENCES ?? []).includes(abilityRef)) {
+		await removeAuraZoneRegions(actor.id, [abilityRef]);
+		try {
+			await actor.unsetFlag(game.system.id, `aurazone.${abilityRef}`);
+		} catch (auraFlagError) {
+			console.warn('Symbaroum Hymnen: Auren-Flag konnte nicht entfernt werden', auraFlagError);
+		}
+	}
+	if (abilityRef === 'drainingglyph') {
+		await removeGlyphZoneRegions(actor.id, [abilityRef]);
+		try {
+			await actor.unsetFlag(game.system.id, 'glyphzone.drainingglyph');
+		} catch (glyphFlagError) {
+			console.warn('Symbaroum Hymnen: Glyphen-Flag konnte nicht entfernt werden', glyphFlagError);
+		}
 	}
 	/* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P5 - Root-Cause): Für
 	   Hymnen räumt der A29-"Nein"-Abbruch jetzt AUCH die Gesangsfläche
