@@ -1,3 +1,11 @@
+Version 40.1.16
+
+- Adds the lasting symbol zones family (banishing seal, blinding symbol, mark of torment, battle symbol): 
+icon cast with execution dialog (manual single-target or zone placement), first-chant per enemy, 
+enter/leave handling with immediate only-the-entering-token joiner, maintain rounds, power-named end cards, 
+plus the zone-end and abort flows from the v2.8 series.
+
+
 Version 40.1.15
 
 - Troll singing hymns: Combat Hymn and Heroic Hymn (Troll Singing tradition) are scripted maintain powers - the song covers the singer and allies with an attribute symbol per affected token (novice one attribute of the singer's choice, adept all three, deleting the symbol reverts the bonuses), placed either at sight range or as a singing zone region through the hymn execution dialog; the master effect rolls once per scene at the song's start (combat hymn heals 1d6 toughness, heroic hymn washes 1d4 temporary corruption per affected token) with a GM reset card; maintenance is roll-free, any other mystical power cast by the singer ends the song automatically, and the A29 abort clears the singing zone with an end card
