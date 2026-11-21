@@ -7887,6 +7887,22 @@ async function preDialogSymbolZoneChoice(functionStuff) {
       if (!functionStuff.targetData?.hasTarget && functionStuff.targets?.length) {
         functionStuff.targetData = functionStuff.targets[0];
       }
+      /* v2.8.4 (Rudolfs Testrunde v2.8.3, 3 - roter Punkt „Ziel-Token
+         gewaehlt, aber trotzdem Zielzwang-Meldung"): Die Setups der drei
+         Icon-Kraefte sammeln KEINE functionStuff.targets (nur das
+         Bannsiegel-Setup mappt die Nutzer-Markierungen zu Zielen), also
+         greift der targets-Fallback hier ins Leere. Die AKTUELLE
+         Nutzer-Marke wird deshalb vor der Fehlermeldung gelesen -
+         Standardmuster des Systems (Bannsiegel-Setup und Ketten lesen
+         ebenfalls Array.from(game.user.targets)). Widerstands-Attribut
+         konsistent zum Zonen-Erstgesang: targetResistAttribute des
+         Setups (resolute), Fallback "resolute". */
+      if (!functionStuff.targetData?.hasTarget) {
+        const manualToken = Array.from(game.user.targets)[0] ?? null;
+        if (manualToken?.actor) {
+          functionStuff.targetData = buildGlyphTargetData(manualToken, functionStuff.targetResistAttribute ?? "resolute");
+        }
+      }
       if (!functionStuff.targetData?.hasTarget) {
         ui.notifications.error(game.i18n.localize("ERROR.NO_TARGET_SELECTED"));
         return;
