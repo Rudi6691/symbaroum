@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -49,7 +49,7 @@ import { registerAmmoSettings } from './ammo.js';
 // „Flächeneffekte (AoE)“ (GM, world, Default AN) + Template-Platzierung
 // mit Auto-Targeting aus dem Kraft-Item - Engine: aoe.js, Datenmodell
 // system.areaZone (template.json, additives Feld).
-import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor, removeHymnZoneRegions, removeThornCloakZones, removeAuraZoneRegions, removeGlyphZoneRegions } from './aoe.js';
+import { registerAoeSettings, registerAoeHooks, aoeMaintainZoneRound, aoeFindZoneRegionFor, removeHymnZoneRegions, removeThornCloakZones, removeAuraZoneRegions } from './aoe.js';
 // Brauen v1: Welt-Setting „Ökonomie-Modus“ (registerBrewSettings unten in
 // der Foundry-Einstellungsliste, direkt unter den Munitions-Settings)
 import { registerBrewSettings } from './brewing.js';
@@ -1499,12 +1499,23 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 			console.warn('Symbaroum Hymnen: Auren-Flag konnte nicht entfernt werden', auraFlagError);
 		}
 	}
-	if (abilityRef === 'drainingglyph') {
-		await removeGlyphZoneRegions(actor.id, [abilityRef]);
-		try {
-			await actor.unsetFlag(game.system.id, 'glyphzone.drainingglyph');
-		} catch (glyphFlagError) {
-			console.warn('Symbaroum Hymnen: Glyphen-Flag konnte nicht entfernt werden', glyphFlagError);
+	/* v2.1 F22 (Rudolfs G4-Fund der Testrunde v2, Freigabe 21.11. -
+	   "keine Haertung, sondern denselben Ablauf wie bei den Hymnen"):
+	   Der Glyphen-Zweig laeuft ueber die Hymnen-Ende-Maschine endActive-
+	   Glyph: Die Symbole hat die generische doomed-Schleife oben bereits
+	   geraeumt, der Helper raeumt zusaetzlich den Glyphen-Kreis am
+	   BODEN (kein Anhang) und das Akteur-Flag; die kleine Ende-Karte
+	   (Titel Kraftname, Abbruch-Zeile, Gesangs-Zweig-Muster) dokumentiert
+	   das Ende fuer die SL. */
+	if ((game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []).includes(abilityRef)) {
+		await endActiveGlyph(actor, abilityRef);
+		if (abilityRef === 'drainingglyph') {
+			const powerLabel = game.i18n.localize('POWER_LABEL.DRAINING_GLYPH');
+			await ChatMessage.create({
+				user: game.user.id,
+				speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+				content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+			});
 		}
 	}
 	/* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P5 - Root-Cause): Für

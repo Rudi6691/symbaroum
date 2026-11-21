@@ -499,6 +499,15 @@ SYMBAROUM.HYMN_REFERENCES = ["combathymn", "heroichymn", "weakeninghymn"];
    eigene Liste (F9). */
 SYMBAROUM.AURA_REFERENCES = ["holyaura", "unholyaura"];
 
+/* v2.1 F22 (Rudolfs G4/G5-Freigabe 21.11., "denselben Ablauf wie bei
+   den Hymnen; auch die anderen Glyphen (Bannsiegel etc.) sollen so
+   funktionieren"): Dauerhafte Glyphen-Zonen-Kreise - die Entkraef-
+   tende Glyphe laeuft mit Join/Leave je Runde (glypheRegionRescan),
+   Icon-Abbruch (endActiveGlyph) und Token-Loeschungs-Raeumung
+   (glypheTokenDeleted) wie die Hymnen. v2.2 bekommt die weiteren
+   Symbolismus-Zonen-Kraefte (Bannsiegel etc.) in dieselbe Liste. */
+SYMBAROUM.GLYPH_ZONE_REFERENCES = ["drainingglyph"];
+
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];
 

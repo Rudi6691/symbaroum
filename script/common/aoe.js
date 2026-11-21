@@ -129,7 +129,7 @@
 import { symbDialog } from './symbDialog.js';
 import { modernDialogClasses, isModernDialogActive } from './modernSheetConfig.js';
 import { baseRoll } from './roll.js';
-import { hymnTokenDeleted, hymnAutoRescanRound, thorncloakTokenDeleted } from './item.js';
+import { hymnTokenDeleted, hymnAutoRescanRound, thorncloakTokenDeleted, glypheTokenDeleted, postSealCategoryGmCard } from './item.js';
 
 /* Welt-Settings (Registrierung im init-Hook, hooks.js - direkt unter den
  * Reise-Settings). aoeZonesEnabled: Gate für alles (Default AN,
@@ -1414,14 +1414,22 @@ async function _runPowerZone(region, tokens) {
 		const isSealActivation = String(item.system?.reference ?? '') === 'banishingseal';
 		if (isSealActivation && aoe.sealCategoryId) {
 			activationTokens = [];
+			/* v2.1 F24 (Rudolfs Testrunde v2, G6 - "Warnmeldungen wegen
+			   falscher Kategorie in GM-Karte uebertragen"): Die Fehl-
+			   kategorie-Hinweise laufen als EINE gefluesterte SL-Karte
+			   (postSealCategoryGmCard, postAuraSkipDiagCard-Muster)
+			   statt als Toast-Warnungen - die Meldung bleibt als Chat-
+			   Beleg stehen. */
+			const sealSkipLines = [];
 			for (const tokenDoc of tokens) {
 				if (tokenDoc?.actor && game.symbaroum.config.getCreatureCategory(tokenDoc.actor) !== aoe.sealCategoryId) {
-					ui.notifications.warn(
-						game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH', { targetname: tokenDoc.actor.name })
-					);
+					sealSkipLines.push(`<p>${game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH', { targetname: tokenDoc.actor.name })}</p>`);
 					continue;
 				}
 				activationTokens.push(tokenDoc);
+			}
+			if (sealSkipLines.length > 0) {
+				await postSealCategoryGmCard(sealSkipLines);
 			}
 		}
 		if (isSealActivation && activationTokens.length === 0) {
@@ -1528,6 +1536,9 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 	   auf der Karte benannt. */
 	const zoneSourceName = actor?.name ?? region.name;
 	const zoneSourceImg = actor?.img ?? null;
+	/* v2.1 F24 (G6): Fehlkategorie-Meldungen der Runde sammeln und nach
+	   der Schleife als EINE gefluesterte SL-Karte posten. */
+	const sealSkipLines = [];
 	for (const tokenDoc of tokens) {
 		const tokenActor = tokenDoc.actor;
 		if (!tokenActor) continue;
@@ -1543,7 +1554,9 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 			zoneExtras?.sealCategoryId &&
 			game.symbaroum.config.getCreatureCategory(tokenActor) !== zoneExtras.sealCategoryId
 		) {
-			ui.notifications.warn(game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH', { targetname: tokenActor.name }));
+			/* v2.1 F24 (G6): Diagnose auf der SL-Karte statt Toast (s.o.)
+			   - Warnung + Skip bleiben stufenunabhaengig wie bisher. */
+			sealSkipLines.push(`<p>${game.i18n.format('POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH', { targetname: tokenActor.name })}</p>`);
 			continue;
 		}
 		/* Kein Snapshot bzw. keine Probe konfiguriert (z. B. unwider-
@@ -1569,6 +1582,9 @@ async function _runPowerZoneProbes(region, actor, item, tokens, { maintainRound 
 			await _postZoneProbeResistCard(region, tokenDoc, snapshot, resistAttribute, rollData[0], actor);
 			if (maintainRound) await _removeZoneSymbols(region, actor, item, tokenDoc);
 		}
+	}
+	if (sealSkipLines.length > 0) {
+		await postSealCategoryGmCard(sealSkipLines, actor ?? null);
 	}
 }
 
@@ -3117,10 +3133,18 @@ export async function placeAuraZone(casterToken, casterActor, abilityRef, item =
 	const zoneData = item?.areaZone ?? item?.system?.areaZone ?? {};
 	const autoplace = zoneData.autoplace === true || String(zoneData.autoplace ?? '') === 'true';
 	const hidden = zoneData.hidden === true || String(zoneData.hidden ?? '') === 'true';
+	/* v2.1 F20 (Rudolfs Testrunde v2, A1 ROT - Crash "CircleShapeData
+	   radius must be a number"): scene.grid.units liefert in Foundry V14
+	   einen STRING, Number(...) ergibt NaN, Math.max(1, NaN) bleibt NaN -
+	   der Kreis-Radius crashte die komplette Erstplatzierung (A2-A7
+	   wurden deshalb nie erreicht). Bestands-Konvention statt dessen wie
+	   die Flammenwand (metersPerField-Idiom): scene.grid.distance =
+	   Meter je Feld (Numerik, Default 2), Radius in Feldern = Sichtweite
+	   100 m / metersPerField - 100 m = 50 Szenen-Einheiten, beide
+	   Konventionen treffen sich im Default 2 m je Einheit. */
 	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
-	const gridUnits = Math.max(1, Number(canvas.scene.grid?.units ?? 1));
-	const sightLimit = Math.max(1, Number(game.symbaroum.config.SIGHT_RANGE_UNITS ?? 50));
-	const radiusPx = Math.round((sightLimit * gridSize) / gridUnits);
+	const metersPerField = Math.max(0.5, Number(canvas.scene.grid?.distance) || 2);
+	const radiusPx = Math.max(1, Math.round((100 / metersPerField) * gridSize));
 	const existing = auraRegionFor(casterId, abilityRef);
 	if (existing) return { region: existing, declined: false };
 	const centerX = (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2;
@@ -3188,7 +3212,7 @@ export async function placeAuraZone(casterToken, casterActor, abilityRef, item =
 	} catch (attachError) {
 		console.warn('Symbaroum Hymnen [trace] Auren-Anhang fehlgeschlagen - Flaeche folgt NICHT', attachError);
 	}
-	console.info('Symbaroum Hymnen [trace] Auren-Flaeche angelegt (Sicht, angehaengt)', { regionId: region.id, casterId: String(casterId ?? ''), ref: String(abilityRef ?? ''), radiusPx, autoplace, hidden, declined });
+	console.info('Symbaroum Hymnen [trace] Auren-Flaeche angelegt (Sicht, angehaengt)', { regionId: region.id, casterId: String(casterId ?? ''), ref: String(abilityRef ?? ''), radiusPx, metersPerField, autoplace, hidden, declined });
 	return { region, declined };
 }
 
@@ -3203,7 +3227,10 @@ export async function placeGlyphZone(casterToken, casterActor, abilityRef, item 
 	if (!casterToken || !canvas?.scene) return { region: null, declined: false };
 	const castDoc = casterToken.document ?? casterToken;
 	const casterId = casterActor?.id ?? castDoc.actor?.id ?? null;
-	await removeGlyphZoneRegions(casterId, abilityRef);
+	/* v2.1 F22-Nebenbefund: refs-Filter war ein STRING statt Array - die
+	   Raeumung alter Glyphen-Kreise war ein stiller No-Op (Rueckgabe-
+	   Guard Array.isArray). Mit dem Hymnen-Abgleich korrigiert. */
+	await removeGlyphZoneRegions(casterId, [String(abilityRef ?? '')]);
 	const zoneData = item?.areaZone ?? item?.system?.areaZone ?? {};
 	const rawRadius = Number(zoneData.size);
 	const radiusCells = Number.isFinite(rawRadius) && rawRadius >= 1 ? Math.round(rawRadius) : 1;
@@ -3964,6 +3991,17 @@ export function registerAoeHooks() {
 					await thorncloakTokenDeleted(tokenDoc);
 				} catch (e4) {
 					console.warn('Symbaroum Hymnen: Dornenmantel-Auto-Ende nach Token-Loeschung fehlgeschlagen', e4);
+				}
+				/* v2.1 F22 (Rudolfs G4/G5-Freigabe, Hymnen-Modell): Geloe-
+				   schter WIRKER-Token - der Glyphen-Kreis liegt AM BODEN
+				   (kein Anhang, anders als die Auren-Region stirbt er NICHT
+				   mit dem Token), deshalb raeumt glypheTokenDeleted Kreis
+				   (Region), Flag und Marker NACH der Core-Kaskade und postet
+				   die kleine Ende-Karte. */
+				try {
+					await glypheTokenDeleted(tokenDoc);
+				} catch (e5) {
+					console.warn('Symbaroum Hymnen: Glyphen-Auto-Ende nach Token-Loeschung fehlgeschlagen', e5);
 				}
 			})();
 		}, 500);

@@ -2713,7 +2713,16 @@ export class SymbaroumItem extends Item {
 
   mysticPowerSetupDrainingglyph(base) {
     base.getTarget = true;
-    base.targetMandatory = true;
+    /* v2.1 F23 (Rudolfs Testrunde v2, G5-2-Freigabe): targetMandatory
+       false - die Glyphe soll auch FREI auf leeren Boden platzierbar
+       sein. Ohne Ziel laeuft der Erstzauber ohne Primaerblock
+       (Korruptionsgebuehr, Platzierung, Regionen-Batch - siehe
+       drainingGlyphResult). */
+    base.targetMandatory = false;
+    /* v2.1 F22 (Rudolfs G4/G5-Freigabe, Hymnen-Ablauf): Icon-Anwahl bei
+       LAUFENDEM Glyphen-Kreis zeigt den Abbruch-Dialog, A29-"Ja" den
+       Maintain-Wurf-Dialog (preDialogGlyphChoice). */
+    base.preDialogFunction = preDialogGlyphChoice;
     base.traditions = [game.symbaroum.config.TRAD_SYMBOLISM];
     base.casting = game.symbaroum.config.CASTING_RES;
     base.targetResistAttribute = "strong";
@@ -5055,7 +5064,9 @@ function getPowerResultFunction(functionStuff) {
     case "banishingseal":
       return banishingSealChainResult;
     case "drainingglyph":
-      return functionStuff.isMaintained ? maintainChainResult : drainingGlyphResult;
+      /* v2.1 F22 (Hymnen-Ablauf): Maintain-Runde = Standard-Kette plus
+         glypheRegionRescan (Joiner/Leaver des Glyphen-Kreises). */
+      return functionStuff.isMaintained ? drainingGlyphMaintainResult : drainingGlyphResult;
     case "anathema":
       return functionStuff.powerLvl.level > 1 && !functionStuff.isMaintained ? anathemaChainResult : standardPowerResult;
     case "brimstonecascade":
@@ -5307,8 +5318,39 @@ function banishingSealPrimaryCategoryCheck(functionStuff) {
   if (!primaryActor) return true;
   if (game.symbaroum.config.getCreatureCategory(primaryActor) === functionStuff.sealCategoryId) return true;
   const targetname = functionStuff.targetData?.name ?? primaryActor.name ?? "";
-  ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH", { targetname: targetname }));
+  /* v2.1 F24 (Rudolfs Testrunde v2, G6): Warnung als gefluesterte
+     SL-Karte statt als Toast - die Meldung bleibt als Chat-Beleg
+     stehen (postAuraSkipDiagCard-Muster). Fire-and-forget: Die Pruef-
+     Funktion bleibt synchron, ein Karten-Fehler wirft nie in den
+     Ablauf zurueck. */
+  void postSealCategoryGmCard([`<p>${game.i18n.format("POWER_BANISHINGSEAL.WARN_CATEGORY_MISMATCH", { targetname: targetname })}</p>`], functionStuff?.actor ?? null).catch(() => {});
   return false;
+}
+
+/* v2.1 F24 (Rudolfs Testrunde v2, G6 - "Warnmeldungen wegen falscher
+   Kategorie in GM-Karte uebertragen. Warnmeldungen loeschen."): Die
+   Fehlkategorie-Hinweise des Bannsiegels laufen als EINE gefluesterte
+   SL-Karte statt als Toast-Warnungen - die Meldung bleibt als Chat-
+   Beleg stehen und der Bildschirm flutet nicht (postAuraSkipDiag-
+   Card-Muster). Empfaenger: aktive GMs plus der ausloesende Nutzer
+   (ein abbrechender Spieler-Wirker sieht die Begruendung seines
+   Abbruchs); Exportiert fuer die beiden Zonen-Stellen in aoe.js. */
+export async function postSealCategoryGmCard(lines, actor = null) {
+  if (!Array.isArray(lines) || lines.length === 0) return;
+  const titleHtml = `<h4>${game.i18n.localize("POWER_BANISHINGSEAL.GM_CARD_TITLE")}</h4>`;
+  const body = lines.map((line) => `<div class="finalTxt">${line}</div>`).join("");
+  const html = `<div class="symbaroum chat ability"><div class="foreground">${titleHtml}${body}</div></div>`;
+  const targets = new Map();
+  for (const user of game.users) {
+    if (user.active && user.isGM) targets.set(user.id, user.id);
+  }
+  targets.set(game.user.id, game.user.id);
+  await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ alias: game.user.name, ...(actor?.id ? { actor: actor.id } : {}) }),
+    content: html,
+    whisper: [...targets.values()],
+  });
 }
 
 /* v2.7 (Testrunde 7, Rudolfs RAW-Bestätigung, Musterablauf v1.1 Schritt 9):
@@ -5400,7 +5442,9 @@ async function banishingSealChainResult(rollData, functionStuff) {
          ohne Stufenunterschied). Eine leere Kategorie-Wahl hält den
          Check aus (SL-Buchhaltung). */
       if (functionStuff.sealCategoryId && game.symbaroum.config.getCreatureCategory(nextToken.actor) !== functionStuff.sealCategoryId) {
-        ui.notifications.warn(game.i18n.format("POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY", { targetname: nextToken.name }));
+        /* v2.1 F24 (G6): Fehlkategorie-Hinweis auf der gefluesterten
+           SL-Karte statt als Toast (Skip bleibt wie bisher). */
+        await postSealCategoryGmCard([`<p>${game.i18n.format("POWER_BANISHINGSEAL.CHAT_WRONG_CATEGORY", { targetname: nextToken.name })}</p>`], functionStuff.actor ?? null);
         continue;
       }
       functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
@@ -6886,6 +6930,15 @@ async function preDialogAuraChoice(functionStuff) {
     await modifierDialog(functionStuff);
     return;
   }
+  /* v2.1 F21 (Rudolfs Testrunde v2, A5 ROT): A29-"Ja" (presetMaintain)
+     fuehrt in den Maintain-Wurf-Dialog statt in den Abbruch-Dialog -
+     die LAUFENDE Zone ist kein Abbruch-Grund (der Icon-Klick ohne
+     A29-Kontext bleibt der Abbruchsweg; Join/Leave laeuft je Runde
+     ueber hymnAutoRescanRound mit). */
+  if (functionStuff.presetMaintain) {
+    await modifierDialog(functionStuff);
+    return;
+  }
   const running = functionStuff.actor?.getFlag(game.system.id, `aurazone.${ref}`)?.regionId ? ref : null;
   if (!running) {
     await modifierDialog(functionStuff);
@@ -6915,6 +6968,245 @@ async function preDialogAuraChoice(functionStuff) {
     },
     default: "yes",
   });
+}
+
+/* v2.1 F22 (Rudolfs G4/G5-Freigabe 21.11., Rudolfs Wortlauf "keine
+   Haertung, sondern denselben Ablauf wie bei den Hymnen; auch die
+   anderen Glyphen (Bannsiegel etc.) sollen so funktionieren"):
+   Glyphen-Rescan (auraZoneRescan/hymnZoneRescan-Muster) - Join/Leave
+   je Runde fuer den Glyphen-Kreis. Hinausgegangene Marker enden
+   (removeEffect, Revert), NEU in der Region eingetretene FEINDE
+   (Disposition KLEINER als die des Wirkers) ziehen mit der opponierten
+   Erstgesangs-Probe [Resolute<-Strong] nach (Erstzauber-Konvention:
+   eine Probe pro Ziel, ein Widerstand verhindert nur dieses eine
+   Symbol); der Joiner-Marker traegt maintained + Autor-Snapshot wie
+   die Erstgesangs-Follow-ups (A29/F11-Rundenschaden greifen darueber).
+   Stille Runde ohne Bewegung (keine Karte). */
+async function glypheRegionRescan(functionStuff) {
+  const abilityRef = functionStuff.ability?.reference;
+  if (!(game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []).includes(abilityRef)) return;
+  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `glyphzone.${abilityRef}`);
+  if (!zoneFlag?.regionId) return;
+  const region = hymnRegionById(zoneFlag.regionId);
+  if (!region) return;
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
+  if (!casterToken) return;
+  const casterDisposition = casterToken.document?.disposition ?? 0;
+  const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
+  /* Bestand: alle Szenen-Token mit einem Glyphen-Marker dieses Wirkers;
+     Vorlage-Snapshot (casterResolute/casterName) eines fremden Markers,
+     sonst Fallback ueber den aktuellen Wirker. */
+  const carrying = new Map();
+  let templateFd = null;
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor?.effects) continue;
+    for (const effect of token.actor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === functionStuff.actor.id && fd?.ability === abilityRef) {
+        const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+        if (statusId) carrying.set(token.id, { token, fd, statusId });
+        if (!templateFd && token.id !== casterToken.id) templateFd = fd;
+        break;
+      }
+    }
+  }
+  templateFd ??= carrying.get(casterToken.id)?.fd ?? null;
+  const flagDataArray = [];
+  const rolls = [];
+  const lines = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor || token.id === casterToken.id) continue;
+    const hasMarker = carrying.has(token.id);
+    if (hasMarker && !inZone.has(token.id)) {
+      /* Hinaus bewegt: Marker endet (removeEffect, Revert-Handler). */
+      flagDataArray.push({ tokenId: token.id, removeEffect: carrying.get(token.id).statusId });
+      lines.push(`<p>${game.i18n.format("POWER_DRAININGGLYPH.ZONE_LEFT", { targetname: token.name })}</p>`);
+      continue;
+    }
+    if (hasMarker || !inZone.has(token.id)) continue;
+    /* Eingetreten (FEIND): opponierte Probe je Joiner, ein Widerstand
+       verhindert nur dieses eine Symbol (Erstzauber-Muster). */
+    if ((token.document?.disposition ?? 0) >= casterDisposition) continue;
+    const probe = await baseRoll(
+      functionStuff.actor,
+      functionStuff.castingAttributeName ?? "resolute",
+      token.actor,
+      functionStuff.targetResistAttribute ?? "strong",
+      functionStuff.favour,
+      functionStuff.modifier,
+      false
+    );
+    rolls.push(...(probe.rolls ?? []));
+    if (probe.trueActorSucceeded) {
+      flagDataArray.push({
+        tokenId: token.id,
+        addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === abilityRef)),
+        effectDuration: 1,
+        maintained: true,
+        casterId: functionStuff.actor.id,
+        abilityRef: abilityRef,
+        casterResolute: templateFd?.casterResolute ?? getAttributeValue(functionStuff.actor, "resolute"),
+        casterName: templateFd?.casterName ?? functionStuff.actingCharName,
+      });
+      lines.push(`<p>${game.i18n.format("POWER_DRAININGGLYPH.ZONE_JOINED", { targetname: token.name })}</p>`);
+    } else {
+      lines.push(`<p>${game.i18n.format("POWER_DRAININGGLYPH.ZONE_RESIST", { targetname: token.name })}</p>`);
+    }
+  }
+  if (lines.length === 0) return;
+  const title = `<h4>${game.i18n.format("POWER.MAINTAIN_CHAIN_SUMMARY", { powername: functionStuff.abilityName })}</h4>`;
+  await postMaintainChainCard(functionStuff, title, lines, rolls);
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+}
+
+/* v2.1 F22: Beendet eine laufende Glyphe vollstaendig (alle Szenen-
+   Marker ueber die GM-Anwenden-Karte, Glyphen-Kreis-Region am Boden,
+   Akteur-Flag) - endActiveAura-Muster, still (die Ende-Karte posten
+   die Aufrufstellen: Icon-Abbruch, A29-"Nein", Token-Loeschung). */
+export async function endActiveGlyph(actor, ref) {
+  if (!actor || !ref) return false;
+  if (!(game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []).includes(ref)) return false;
+  const casterId = actor.id;
+  const flagDataArray = [];
+  const seen = new Set();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const tokenActor = token.actor;
+    if (!tokenActor?.effects) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster !== casterId || fd?.ability !== ref) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = token.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+    }
+  }
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  await removeGlyphZoneRegions(casterId, [ref]);
+  try {
+    await actor.unsetFlag(game.system.id, `glyphzone.${ref}`);
+  } catch (glyphFlagError) {
+    console.warn("Symbaroum Hymnen: Glyphen-Flag konnte nicht entfernt werden", glyphFlagError);
+  }
+  return seen.size > 0;
+}
+
+/* v2.1 F22: Erneute Icon-Anwahl bei LAUFENDem Glyphen-Kreis =
+   Abbruch-Dialog (Hymnen-Modell, preDialogAuraChoice-Muster); ohne
+   laufenden Kreis der normale Erstzauber (Wurfel- bzw. Leer-
+   Platzierung), A29-"Ja" (presetMaintain) der Maintain-Wurf-Dialog. */
+async function preDialogGlyphChoice(functionStuff) {
+  const ref = functionStuff.ability?.reference;
+  if (!(game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []).includes(ref)) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  if (functionStuff.presetMaintain) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  const running = functionStuff.actor?.getFlag(game.system.id, `glyphzone.${ref}`)?.regionId ? ref : null;
+  if (!running) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  const runningLabel = game.i18n.localize("POWER_LABEL.DRAINING_GLYPH");
+  symbDialog({
+    title: functionStuff.abilityName,
+    content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: runningLabel })}</p>`,
+    classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+    buttons: {
+      yes: {
+        icon: '<i class="fas fa-check"></i>',
+        label: game.i18n.localize("BUTTON.YES"),
+        callback: async () => {
+          await postHymnEndCard(
+            { actor: functionStuff.actor, actingCharName: functionStuff.actingCharName, abilityName: runningLabel },
+            "POWER_HYMN.CHAT_END_ABORTED"
+          );
+          await endActiveGlyph(functionStuff.actor, running);
+        },
+      },
+      no: {
+        icon: '<i class="fas fa-times"></i>',
+        label: game.i18n.localize("BUTTON.NO"),
+      },
+    },
+    default: "yes",
+  });
+}
+
+/* v2.1 F22: Maintain-Runde der Glyphe = Standard-Kette (maintainChain-
+   Result: je gehaltenem Ziel eine opponierte Probe, F11-Rundenschaden,
+   Meister-Heilung unberuehrt) PLUS glypheRegionRescan - Joiner/Leaver
+   je Runde wie bei den Hymnen. */
+async function drainingGlyphMaintainResult(rollData, functionStuff) {
+  await maintainChainResult(rollData, functionStuff);
+  await glypheRegionRescan(functionStuff);
+}
+
+/* v2.1 F22: Geloeschter WIRKER-Token - der Glyphen-Kreis liegt am
+   BODEN (kein Anhang, die Region ueberlebt das Token), deshalb raeumt
+   der Helper Kreis, Flag und Marker (thorncloakTokenDeleted-Muster)
+   und postet die kleine Ende-Karte. Ohne Glyphen-Bestand stiller
+   No-Op (kein Karten-Spam bei gewoehnlichen Token-Loeschungen). */
+export async function glypheTokenDeleted(tokenDoc) {
+  const actor = tokenDoc?.actor ?? null;
+  if (!actor) return false;
+  const glyphRefs = game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? [];
+  if (glyphRefs.length === 0) return false;
+  let changed = false;
+  for (const effect of [...(actor.effects ?? [])]) {
+    const fd = effect.getFlag(game.system.id, "flagData");
+    if (!fd || fd.caster !== actor.id || !glyphRefs.includes(fd.ability)) continue;
+    try {
+      await effect.delete();
+      changed = true;
+    } catch (error) {
+      console.warn("Symbaroum Hymnen: Glyphen-Symbol konnte nicht entfernt werden", error);
+    }
+  }
+  await removeGlyphZoneRegions(actor.id, glyphRefs);
+  for (const ref of glyphRefs) {
+    if (actor.getFlag(game.system.id, `glyphzone.${ref}`)) changed = true;
+    try {
+      await actor.unsetFlag(game.system.id, `glyphzone.${ref}`);
+    } catch (error) {
+      console.warn("Symbaroum Hymnen: Glyphen-Flag konnte nicht entfernt werden", error);
+    }
+  }
+  const flagDataArray = [];
+  const seen = new Set();
+  for (const sceneToken of canvas.tokens?.placeables ?? []) {
+    const tokenActor = sceneToken.actor;
+    if (!tokenActor?.effects) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (!fd || fd.caster !== actor.id || !glyphRefs.includes(fd.ability)) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = sceneToken.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: sceneToken.id, removeEffect: statusId });
+    }
+  }
+  if (seen.size > 0) changed = true;
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  if (!changed) return false;
+  const powerLabel = game.i18n.localize("POWER_LABEL.DRAINING_GLYPH");
+  const endTitle = `<h4>${game.i18n.format("POWER_HYMN.CHAT_END_POWER", { powername: powerLabel })}</h4>`;
+  const endLine = `<p>${game.i18n.format("POWER_DRAININGGLYPH.CHAT_TOKEN_DELETED", { actorname: actor.name })}</p>`;
+  await postMaintainChainCard({ actor: actor, actingCharName: actor.name }, endTitle, [endLine], []);
+  return true;
 }
 
 /* Hymnen-Anhang v1.1 (Rudolfs Testrunde v1, P3 + Freigabe 20.11.):
@@ -7007,6 +7299,31 @@ export async function hymnAutoRescanRound() {
       abilityName: auraPowerLabel(auraRef),
       actingCharName: actor.name,
     });
+  }
+  /* v2.1 F22 (Rudolfs G5-1-Freigabe "GLYPHEN braucht Join/Leave je
+     Runde"): Der Glyphen-Kreis laeuft im selben Runden-Rhythmus mit
+     (Hymnen-Modell) - je WIRKER mit vermerkter Glyphen-Region (Flag
+     glyphzone.{ref}; KEIN Symbol als Anker noetig, auch ein leerer
+     Erstgesang haelt den Kreis) und EXISTIERENDER Region laeuft der
+     glypheRegionRescan (Joiner/Leaver). Eigenes seen-Set: Ein Akteur
+     kann Gesang/Aura UND Glyphe halten, beide Rescans laufen. */
+  const glyphSeen = new Set();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const actor = token.actor;
+    if (!actor || glyphSeen.has(actor.id)) continue;
+    for (const glyphRef of game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []) {
+      if (!actor.getFlag(game.system.id, `glyphzone.${glyphRef}`)?.regionId) continue;
+      glyphSeen.add(actor.id);
+      await glypheRegionRescan({
+        actor: actor,
+        token: token,
+        tokenId: token.id,
+        ability: { reference: glyphRef },
+        abilityName: game.i18n.localize("POWER_LABEL.DRAINING_GLYPH"),
+        actingCharName: actor.name,
+      });
+      break;
+    }
   }
 }
 
@@ -8709,12 +9026,36 @@ async function drainingGlyphMasterHeal(functionStuff, affectedTargets) {
 }
 
 async function drainingGlyphResult(rollData, functionStuff) {
-  // primary target: standard behaviour (chat, damage, corruption, maintain)
-  await standardPowerResult(rollData, functionStuff);
-  /* v2.8 (Glyphe-Meister-Heilung): zählen, wie viele Opfer die Glyphe
-     tatsächlich betroffen hat (gelungene Proben der Zielkette) - die
-     Meister-Heilung läuft nur mit mindestens einem betroffenen Opfer. */
-  let affectedTargets = rollData?.[0]?.trueActorSucceeded === true ? 1 : 0;
+  /* v2.1 F23 (Rudolfs Testrunde v2, G5-2-Freigabe): Ohne angreifbares
+     Primaerziel laeuft KEIN Primaerblock - die Glyphe wird frei auf
+     leeren Boden platziert; die Korruptionsgebuehr bucht die Standard-
+     Engine (getCorruption-Wurf, GM-Anwenden-Karte mit Schwellen-Check
+     wie beim normalen Zauber, Symbolismus-Engine unberuehrt), die
+     kleine Karte nennt die Gebuehr. Danach der Regions-Batch wie
+     gehabt (Ketten-Marker, A29/F11, Meister-Heilung unangetastet). */
+  const hasPrimary = Boolean(functionStuff.targetData?.tokenId);
+  let affectedTargets = 0;
+  if (hasPrimary) {
+    // primary target: standard behaviour (chat, damage, corruption, maintain)
+    await standardPowerResult(rollData, functionStuff);
+    /* v2.8 (Glyphe-Meister-Heilung): zählen, wie viele Opfer die Glyphe
+       tatsächlich betroffen hat (gelungene Proben der Zielkette) - die
+       Meister-Heilung läuft nur mit mindestens einem betroffenen Opfer. */
+    affectedTargets = rollData?.[0]?.trueActorSucceeded === true ? 1 : 0;
+  } else {
+    const emptyCorruption = await functionStuff.actor.getCorruption(functionStuff);
+    if (emptyCorruption.value > 0) {
+      await createModifyTokenChatButton([
+        {
+          tokenId: functionStuff.tokenId,
+          actorId: functionStuff.actor.id,
+          corruptionChange: emptyCorruption.value,
+        },
+      ]);
+    }
+    const emptyLines = [`<p>${game.i18n.format("POWER_DRAININGGLYPH.CHAT_NO_TARGET_COST", { count: emptyCorruption.value })}</p>`];
+    await postMaintainChainCard(functionStuff, `<h4>${functionStuff.abilityName}</h4>`, emptyLines, emptyCorruption.corruptionRoll ? [emptyCorruption.corruptionRoll] : []);
+  }
   // advantage (+1d4 damage) applies to the first attack only
   functionStuff.hasAdvantage = false;
   const savedCorruption = functionStuff.corruption;
@@ -8733,7 +9074,7 @@ async function drainingGlyphResult(rollData, functionStuff) {
   functionStuff.followUpMaintainedMarker = savedMaintain !== game.symbaroum.config.MAINTAIN_NOT;
   functionStuff.activelyMaintainedTargetEffect = [];
   functionStuff.addTargetEffect = [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "drainingglyph"))];
-  const handled = new Set([functionStuff.targetData.tokenId]);
+  const handled = new Set(hasPrimary ? [functionStuff.targetData.tokenId] : []);
   /* v2 F10 (Rudolfs Freigabe 20.11.): Die Glyphe ist KEINE Sweep-Kraft
      mehr (config.js) - der Erstgesang legt einen dauerhaften Zonen-Kreis
      an (placeGlyphZone, Radius aus dem Zonen-Tab, Default 1 Zelle =
