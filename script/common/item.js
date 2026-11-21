@@ -40,7 +40,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 import { itemHasTraditionKnowledge } from "./tradition.js";
-import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, removeAuraZoneRegions, removeGlyphZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
+import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, takePendingHymnZone, removeAuraZoneRegions, removeGlyphZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -9049,7 +9049,20 @@ async function drainingGlyphResult(rollData, functionStuff) {
      (dokumentiert); Maintain-Kette/A29/F11-Rundenschaden unberuehrt. */
   const glyphCasterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
   const glyphCasterDisposition = glyphCasterToken?.document?.disposition ?? 0;
-  const glyphPlacement = await placeGlyphZone(glyphCasterToken, functionStuff.actor, "drainingglyph", functionStuff.ability);
+  /* v2.3 F30 (Rudolfs Auswahlrunde): Erstgesang uebernimmt eine im
+     Ausfuehrungsdialog frisch platzierte Glyphen-Flaeche (Consume-once-
+     Pending, Hymnen-Muster); validiert auf ref + Szene + noch existierende
+     Region, sonst der gewohnte Picker nach der Erstgesangs-Karte. */
+  const pendingGlyphZone = takePendingHymnZone(functionStuff.actor.id);
+  const pendingGlyphRegion =
+    pendingGlyphZone &&
+    pendingGlyphZone.ref === "drainingglyph" &&
+    pendingGlyphZone.sceneId === canvas.scene?.id
+      ? canvas.scene?.regions?.get(pendingGlyphZone.regionId) ?? null
+      : null;
+  const glyphPlacement = pendingGlyphRegion
+    ? { region: pendingGlyphRegion, declined: false }
+    : await placeGlyphZone(glyphCasterToken, functionStuff.actor, "drainingglyph", functionStuff.ability);
   const glyphRegion = glyphPlacement?.region ?? null;
   if (glyphRegion) {
     try {

@@ -525,6 +525,14 @@ SYMBAROUM.GLYPH_ZONE_REFERENCES = ["drainingglyph"];
    reihen: die G7-Sweep-Zonen-Kraefte erweitern diese Liste erst mit
    ihrem Paket. */
 SYMBAROUM.OWN_ZONE_REFERENCES = ["thorncloak", "holyaura", "unholyaura", "drainingglyph"];
+/* v2.3 F30 (Rudolfs Auswahlrunde nach der v2.2-Testrunde): Symbolzonen -
+   Kraft-Aktivierung bekommt den EIGENEN Ausfuehrungsdialog (Manuell |
+   Zone platzieren | Abbrechen) mit Picker-Pflicht (nie Autoplatzierung,
+   Objektbindung). Aktuell die Glyphe; die G7-Symbole (Bannsiegel,
+   Blendendes Symbol, Zeichen der Pein, Kampfsymbol) ergaenzen die Liste
+   mit ihrem v2.4-Paket. Der generische Weg bleibt fuer ALLE OWN-refs
+   stumm. */
+SYMBAROUM.SYMBOL_ZONE_REFERENCES = ["drainingglyph"];
 
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];

@@ -987,6 +987,7 @@
   "POWER_DRAININGGLYPH.CHAT_INTRO_M": "{actorname} maintains the draining glyph.",
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} is weakened by the glyph and suffers 1d4 damage.",
   "POWER_DRAININGGLYPH.CHAT_FAILURE": "{targetname} resists the draining glyph.",
+  "POWER_DRAININGGLYPH.EXEC_HINT": "Place zone: the glyph area is placed interactively right away (location or object freely chosen), the first casting adopts it. Manual: first casting, the area appears after the first-casting card.",
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "While at least one target is affected by the glyph, it heals the mystic or one ally by 1d4 Toughness each round.",
   "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Another target for the glyph?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "No new target marked - the glyph affects only the enemies already tested.",

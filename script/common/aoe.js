@@ -3128,7 +3128,14 @@ export async function placeAuraZone(casterToken, casterActor, abilityRef, item =
 	   Konventionen treffen sich im Default 2 m je Einheit. */
 	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
 	const metersPerField = Math.max(0.5, Number(canvas.scene.grid?.distance) || 2);
-	const radiusPx = Math.max(1, Math.round((100 / metersPerField) * gridSize));
+	/* v2.3 F31 (Rudolfs Testrunde v2.2, A4 + Auswahlrunde): Der Tab-Radius
+	   (zoneData.size in Feldern) uebersteuert die fixe Sichtweite; ohne
+	   gueltigen Tab-Wert bleibt der v2.1-F20-Rohwert 100 m Sichtweite. */
+	const rawAuraRadiusCells = Number(zoneData.size);
+	const auraRadiusCells = Number.isFinite(rawAuraRadiusCells) && rawAuraRadiusCells >= 1
+		? Math.round(rawAuraRadiusCells)
+		: Math.max(1, Math.round(100 / metersPerField));
+	const radiusPx = Math.max(1, Math.round(auraRadiusCells * gridSize));
 	const existing = auraRegionFor(casterId, abilityRef);
 	if (existing) return { region: existing, declined: false };
 	const centerX = (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2;
@@ -3203,8 +3210,10 @@ export async function placeAuraZone(casterToken, casterActor, abilityRef, item =
 /** v2 F10 (Rudolfs Freigabe 20.11.): Entkraeftende Glyphe als DAUERHAFTE
  *  Zonen-Region - Kreis mit Radius aus dem Zonen-Tab (system.areaZone.size,
  *  Default 1 Zelle = Nah, modulweit einheitlich mit dem Dornenmantel).
- *  KEIN Anhang (das Symbol liegt am Boden), Picker per Default, autoplace
- *  zentriert still auf den Wirker. hidden aus dem Zonen-Tab auf GM.
+ *  KEIN Anhang (das Symbol liegt am Boden), IMMER interaktive Platzierung
+ *  (v2.3 F30: autoplace-Tab-Feld bewusst ignoriert - die Glyphe kann an
+ *  ein OBJEKT gebunden sein, Ort/Objekt sind frei waehlbar). hidden aus
+ *  dem Zonen-Tab auf GM.
  *  Alte Glyphen-Regionen des Wirkers werden VOR der Anlage ger aeumt
  *  (Neucast ersetzt die Flaeche). Rueckgabe { region, declined }. */
 export async function placeGlyphZone(casterToken, casterActor, abilityRef, item = null) {
@@ -3218,7 +3227,6 @@ export async function placeGlyphZone(casterToken, casterActor, abilityRef, item 
 	const zoneData = item?.areaZone ?? item?.system?.areaZone ?? {};
 	const rawRadius = Number(zoneData.size);
 	const radiusCells = Number.isFinite(rawRadius) && rawRadius >= 1 ? Math.round(rawRadius) : 1;
-	const autoplace = zoneData.autoplace === true || String(zoneData.autoplace ?? '') === 'true';
 	const hidden = zoneData.hidden === true || String(zoneData.hidden ?? '') === 'true';
 	const gridSize = Math.max(1, Math.round(canvas.scene.grid?.size ?? 0)) || 100;
 	const centerX = (Number(castDoc.x) || 0) + ((Number(castDoc.width) || 1) * gridSize) / 2;
@@ -3248,23 +3256,16 @@ export async function placeGlyphZone(casterToken, casterActor, abilityRef, item 
 	}
 	let regions = null;
 	let declined = false;
-	if (autoplace) {
-		try {
-			const created = await canvas.scene.createEmbeddedDocuments('Region', [regionData]);
-			regions = Array.isArray(created) ? created : null;
-		} catch (createError) {
-			console.warn('Symbaroum Hymnen [trace] Glyphen-Kreis konnte nicht angelegt werden', createError);
-			return { region: null, declined: false };
-		}
-	} else {
-		try {
-			regions = await canvas.regions.placeRegions([regionData]);
-		} catch (placeError) {
-			console.warn('Symbaroum Hymnen [trace] Glyphen-Platzierung fehlgeschlagen', placeError);
-			return { region: null, declined: false };
-		}
-		declined = !regions?.length;
+	/* v2.3 F30 (Rudolfs Auswahlrunde): Symbolzonen werden NIE autoplat-
+	   ziert - Picker Pflicht (Objektbindung), das autoplace-Tab-Feld hat
+	   fuer die Glyphe keine Wirkung mehr. */
+	try {
+		regions = await canvas.regions.placeRegions([regionData]);
+	} catch (placeError) {
+		console.warn('Symbaroum Hymnen [trace] Glyphen-Platzierung fehlgeschlagen', placeError);
+		return { region: null, declined: false };
 	}
+	declined = !regions?.length;
 	const region = regions?.[0] ?? null;
 	if (!region) return { region: null, declined };
 	if (!region.restriction?.enabled && senseWallsEnabled() && !game.user.isGM) {
@@ -3278,7 +3279,7 @@ export async function placeGlyphZone(casterToken, casterActor, abilityRef, item 
 			console.warn('Symbaroum Hymnen [trace] Glyphen-Sicht-Restriction-Socket fehlgeschlagen - Flaeche ungeclippt', socketError);
 		}
 	}
-	console.info('Symbaroum Hymnen [trace] Glyphen-Kreis angelegt (Sicht)', { regionId: region.id, casterId: String(casterId ?? ''), radiusCells, autoplace, hidden, declined });
+	console.info('Symbaroum Hymnen [trace] Glyphen-Kreis angelegt (Sicht, v2.3 immer Picker)', { regionId: region.id, casterId: String(casterId ?? ''), radiusCells, hidden, declined });
 	return { region, declined };
 }
 
@@ -3343,7 +3344,109 @@ export async function maybeZoneExecutionChoice(item) {
 	   ALLE Kraefte mit eigener Zonen-Maschine (OWN_ZONE_REFERENCES:
 	   Dornenmantel, Auren, Glyphe) schweigen im generischen Zonen-
 	   Ausfuehrungsdialog; der Zonen-Tab ist reiner Datenspeicher. */
-	if ((game.symbaroum.config.OWN_ZONE_REFERENCES ?? []).includes(String(item.system?.reference ?? ''))) return false;
+	if ((game.symbaroum.config.OWN_ZONE_REFERENCES ?? []).includes(String(item.system?.reference ?? ''))) {
+		/* v2.3 F30 (Rudolfs Testrunde v2.2, G1 + Auswahlrunde): Die
+		   Symbolzonen (SYMBOL_ZONE_REFERENCES, aktuell die Glyphe; die
+		   G7-Symbole Bannsiegel/Blendendes Symbol/Zeichen der Pein/
+		   Kampfsymbol kommen mit ihrem v2.4-Paket dazu) bekommen ihren
+		   AUSFUEHRUNGSDIALOG ZURUECK - Rudolfs etablierter Platzierweg,
+		   den F25 in v2.2 stumm geschaltet hatte. „Zone platzieren“
+		   ruft die EIGENE Platzierung per Picker SOFORT (NIE Autoplat-
+		   zierung, Objektbindung) und legt die Region in die Pending-
+		   Map; der Erstgesang uebernimmt sie (takePendingHymnZone,
+		   drainingGlyphResult). Rueckgabe 'manual'/'symbolzone' =
+		   Aufrufer laeuft usePower normal weiter (die Sheets pruefen
+		   nur 'zone'/'cancel'), 'cancel' = Abbruch ohne Wirken und
+		   Korruption. Der GENERISCHE Weg (placeZoneFromItem/Tab-Knopf)
+		   bleibt fuer ALLE OWN-refs stumm - die v2.1-Doppelzone bleibt
+		   tot. Bei LAUFENDER Glyphen-Zone schweigt der Dialog (Icon-
+		   Klick laeuft in den Abbruch-Weg, Hymnen-Muster). */
+		if (!(game.symbaroum.config.SYMBOL_ZONE_REFERENCES ?? []).includes(String(item.system?.reference ?? ''))) return false;
+		if (item.actor?.getFlag(game.system.id, `glyphzone.${String(item.system?.reference ?? '')}`)) return false;
+		/* GM immer berechtigt; Spieler nur bei aktivem Setting + Besitz. */
+		if (!game.user.isGM && (!playerPlacementEnabled() || !item.isOwner)) return false;
+		const symbolModern = isModernDialogActive();
+		const symbolContent = `<div class="symbaroum${symbolModern ? ' modern-roll-dialog' : ' dialog'}"><p>${game.i18n.localize('POWER_DRAININGGLYPH.EXEC_HINT')}</p></div>`;
+		return new Promise((resolve) => {
+			let settled = false;
+			let placing = false;
+			const settle = (value) => {
+				if (settled) return;
+				settled = true;
+				resolve(value);
+			};
+			const dialog = symbDialog({
+				title: game.i18n.format('AOE.EXEC_TITLE', { power: item.name }),
+				content: symbolContent,
+				classes: ['symb-roll-dialog', `symb-roll-user-${game.user.id}`, ...(symbolModern ? modernDialogClasses('modern-roll-dialog') : [])],
+				buttons: {
+					manual: {
+						icon: '<i class="fas fa-user"></i>',
+						label: game.i18n.localize('AOE.EXEC_MANUAL'),
+						callback: () => settle('manual'),
+					},
+					zone: {
+						icon: '<i class="fas fa-draw-polygon"></i>',
+						label: game.i18n.localize('AOE.EXEC_ZONE'),
+						callback: () => {
+							/* Dialog schliesst mit dem Klick, die Platzierung
+							   laeuft danach interaktiv - placing haelt den
+							   Close-Fallback auf (Hymnen-Muster). */
+							placing = true;
+							(async () => {
+								const symbolToken = item.actor?.getActiveTokens?.()?.[0] ?? null;
+								const outcome = symbolToken
+									? await placeGlyphZone(symbolToken, item.actor, String(item.system?.reference ?? ''), item)
+									: { region: null, declined: false };
+								if (outcome?.region) {
+									setPendingHymnZone(item.actor?.id, {
+										ref: String(item.system?.reference ?? ''),
+										regionId: outcome.region.id,
+										sceneId: canvas.scene?.id,
+									});
+									settle('symbolzone');
+								} else {
+									/* Picker-Abbruch oder kein Wirker-Token im
+									   Spiel: Wirken abgebrochen (kein usePower,
+									   keine Korruption). */
+									settle('cancel');
+								}
+							})();
+						},
+					},
+					cancel: {
+						icon: '<i class="fas fa-times"></i>',
+						label: game.i18n.localize('DIALOG.CANCEL'),
+						callback: () => settle('cancel'),
+					},
+				},
+				onRender: (element) => {
+					const btns = element?.querySelectorAll?.('footer button');
+					if (!btns || btns.length === 0) return;
+					const footer = btns[0].closest('footer') ?? btns[0].parentElement;
+					if (footer) {
+						footer.style.display = 'flex';
+						footer.style.flexDirection = 'column';
+						footer.style.gap = '0.25rem';
+					}
+					for (const b of btns) {
+						b.style.boxSizing = 'border-box';
+						b.style.setProperty('width', '100%', 'important');
+						b.style.setProperty('align-self', 'stretch', 'important');
+					}
+				},
+				default: 'manual',
+				width: 460,
+			});
+			try {
+				dialog.addEventListener('close', () => {
+					if (!placing) settle('cancel');
+				});
+			} catch (error) {
+				console.warn('Symbaroum Hymnen: Symbolzonen-Dialog ohne ESC-Fallback', error);
+			}
+		});
+	}
 	/* Hymnen-Paket 1.1: „Zone aktivieren: Nein“ = keine Warnung, kein
 	   Ausführungsdialog (Vor dem Teil-Konfigurations-Check, damit auch
 	   die Form-Warnung von deaktivierten Zonen schweigt). */

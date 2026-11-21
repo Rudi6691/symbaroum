@@ -987,6 +987,7 @@
   "POWER_DRAININGGLYPH.CHAT_INTRO_M": "{actorname} hält die schwächende Glyphe aufrecht.",
   "POWER_DRAININGGLYPH.CHAT_SUCCESS": "{targetname} wird durch die Glyphe geschwächt.",
   "POWER_DRAININGGLYPH.CHAT_FAILURE": "{targetname} widersteht der schwächenden Glyphe.",
+  "POWER_DRAININGGLYPH.EXEC_HINT": "Zone platzieren: Die Glyphenfläche wird jetzt interaktiv gesetzt (Ort oder Objekt frei wählbar), der Erstgesang übernimmt sie. Manuell: Erstgesang, die Fläche erscheint nach der Erstgesangs-Karte.",
   "POWER_DRAININGGLYPH.CHAT_MASTER_HEAL": "Solange mindestens ein Ziel von der Glyphe betroffen ist, heilt sie je Runde den Mystiker oder einen Verbündeten um 1W4 Zähigkeit.",
   "POWER_DRAININGGLYPH.CHAT_NEXT_TARGET": "Weiteres Ziel für die Glyphe?",
   "POWER_DRAININGGLYPH.CHAT_NO_NEW_TARGET": "Kein neues Ziel markiert - die Glyphe wirkt nur auf die bereits geprüften Feinde.",
