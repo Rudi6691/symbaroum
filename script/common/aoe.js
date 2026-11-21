@@ -521,25 +521,44 @@ export function getZoneConfig(item) {
 	const rawTargeting = String(zone.targeting ?? '').trim();
 	/* v2.7 (Testrunde 7, P14): 'neutral' (nur Neutrale) und 'notallied'
 	   (alles außer Verbündete) ergänzen die bestehenden Filter. */
-	const targeting = ['enemies', 'allies', 'neutral', 'notallied'].includes(rawTargeting) ? rawTargeting : 'all';
-	/* v2.8 (Rudolfs Grundsatz-Festlegung 13.11.): die fünf Sweep-Kräfte
-	   (config.SWEEP_ZONE_POWERS) sind reine Zielwahl-Automatik - Modus
-	   AUGENBLICKLICH erzwungen, Betreten-Trigger aus, Dauer bedeutungslos.
-	   Die Konfiguration im Zone-Tab bleibt editierbar, wirkt für diese
-	   Referenzen aber nicht (Hinweistext AOE.INFO_SWEEP im Tab). */
+	/* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Die vier Symbol-
+	   kraefte legen DAUERHAFTE Zonen an - Ausloesung nur bei Platzie-
+	   rung und Betreten (Enter-Kette). Default-Zielgruppe FEINDE:
+	   die APG-Ketten treffen Feinde; eine explizite Tab-Wahl bleibt
+	   unberuehrt, nur der leere/ungueltige Fallthrough aendert sich
+	   fuer Symbole von 'all' auf 'enemies'. */
+	const isSymbolZonePower = (game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(String(item?.system?.reference ?? ''));
+	const targeting = ['enemies', 'allies', 'neutral', 'notallied'].includes(rawTargeting) ? rawTargeting : (isSymbolZonePower ? 'enemies' : 'all');
+	/* v2.7 (Rudolfs Grundsatz-Festlegung 13.11., G7-Slot-Verengung
+	   21.11.): die verbliebenen Sweep-Kräfte (config.SWEEP_ZONE_POWERS)
+	   sind reine Zielwahl-Automatik - Modus AUGENBLICKLICH erzwungen,
+	   Betreten-Trigger aus, Dauer bedeutungslos. Die Konfiguration im
+	   Zone-Tab bleibt editierbar, wirkt für diese Referenzen aber
+	   nicht (Hinweistext AOE.INFO_SWEEP im Tab). Die vier Symbole
+	   sind seit v2.8 G7 KEINE Sweeps mehr (dauerhafte Region s.o.):
+	   mode 'lasting', Trigger 'enter', Dauer 0 (unbegrenzt), Zielwahl-
+	   Ordnung 'nearest' statt 'marking' (automatische Enter-Kette,
+	   keine Markierungs-Barriere). */
 	const isSweepPower = game.symbaroum.config.SWEEP_ZONE_POWERS.includes(String(item?.system?.reference ?? ''));
 	const rawMode = String(zone.mode ?? '').trim();
-	const mode = isSweepPower || rawMode === 'instant' ? 'instant' : 'lasting';
+	let mode = isSweepPower || rawMode === 'instant' ? 'instant' : 'lasting';
+	if (isSymbolZonePower) mode = 'lasting';
 	const rawTrigger = String(zone.trigger ?? '').trim();
-	const trigger = !isSweepPower && rawTrigger === 'enter' ? 'enter' : '';
+	let trigger = !isSweepPower && rawTrigger === 'enter' ? 'enter' : '';
+	if (isSymbolZonePower) trigger = 'enter';
 	const rawDuration = Math.round(Number(zone.duration));
-	const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : 0;
+	let duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : 0;
+	if (isSymbolZonePower) duration = 0;
 	/* v2.1 (Rudolfs Testrunde-1-Entscheidung 2): Zielwahl-Ordnung der
 	   automatischen Auslesung - 'marking' = Default, 'nearest' = Zonen-
 	   nähe, 'scene' = Szenenreihenfolge. Eigene Markierungen des
 	   Auslösens überschreiben die Ordnung (siehe _resolveZoneTargets). */
 	const rawOrder = String(zone.targetOrder ?? '').trim();
-	const targetOrder = ['nearest', 'scene'].includes(rawOrder) ? rawOrder : 'marking';
+	let targetOrder = ['nearest', 'scene'].includes(rawOrder) ? rawOrder : 'marking';
+	/* v2.8 G7: 'marking' wuerde die automatische Enter-Kette blockieren
+	   (aoeZoneEnter-Guard v2.4 Entscheidung f) - Symbole laufen auf
+	   'nearest', ein explizites 'scene' des Zone-Tabs bleibt wirksam. */
+	if (isSymbolZonePower && targetOrder === 'marking') targetOrder = 'nearest';
 	/* Baustein E (Rudolfs Startsignal „Leg los“ 16.11.2026): Wirker-
 	   Ausschluss bei Kraft-Zonen. STRING-Select auf dem Zonen-Tab (GM-
 	   only, beide mystical-power-Blätter), additive template.json-
@@ -2089,6 +2108,84 @@ export async function aoeEndZone(regionId, sceneId) {
 	await _endZone(region, 'manual');
 }
 
+/* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Verlassen-Logik der
+   Symbolzonen. Rudolfs Probe-Memory: "So lange sie die Zone nicht
+   verlassen, werden sie nicht erneut geprueft, erst bei Leave/Rejoin"
+   - ein Token, das die Region verlaesst, verliert seine ZONENLOKALEN
+   Wirkungs-Merker (Effekte mit flagData caster+ability), Rejoin
+   startet die Enter-Kette frisch. AUSNAHMEN: Bannsiegel sperrt die
+   Szene (nichts Zonenlokales zu entfernen) und Blendend ab Adept
+   haelt bis Heilung (Stufen-Snapshot aoe.symbolLevel der Platz-
+   ierung). One-Shot-Merker-Missbrauch der Vergangenheit erledigt
+   sich damit selbst: die dauerhafte Zone fuehrt das Buch. */
+const _symbolZoneLeaveTracker = new Map();
+
+function _symbolZoneRefOf(aoe) {
+	if (!aoe?.sourceItemUuid) return null;
+	const sourceItem = fromUuidSync(aoe.sourceItemUuid);
+	return String(sourceItem?.system?.reference ?? '') || null;
+}
+
+function _symbolTrackPreTokenMove(doc, changes) {
+	if (!aoeEnabled()) return;
+	if (!doc?.parent || !changes || (changes.x === undefined && changes.y === undefined)) return;
+	const scene = doc.parent;
+	const trackerKey = `${scene.id}|${doc.id}`;
+	_symbolZoneLeaveTracker.delete(trackerKey);
+	const insideRegions = [];
+	for (const region of scene.regions ?? []) {
+		const aoe = region.flags?.symbaroum?.aoe;
+		if (!aoe || aoe.mode !== 'lasting') continue;
+		const symbolRef = _symbolZoneRefOf(aoe);
+		if (!symbolRef || !(game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(symbolRef)) continue;
+		if (_collectRegionTokens(region).some((t) => t.id === doc.id)) insideRegions.push({ regionId: region.id, symbolRef });
+	}
+	if (insideRegions.length > 0) _symbolZoneLeaveTracker.set(trackerKey, insideRegions);
+}
+
+async function _symbolZoneTokenMoved(doc) {
+	const scene = doc?.parent ?? null;
+	const trackerKey = scene ? `${scene.id}|${doc.id}` : null;
+	if (!trackerKey) return;
+	const leftRegions = _symbolZoneLeaveTracker.get(trackerKey);
+	_symbolZoneLeaveTracker.delete(trackerKey);
+	if (!leftRegions) return;
+	for (const left of leftRegions) {
+		const region = scene?.regions?.get(left.regionId) ?? null;
+		if (!region || !doc.actor) continue;
+		/* noch drin (Zug endete in derselben Flaeche): kein Verlassen. */
+		if (_collectRegionTokens(region).some((t) => t.id === doc.id)) continue;
+		await _symbolZoneLeave(region, doc, left.symbolRef);
+	}
+}
+
+async function _symbolZoneLeave(region, tokenDoc, symbolRef) {
+	if (!tokenDoc?.actor || !symbolRef) return;
+	const aoe = region.flags?.symbaroum?.aoe ?? null;
+	const caster = aoe?.sourceActorUuid ? fromUuidSync(aoe.sourceActorUuid) : null;
+	if (!caster?.id) return;
+	if (symbolRef === 'banishingseal') {
+		console.info('Symbaroum AoE [trace] Symbolzone verlassen', { ref: symbolRef, regionId: region.id, token: String(tokenDoc.name ?? tokenDoc.id), removed: 0, reason: 'banishingseal sperrt die Szene' });
+		return;
+	}
+	if (symbolRef === 'blindingsymbol' && Number(aoe?.symbolLevel ?? 1) >= 2) {
+		console.info('Symbaroum AoE [trace] Symbolzone verlassen', { ref: symbolRef, regionId: region.id, token: String(tokenDoc.name ?? tokenDoc.id), removed: 0, reason: 'blendend ab Adept haelt bis Heilung' });
+		return;
+	}
+	const cleanupEntries = [];
+	for (const effect of tokenDoc.actor.effects ?? []) {
+		const flagData = effect.getFlag?.(game.system.id, 'flagData');
+		if (!flagData || String(flagData.caster ?? '') !== String(caster.id) || String(flagData.ability ?? '') !== symbolRef) continue;
+		const statusId = effect.statuses?.size > 0 ? [...effect.statuses][0] : null;
+		if (statusId) cleanupEntries.push({ tokenId: tokenDoc.id, removeEffect: statusId });
+	}
+	console.info('Symbaroum AoE [trace] Symbolzone verlassen', { ref: symbolRef, regionId: region.id, token: String(tokenDoc.name ?? tokenDoc.id), removed: cleanupEntries.length });
+	if (cleanupEntries.length > 0) {
+		const { createModifyTokenAutoApply } = await import('./roll.js');
+		await createModifyTokenAutoApply(cleanupEntries);
+	}
+}
+
 async function _endZone(region, source, customEndText = null) {
 	// v2.2 (Baustein 9): Ziel-Fenster der Zone schließen
 	_closeTargetWindow(region.id);
@@ -2429,6 +2526,12 @@ export async function placeZoneFromItem(item) {
 	}
 	const casterToken = _resolveCasterToken(item);
 	const actor = item.actor ?? null;
+	/* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Die vier Symbol-
+	   kraefte legen DAUERHAFTE Symbolzonen an (Details config.js).
+	   Plattform-Merkmal hier: Neu-Platzierungs-Austausch unten,
+	   Stufen-Snapshot im Zonen-Objekt und Platzierungs-Flags in der
+	   Region-Schleife. */
+	const isSymbolZonePlacement = (game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(String(item.system?.reference ?? ''));
 	/* v2.7 (Testrunde 7, Rudolfs korrigierter Ablauf-Spec Schritt 2):
 	   Bannsiegel-Zonen fragen die Kreaturen-Kategorie EINMAL vor der
 	   Platzierung ab und speichern sie für die GESAMTE Wirkdauer im
@@ -2458,6 +2561,10 @@ export async function placeZoneFromItem(item) {
 		   „keine Kategorie" (alle Kategorie-Checks aus, SL-Buchhaltung). */
 		sealCategoryId,
 		sealSubtype,
+		/* v2.8 G7: Stufen-Snapshot der Platzierung - die Verlassen-Logik
+		   unterscheidet Blendend-Novize (Zone entfernt das Symbol beim
+		   Verlassen) von Adept/Meister (haelt bis Heilung). Fallback 1. */
+		symbolLevel: Number.isFinite(Number(item?.system?.level ?? NaN)) ? Number(item?.system?.level) : 1,
 		userId: game.user.id,
 		/* Baustein E: includeCaster reist mit dem Zonen-Snapshot (Muster
 		   sealCategoryId) - jede Folge-Auslösung (Betreten, Maintain-Runde,
@@ -2496,6 +2603,14 @@ export async function placeZoneFromItem(item) {
 	   Bau - erlaubt V14 die Anlage mit Restriction, bringt der Spieler-
 	   Zone den Vorschau-Clip beim Positionieren mit. */
 	await probePlayerRestrictionCreate();
+	/* v2.8 G7: EINE aktive Symbolzone je Wirker und Kraft (F10-Glyphen-
+	   Modell): die Neu-Platzierung desselben Refs loescht die ALTE
+	   Flaeche zuerst - die neue Region vermerkt ihre Flags unten
+	   wieder selbst. Laeuft NACH der Bannsiegel-Kategorie-Abfrage:
+	   die neue Kategorie gilt fuer die neue Flaeche. */
+	if (isSymbolZonePlacement) {
+		await removeZoneRegionsByFlag(actor?.id ?? '', [String(item.system?.reference ?? '')], 'symbolzone', 'Symbol-Zone');
+	}
 	const regionData = _zoneRegionData(zone);
 	if (!regionData) {
 		ui.notifications.warn(game.i18n.localize('AOE.ERR_NO_CONFIG'));
@@ -2567,6 +2682,23 @@ export async function placeZoneFromItem(item) {
 			await region.setFlag('symbaroum', 'aoe', zone);
 		}
 		await _postZoneCard(region);
+		/* v2.8 G7: Symbol-Vermerke je platzierte Region - Region-Flag
+		   'symbolzone' (Paarung fuer Neu-Platzierung + Abbruch-
+		   Raeumung via removeZoneRegionsByFlag) und Akteur-Flag
+		   symbolzone.<ref> als Abbruch-Dialog-Kontext (Muster glyph-
+		   zone/hymnZone). */
+		if (isSymbolZonePlacement && actor) {
+			try {
+				await region.setFlag('symbaroum', 'symbolzone', { casterId: actor.id, ref: String(item.system?.reference ?? '') });
+			} catch (symbolRegionFlagError) {
+				console.warn('Symbaroum AoE (trace): Symbolzonen-Region-Flag fehlgeschlagen', symbolRegionFlagError);
+			}
+			try {
+				await actor.setFlag(game.system.id, `symbolzone.${String(item.system?.reference ?? '')}`, { regionId: region.id, sceneId: canvas.scene?.id ?? null });
+			} catch (symbolActorFlagError) {
+				console.warn('Symbaroum AoE (trace): Symbolzonen-Akteur-Flag fehlgeschlagen', symbolActorFlagError);
+			}
+		}
 		/* v2.2 (Baustein 9, Rudolfs Freigabe 10.11.): Einmal-Zonen
 		   beschränken die Zielmarkierung ihres Besitzers über die
 		   GESAMTE Standzeit - Platzierung bis Auslösen/Abbrechen (kurze,
@@ -3098,6 +3230,12 @@ export async function removeAuraZoneRegions(casterId, refs) {
  *  (Neucast ersetzt die Flaeche, A29-Abbruch beendet sie). */
 export async function removeGlyphZoneRegions(casterId, refs) {
 	await removeZoneRegionsByFlag(casterId, refs, 'glyphzone', 'Glyphen-Flaeche');
+}
+
+/** v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Symbolzonen eines
+ *  Wirkers raeumen (A29-Abbruch, Neu-Platzierung beim Neucast). */
+export async function removeSymbolZoneRegions(casterId, refs) {
+	await removeZoneRegionsByFlag(casterId, refs, 'symbolzone', 'Symbol-Zone');
 }
 
 /** v2 F9 (Rudolfs Freigabe 20.11.): Heilige/Unheilige Aura als ANGEHAENGTE
@@ -4028,6 +4166,15 @@ export function registerAoeHooks() {
 		   (der Transport liefert die GM-Antwort jetzt zurueck). */
 		globalThis.CONFIG.queries ??= {};
 		globalThis.CONFIG.queries['symbaroum.aoeZoneInstall'] = aoeZoneInstallQueryHandler;
+	});
+	/* v2.8 G7: Federn der Symbolzonen-Verlassen-Logik (siehe Handler
+	   oberhalb von _endZone) - preUpdateToken merkt die Mitglieds-
+	   schaft VOR dem Zug, updateToken raeumt nach dem Zug ab, wenn
+	   der Token nicht mehr in der Flaeche steht. Positionsaenderungen
+	   ohne x/y (z. B. nur Rotation) bleiben ignoriert. */
+	Hooks.on('preUpdateToken', _symbolTrackPreTokenMove);
+	Hooks.on('updateToken', (doc, changes) => {
+		void _symbolZoneTokenMoved(doc, changes);
 	});
 	// v2.2 (Baustein 9, Rudolfs Anfrage 10.11.): Zielmarkierungen im
 	// aktiven Zonen-Fenster auf Token INNERHALB der Zone beschränken.

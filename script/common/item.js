@@ -41,7 +41,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 import { itemHasTraditionKnowledge } from "./tradition.js";
-import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, removeAuraZoneRegions, removeGlyphZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
+import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, removeAuraZoneRegions, removeGlyphZoneRegions, removeSymbolZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -2402,6 +2402,10 @@ export class SymbaroumItem extends Item {
     if (base.powerLvl.level === 3) {
       base.finalTextSucceed = game.i18n.localize("POWER_BATTLESYMBOL.CHAT_MASTER");
     }
+    // v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Kampfsymbol legt
+    // eine DAUERHAFTE Symbolzone an - erneute Anwahl bei laufender
+    // Zone oeffnet den Abbruch-Dialog (preDialogSymbolZoneChoice).
+    base.preDialogFunction = preDialogSymbolZoneChoice;
     return base;
   }
 
@@ -2519,6 +2523,10 @@ export class SymbaroumItem extends Item {
     // the flag's only runtime effect is showing the casting/maintain dropdown,
     // and novice/master have no maintain per APG - the chain itself is purely
     // dispatched in getPowerResultFunction; the adept already has MAINTAIN_RES
+    // v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Blendendes Symbol
+    // legt eine DAUERHAFTE Symbolzone an - erneute Anwahl bei laufen-
+    // der Zone oeffnet den Abbruch-Dialog (preDialogSymbolZoneChoice).
+    base.preDialogFunction = preDialogSymbolZoneChoice;
     return base;
   }
 
@@ -3090,6 +3098,10 @@ export class SymbaroumItem extends Item {
       // A25 stage 2: Master can throw a chain of enemies (GRW)
       base.chain = game.symbaroum.config.CHAIN;
     }
+    // v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Zeichen der Pein
+    // legt eine DAUERHAFTE Symbolzone an - erneute Anwahl bei laufen-
+    // der Zone oeffnet den Abbruch-Dialog (preDialogSymbolZoneChoice).
+    base.preDialogFunction = preDialogSymbolZoneChoice;
     return base;
   }
 
@@ -5776,16 +5788,19 @@ async function holyAuraResult(rollData, functionStuff) {
      Filter wirken darunter, Proben/Sofortwirkung/Symbol-DOTs bleiben
      Bestandscode. Picker-Abbruch (declined): Fallback auf die SL-
      Markierkette (dokumentiert). */
-  const auraPlacement = await placeAuraZone(functionStuff.token ?? null, functionStuff.actor, "holyaura", functionStuff.ability);
-  if (auraPlacement?.region) {
-    try {
-      await functionStuff.actor.setFlag(game.system.id, "aurazone.holyaura", { regionId: auraPlacement.region.id, sceneId: canvas.scene?.id ?? null });
-    } catch (auraFlagError) {
-      console.warn("Symbaroum Hymnen [trace] Auren-Flag konnte nicht gesetzt werden", auraFlagError);
-    }
-    const auraZoneIds = hymnRegionTokens(auraPlacement.region).map((t) => t.id);
-    functionStuff.zoneChainTargets = new Set(auraZoneIds);
-    for (const auraZoneId of auraZoneIds) {
+  /* v2.8 F39: Erstgesang-Kopf aus dem MASTER-RAHMEN - Region,
+     Flag, F28-Trace; typ-spezifisch bleibt die Wirk-Klassen-
+     Verwaltung darunter (Ziel-Markierung + Batch-Loops). */
+  const auraFrame = await zoneErstgesangFrame(functionStuff, {
+    refs: ["holyaura"],
+    flagPrefix: "aurazone",
+    flagLabel: "Auren-Flag",
+    placeRegion: (frameCasterToken) =>
+      placeAuraZone(frameCasterToken, functionStuff.actor, "holyaura", functionStuff.ability),
+  });
+  if (auraFrame?.region) {
+    functionStuff.zoneChainTargets = new Set(auraFrame.zoneIds);
+    for (const auraZoneId of auraFrame.zoneIds) {
       const auraZoneToken = canvas.tokens?.placeables?.find((t) => t.id === auraZoneId);
       if (auraZoneToken) {
         try {
@@ -6409,19 +6424,21 @@ async function hymnResult(rollData, functionStuff) {
      dieses Flag. Eine Region aus einem FRÜHEREN Gesang desselben Refs
      (Neuaufnahme über eine neue Fläche) wird gezielt entfernt, eine
      verwaiste Fläche darf nicht stehen bleiben. */
-  if (functionStuff.hymnZone?.regionId) {
-    const previousZone = functionStuff.actor.getFlag(game.system.id, `hymnZone.${abilityRef}`);
-    if (previousZone?.regionId && previousZone.regionId !== functionStuff.hymnZone.regionId) {
-      const previousRegion = hymnRegionById(previousZone.regionId);
-      if (previousRegion) await previousRegion.delete();
-    }
-    await functionStuff.actor.setFlag(game.system.id, `hymnZone.${abilityRef}`, functionStuff.hymnZone);
-    /* Hymnen-Paket 1.2: Der Gesangszustand steht - der Close-Wächter
-       des Gesangsdialogs darf die Fläche jetzt nicht mehr anfassen
-       (Submit schließt den Dialog erst nach dem Ergebnis, Muster der
-       v2.12-Zonen-Aktivierung). */
-    functionStuff.hymnZoneCommitted = true;
-  }
+  /* v2.8 F39: Erstgesang-Kopf (Region uebernehmen, alte Flaeche
+     raeumen, Flag setzen, F28-Trace) aus dem MASTER-RAHMEN
+     (zoneErstgesangFrame) - typ-spezifisch bleibt die Betroffenen-
+     wahl darunter. Der Gesangszustand steht erst NACH dem Flag-
+     Commit (onCommitted, Muster Hymnen-Paket 1.2). */
+  await zoneErstgesangFrame(functionStuff, {
+    refs: game.symbaroum.config.HYMN_REFERENCES,
+    flagPrefix: "hymnZone",
+    flagLabel: "Hymnen-Flag",
+    replacePrevious: true,
+    flagPayload: () => functionStuff.hymnZone,
+    onCommitted: () => {
+      functionStuff.hymnZoneCommitted = true;
+    },
+  });
   const attributeNames = functionStuff.powerLvl.level > 1 ? functionStuff.hymnAttributes : [functionStuff.hymnChosenAttribute ?? functionStuff.hymnAttributes[0]];
   const attributeLabels = attributeNames.map((attr) => game.i18n.localize(game.symbaroum.config.attributeLabels[attr]));
   const casterResolute = getAttributeValue(functionStuff.actor, "resolute");
@@ -6632,6 +6649,95 @@ async function zoneSweepClose(actor, ref, opts) {
   return seen.size > 0;
 }
 
+/* v2.8 F39 (Rudolfs Buendel-Freigabe 21.11., F39+G7+F41): MASTER-
+   ERSTGESANG-RAHMEN. Die Kopf-Teilschritte des Erstgesangs laufen
+   EINMAL hier: gueltige Kraft (opts.refs), Wirker-Token + Dispo-
+   sition, Region UEBERNEHMEN (pending functionStuff.hymnZone mit
+   ref/Szenen-Check) oder ERST PLATZIEREN (opts.placeRegion, Glyphe/
+   Auren-Picker), vorherige Flaeche desselben Refs raeumen (opts.
+   replacePrevious, nur Hymnen), Akteur-Flag setzen (opts.flagPrefix
+   mit opts.flagPayload), F28-Bestands-Trace in Erstgesangs-Form
+   (loest die F36/Auren-Sondertraces ab). Typ-spezifisch bleibt NUR
+   der apply-Code am Aufrufort: Glyphe = Opposed-Kette + Meister-
+   Heilung (F38-A-Rumpf unveraendert), Auren = Wirk-Klassen-Batch-
+   Loops, Hymnen = Betroffenenwahl. Der Dornenmantel bleibt bewusst
+   typ-lokal (F26-Praezedenz, SL-Anhang). Die G7-Symbolzonen sind
+   aoe-seitig gesetzt (placeZoneFromItem). Rueckgabe: frame-Objekt
+   oder null bei falscher Kraft. */
+async function zoneErstgesangFrame(functionStuff, opts) {
+  const abilityRef = functionStuff.ability?.reference;
+  if (!((opts?.refs ?? []).includes(abilityRef))) return null;
+  const sceneId = canvas.scene?.id ?? null;
+  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
+  const casterDisposition = casterToken?.document?.disposition ?? 0;
+  const pendingZone = functionStuff.hymnZone ?? null;
+  const pendingRegion =
+    pendingZone && pendingZone.ref === abilityRef && pendingZone.sceneId === sceneId && pendingZone.regionId
+      ? canvas.scene?.regions?.get(pendingZone.regionId) ?? null
+      : null;
+  const placement = pendingRegion
+    ? { region: pendingRegion, declined: false }
+    : opts?.placeRegion
+      ? await opts.placeRegion(casterToken)
+      : pendingZone?.regionId
+        ? { region: canvas.scene?.regions?.get(pendingZone.regionId) ?? null, declined: false }
+        : { region: null, declined: true };
+  const region = placement?.region ?? null;
+  let committed = false;
+  if (region) {
+    if (opts?.replacePrevious) {
+      const previousZone = functionStuff.actor.getFlag(game.system.id, `${opts.flagPrefix}.${abilityRef}`);
+      if (previousZone?.regionId && previousZone.regionId !== region.id) {
+        const previousRegion = hymnRegionById(previousZone.regionId);
+        if (previousRegion) {
+          try {
+            await previousRegion.delete();
+          } catch (previousRegionError) {
+            console.warn(`Symbaroum Hymnen: Alte Flaeche fuer ${abilityRef} konnte nicht entfernt werden`, previousRegionError);
+          }
+        }
+      }
+    }
+    try {
+      const flagPayload = opts?.flagPayload ? opts.flagPayload(region) : { regionId: region.id, sceneId: sceneId };
+      await functionStuff.actor.setFlag(game.system.id, `${opts.flagPrefix}.${abilityRef}`, flagPayload);
+      committed = true;
+    } catch (erstgesangFlagError) {
+      console.warn(`Symbaroum Hymnen: ${opts?.flagLabel ?? "Zonen-Flag"} konnte nicht gesetzt werden`, erstgesangFlagError);
+    }
+    if (opts?.onCommitted) opts.onCommitted(region);
+  }
+  /* F28-Bestands-Trace (Erstgesangs-Form): erfasste Region-Token mit
+     Disposition (tolerant gelesen) und die disposition-bedingt
+     uebersprungenen Ids - Leer-Platzierung bleibt still. */
+  const traceHandled = opts?.traceHandled ?? new Set();
+  const collected = region ? hymnRegionTokens(region) : [];
+  const traceTd = (t) => ({ id: t.id, disp: t.document?.disposition ?? t.disposition ?? 0 });
+  console.info("Symbaroum Hymnen [trace] Zonen-Erstgesang", {
+    ref: String(abilityRef ?? ""),
+    regionId: region?.id ?? null,
+    pendingUsed: pendingRegion !== null,
+    committed: committed,
+    collected: collected.map((t) => traceTd(t)),
+    skippedDisposition: collected
+      .filter((t) => {
+        const td = traceTd(t);
+        return !traceHandled.has(td.id) && td.disp >= casterDisposition;
+      })
+      .map((t) => t.id),
+  });
+  return {
+    abilityRef,
+    region,
+    casterToken,
+    casterDisposition,
+    zoneIds: collected.map((t) => t.id),
+    pendingUsed: pendingRegion !== null,
+    committed: committed,
+    declined: placement?.declined ?? false,
+  };
+}
+
 async function hymnZoneRescan(functionStuff) {
   /* v2.2 F26: Kopf aus dem MASTER-ZONEN-Rahmen (zoneRegionScanFrame)
      - Buff-/Schwaeche-Logik bleibt Hymnen-Spezifik. */
@@ -6757,7 +6863,14 @@ async function hymnZoneRescan(functionStuff) {
 /* Ende-Karte: kleiner öffentlicher Hinweis, WARUM der Gesang endete
    (Maintain-Fehlschlag, andere mystische Kraft). */
 async function postHymnEndCard(functionStuff, lineKey) {
-  const title = `<h4>${game.i18n.localize("POWER_HYMN.CHAT_END")}</h4>`;
+  /* v2.8 F41 (Rudolfs Testrunde 7, Sonstiges-Neu, Buendel-Freigabe
+     21.11.): Ende-Karten nennen die KRAFT im Titel - "{Kraft}
+     beendet" via CHAT_END_POWER (de/en vorhanden), nur ohne Namen
+     bleibt der generische Titel. Alle 4 Abbruch-Dialog-Stellen plus
+     die G7-Symbolzonen liefern abilityName mit. */
+  const title = functionStuff.abilityName
+    ? `<h4>${game.i18n.format("POWER_HYMN.CHAT_END_POWER", { powername: functionStuff.abilityName })}</h4>`
+    : `<h4>${game.i18n.localize("POWER_HYMN.CHAT_END")}</h4>`;
   const line = `<p>${game.i18n.format(lineKey, { actorname: functionStuff.actingCharName, powername: functionStuff.abilityName })}</p>`;
   await postMaintainChainCard(functionStuff, title, [line], []);
 }
@@ -6824,8 +6937,14 @@ async function endActiveHymns(actor, options = {}) {
       const powerLabel = hymnPowerLabel(ref);
       return `<p>${game.i18n.format("POWER_HYMN.CHAT_END_LINE", { actorname: casterName, powername: powerLabel })}</p>`;
     });
-    const title = `<h4>${game.i18n.localize("POWER_HYMN.CHAT_END")}</h4>`;
-    await postMaintainChainCard({ actor: actor, actingCharName: casterName }, title, lines, []);
+    /* v2.8 F41: Ein-Gesang-Fall nennt die Kraft im Titel ("{Kraft}
+       beendet"), bei mehreren beendeten Gesaengen bleibt der
+       generische Titel (Klartext steht ohnehin in den Zeilen). */
+    const endedTitle =
+      endedRefs.size === 1
+        ? `<h4>${game.i18n.format("POWER_HYMN.CHAT_END_POWER", { powername: hymnPowerLabel([...endedRefs][0]) })}</h4>`
+        : `<h4>${game.i18n.localize("POWER_HYMN.CHAT_END")}</h4>`;
+    await postMaintainChainCard({ actor: actor, actingCharName: casterName }, endedTitle, lines, []);
   }
   return endedRefs.size > 0;
 }
@@ -7195,8 +7314,78 @@ async function preDialogGlyphChoice(functionStuff) {
   });
 }
 
+/* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Beendet eine laufen-
+   de Symbolzone vollstaendig (alle Szenen-Marker ueber die F40-
+   Auto-Raeumung, Region, Akteur-Flag) - endActiveGlyph-Muster.
+   Danach ist das Siegel VERBRAUCHT: eine neue Nutzung bedeutet NEUE
+   Platzierung (Adept: Siegel zeichnen in einer Aktion). */
+export async function endActiveSymbolZone(actor, ref) {
+  if (!actor || !ref) return false;
+  if (!(game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(ref)) return false;
+  /* v2.2 F26: gemeinsame Ende-Maschine (zoneSweepClose). */
+  return zoneSweepClose(actor, ref, {
+    removeRegions: removeSymbolZoneRegions,
+    flagPrefix: "symbolzone",
+    flagLabel: "Symbolzonen-Flag",
+  });
+}
+
+/* v2.8 G7: Erneute Icon-Anwahl bei LAUFENDER Symbolzone = Abbruch-
+   Dialog (preDialogGlyphChoice-Muster, Titel "{Kraft} beendet" via
+   F41); ohne laufende Zone der normale Wuerfeldialog. Gilt fuer
+   Blendendes Symbol, Zeichen der Pein und Kampfsymbol (Bannsiegel
+   hat seinen eigenen preDialog-Zweig, siehe preDialogBanishingSeal). */
+async function preDialogSymbolZoneChoice(functionStuff) {
+  const ref = functionStuff.ability?.reference;
+  if (!(game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(ref)) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  if (functionStuff.presetMaintain) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  const running = functionStuff.actor?.getFlag(game.system.id, `symbolzone.${ref}`)?.regionId ? ref : null;
+  if (!running) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  const labelKey =
+    ref === "banishingseal"
+      ? "POWER_LABEL.BANISHING_SEAL"
+      : ref === "blindingsymbol"
+        ? "POWER_LABEL.BLINDING_SYMBOL"
+        : ref === "markoftorment"
+          ? "POWER_LABEL.MARK_OF_TORMENT"
+          : "POWER_LABEL.BATTLE_SYMBOL";
+  const runningLabel = game.i18n.localize(labelKey);
+  symbDialog({
+    title: functionStuff.abilityName,
+    content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: runningLabel })}</p>`,
+    classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+    buttons: {
+      yes: {
+        icon: '<i class="fas fa-check"></i>',
+        label: game.i18n.localize("BUTTON.YES"),
+        callback: async () => {
+          await postHymnEndCard(
+            { actor: functionStuff.actor, actingCharName: functionStuff.actingCharName, abilityName: runningLabel },
+            "POWER_HYMN.CHAT_END_ABORTED"
+          );
+          await endActiveSymbolZone(functionStuff.actor, running);
+        },
+      },
+      no: {
+        icon: '<i class="fas fa-times"></i>',
+        label: game.i18n.localize("BUTTON.NO"),
+      },
+    },
+    default: "yes",
+  });
+}
+
 /* v2.1 F22: Maintain-Runde der Glyphe = Standard-Kette (maintainChain-
-   Result: je gehaltenem Ziel eine opponierte Probe, F11-Rundenschaden,
+   Result: je gehaltem Ziel eine opponierte Probe, F11-Rundenschaden,
    Meister-Heilung unberuehrt) PLUS glypheRegionRescan - Joiner/Leaver
    je Runde wie bei den Hymnen. */
 async function drainingGlyphMaintainResult(rollData, functionStuff) {
@@ -8485,16 +8674,18 @@ async function unholyAuraResult(rollData, functionStuff) {
   /* v2 F9: siehe Heilige Aura - Erstaktivierung durch Platzieren, die
      Bestands-Loops laufen dialogfrei als Zonen-Batch ueber die
      Regions-Token (Kategorie-Filter unterhalb der Geometrie). */
-  const auraPlacement = await placeAuraZone(functionStuff.token ?? null, functionStuff.actor, "unholyaura", functionStuff.ability);
-  if (auraPlacement?.region) {
-    try {
-      await functionStuff.actor.setFlag(game.system.id, "aurazone.unholyaura", { regionId: auraPlacement.region.id, sceneId: canvas.scene?.id ?? null });
-    } catch (auraFlagError) {
-      console.warn("Symbaroum Hymnen [trace] Auren-Flag konnte nicht gesetzt werden", auraFlagError);
-    }
-    const auraZoneIds = hymnRegionTokens(auraPlacement.region).map((t) => t.id);
-    functionStuff.zoneChainTargets = new Set(auraZoneIds);
-    for (const auraZoneId of auraZoneIds) {
+  /* v2.8 F39: Heilige-Aura-Zwilling - identischer Frame-Aufruf mit
+     unholyaura (Twin-Funktionen, identische Bloecke). */
+  const auraFrame = await zoneErstgesangFrame(functionStuff, {
+    refs: ["unholyaura"],
+    flagPrefix: "aurazone",
+    flagLabel: "Auren-Flag",
+    placeRegion: (frameCasterToken) =>
+      placeAuraZone(frameCasterToken, functionStuff.actor, "unholyaura", functionStuff.ability),
+  });
+  if (auraFrame?.region) {
+    functionStuff.zoneChainTargets = new Set(auraFrame.zoneIds);
+    for (const auraZoneId of auraFrame.zoneIds) {
       const auraZoneToken = canvas.tokens?.placeables?.find((t) => t.id === auraZoneId);
       if (auraZoneToken) {
         try {
@@ -9113,54 +9304,22 @@ async function drainingGlyphResult(rollData, functionStuff) {
      Region nicht doppelt probiert; ausserhalb: SL-Anvisierung gewinnt,
      dokumentiert). Picker-Abbruch: Nur-Primaerziel-Zauber ohne Region
      (dokumentiert); Maintain-Kette/A29/F11-Rundenschaden unberuehrt. */
-  const glyphCasterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
-  const glyphCasterDisposition = glyphCasterToken?.document?.disposition ?? 0;
-  /* v2.3 F30 (Rudolfs Auswahlrunde) + v2.5 F37 (Rudolfs Testrunde v2.4,
-     Konsolspur mit Doppel-Platzierung, D9): Erstgesang uebernimmt eine im
-     Ausfuehrungsdialog frisch platzierte Glyphen-Flaeche; validiert auf
-     ref + Szene + noch existierende Region, sonst der gewohnte Picker
-     nach der Erstgesangs-Karte. Consume-once macht BEREITS usePower
-     (Hymnen-Bruecke, actor.js: takePendingHymnZone haengt den Eintrag
-     an functionStuff.hymnZone) - ein ZWEITES takePendingHymnZone hier
-     fand darum immer null (seit F33 erstmals erreichbar) und startete
-     den Fallback-Picker nach dem Wurf: Doppel-Platzierung im Leer-Cast.
-     Hymnen-Muster: hier wird functionStuff.hymnZone gelesen. */
-  const pendingGlyphZone = functionStuff.hymnZone ?? null;
-  const pendingGlyphRegion =
-    pendingGlyphZone &&
-    pendingGlyphZone.ref === "drainingglyph" &&
-    pendingGlyphZone.sceneId === canvas.scene?.id
-      ? canvas.scene?.regions?.get(pendingGlyphZone.regionId) ?? null
-      : null;
-  const glyphPlacement = pendingGlyphRegion
-    ? { region: pendingGlyphRegion, declined: false }
-    : await placeGlyphZone(glyphCasterToken, functionStuff.actor, "drainingglyph", functionStuff.ability);
-  const glyphRegion = glyphPlacement?.region ?? null;
+  /* v2.8 F39: Erstgesang-Kopf aus dem MASTER-RAHMEN (zoneErstgesang-
+     Frame): pending-Flaeche oder Picker-Platzierung (F30/F37-Logik
+     unverändert im Rahmen), Akteur-Flag, F28-Bestands-Trace in Erst-
+     gesangs-Form (loest den F36-Sondertrace ab, Felder identisch).
+     Typ-spezifisch bleibt die Opposed-Kette + Meister-Heilung (F38-A-
+     Rumpf, ab hier unveraendert). */
+  const glyphFrame = await zoneErstgesangFrame(functionStuff, {
+    refs: game.symbaroum.config.GLYPH_ZONE_REFERENCES,
+    flagPrefix: "glyphzone",
+    flagLabel: "Glyphen-Flag",
+    placeRegion: (frameCasterToken) =>
+      placeGlyphZone(frameCasterToken, functionStuff.actor, "drainingglyph", functionStuff.ability),
+    traceHandled: handled,
+  });
+  const glyphRegion = glyphFrame?.region ?? null;
   if (glyphRegion) {
-    try {
-      await functionStuff.actor.setFlag(game.system.id, "glyphzone.drainingglyph", { regionId: glyphRegion.id, sceneId: canvas.scene?.id ?? null });
-    } catch (glyphFlagError) {
-      console.warn("Symbaroum Hymnen [trace] Glyphen-Zonen-Flag konnte nicht gesetzt werden", glyphFlagError);
-    }
-    /* v2.5 F36 (Rudolfs D9/G1-Diagnose): Bestands-Trace des Erstgesangs -
-       erfasste Region-Token mit Disposition (tolerant gelesen, Placeable
-       oder Document) und die davon disposition-bedingt uebersprungenen
-       Ids. Leer-Platzierung auf leeren Boden: leere Liste = Erstgesang
-       bleibt still (korrekt); Joiner je Runde uebernimmt der Rescan-Trace
-       (F28). */
-    const traceCollected = hymnRegionTokens(glyphRegion);
-    const traceTd = (t) => ({ id: t.id, disp: t.document?.disposition ?? t.disposition ?? 0 });
-    console.info("Symbaroum Hymnen [trace] Glyphen-Erstgesang", {
-      regionId: glyphRegion.id,
-      pendingUsed: pendingGlyphRegion !== null,
-      collected: traceCollected.map((t) => traceTd(t)),
-      skippedDisposition: traceCollected
-        .filter((t) => {
-          const td = traceTd(t);
-          return !handled.has(td.id) && td.disp >= glyphCasterDisposition;
-        })
-        .map((t) => t.id),
-    });
     /* v2.6 F38 Option A (Rudolfs Freigabe, N3-Wurzel aus der v2.5-
        Testrunde): hymnRegionTokens liefert TOKEN-DOKUMENTE; der Erst-
        gesang-Loop iterierte die Eintraege selbst und las
@@ -9172,12 +9331,11 @@ async function drainingGlyphResult(rollData, functionStuff) {
        ab dann unveraenderter Rumpf - die Disposition wird korrekt
        gelesen und buildGlyphTargetData erhaelt das Placeable, das es
        laut allen Callsites erwartet. */
-    const glyphZoneIds = hymnRegionTokens(glyphRegion).map((t) => t.id);
-    for (const nextTokenId of glyphZoneIds) {
+    for (const nextTokenId of glyphFrame.zoneIds) {
       const nextToken = canvas.tokens?.placeables?.find((t) => t.id === nextTokenId) ?? null;
       if (!nextToken || !nextToken?.actor || handled.has(nextTokenId)) continue;
       handled.add(nextTokenId);
-      if ((nextToken.document?.disposition ?? 0) >= glyphCasterDisposition) continue;
+      if ((nextToken.document?.disposition ?? 0) >= glyphFrame.casterDisposition) continue;
       functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
       const rollDataNext = [
         await baseRoll(
@@ -12275,6 +12433,41 @@ async function preDialogStaffProjectile(functionStuff) {
 }
 
 async function preDialogBanishingSeal(functionStuff) {
+  /* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): LAUFENDE Bannsiegel-
+     Zone + erneute Icon-Anwahl = Abbruch-Dialog (Glyphen-Modell),
+     VOR dem Ziel-Zwang - der Abbruch braucht KEIN Ziel. Danach erst
+     der gewohnte manuelle Ablauf (Ziel, Kategorie, Wurf). Das
+     Siegel endet hier MIT der Zone und ist dann verbraucht. */
+  const runningSeal = functionStuff.actor?.getFlag(game.system.id, "symbolzone.banishingseal")?.regionId
+    ? "banishingseal"
+    : null;
+  if (runningSeal) {
+    const runningLabel = game.i18n.localize("POWER_LABEL.BANISHING_SEAL");
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<p>${game.i18n.format("POWER_HYMN.CONFIRM_ABORT", { powername: runningLabel })}</p>`,
+      classes: isModernDialogActive() ? modernDialogClasses("modern-power-confirm-dialog") : [],
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: async () => {
+            await postHymnEndCard(
+              { actor: functionStuff.actor, actingCharName: functionStuff.actingCharName, abilityName: runningLabel },
+              "POWER_HYMN.CHAT_END_ABORTED"
+            );
+            await endActiveSymbolZone(functionStuff.actor, runningSeal);
+          },
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+        },
+      },
+      default: "yes",
+    });
+    return;
+  }
   // A36V test round (Rudolf, 25.10.): the chain runs on fresh targeting in
   // banishingSealChainResult (glyph style) - a multi-selection made before
   // the casting only feeds the PRIMARY target, any further pre-selected

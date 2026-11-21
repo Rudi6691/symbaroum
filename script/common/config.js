@@ -534,6 +534,21 @@ SYMBAROUM.OWN_ZONE_REFERENCES = ["thorncloak", "holyaura", "unholyaura", "draini
    stumm. */
 SYMBAROUM.SYMBOL_ZONE_REFERENCES = ["drainingglyph"];
 
+/* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11., Buendel F39+G7+F41):
+   Die vier Symbolkraefte legen DAUERHAFTE Zonen-Regionen statt
+   Sweeps an (Verdrahtung: aoe.js getZoneConfig + placeZoneFromItem
+   + Verlassen-Logik, item.js Abbruch-Dialog-Schiene). Ausloesung:
+   EINMAL die Platzierung (automatisch wie der Schwachende-Glyphe-
+   Erstgesang, inkl. Anfangsbestand), danach je BETRETTENDEM Token
+   die Enter-Kette als voller opposed Kraftwurf gegen den Wirker
+   (kein separates Ergebnis-Speicher noetig - der Betretende
+   probiert ohnehin frisch gegen die aktuellen Werte). Korruption
+   nur bei der Erstplatzierung (A16-Engine). Verlassen: zonenlokale
+   Merker weg (Ausnahmen Bannsiegel, Blendend ab Adept bis Heilung,
+   siehe aoe.js). Ende: Abbruch-Dialog ueber erneute Icon-Anwahl
+   (A29-Glyphen-Modell), danach ist das Siegel verbraucht. */
+SYMBAROUM.SYMBOL_ZONE_POWERS = ["banishingseal", "battlesymbol", "blindingsymbol", "markoftorment"];
+
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];
 
@@ -2123,14 +2138,18 @@ SYMBAROUM.AOE_SHAPE_SELECTION = {
    manueller A32-Brocken-Flow, kein Zonen-Lift). Schweben ist der einzige
    freundlichen Sweep (Zone-Tab: Zielfilter "Verbündete"). */
 SYMBAROUM.SWEEP_ZONE_POWERS = [
-  "banishingseal",
-  "battlesymbol",
-  "blindingsymbol",
+  /* v2.8 G7 (Rudolfs finale Konzeptrunde 21.11.): Die vier Symbol-
+     kraefte (banishingseal, battlesymbol, blindingsymbol, markof-
+     torment) sind aus der Sweep-Liste AUSGETRETEN - sie legen ab
+     jetzt DAUERHAFTE Symbolzonen-Regionen an (SYMBOL_ZONE_POWERS
+     unterhalb), Ausloesung nur bei Platzierung und Betreten,
+     statt "wirkt einmal, endet sofort". */
   /* v2 (Rudolfs Freigabe 20.11.): drainingglyph ist aus der Sweep-Liste
      entfernt - die Glyphe legt kuenftig einen dauerhaften Zonen-Kreis an
      (placeGlyphZone, Radius aus dem Zonen-Tab, Default 1) und probt je
      Feind in der Region (F10); Regionstokens statt Sweep-Zielwahl. */
-  "markoftorment",
+  /* v2.8 G7: markoftorment ist ebenfalls ausgetreten (siehe Listen-
+     kopf oben). */
   /* v2.10 (Gruppe B): die zwölf Kettenkräfte - Zone = Zielwahl-Automatik
      für den Erstzauber-Sweep, Kette/Stufen/Maintain laufen über die
      bestehende Master-Automatik. */
