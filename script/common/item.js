@@ -6502,17 +6502,120 @@ async function hymnResult(rollData, functionStuff) {
    Attribut-Liste ist ein BESTEHENDES Symbol (Stabilität über die
    Runden); sind alle Symbole manuell entfernt, bleibt der Re-Scan
    stumm (dokumentierte Grenze). */
-async function hymnZoneRescan(functionStuff) {
+/* =====================================================================
+   v2.2 F26: MASTER-ZONEN-LIFECYCLE (Rudolfs A4-Bewertung der Testrunde
+   v2.1: Die Zonentypen liefen als KOPIERTE Ablaeufe mit punktuellen
+   Abweichungen - derselbe Fehler kehrte je Typ wieder). Der Lebens-
+   zyklus-Kern ist jetzt EINE Maschine; typspezifisch bleibt nur das
+   JOIN-Verhalten und die Karten-Texte (Profil je Typ):
+   - Hymnen (hymnZone.-Flag, Buff-/Schwaeche-Dynamik, Proben je Typ)
+   - Auren (aurazone.-Flag, Sichtweiten-Radius, Wirk-Klassen/Kategorie)
+   - Glyphe (glyphzone.-Flag, Tab-Radius, opponierte Join-Probe, Feind nur)
+   - Dornenmantel (thorncloak, Ruestungs-Pfad + Notfall-Naehe - bleibt
+     am Rahmen angedockt, die Rescan-Spezialwege bleiben typ-lokal)
+   Die generische Zonen-Engine schweigt fuer alle OWN_ZONE_REFERENCES
+   (F25, siehe config.js/aoe.js/hooks.js). Hier: Traeger-Erfassung,
+   Marker-Raeum-Sweep, Rescan-Rahmen, Attribut-Vorlage, Ende-Sweep. */
+function zoneCarriersFor(casterId, abilityRefs, { requireStatusId = true } = {}) {
+  const wanted = new Set(Array.isArray(abilityRefs) ? abilityRefs : [abilityRefs]);
+  const carriers = new Map();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (!token.actor?.effects) continue;
+    for (const effect of token.actor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (fd?.caster === casterId && wanted.has(fd.ability)) {
+        const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+        if (!requireStatusId || statusId) carriers.set(token.id, { token, effect, fd, statusId });
+        break;
+      }
+    }
+  }
+  return carriers;
+}
+
+/* ALLE passenden Marker-Effekte aller Szenen-Token raeumen (End-Sweeps:
+   je Effekt OHNE break, status-dedupliert) - GM-Anwenden-Payload. */
+function zoneAllMarkerRemovals(casterId, abilityRefs) {
+  const wanted = new Set(Array.isArray(abilityRefs) ? abilityRefs : [abilityRefs]);
+  const flagDataArray = [];
+  const seen = new Set();
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const tokenActor = token.actor;
+    if (!tokenActor?.effects) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (!fd || fd.caster !== casterId || !wanted.has(fd.ability)) continue;
+      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
+      if (!statusId) continue;
+      const key = token.id + "|" + statusId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
+    }
+  }
+  return { flagDataArray, seen };
+}
+
+/* Vorlage-Snapshot eines fremden Carriers (Erfassungs-Reihenfolge),
+   Fallback auf den eigenen Wirker-Carrier (Hymnen/Glyphen-Muster). */
+function zoneTemplateFd(carriers, casterToken) {
+  for (const entry of carriers.values()) {
+    if (entry.token.id !== casterToken.id) return entry.fd;
+  }
+  return carriers.get(casterToken.id)?.fd ?? null;
+}
+
+/* gemeinsamer Rescan-Rahmen: guard/Flag/Region/Caster/Bestand - die
+   Join/Leave-Blaeufe der Typen sitzen AUF dem Frame. */
+async function zoneRegionScanFrame(functionStuff, opts) {
   const abilityRef = functionStuff.ability?.reference;
-  if (!game.symbaroum.config.HYMN_REFERENCES.includes(abilityRef)) return;
-  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `hymnZone.${abilityRef}`);
-  if (!zoneFlag?.regionId) return;
+  if (!opts.guard(abilityRef)) return null;
+  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `${opts.flagPrefix}.${abilityRef}`);
+  if (!zoneFlag?.regionId) return null;
   const region = hymnRegionById(zoneFlag.regionId);
-  if (!region) return;
+  if (!region) return null;
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
-  if (!casterToken) return;
-  const casterDisposition = casterToken.document?.disposition ?? 0;
+  if (!casterToken) return null;
+  const carriers = zoneCarriersFor(functionStuff.actor.id, abilityRef, { requireStatusId: opts.requireStatusId ?? true });
   const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
+  /* v2.2 F28 (Rudolfs Testrunde v2.1, G3-Leave unklar): Trace-Bestand
+     fuer die Testrunde - Join/Leave-Diagnose ohne Karten-Spam. */
+  console.info("Symbaroum Hymnen [trace] Zonen-Rescan-Bestand", {
+    ref: String(abilityRef ?? ""),
+    regionId: region.id,
+    inZone: [...inZone],
+    carriers: [...carriers.keys()],
+  });
+  return { abilityRef, region, casterToken, carriers, inZone, casterDisposition: casterToken.document?.disposition ?? 0 };
+}
+
+/* gemeinsamer Ende-Sweep (endActiveAura/endActiveGlyph-Zwillinge bis
+   v2.1): Szenen-Marker ueber die GM-Anwenden-Karte raeumen, Region
+   loeschen, Akteur-Flag loeschen. Rueckgabe: Marker gefunden. */
+async function zoneSweepClose(actor, ref, opts) {
+  const { flagDataArray, seen } = zoneAllMarkerRemovals(actor.id, [ref]);
+  if (flagDataArray.length > 0) {
+    await createModifyTokenChatButton(flagDataArray);
+  }
+  await opts.removeRegions(actor.id ?? null, [ref]);
+  try {
+    await actor.unsetFlag(game.system.id, `${opts.flagPrefix}.${ref}`);
+  } catch (flagError) {
+    console.warn(`Symbaroum Hymnen: ${opts.flagLabel} konnte nicht entfernt werden`, flagError);
+  }
+  return seen.size > 0;
+}
+
+async function hymnZoneRescan(functionStuff) {
+  /* v2.2 F26: Kopf aus dem MASTER-ZONEN-Rahmen (zoneRegionScanFrame)
+     - Buff-/Schwaeche-Logik bleibt Hymnen-Spezifik. */
+  const frame = await zoneRegionScanFrame(functionStuff, {
+    flagPrefix: "hymnZone",
+    guard: (ref) => game.symbaroum.config.HYMN_REFERENCES.includes(ref),
+    requireStatusId: false,
+  });
+  if (!frame) return;
+  const { abilityRef, casterToken, casterDisposition, inZone, carriers: carrying } = frame;
   /* v1.3 F14 (Rudolfs Freigabe 20.11.): Die Schwächende Hymne teilt jetzt
      die Hymnen-Maschine - Dauerzone AUCH leer, Joiner/Leaver je Runde im
      Rescan. Ihr Zweig braucht KEINE Attribut-Liste vom Vorlage-Symbol
@@ -6521,29 +6624,9 @@ async function hymnZoneRescan(functionStuff) {
      mit der opponierten Erstgesangs-Probe nachziehen; Novize zieht nur
      verwundete Feinde nach (getWeakeningHymnTargets-Muster). */
   const isWeakening = abilityRef === "weakeninghymn";
-  /* Bestand: alle Token der Szene mit einem Hymnen-Symbol dieses Sängers */
-  const carrying = new Map();
-  for (const token of canvas.tokens?.placeables ?? []) {
-    if (!token.actor?.effects) continue;
-    for (const effect of token.actor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster === functionStuff.actor.id && fd?.ability === abilityRef) {
-        carrying.set(token.id, { token, effect, fd });
-        break;
-      }
-    }
-  }
-  /* Vorlage-Symbol für die Attribut-Liste: erst ein Nicht-Sänger-Symbol
-     (stabil über Runden, auch wenn der Sänger sein Symbol verliert),
-     sonst das Sänger-Symbol selbst. */
-  let templateFd = null;
-  for (const entry of carrying.values()) {
-    if (entry.token.id !== casterToken.id) {
-      templateFd = entry.fd;
-      break;
-    }
-  }
-  templateFd ??= carrying.get(casterToken.id)?.fd ?? null;
+  /* v2.2 F26: Bestand + Attribut-Vorlage aus den Master-Helfern
+     (zoneCarriersFor/zoneTemplateFd - bis v2.1 wortgleiche Kopie). */
+  const templateFd = zoneTemplateFd(carrying, casterToken);
   if (!isWeakening && !templateFd) return;
   /* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P4 - Root-Cause): Die
      Vorlage liest die Attribut-Liste FLACH vom Effekt-Flag
@@ -6750,22 +6833,8 @@ export async function thorncloakTokenDeleted(tokenDoc) {
       console.warn("Symbaroum Hymnen: Dornenmantel-Symbol konnte nicht entfernt werden", error);
     }
   }
-  const flagDataArray = [];
-  const seen = new Set();
-  for (const sceneToken of canvas.tokens?.placeables ?? []) {
-    const tokenActor = sceneToken.actor;
-    if (!tokenActor?.effects) continue;
-    for (const effect of tokenActor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.ability !== "thorncloak" || fd?.caster !== actor.id) continue;
-      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
-      if (!statusId) continue;
-      const key = sceneToken.id + "|" + statusId;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      flagDataArray.push({ tokenId: sceneToken.id, removeEffect: statusId });
-    }
-  }
+  /* v2.2 F26: Szenen-Sweep aus dem Master-Helfer. */
+  const { flagDataArray, seen } = zoneAllMarkerRemovals(actor.id, "thorncloak");
   if (seen.size > 0) changed = true;
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
@@ -6817,28 +6886,13 @@ async function endAuraZoneState(actor, ref) {
    erneute Icon-Anwahl. */
 export async function endActiveAura(actor, ref) {
   if (!actor || !ref) return false;
-  const casterId = actor.id;
-  const flagDataArray = [];
-  const seen = new Set();
-  for (const token of canvas.tokens?.placeables ?? []) {
-    const tokenActor = token.actor;
-    if (!tokenActor?.effects) continue;
-    for (const effect of tokenActor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster !== casterId || fd?.ability !== ref) continue;
-      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
-      if (!statusId) continue;
-      const key = token.id + "|" + statusId;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
-    }
-  }
-  if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
-  }
-  await endAuraZoneState(actor, ref);
-  return seen.size > 0;
+  /* v2.2 F26: gemeinsame Ende-Maschine (zoneSweepClose) - bis v2.1
+     wortgleiche Kopie des endActiveGlyph-Szenen-Sweeps. */
+  return zoneSweepClose(actor, ref, {
+    removeRegions: removeAuraZoneRegions,
+    flagPrefix: "aurazone",
+    flagLabel: "Auren-Flag",
+  });
 }
 
 /* v2 F9: Auren-Rescan (hymnZoneRescan-Muster) - Join/Leave je Runde:
@@ -6850,28 +6904,14 @@ export async function endActiveAura(actor, ref) {
    Kategorie, Korruptionsgebuehr nur Heilige Aura). Stille Runde ohne
    Bewegung (keine Karte). */
 export async function auraZoneRescan(functionStuff) {
-  const abilityRef = functionStuff.ability?.reference;
-  if (!(game.symbaroum.config.AURA_REFERENCES ?? []).includes(abilityRef)) return;
-  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `aurazone.${abilityRef}`);
-  if (!zoneFlag?.regionId) return;
-  const region = hymnRegionById(zoneFlag.regionId);
-  if (!region) return;
-  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
-  if (!casterToken) return;
-  const casterDisposition = casterToken.document?.disposition ?? 0;
-  const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
-  const carrying = new Map();
-  for (const token of canvas.tokens?.placeables ?? []) {
-    if (!token.actor?.effects) continue;
-    for (const effect of token.actor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster === functionStuff.actor.id && fd?.ability === abilityRef) {
-        const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
-        if (statusId) carrying.set(token.id, { token, fd, statusId });
-        break;
-      }
-    }
-  }
+  /* v2.2 F26: Kopf aus dem MASTER-ZONEN-Rahmen - Wirk-Klassen- und
+     Kategorie-Spezifik des Auren-Joiners bleibt hier (v2 F9). */
+  const frame = await zoneRegionScanFrame(functionStuff, {
+    flagPrefix: "aurazone",
+    guard: (ref) => (game.symbaroum.config.AURA_REFERENCES ?? []).includes(ref),
+  });
+  if (!frame) return;
+  const { abilityRef, casterToken, casterDisposition, inZone, carriers: carrying } = frame;
   const templateByClass = new Map();
   for (const entry of carrying.values()) {
     const cls = entry.fd?.dot?.resource === "heal" ? "heal" : "toughness";
@@ -6983,34 +7023,17 @@ async function preDialogAuraChoice(functionStuff) {
    die Erstgesangs-Follow-ups (A29/F11-Rundenschaden greifen darueber).
    Stille Runde ohne Bewegung (keine Karte). */
 async function glypheRegionRescan(functionStuff) {
-  const abilityRef = functionStuff.ability?.reference;
-  if (!(game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []).includes(abilityRef)) return;
-  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `glyphzone.${abilityRef}`);
-  if (!zoneFlag?.regionId) return;
-  const region = hymnRegionById(zoneFlag.regionId);
-  if (!region) return;
-  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
-  if (!casterToken) return;
-  const casterDisposition = casterToken.document?.disposition ?? 0;
-  const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
-  /* Bestand: alle Szenen-Token mit einem Glyphen-Marker dieses Wirkers;
-     Vorlage-Snapshot (casterResolute/casterName) eines fremden Markers,
+  /* v2.2 F26: Kopf aus dem MASTER-ZONEN-Rahmen - die opponierte
+     Join-Probe bleibt Glyphen-Spezifik. */
+  const frame = await zoneRegionScanFrame(functionStuff, {
+    flagPrefix: "glyphzone",
+    guard: (ref) => (game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []).includes(ref),
+  });
+  if (!frame) return;
+  const { abilityRef, casterToken, casterDisposition, inZone, carriers: carrying } = frame;
+  /* Vorlage-Snapshot (casterResolute/casterName) eines fremden Markers,
      sonst Fallback ueber den aktuellen Wirker. */
-  const carrying = new Map();
-  let templateFd = null;
-  for (const token of canvas.tokens?.placeables ?? []) {
-    if (!token.actor?.effects) continue;
-    for (const effect of token.actor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster === functionStuff.actor.id && fd?.ability === abilityRef) {
-        const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
-        if (statusId) carrying.set(token.id, { token, fd, statusId });
-        if (!templateFd && token.id !== casterToken.id) templateFd = fd;
-        break;
-      }
-    }
-  }
-  templateFd ??= carrying.get(casterToken.id)?.fd ?? null;
+  const templateFd = zoneTemplateFd(carrying, casterToken);
   const flagDataArray = [];
   const rolls = [];
   const lines = [];
@@ -7068,33 +7091,12 @@ async function glypheRegionRescan(functionStuff) {
 export async function endActiveGlyph(actor, ref) {
   if (!actor || !ref) return false;
   if (!(game.symbaroum.config.GLYPH_ZONE_REFERENCES ?? []).includes(ref)) return false;
-  const casterId = actor.id;
-  const flagDataArray = [];
-  const seen = new Set();
-  for (const token of canvas.tokens?.placeables ?? []) {
-    const tokenActor = token.actor;
-    if (!tokenActor?.effects) continue;
-    for (const effect of tokenActor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster !== casterId || fd?.ability !== ref) continue;
-      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
-      if (!statusId) continue;
-      const key = token.id + "|" + statusId;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
-    }
-  }
-  if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
-  }
-  await removeGlyphZoneRegions(casterId, [ref]);
-  try {
-    await actor.unsetFlag(game.system.id, `glyphzone.${ref}`);
-  } catch (glyphFlagError) {
-    console.warn("Symbaroum Hymnen: Glyphen-Flag konnte nicht entfernt werden", glyphFlagError);
-  }
-  return seen.size > 0;
+  /* v2.2 F26: gemeinsame Ende-Maschine (zoneSweepClose, endActiveAura-Zwilling). */
+  return zoneSweepClose(actor, ref, {
+    removeRegions: removeGlyphZoneRegions,
+    flagPrefix: "glyphzone",
+    flagLabel: "Glyphen-Flag",
+  });
 }
 
 /* v2.1 F22: Erneute Icon-Anwahl bei LAUFENDem Glyphen-Kreis =
@@ -7181,22 +7183,8 @@ export async function glypheTokenDeleted(tokenDoc) {
       console.warn("Symbaroum Hymnen: Glyphen-Flag konnte nicht entfernt werden", error);
     }
   }
-  const flagDataArray = [];
-  const seen = new Set();
-  for (const sceneToken of canvas.tokens?.placeables ?? []) {
-    const tokenActor = sceneToken.actor;
-    if (!tokenActor?.effects) continue;
-    for (const effect of tokenActor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (!fd || fd.caster !== actor.id || !glyphRefs.includes(fd.ability)) continue;
-      const statusId = effect.statuses?.size ? [...effect.statuses][0] : null;
-      if (!statusId) continue;
-      const key = sceneToken.id + "|" + statusId;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      flagDataArray.push({ tokenId: sceneToken.id, removeEffect: statusId });
-    }
-  }
+  /* v2.2 F26: Szenen-Sweep aus dem Master-Helfer (alle Glyphen-refs). */
+  const { flagDataArray, seen } = zoneAllMarkerRemovals(actor.id, glyphRefs);
   if (seen.size > 0) changed = true;
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
@@ -7677,54 +7665,38 @@ function thornCloakTokenInZone(casterToken, token, region) {
      zurueckgeliefert (Disposition/Distanz/bereits gewoben), damit
      stille Skips auf der Aktivierungs- und Rescan-Karte lesbar sind. */
 function thornCloakAlliesInZone(functionStuff, casterToken, region) {
+  /* v2.2 F29 (Rudolfs Testrunde v2.1, R3): Die Dornenmantel-Flaeche
+     ist sichtbar - die "nicht gewoben"-Diagnosezeilen und der
+     Chebyshev-Nahbereichs-Scan entfallen. Die Region-Mitgliedschaft
+     (bzw. ohne Flaeche die Notfall-Naehe, bewusst behalten) ist die
+     Autoritaet; die v1.7-Dispositions-Regel und der Bereits-Gewoben-
+     Check bleiben als funktionale Filter (Doppel-Webe-Schutz).
+     Rueckgabe ist die reine Verbuendeten-Liste. */
   if (!region) {
     console.info("Symbaroum Hymnen [trace] Dornenmantel ohne Flaeche - Notfall-Naehe (Chebyshev 1,5 Zellen) aktiv", { casterId: String(casterToken?.id ?? casterToken?.document?.id ?? "") });
   }
   const casterDisposition = casterToken?.document?.disposition ?? casterToken?.disposition ?? 0;
   const casterId = casterToken?.id ?? casterToken?.document?.id;
-  const casterCenter = thornCloakTokenCenter(casterToken);
   const allies = [];
-  const skipLines = [];
   try {
-    const cell = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.grid?.size ?? 100;
     for (const token of canvas.tokens?.placeables ?? []) {
       if (!token.actor || token.id === casterId) continue;
-      const center = thornCloakTokenCenter(token);
-      const distCells = Math.max(Math.abs(center.x - casterCenter.x), Math.abs(center.y - casterCenter.y)) / cell;
-      /* Ferne Token sind fuer die Karte uninteressant - nur der
-         Nahbereich wird diagnostiziert (bis 3 Felder). */
-      if (distCells > 3) continue;
+      /* v1.7-Dispositions-Regel: FEINDLICHE Token zaehlen nur bei
+         feindlichem Mystiker, NEUTRALE immer. */
       const tokenDisp = token.document?.disposition ?? 0;
-      if (tokenDisp < 0 && casterDisposition >= 0) {
-        skipLines.push(thornCloakSkipLine(token, game.i18n.format("POWER_THORN_CLOAK.SWEEP_REASON_DISPOSITION", { disp: tokenDisp, caster: casterDisposition })));
-        continue;
-      }
+      if (tokenDisp < 0 && casterDisposition >= 0) continue;
       const alreadyWoven = token.actor.effects.some((effect) => {
         const fd = effect.getFlag(game.system.id, "flagData");
         return fd?.caster === functionStuff.actor.id && fd?.ability === "thorncloak";
       });
-      if (alreadyWoven) {
-        skipLines.push(thornCloakSkipLine(token, game.i18n.localize("POWER_THORN_CLOAK.SWEEP_REASON_WOVEN")));
-        continue;
-      }
-      /* v1.2 F7: Mitgliedschaft entscheidet die Flaeche (bzw. ohne
-         Flaeche die Notfall-Naehe); die Zellen-Diagnose bleibt fuer
-         die Skip-Zeile. */
-      if (!thornCloakTokenInZone(casterToken, token, region)) {
-        skipLines.push(thornCloakSkipLine(token, game.i18n.format("POWER_THORN_CLOAK.SWEEP_REASON_DISTANCE", { cells: (Math.round(distCells * 10) / 10).toLocaleString(game.i18n.lang) })));
-        continue;
-      }
+      if (alreadyWoven) continue;
+      if (!thornCloakTokenInZone(casterToken, token, region)) continue;
       allies.push(token);
     }
   } catch (sweepError) {
-    game.symbaroum.log("Hymnen 1.7: Dornenmantel-Sweep", sweepError);
+    game.symbaroum.log("Hymnen v2.2: Dornenmantel-Sweep", sweepError);
   }
-  return { allies, skipLines };
-}
-
-/* Skip-Diagnosezeile der v1.7 (v2.15-Heilaura-Muster): Name + Grund */
-function thornCloakSkipLine(token, reason) {
-  return `<p>${game.i18n.format("POWER_THORN_CLOAK.SWEEP_SKIP", { targetname: token.name, reason })}</p>`;
+  return allies;
 }
 
 /* Dornenmantel-Ruestungs-Item am Akteur auf die aktuelle Bonus-Stufe
@@ -7841,8 +7813,8 @@ async function thornCloakResult(rollData, functionStuff) {
   if (functionStuff.powerLvl.level > 1 && casterToken) {
     /* v1.7: Sweep liefert allies + Skip-Diagnosezeilen (Punkt 2);
        v1.2 F7: Sweep gegen die Flaeche statt Chebyshev. */
-    const sweep = thornCloakAlliesInZone(functionStuff, casterToken, cloakRegion);
-    for (const token of sweep.allies) {
+    const allies = thornCloakAlliesInZone(functionStuff, casterToken, cloakRegion);
+    for (const token of allies) {
       flagDataArray.push({
         tokenId: token.id,
         addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
@@ -7860,9 +7832,6 @@ async function thornCloakResult(rollData, functionStuff) {
         protection: "1d4",
       });
       lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ALLY_LINE", { targetname: token.name })}</p>`);
-    }
-    for (const skipLine of sweep.skipLines) {
-      lines.push(skipLine);
     }
   }
   if (functionStuff.powerLvl.level > 2) {
@@ -7899,17 +7868,9 @@ async function thornCloakRescan(functionStuff) {
     cloakRegion = (await placeThornCloakZone(casterToken, functionStuff.actor, functionStuff.ability, { forceAuto: true }))?.region ?? null;
   }
 
-  const carrying = new Map();
-  for (const token of canvas.tokens?.placeables ?? []) {
-    if (!token.actor?.effects) continue;
-    for (const effect of token.actor.effects) {
-      const fd = effect.getFlag(game.system.id, "flagData");
-      if (fd?.caster === functionStuff.actor.id && fd?.ability === "thorncloak") {
-        carrying.set(token.id, { token, effect, fd });
-        break;
-      }
-    }
-  }
+  /* v2.2 F26: Bestand aus dem Master-Helfer (requireStatusId false -
+     Hymnen-Muster, der Marker wirkt auch ohne Status-Icon). */
+  const carrying = zoneCarriersFor(functionStuff.actor.id, "thorncloak", { requireStatusId: false });
   const moved = functionStuff.actor.getFlag(game.system.id, "thornCloakMoved") === true;
   await thornCloakSetArmorDice(functionStuff.actor, moved ? "1d4" : "1d6");
   const flagDataArray = [];
@@ -7928,8 +7889,8 @@ async function thornCloakRescan(functionStuff) {
     /* v1.7: Sweep liefert allies + Skip-Diagnosezeilen (Punkt 4,
        Leaver/Joiner-Diagnose auf der Rescan-Karte); v1.2 F7: Sweep
        gegen die Flaeche statt Chebyshev. */
-    const sweep = thornCloakAlliesInZone(functionStuff, casterToken, cloakRegion);
-    for (const token of sweep.allies) {
+    const allies = thornCloakAlliesInZone(functionStuff, casterToken, cloakRegion);
+    for (const token of allies) {
       flagDataArray.push({
         tokenId: token.id,
         addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "thorncloak")),
@@ -7947,9 +7908,6 @@ async function thornCloakRescan(functionStuff) {
         protection: "1d4",
       });
       lines.push(`<p>${game.i18n.format("POWER_THORN_CLOAK.ZONE_JOINED", { targetname: token.name })}</p>`);
-    }
-    for (const skipLine of sweep.skipLines) {
-      lines.push(skipLine);
     }
   }
   if (lines.length > 0) {

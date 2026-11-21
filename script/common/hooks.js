@@ -1696,7 +1696,21 @@ function a29ShowReminderDialog(actor, abilityRef, targetCount) {
 		   braucht GM-Rechte an fremden Token - ein Spieler-Client
 		   (Reminder via Socket, G1) schickt die Antwort an den GM, wie
 		   beim Abort-Weg. */
-		if (aoeFindZoneRegionFor(actor.id, abilityItem.system?.reference)) {
+		/* v2.2 F25/F27 (Rudolfs Testrunde v2.1, R2 - Doppelfeuer bei
+		   A29-"Ja", zwei Rescan-Karten je Joiner/Leaver; A5-Blockade):
+		   Kraefte mit EIGENER Zonen-Maschine (OWN_ZONE_REFERENCES +
+		   Hymnen) laufen NIE ueber die generische Zonen-Maintain-Runde -
+		   A29-"Ja" fuehrt IMMER den normalen presetMaintain-Flow
+		   (usePower), der die eigene Maschine triggert. Bis v2.1 griff
+		   hier aoeFindZoneRegionFor bei generischen REST-Zonen (Alt-
+		   Regionen mit aoe-Flag), aoeMaintainZoneRound lief false -
+		   der Fallback feuerte usePower ZUSAETZLICH: zwei Karten im
+		   selben Ereignis (Heldenhafte Hymne, R2); fuer Auren landete
+		   der A29-"Ja" nie im Maintain-Wurf-Dialog (A5). */
+		const ownZoneRef =
+			(game.symbaroum.config.OWN_ZONE_REFERENCES ?? []).includes(String(abilityItem.system?.reference ?? '')) ||
+			(game.symbaroum.config.HYMN_REFERENCES ?? []).includes(String(abilityItem.system?.reference ?? ''));
+		if (!ownZoneRef && aoeFindZoneRegionFor(actor.id, abilityItem.system?.reference)) {
 			if (game.user.isGM) {
 				/* v2.10 (Rudolfs Testrunde 9, P6-Root-Cause): aoeMaintain-
 				   ZoneRound liefert false, wenn die gefundene Region KEINE

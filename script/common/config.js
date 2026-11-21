@@ -508,6 +508,24 @@ SYMBAROUM.AURA_REFERENCES = ["holyaura", "unholyaura"];
    Symbolismus-Zonen-Kraefte (Bannsiegel etc.) in dieselbe Liste. */
 SYMBAROUM.GLYPH_ZONE_REFERENCES = ["drainingglyph"];
 
+/* v2.2 F25 (Rudolfs Testrunde v2.1, rote A-Serie + G4/G5/G6 + R2):
+   MASTERLISTE der Kraefte mit EIGENER Zonen-Maschine (Dornenmantel,
+   Heilige/Unheilige Aura, Entkraftende Glyphe). Fuer diese refs
+   schweigt die GENERISCHE Zonen-Engine komplett (Zonen-Tab-Ausfuehrungs-
+   dialog maybeZoneExecutionChoice, Platzieren-Knopf placeZoneFromItem,
+   A29-Zonen-Maintain-Runde im Erinnerungs-Dialog): der Zonen-Tab ist
+   fuer sie reiner Datenspeicher (Radius/autoplace/hidden) fuer die
+   eigene Maschine - das F15-Muster des Dornenmantels, zentralisiert.
+   Die v2.1-Testrunde zeigte die Folge des punktuellen Ausschlusses:
+   bei konfiguriertem Tab lief die generische Maschine PARALLEL
+   (zweite fixierte Nutzerfarben-Region mit eigener Zone-beenden-
+   Karte, falsche Auswerte-Region, blockierte Leerplatzierung G5,
+   fehlender Abbruch-Dialog G4, A29-Doppelfeuer R2). Hymnen bleiben
+   separat ueber HYMN_REFERENCES (eigener Dialog-Block). v2.2-Fix-
+   reihen: die G7-Sweep-Zonen-Kraefte erweitern diese Liste erst mit
+   ihrem Paket. */
+SYMBAROUM.OWN_ZONE_REFERENCES = ["thorncloak", "holyaura", "unholyaura", "drainingglyph"];
+
 // A16: powers that require an active weapon of quality "Long" ("Lang") to be cast
 SYMBAROUM.staffMagicPowers = ["staffprojectile", "sphere"];
 

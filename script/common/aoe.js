@@ -2355,12 +2355,15 @@ function _flamewallShapeDialog(item) {
 export async function placeZoneFromItem(item) {
 	if (!item) return;
 	if (!mayPlaceZone(item)) return;
-	/* v1.4 F15: Dornenmantel nie generisch anlegen (eigene Maschine,
-	   siehe maybeZoneExecutionChoice) - deckt auch den Platzieren-
-	   Knopf im Zonen-Tab ab (Alt-Regionen aus v1.3.1-Tests bitte
-	   manuell loeschen). */
-	if (String(item.system?.reference ?? '') === 'thorncloak') {
-		console.info('Symbaroum Hymnen [trace] Dornenmantel: generische Zonen-Anlage unterdrueckt (F15)');
+	/* v1.4 F15 -> v2.2 F25 (Rudolfs Testrunde v2.1, A1/A2/G4/G6):
+	   Kraefte mit EIGENER Zonen-Maschine nie generisch anlegen - der
+	   Dornenmantel-Einzelcheck ist jetzt die zentrale Masterliste
+	   OWN_ZONE_REFERENCES (Dornenmantel, Auren, Glyphe), geprueft an
+	   JEDER generischen Eintrittsstelle. Deckt auch den Platzieren-
+	   Knopf im Zonen-Tab ab (Alt-Regionen aus Testrunden bitte manuell
+	   loeschen). */
+	if ((game.symbaroum.config.OWN_ZONE_REFERENCES ?? []).includes(String(item.system?.reference ?? ''))) {
+		console.info('Symbaroum Hymnen [trace] Eigene Zonen-Maschine: generische Zonen-Anlage unterdrueckt (F25)', String(item.system?.reference ?? ''));
 		return;
 	}
 	if (!aoeEnabled()) {
@@ -3044,23 +3047,34 @@ export async function placeThornCloakZone(casterToken, casterActor, item = null,
  * löscht alle Regionen mit hymnzone.casterId auf der aktuellen Szene,
  * deren Referenz in refs steht. Idempotent.
  */
-export async function removeHymnZoneRegions(casterId, refs) {
+/* v2.2 F26 (Rudolfs A4-Bewertung der Testrunde v2.1): Die drei
+   Region-Raeumer der eigenen Zonen-Maschinen (Hymne/Aura/Glyphe)
+   waren wortgleiche Kopien - EIN Kern mit Flag-Schluessel als einzigem
+   Unterschied. Die oeffentlichen Namen bleiben als duenne Wrapper
+   erhalten (alle Aufrufstellen unveraendert); der String-Vergleich ist
+   der toleranteren Aura/Glyph-Variante folgt (Hymnen-Alt-Regionen
+   sind davon nicht betroffen - IDs sind Zeichenketten). */
+async function removeZoneRegionsByFlag(casterId, refs, flagKey, label) {
 	if (!canvas?.scene || !Array.isArray(refs) || refs.length === 0) return;
-	const wanted = new Set(refs);
+	const wanted = new Set(refs.map((r) => String(r)));
 	const doomed = [];
 	for (const region of canvas.scene.regions ?? []) {
-		const hz = region.flags?.symbaroum?.hymnzone;
-		if (!hz) continue;
-		if (hz.casterId === casterId && wanted.has(hz.ref)) doomed.push(region);
+		const zf = region.flags?.symbaroum?.[flagKey];
+		if (!zf) continue;
+		if (String(zf.casterId) === String(casterId ?? '') && wanted.has(String(zf.ref))) doomed.push(region);
 	}
 	for (const region of doomed) {
 		if (!canvas?.scene?.regions?.get(region.id)) continue;
 		try {
 			await region.delete();
 		} catch (deleteError) {
-			console.warn('Symbaroum Hymnen: Gesangsflaeche konnte nicht entfernt werden', region?.name, deleteError);
+			console.warn(`Symbaroum Hymnen: ${label} konnte nicht entfernt werden`, region?.name, deleteError);
 		}
 	}
+}
+
+export async function removeHymnZoneRegions(casterId, refs) {
+	await removeZoneRegionsByFlag(casterId, refs, 'hymnzone', 'Gesangsflaeche');
 }
 
 /** v2 F9 (Rudolfs Freigabe 20.11.): Bestehende Auren-Region eines Wirkers
@@ -3077,43 +3091,13 @@ export function auraRegionFor(casterId, abilityRef) {
  *  (Auren-Ende egal warum - Abbruch, Maintain-Fehlschlag, Token-Delete).
  *  Idempotent, Existenz-Check + try/catch je Loeschung (F19a-Stil). */
 export async function removeAuraZoneRegions(casterId, refs) {
-	if (!canvas?.scene || !Array.isArray(refs) || refs.length === 0) return;
-	const wanted = new Set(refs);
-	const doomed = [];
-	for (const region of canvas.scene.regions ?? []) {
-		const az = region.flags?.symbaroum?.aurazone;
-		if (!az) continue;
-		if (String(az.casterId) === String(casterId ?? '') && wanted.has(String(az.ref))) doomed.push(region);
-	}
-	for (const region of doomed) {
-		if (!canvas?.scene?.regions?.get(region.id)) continue;
-		try {
-			await region.delete();
-		} catch (deleteError) {
-			console.warn('Symbaroum Hymnen: Auren-Flaeche konnte nicht entfernt werden', region?.name, deleteError);
-		}
-	}
+	await removeZoneRegionsByFlag(casterId, refs, 'aurazone', 'Auren-Flaeche');
 }
 
 /** v2 F10 (Rudolfs Freigabe 20.11.): Glyphen-Kreise eines Wirkers raeumen
  *  (Neucast ersetzt die Flaeche, A29-Abbruch beendet sie). */
 export async function removeGlyphZoneRegions(casterId, refs) {
-	if (!canvas?.scene || !Array.isArray(refs) || refs.length === 0) return;
-	const wanted = new Set(refs);
-	const doomed = [];
-	for (const region of canvas.scene.regions ?? []) {
-		const gz = region.flags?.symbaroum?.glyphzone;
-		if (!gz) continue;
-		if (String(gz.casterId) === String(casterId ?? '') && wanted.has(String(gz.ref))) doomed.push(region);
-	}
-	for (const region of doomed) {
-		if (!canvas?.scene?.regions?.get(region.id)) continue;
-		try {
-			await region.delete();
-		} catch (deleteError) {
-			console.warn('Symbaroum Hymnen: Glyphen-Flaeche konnte nicht entfernt werden', region?.name, deleteError);
-		}
-	}
+	await removeZoneRegionsByFlag(casterId, refs, 'glyphzone', 'Glyphen-Flaeche');
 }
 
 /** v2 F9 (Rudolfs Freigabe 20.11.): Heilige/Unheilige Aura als ANGEHAENGTE
@@ -3355,7 +3339,11 @@ export async function maybeZoneExecutionChoice(item) {
 	   "Zone beenden"-Karte, Rundenende wertete die falsche Zone aus).
 	   Der Tab ist fuer ihn reiner Datenspeicher - Rueckgabe false =
 	   normaler manueller Ablauf wie bei Hymnen. */
-	if (String(item.system?.reference ?? '') === 'thorncloak') return false;
+	/* v2.2 F25 (Rudolfs Testrunde v2.1, A-Serie): F15 verallgemeinert -
+	   ALLE Kraefte mit eigener Zonen-Maschine (OWN_ZONE_REFERENCES:
+	   Dornenmantel, Auren, Glyphe) schweigen im generischen Zonen-
+	   Ausfuehrungsdialog; der Zonen-Tab ist reiner Datenspeicher. */
+	if ((game.symbaroum.config.OWN_ZONE_REFERENCES ?? []).includes(String(item.system?.reference ?? ''))) return false;
 	/* Hymnen-Paket 1.1: „Zone aktivieren: Nein“ = keine Warnung, kein
 	   Ausführungsdialog (Vor dem Teil-Konfigurations-Check, damit auch
 	   die Form-Warnung von deaktivierten Zonen schweigt). */
