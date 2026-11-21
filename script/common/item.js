@@ -5096,8 +5096,10 @@ function getPowerResultFunction(functionStuff) {
       /* v2.8.1 G7: Der Bannsiegel-Zauber legt die Zone (Erstgesang je
          Feind der Region, Kategorie-Filter); die alte SL-Zielkette
          (banishingSealChainResult) laeuft nicht mehr - ihr Flucht- und
-         Schadens-Muster lebt im Erstgesang weiter. */
-      return symbolZoneResult;
+         Schadens-Muster lebt im Erstgesang weiter.
+         v2.8.3: Ausfuehrungs-Dialog „Manuell" = klassischer Einzel-
+         ziel-Zauber ohne Zone (Rudolfs Testrunde v2.8.2, 2). */
+      return functionStuff.symbolZoneManual ? standardPowerResult : symbolZoneResult;
     case "drainingglyph":
       /* v2.1 F22 (Hymnen-Ablauf): Maintain-Runde = Standard-Kette plus
          glypheRegionRescan (Joiner/Leaver des Glyphen-Kreises). */
@@ -5139,8 +5141,14 @@ function getPowerResultFunction(functionStuff) {
       /* v2.8.1 G7 (Glyphe-Muster drainingGlyphMaintainResult): Erst-
          zauber = symbolZoneResult (Platzierung + Erstgesang), Maintain-
          runde = Standard-Kette plus Zonen-Rescan (Joiner/Leaver der
-         Maintain-Stufen ab Adept). Die alte SL-Zielkette entfaellt. */
-      return functionStuff.isMaintained ? symbolZoneMaintainResult : symbolZoneResult;
+         Maintain-Stufen ab Adept). Die alte SL-Zielkette entfaellt.
+         v2.8.3: Ausfuehrungs-Dialog „Manuell" = klassischer Einzel-
+         ziel-Zauber ohne Zone (Rudolfs Testrunde v2.8.2, 2). */
+      return functionStuff.symbolZoneManual
+        ? standardPowerResult
+        : functionStuff.isMaintained
+          ? symbolZoneMaintainResult
+          : symbolZoneResult;
     case "mindthrow":
       return functionStuff.powerLvl.level > 2 && !functionStuff.isMaintained && functionStuff.targetData?.hasTarget
         ? mindThrowChainResult
@@ -5167,8 +5175,14 @@ function getPowerResultFunction(functionStuff) {
           : standardPowerResult;
     case "battlesymbol":
       /* v2.8.1 G7: wie Blendendes Symbol - Maintain-Stufen (ab Adept)
-         rescanen die Zone je Runde, der Rest laeuft sofort. */
-      return functionStuff.isMaintained ? symbolZoneMaintainResult : symbolZoneResult;
+         rescanen die Zone je Runde, der Rest laeuft sofort.
+         v2.8.3: Ausfuehrungs-Dialog „Manuell" = klassischer Einzel-
+         ziel-Zauber ohne Zone (Rudolfs Testrunde v2.8.2, 2). */
+      return functionStuff.symbolZoneManual
+        ? standardPowerResult
+        : functionStuff.isMaintained
+          ? symbolZoneMaintainResult
+          : symbolZoneResult;
     // Hymnen-Paket 1.5: Schwaechende Hymne (Erstgesang mit je-Feind-
     // Proben; die A29-Maintain-Runde laeuft still ueber preDialog-
     // WeakeningHymnChoice und erreicht den Dispatch nie) und Dornen-
@@ -5190,8 +5204,14 @@ function getPowerResultFunction(functionStuff) {
          Maintain-Runden (Novize/Adept) als Standard-Kette plus Zonen-
          Rescan, Meister ausserdem als sofort-Stufe (Bewegungs-Tracker,
          config SYMBOL_ZONE_IMMEDIATE_LEVELS). Die alte SL-Zielkette
-         (markoftormentChainResult) laeuft nicht mehr. */
-      return functionStuff.isMaintained ? symbolZoneMaintainResult : symbolZoneResult;
+         (markoftormentChainResult) laeuft nicht mehr.
+         v2.8.3: Ausfuehrungs-Dialog „Manuell" = klassischer Einzel-
+         ziel-Zauber ohne Zone (Rudolfs Testrunde v2.8.2, 2). */
+      return functionStuff.symbolZoneManual
+        ? standardPowerResult
+        : functionStuff.isMaintained
+          ? symbolZoneMaintainResult
+          : symbolZoneResult;
     case "levitate":
       return functionStuff.isMaintained
         ? levitateMaintainResult
@@ -7611,7 +7631,7 @@ async function symbolZoneRescan(functionStuff) {
   }
 }
 
-export async function symbolZoneImmediateJoiner(regionDoc) {
+export async function symbolZoneImmediateJoiner(regionDoc, enteringTokenId = null) {
   /* v2.8.1 G7: SOFORT-Ausloesung der sofort-Stufen bei BETRETEN der
      Region (aoe.js Bewegungs-Tracker); Main-Runden der Maintain-
      Stufen laufen in symbolZoneRescan. Stille opposed Probe je
@@ -7621,18 +7641,27 @@ export async function symbolZoneImmediateJoiner(regionDoc) {
      gegen die gespeicherte Kategorie. KEINE Korruption (die zahlt
      die Erstplatzierung, A16). Der Wirker wird ueber das Region-Flag
      aufgeloest - ist er nicht mehr greifbar, wertet die SL manuell
-     (Trace). */
+     (Trace).
+     v2.8.3 (Rudolfs Testrunde v2.8.2, 6): Geprueft wird NUR der neu
+     BETRETENDE - bis v2.8.2 durchlief der Joiner bei jedem Betreten
+     den gesamten Region-Bestand (Rudolfs Befund: „die Kette für
+     alle Token in der Zone gefeuert, nicht nur für den neuen").
+     enteringTokenId kommt aus aoe.js _symbolZoneEnter; ohne Id
+     Rueckzug als Sicherheitsnetz (kein Bestands-Feuer mehr). Bannsiegel-Kategorie-Filter und Skip-Zeile laufen nur fuer den Betreter, Erstgesang und Maintain-Rescan bleiben unberuehrt. */
   const zf = regionDoc?.flags?.symbaroum?.symbolzone ?? null;
   const ref = String(zf?.ref ?? "");
   if (!zf || !(game.symbaroum.config.SYMBOL_ZONE_POWERS ?? []).includes(ref)) return;
   if (!((game.symbaroum.config.SYMBOL_ZONE_IMMEDIATE_LEVELS?.[ref] ?? []).includes(Number(zf.symbolLevel ?? 1)))) return;
+  if (!enteringTokenId) return;
   const caster = zf.casterActorUuid ? fromUuidSync(zf.casterActorUuid) : null;
   if (!caster?.id) {
     console.warn("Symbaroum Hymnen [trace] Symbolzone-Sofort-Ausloesung ohne Wirker (SL wertet manuell)", { ref, regionId: regionDoc.id });
     return;
   }
   const casterDisposition = Number(zf.casterDisposition ?? 0);
-  const tokenIds = hymnRegionTokens(regionDoc).map((t) => t.id);
+  /* v2.8.3: Fokus auf den BETRETENDEN (Betreter-Id aus dem
+     Bewegungs-Tracker), kein Region-Bestand-Loop mehr. */
+  const tokenIds = [String(enteringTokenId)];
   const flagDataArray = [];
   const rolls = [];
   const lines = [];
@@ -7673,7 +7702,7 @@ export async function symbolZoneImmediateJoiner(regionDoc) {
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
   }
-  console.info("Symbaroum Hymnen [trace] Symbolzone sofort ausgeloest", { ref, regionId: regionDoc.id, lines: lines.length, markers: flagDataArray.length });
+  console.info("Symbaroum Hymnen [trace] Symbolzone sofort ausgeloest", { ref, regionId: regionDoc.id, enteringTokenId: String(enteringTokenId), lines: lines.length, markers: flagDataArray.length });
 }
 
 export async function symbolZoneTokenDeleted(tokenDoc) {
@@ -7735,6 +7764,74 @@ export async function endActiveSymbolZone(actor, ref) {
    F41); ohne laufende Zone der normale Wuerfeldialog. Gilt fuer
    Blendendes Symbol, Zeichen der Pein und Kampfsymbol (Bannsiegel
    hat seinen eigenen preDialog-Zweig, siehe preDialogBanishingSeal). */
+/* v2.8.3 G7 (Rudolfs Testrunde v2.8.2, 2 + Freigabe „Leg los"):
+   Ausfuehrungs-Dialog der vier Symbolkraefte, BAUGLEICH zum
+   Glyphen-Dialog (maybeZoneExecutionChoice: Titel, Hinweis, und die
+   Drei Tasten Manuell / Zone platzieren / Abbrechen mit denselben
+   i18n-Keys AOE.EXEC_* und DIALOG.CANCEL - keine neuen Schluessel).
+   Rueckgabe: "manual" | "zone" | "cancel" (X/ESC = cancel). Die
+   Ausfuehrungswege bleiben die Symbol-Maschinen (Icon-Cast, Picker,
+   Erstgesang, Ende nur ueber Icon) - nur der Dialog ist das
+   Glyphe-1:1-Modell. */
+function symbolZoneExecutionChoiceDialog(functionStuff) {
+  const choiceModern = isModernDialogActive();
+  const content = `<div class="symbaroum${choiceModern ? " modern-roll-dialog" : " dialog"}"><p>${game.i18n.localize("AOE.EXEC_HINT")}</p></div>`;
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const dialog = symbDialog({
+      title: game.i18n.format("AOE.EXEC_TITLE", { power: functionStuff.abilityName }),
+      content,
+      classes: isModernDialogActive() ? modernDialogClasses("modern-power-exec-dialog") : [],
+      buttons: {
+        manual: {
+          icon: '<i class="fas fa-user"></i>',
+          label: game.i18n.localize("AOE.EXEC_MANUAL"),
+          callback: () => settle("manual"),
+        },
+        zone: {
+          icon: '<i class="fas fa-draw-polygon"></i>',
+          label: game.i18n.localize("AOE.EXEC_ZONE"),
+          callback: () => settle("zone"),
+        },
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("DIALOG.CANCEL"),
+          callback: () => settle("cancel"),
+        },
+      },
+      onRender: (element) => {
+        const btns = element?.querySelectorAll?.("footer button");
+        if (!btns || btns.length === 0) return;
+        const footer = btns[0].closest("footer") ?? btns[0].parentElement;
+        if (footer) {
+          footer.style.display = "flex";
+          footer.style.flexDirection = "column";
+          footer.style.gap = "0.25rem";
+        }
+        for (const b of btns) {
+          b.style.boxSizing = "border-box";
+          b.style.setProperty("width", "100%", "important");
+          b.style.setProperty("align-self", "stretch", "important");
+        }
+      },
+      default: "manual",
+      width: 460,
+    });
+    try {
+      dialog.addEventListener("close", () => settle("cancel"));
+    } catch (closeError) {
+      /* symbDialog-Guard nicht verfuegbar: die Button-Callbacks
+         decken den Normalfall ab, X/ESC blieben dann ohne Wirkung. */
+      game.symbaroum.log?.("v2.8.3: Symbol-Ausfuehrungsdialog ohne Close-Waechter");
+    }
+  });
+}
+
 /* v2.8.2 G7 (Rudolfs Testrunde v2.8.1, 1a/3 - GLYPHEN-Ablauf-
    Paritaet): Picker-Platzierung VOR dem Wuerfeldialog. Die platzierte
    Region pendet als functionStuff.hymnZone (Hymnen-1.2-Netz): der
@@ -7772,15 +7869,32 @@ async function preDialogSymbolZoneChoice(functionStuff) {
   }
   const running = functionStuff.actor?.getFlag(game.system.id, `symbolzone.${ref}`)?.regionId ? ref : null;
   if (!running) {
-    /* v2.8.2 G7 (Rudolfs Testrunde v2.8.1, 1a/3 - GLYPHEN-Ablauf-
-       Paritaet): Beim FRISCHEN Zauber laeuft die Picker-Platzierung
-       VOR dem Wuerfeldialog (Schwaeche-Glyphe: Ausfuehrungs-Dialog,
-       PLATZIERUNG, dann Wuerfeldialog), nicht mehr erst im Erstgesang
-       hinter dem Wurf. Die Region pendet als functionStuff.hymnZone
-       (Hymnen-1.2-Netz), der Erstgesang uebernimmt sie ueber
-       zoneErstgesangFrame, Cancel/X/ESC des Wuerfeldialogs raeumt
-       still ab (cleanupFreshHymnZone). Picker-Abbruch: Zauber endet
-       ohne Karte und KOSTENLOS (Rudolfs Test 2 blieb gruen). */
+    /* v2.8.3 G7 (Rudolfs Testrunde v2.8.2, 2 - GLYPHEN-Ablauf-
+       Paritaet, Freigabe „Leg los"): Beim FRISCHEN Zauber oeffnet
+       zuerst der AUSFUEHRUNGS-DIALOG (Glyphe 1:1: Manuell / Zone
+       platzieren / Abbrechen). „Zone platzieren" = Picker-Platzierung,
+       dann Wuerfeldialog (Region pendet als functionStuff.hymnZone,
+       der Erstgesang uebernimmt sie, Cancel/X/ESC des Wuerfeldialogs
+       raeumt still ab, Picker-Abbruch endet ohne Karte und
+       KOSTENLOS). „Manuell" = klassischer Einzelziel-Zauber OHNE
+       Zone (Zielzwang, symbolZoneManual-Flag fuer den Dispatcher,
+       Standard-Wuerfeldialog, danach KEINE Zone, kein Icon-
+       Abbruch). Abbrechen/X/ESC = still, kein Wirken, keine
+       Korruption. */
+    const choice = await symbolZoneExecutionChoiceDialog(functionStuff);
+    if (choice === "cancel") return;
+    if (choice === "manual") {
+      if (!functionStuff.targetData?.hasTarget && functionStuff.targets?.length) {
+        functionStuff.targetData = functionStuff.targets[0];
+      }
+      if (!functionStuff.targetData?.hasTarget) {
+        ui.notifications.error(game.i18n.localize("ERROR.NO_TARGET_SELECTED"));
+        return;
+      }
+      functionStuff.symbolZoneManual = true;
+      await modifierDialog(functionStuff);
+      return;
+    }
     const placed = await symbolZonePlaceBeforeDialog(functionStuff, ref);
     if (!placed) return;
     await modifierDialog(functionStuff);
@@ -12924,6 +13038,26 @@ async function preDialogBanishingSeal(functionStuff) {
   if (!functionStuff.targetData?.hasTarget && functionStuff.targets?.length) {
     functionStuff.targetData = functionStuff.targets[0];
   }
+  /* v2.8.3 G7 (Rudolfs Karte zur Testrunde v2.8.2, 2: „auch Bann-
+     siegel: Ausfuehrungs-Dialog vor den Kategorie-Dialog"), Freigabe
+     „Leg los": Der Glyphe-1:1-Ausfuehrungsdialog (Manuell / Zone
+     platzieren / Abbrechen) laeuft vor dem Kategorie-Dialog. „Zone
+     platzieren" = Kategorie-Dialog, dann Picker, dann Wuerfeldialog
+     (Reihenfolge unveraendert gegen v2.8.2; die Kategorie bleibt VOR
+     dem Picker - Rudolfs Testrunde-7-Festlegung, per Karte
+     bestaetigt). „Manuell" = klassischer Einzelziel-Zauber ohne
+     Zone: Kategorie-Dialog mit Prefill, Zielzwang (Fehlerkarte
+     ERROR.NO_TARGET_SELECTED ohne Ziel), Standard-Wuerfeldialog,
+     symbolZoneManual-Flag fuer den Dispatcher (standardPowerResult -
+     Marker je Stufe; Flucht-/Schadens-Muster bleiben dem Zonen-
+     Erstgesang vorbehalten, bewusste Grenze). Abbrechen/X/ESC =
+     still, kein Wirken, keine Korruption. */
+  const sealChoice = await symbolZoneExecutionChoiceDialog(functionStuff);
+  if (sealChoice === "cancel") return;
+  if (sealChoice === "manual") functionStuff.symbolZoneManual = true;
+  /* v2.8.3: Manuell laeuft HIER weiter in den Kategorie-Dialog (der
+     Callback unten verzweigt dann auf Zielzwang + Wuerfeldialog ohne
+     Platzierung); nur Abbrechen beendet still. Zone laeuft wie bislang. */
   // A36-Verbraucher (Bannsiegel): the free-text creature type dialog becomes
   // a category dropdown (CREATURE_CATEGORY_SELECTION) plus a free subtype
   // field, both pre-filled from the primary target's stored A36 flags - a
@@ -13000,6 +13134,18 @@ async function preDialogBanishingSeal(functionStuff) {
              (kein Zweit-Picker), Cancel des Wuerfeldialogs raeumt
              (cleanupFreshHymnZone). */
           functionStuff.sealSubtype = subtype;
+          /* v2.8.3: Manuell-Zweig (Ausfuehrungs-Dialog vor dem
+             Kategorie-Dialog): klassischer Einzelziel-Zauber ohne
+             Zone - Zielzwang, Standard-Wuerfeldialog, KEINE
+             Platzierung, kein Icon-Abbruch. */
+          if (functionStuff.symbolZoneManual) {
+            if (!functionStuff.targetData?.hasTarget) {
+              ui.notifications.error(game.i18n.localize("ERROR.NO_TARGET_SELECTED"));
+              return;
+            }
+            modifierDialog(functionStuff);
+            return;
+          }
           const placedSeal = await symbolZonePlaceBeforeDialog(functionStuff, "banishingseal");
           if (!placedSeal) return;
           modifierDialog(functionStuff);

@@ -2185,9 +2185,13 @@ async function _symbolZoneEnter(region, tokenDoc) {
 	const zf = _symbolZoneImmediateRegion(region);
 	if (!zf || !tokenDoc?.actor) return;
 	/* Sofort-Stufen feuern hier, Maintain-Stufen der Runden-Rescan
-	   (item.js symbolZoneRescan) - Rudolfs Joiner-Timing-Vorgabe. */
+	   (item.js symbolZoneRescan) - Rudolfs Joiner-Timing-Vorgabe.
+	   v2.8.3 (Rudolfs Testrunde v2.8.2, 6): Der Joiner prueft NUR
+	   DEN BETRETENDEN - bis v2.8.2 durchlief er bei jedem Betreten
+	   den GESAMTEN Region-Bestand (Sammelkarte und Marker-Anwendung
+	   fuer alle, nicht nur fuer den neuen). */
 	try {
-		await symbolZoneImmediateJoiner(region);
+		await symbolZoneImmediateJoiner(region, tokenDoc?.id ?? null);
 	} catch (joinerError) {
 		console.warn('Symbaroum AoE [trace] Symbolzone-Sofort-Ausloesung fehlgeschlagen', joinerError);
 	}
