@@ -3250,6 +3250,13 @@ export async function placeGlyphZone(casterToken, casterActor, abilityRef, item 
 			},
 		},
 	};
+	/* F33 (Rudolfs Freigabe 21.11.): Level-Passung wie Dornenmantel/
+	   Aura/Hymne - V14 verlangt fuer gesichtete (restricted)
+	   Regionen GENAU EIN Level, sonst wirft placeRegions "A
+	   restricted Region must be included only in one Level"
+	   (D2/D3/D5 + G-Serie der Testrunde v2.3). */
+	const glyphLevelId = _tokenLevelId(castDoc);
+	if (glyphLevelId) regionData.levels = [glyphLevelId];
 	await probePlayerRestrictionCreate();
 	if (senseWallsEnabled() && (game.user.isGM || _playerRestrictionCreateCache === true)) {
 		regionData.restriction = { type: 'sight', priority: 0, enabled: true };

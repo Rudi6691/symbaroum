@@ -6566,23 +6566,46 @@ function zoneTemplateFd(carriers, casterToken) {
 }
 
 /* gemeinsamer Rescan-Rahmen: guard/Flag/Region/Caster/Bestand - die
-   Join/Leave-Blaeufe der Typen sitzen AUF dem Frame. */
+   Join/Leave-Blaeufe der Typen sitzen AUF dem Frame.
+   v2.4 F32B: optionale Erweiterungen, alle mit Defaults - das
+   Verhalten der Hymnen/Auren/Glyphen bleibt unveraendert.
+   lookupRegion = eigener Region-Lookup (Dornenmantel: flaechen-
+   basiert via thornCloakRegionFor statt Akteur-Flag-RegionId),
+   selfHeal = stille Rueckanlage einer fehlenden Flaeche (Dornen-
+   mantel: forceAuto, nie gegen thornCloakZoneDeclined),
+   allowMissing = fehlende Region als legaler Zustand (Dornen-
+   mantel-Notfall-Naehe, inZone bleibt leer) statt Abbruch. */
 async function zoneRegionScanFrame(functionStuff, opts) {
   const abilityRef = functionStuff.ability?.reference;
   if (!opts.guard(abilityRef)) return null;
-  const zoneFlag = functionStuff.actor.getFlag(game.system.id, `${opts.flagPrefix}.${abilityRef}`);
-  if (!zoneFlag?.regionId) return null;
-  const region = hymnRegionById(zoneFlag.regionId);
-  if (!region) return null;
+  let region = null;
+  if (opts.lookupRegion) {
+    region = opts.lookupRegion(functionStuff.actor?.id ?? null);
+  } else {
+    const zoneFlag = functionStuff.actor.getFlag(game.system.id, `${opts.flagPrefix}.${abilityRef}`);
+    if (!zoneFlag?.regionId) return null;
+    region = hymnRegionById(zoneFlag.regionId);
+    if (!region) return null;
+  }
   const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
   if (!casterToken) return null;
+  /* v2.4 F32B: Self-Heal VOR der Abbruch-Entscheidung - ohne die
+     Option bricht eine fehlende Region wie bisher ab. */
+  if (!region && opts.selfHeal) {
+    try {
+      region = (await opts.selfHeal(casterToken, functionStuff.actor, abilityRef)) ?? null;
+    } catch (selfHealError) {
+      console.warn("Symbaroum Hymnen: Zonen-Selfheal fehlgeschlagen", selfHealError);
+    }
+  }
+  if (!region && !opts.allowMissing) return null;
   const carriers = zoneCarriersFor(functionStuff.actor.id, abilityRef, { requireStatusId: opts.requireStatusId ?? true });
-  const inZone = new Set(hymnRegionTokens(region).map((t) => t.id));
+  const inZone = new Set(region ? hymnRegionTokens(region).map((t) => t.id) : []);
   /* v2.2 F28 (Rudolfs Testrunde v2.1, G3-Leave unklar): Trace-Bestand
      fuer die Testrunde - Join/Leave-Diagnose ohne Karten-Spam. */
   console.info("Symbaroum Hymnen [trace] Zonen-Rescan-Bestand", {
     ref: String(abilityRef ?? ""),
-    regionId: region.id,
+    regionId: region?.id ?? null,
     inZone: [...inZone],
     carriers: [...carriers.keys()],
   });
@@ -6886,6 +6909,24 @@ async function endAuraZoneState(actor, ref) {
    erneute Icon-Anwahl. */
 export async function endActiveAura(actor, ref) {
   if (!actor || !ref) return false;
+  /* v2.4 F34 (Rudolfs Testrunde v2.3, A6): Das Wirker-Maintain-
+     Symbol (activelyMaintaninedCasterEffect, KEIN flagData) blieb
+     nach dem Icon-Abbruch am Wirker stehen - der Szenen-Sweep
+     unten erfasst nur Marker MIT flagData. Der Standard-Fehlschlag-
+     Pfad (standardPowerResult) und der A29-Abbruch (a29Abort-
+     MaintainPower) raeumen das Symbol via combatMods/remove-
+     Condition, der Abbruch-Dialog-Pfad hatte den Schritt nie
+     (auch nicht vor v2.2, kein F26-Regret). Heilige und unheilige
+     Aura identisch (beide tragen das eigene Symbol). */
+  try {
+    const auraItem = actor.items.find((it) => it.system?.reference === ref) ?? null;
+    const casterSymbols = actor.system?.combat?.combatMods?.abilities?.[auraItem?.id]?.activelyMaintaninedCasterEffect ?? [];
+    for (const effect of casterSymbols) {
+      await actor.removeCondition(effect);
+    }
+  } catch (casterSymbolError) {
+    console.warn("Symbaroum Hymnen: Auren-Wirker-Symbol konnte nicht entfernt werden", casterSymbolError);
+  }
   /* v2.2 F26: gemeinsame Ende-Maschine (zoneSweepClose) - bis v2.1
      wortgleiche Kopie des endActiveGlyph-Szenen-Sweeps. */
   return zoneSweepClose(actor, ref, {
@@ -7855,22 +7896,31 @@ async function thornCloakResult(rollData, functionStuff) {
    2 m = Nachbarfelder; Hinausbewegte verlieren Marker und Ruestung,
    Hinzugezogene ab Adept erhalten beides automatisch). */
 async function thornCloakRescan(functionStuff) {
-  const casterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId);
-  if (!casterToken) return;
-  /* v1.2 F7/v1.3 F9a: Self-Heal - fehlt die Flaeche (SL geloescht,
-     Szenen-Rest), legt der Rescan sie erneut an, BEVOR Leaver/Joiner
-     geprueft werden - STILL mit forceAuto (kein Picker mitten im
-     Rundenzug), ABER nie gegen einen bewussten Picker-Abbruch des
-     Wirkers (thornCloakZoneDeclined - die Notfall-Naehe bleibt dann
-     gewollt aktiv). */
-  let cloakRegion = thornCloakRegionFor(functionStuff.actor.id);
-  if (!cloakRegion && functionStuff.actor.getFlag(game.system.id, "thornCloakZoneDeclined") !== true) {
-    cloakRegion = (await placeThornCloakZone(casterToken, functionStuff.actor, functionStuff.ability, { forceAuto: true }))?.region ?? null;
-  }
-
-  /* v2.2 F26: Bestand aus dem Master-Helfer (requireStatusId false -
-     Hymnen-Muster, der Marker wirkt auch ohne Status-Icon). */
-  const carrying = zoneCarriersFor(functionStuff.actor.id, "thorncloak", { requireStatusId: false });
+  /* v2.4 F32B (Rudolfs Auswahlrunde): Voll-Migration des Kopfes auf
+     den MASTER-ZONEN-Rahmen zoneRegionScanFrame - Guard, Region-
+     Lookup (v1.2 F7: thornCloakRegionFor statt Akteur-Flag),
+     Self-Heal-Rueckanlage (STILL mit forceAuto, BEVOR Leaver/
+     Joiner geprueft werden, nie gegen einen bewussten Picker-
+     Abbruch des Wirkers - thornCloakZoneDeclined, die Notfall-
+     Naehe bleibt dann gewollt aktiv), Bestand (v2.2 F26: require-
+     StatusId false, der Marker wirkt auch ohne Status-Icon) und
+     der Bestands-Trace (F28) laufen jetzt IM Rahmen; eine
+     fehlende Flaeche ist der LEGALE Notfall-Zustand (Notfall-Naehe v1.6,
+     inZone leer) statt Abbruch. Der Ruestungspfad bleibt
+     Mantel-lokal NACH dem Rahmen-Kopf. */
+  const frame = await zoneRegionScanFrame(functionStuff, {
+    guard: (ref) => ref === "thorncloak",
+    flagPrefix: "thornCloakZone",
+    lookupRegion: (actorId) => thornCloakRegionFor(actorId),
+    selfHeal: async (frameCasterToken, frameActor) => {
+      if (frameActor.getFlag(game.system.id, "thornCloakZoneDeclined") === true) return null;
+      return (await placeThornCloakZone(frameCasterToken, frameActor, functionStuff.ability, { forceAuto: true }))?.region ?? null;
+    },
+    allowMissing: true,
+    requireStatusId: false,
+  });
+  if (!frame) return;
+  const { casterToken, region: cloakRegion, carriers: carrying } = frame;
   const moved = functionStuff.actor.getFlag(game.system.id, "thornCloakMoved") === true;
   await thornCloakSetArmorDice(functionStuff.actor, moved ? "1d4" : "1d6");
   const flagDataArray = [];
