@@ -9154,9 +9154,22 @@ async function drainingGlyphResult(rollData, functionStuff) {
         })
         .map((t) => t.id),
     });
-    for (const nextToken of hymnRegionTokens(glyphRegion)) {
-      if (!nextToken?.actor || handled.has(nextToken.id)) continue;
-      handled.add(nextToken.id);
+    /* v2.6 F38 Option A (Rudolfs Freigabe, N3-Wurzel aus der v2.5-
+       Testrunde): hymnRegionTokens liefert TOKEN-DOKUMENTE; der Erst-
+       gesang-Loop iterierte die Eintraege selbst und las
+       nextToken.document?.disposition ?? 0 - auf einem Doku-Eintrag
+       ist .document undefined, der Wert also IMMER 0, und ein neu-
+       traler Wirker (disp 0) skippte so JEDES Ziel (0 >= 0): Erfassung
+       ohne Proben. Auren-Musterangleich: hier nur die Ids ziehen und
+       je Id das Placeable aufloesen (canvas.tokens.placeables.find);
+       ab dann unveraenderter Rumpf - die Disposition wird korrekt
+       gelesen und buildGlyphTargetData erhaelt das Placeable, das es
+       laut allen Callsites erwartet. */
+    const glyphZoneIds = hymnRegionTokens(glyphRegion).map((t) => t.id);
+    for (const nextTokenId of glyphZoneIds) {
+      const nextToken = canvas.tokens?.placeables?.find((t) => t.id === nextTokenId) ?? null;
+      if (!nextToken || !nextToken?.actor || handled.has(nextTokenId)) continue;
+      handled.add(nextTokenId);
       if ((nextToken.document?.disposition ?? 0) >= glyphCasterDisposition) continue;
       functionStuff.targetData = buildGlyphTargetData(nextToken, functionStuff.targetResistAttribute);
       const rollDataNext = [
