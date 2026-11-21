@@ -3,7 +3,39 @@ export class SymbaroumCommsListener
 {
     static async receiveData(comData) 
     {
-        if(game.user.isGM && comData.type === "GMMessage")
+        /* v2.7 F40 (Rudolfs Freigabe 21.11.: "Symbole beim Zonen-Ende
+           sofort automatisch ohne GM-Karte, alle Zonentypen"): Zonen-
+           Ende-Raeumungen (roll.js createModifyTokenAutoApply, nur
+           removeEffect-Eintraege) fuehrt der GM-Client DIREKT aus -
+           Muster der a29-doomed-Schleife und des GM-Karten-Handlers
+           (hooks.js renderChatMessageHTML): Token ueber tokenId
+           aufloesen, Akteur-Fallbacks wie dort, removeCondition je
+           Eintrag, try/catch je Marker (ein Misserfolg stoppt die
+           restlichen nicht) und EINE Trace-Zeile (F28-Muster) fuer
+           die Kontrolle im Log. */
+        if (game.user.isGM && comData.type === "GMMessageAuto")
+        {
+            const autoRemoved = [];
+            for (const flagData of comData.data ?? [])
+            {
+                if (!flagData?.tokenId && !flagData?.actorId) continue;
+                const token = flagData.tokenId ? canvas.tokens?.objects?.children?.find((t) => t.id === flagData.tokenId) : null;
+                const actor = token?.actor ?? (flagData.actorId ? game.actors?.get(flagData.actorId) : null) ?? (flagData.actorId ? canvas.tokens?.objects?.children?.find((t) => t.actor?.id === flagData.actorId)?.actor : null);
+                if (!actor || !flagData.removeEffect) continue;
+                try
+                {
+                    await actor.removeCondition(flagData.removeEffect);
+                    autoRemoved.push({ tokenId: flagData.tokenId ?? null, statusId: flagData.removeEffect });
+                }
+                catch (autoApplyError)
+                {
+                    console.warn("Symbaroum Hymnen: Zonen-Ende-Marker konnte nicht entfernt werden", flagData, autoApplyError);
+                }
+            }
+            console.info("Symbaroum Hymnen [trace] Zonen-Ende: Marker automatisch entfernt", { removedCount: autoRemoved.length, removed: autoRemoved });
+            return autoRemoved.length;
+        }
+        else if(game.user.isGM && comData.type === "GMMessage")
         {
             /* v2.7 (Testrunde 7, Rudolfs v2.7-Spec „EINE GM-Karte pro
                Vorgang"): sichtbare Eintrags-Liste über der Anwenden-Taste -

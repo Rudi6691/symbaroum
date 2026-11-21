@@ -631,6 +631,23 @@ export async function createModifyTokenChatButton(actionsDataArray){
     });
 }
 
+/* v2.7 F40 (Rudolfs Freigabe 21.11.: "Symbole beim Zonen-Ende sofort
+   automatisch ohne GM-Karte raeumen, gilt fuer alle Zonentypen"):
+   Zonen-ENDE-Raeumungen laufen ueber die eigene Socket-Nachricht
+   GMMessageAuto statt ueber die GM-Anwenden-Karte - der GM-Client
+   (symbcomms.js, Muster der a29-doomed-Schleife in hooks.js) fuehrt
+   die removeEffect-Eintraege DIREKT aus, keine Karte, kein Klick.
+   Bewusst NUR fuer Raeumungen (removeEffect): Adds, Schaden und
+   Korruption bleiben auf der GM-Karte (createModifyTokenChatButton),
+   damit die SL Neuanwendungen bewusst prueft. */
+export async function createModifyTokenAutoApply(actionsDataArray){
+  game.symbaroum.emit(
+    {
+      type: "GMMessageAuto",
+      data: actionsDataArray
+    });
+}
+
 export async function createResistRollChatButton(functionStuff){
   //inform the GM
   const html = await foundry.applications.handlebars.renderTemplate("systems/symbaroum/template/chat/chatInfoMessage.hbs", {

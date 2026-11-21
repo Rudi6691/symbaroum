@@ -6,6 +6,7 @@ import {
   getAttributeValue,
   getOwnerPlayer,
   createModifyTokenChatButton,
+  createModifyTokenAutoApply,
   beginGmCardCollection,
   flushGmCardCollection,
   createResistRollChatButton,
@@ -6109,7 +6110,8 @@ async function holyAuraEndCleanup(functionStuff) {
     }
   }
   if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
+  /* v2.7 F40: Ende-Raeumung automatisch (GM-Client, keine Karte). */
+    await createModifyTokenAutoApply(flagDataArray);
   }  /* v2 F9 (Rudolfs Freigabe 20.11.): Mit den Symbolen endet auch die
      Auren-Region (Loeschen + Akteur-Flag, endAuraZoneState). */
   await endAuraZoneState(functionStuff.actor, abilityRef);
@@ -6617,8 +6619,9 @@ async function zoneRegionScanFrame(functionStuff, opts) {
    loeschen, Akteur-Flag loeschen. Rueckgabe: Marker gefunden. */
 async function zoneSweepClose(actor, ref, opts) {
   const { flagDataArray, seen } = zoneAllMarkerRemovals(actor.id, [ref]);
+  /* v2.7 F40: Ende-Raeumung automatisch (GM-Client, keine Karte). */
   if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
+    await createModifyTokenAutoApply(flagDataArray);
   }
   await opts.removeRegions(actor.id ?? null, [ref]);
   try {
@@ -6790,8 +6793,9 @@ async function endActiveHymns(actor, options = {}) {
       flagDataArray.push({ tokenId: token.id, removeEffect: statusId });
     }
   }
+  /* v2.7 F40: Ende-Raeumung automatisch (GM-Client, keine Karte). */
   if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
+    await createModifyTokenAutoApply(flagDataArray);
   }
   /* Hymnen-Paket 1.1: Gesangsbereiche des Sängers aufräumen (Region
      löschen, Flag entfernen). endActiveHymns beendet den GESAMTEN
@@ -6859,8 +6863,9 @@ export async function thorncloakTokenDeleted(tokenDoc) {
   /* v2.2 F26: Szenen-Sweep aus dem Master-Helfer. */
   const { flagDataArray, seen } = zoneAllMarkerRemovals(actor.id, "thorncloak");
   if (seen.size > 0) changed = true;
+  /* v2.7 F40: Ende-Raeumung automatisch (GM-Client, keine Karte). */
   if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
+    await createModifyTokenAutoApply(flagDataArray);
   }
   if (!changed) return false;
   const powerLabel = game.i18n.localize("POWER_LABEL.THORN_CLOAK");
@@ -7232,8 +7237,9 @@ export async function glypheTokenDeleted(tokenDoc) {
   /* v2.2 F26: Szenen-Sweep aus dem Master-Helfer (alle Glyphen-refs). */
   const { flagDataArray, seen } = zoneAllMarkerRemovals(actor.id, glyphRefs);
   if (seen.size > 0) changed = true;
+  /* v2.7 F40: Ende-Raeumung automatisch (GM-Client, keine Karte). */
   if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
+    await createModifyTokenAutoApply(flagDataArray);
   }
   if (!changed) return false;
   const powerLabel = game.i18n.localize("POWER_LABEL.DRAINING_GLYPH");
@@ -8787,7 +8793,8 @@ async function unholyAuraEndCleanup(functionStuff) {
     }
   }
   if (flagDataArray.length > 0) {
-    await createModifyTokenChatButton(flagDataArray);
+  /* v2.7 F40: Ende-Raeumung automatisch (GM-Client, keine Karte). */
+    await createModifyTokenAutoApply(flagDataArray);
   }  /* v2 F9 (Rudolfs Freigabe 20.11.): Mit den Symbolen endet auch die
      Auren-Region (Loeschen + Akteur-Flag, endAuraZoneState). */
   await endAuraZoneState(functionStuff.actor, abilityRef);
