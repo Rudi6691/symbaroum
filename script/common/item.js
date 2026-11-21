@@ -40,7 +40,7 @@ import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusiv
 // Funktionsdeklarationen, Aufruf erst zur Laufzeit.
 import { getTravelTestFavour, getHungerPenalty } from "./travel.js";
 import { itemHasTraditionKnowledge } from "./tradition.js";
-import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, takePendingHymnZone, removeAuraZoneRegions, removeGlyphZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
+import { hymnActiveForCaster, hymnRegionTokens, hymnRegionById, removeHymnZoneRegions, removeAuraZoneRegions, removeGlyphZoneRegions, placeAuraZone, placeGlyphZone, senseBlocked, placeThornCloakZone, thornCloakRegionFor, removeThornCloakZones } from "./aoe.js";
 
 export class SymbaroumItem extends Item {
   /* -------------------------------------------- */
@@ -7096,8 +7096,13 @@ async function glypheRegionRescan(functionStuff) {
       functionStuff.castingAttributeName ?? "resolute",
       token.actor,
       functionStuff.targetResistAttribute ?? "strong",
-      functionStuff.favour,
-      functionStuff.modifier,
+      /* v2.5 F35 (Rudolfs Testrunde v2.4, Konsolenstack roll.js:344):
+         der Runden-Auto-Rescan baute sein functionStuff OHNE
+         favour/modifier - undefined durchreicht, doBaseRoll wertet
+         undefined != 0 als wahr und liest das zweite Wurfresult des
+         1d20-Wurfs. Absicherung am Aufruf. */
+      functionStuff.favour ?? 0,
+      functionStuff.modifier ?? 0,
       false
     );
     rolls.push(...(probe.rolls ?? []));
@@ -7344,12 +7349,16 @@ export async function hymnAutoRescanRound() {
       if (!actor.getFlag(game.system.id, `glyphzone.${glyphRef}`)?.regionId) continue;
       glyphSeen.add(actor.id);
       await glypheRegionRescan({
+        /* v2.5 F35: Defaults wie getFunctionStuffDefault - die opponierte
+           Joiner-Probe des Rescans darf nie undefined weiterreichen. */
         actor: actor,
         token: token,
         tokenId: token.id,
         ability: { reference: glyphRef },
         abilityName: game.i18n.localize("POWER_LABEL.DRAINING_GLYPH"),
         actingCharName: actor.name,
+        favour: 0,
+        modifier: 0,
       });
       break;
     }
@@ -9099,11 +9108,17 @@ async function drainingGlyphResult(rollData, functionStuff) {
      (dokumentiert); Maintain-Kette/A29/F11-Rundenschaden unberuehrt. */
   const glyphCasterToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.id === functionStuff.tokenId) ?? null;
   const glyphCasterDisposition = glyphCasterToken?.document?.disposition ?? 0;
-  /* v2.3 F30 (Rudolfs Auswahlrunde): Erstgesang uebernimmt eine im
-     Ausfuehrungsdialog frisch platzierte Glyphen-Flaeche (Consume-once-
-     Pending, Hymnen-Muster); validiert auf ref + Szene + noch existierende
-     Region, sonst der gewohnte Picker nach der Erstgesangs-Karte. */
-  const pendingGlyphZone = takePendingHymnZone(functionStuff.actor.id);
+  /* v2.3 F30 (Rudolfs Auswahlrunde) + v2.5 F37 (Rudolfs Testrunde v2.4,
+     Konsolspur mit Doppel-Platzierung, D9): Erstgesang uebernimmt eine im
+     Ausfuehrungsdialog frisch platzierte Glyphen-Flaeche; validiert auf
+     ref + Szene + noch existierende Region, sonst der gewohnte Picker
+     nach der Erstgesangs-Karte. Consume-once macht BEREITS usePower
+     (Hymnen-Bruecke, actor.js: takePendingHymnZone haengt den Eintrag
+     an functionStuff.hymnZone) - ein ZWEITES takePendingHymnZone hier
+     fand darum immer null (seit F33 erstmals erreichbar) und startete
+     den Fallback-Picker nach dem Wurf: Doppel-Platzierung im Leer-Cast.
+     Hymnen-Muster: hier wird functionStuff.hymnZone gelesen. */
+  const pendingGlyphZone = functionStuff.hymnZone ?? null;
   const pendingGlyphRegion =
     pendingGlyphZone &&
     pendingGlyphZone.ref === "drainingglyph" &&
@@ -9120,6 +9135,25 @@ async function drainingGlyphResult(rollData, functionStuff) {
     } catch (glyphFlagError) {
       console.warn("Symbaroum Hymnen [trace] Glyphen-Zonen-Flag konnte nicht gesetzt werden", glyphFlagError);
     }
+    /* v2.5 F36 (Rudolfs D9/G1-Diagnose): Bestands-Trace des Erstgesangs -
+       erfasste Region-Token mit Disposition (tolerant gelesen, Placeable
+       oder Document) und die davon disposition-bedingt uebersprungenen
+       Ids. Leer-Platzierung auf leeren Boden: leere Liste = Erstgesang
+       bleibt still (korrekt); Joiner je Runde uebernimmt der Rescan-Trace
+       (F28). */
+    const traceCollected = hymnRegionTokens(glyphRegion);
+    const traceTd = (t) => ({ id: t.id, disp: t.document?.disposition ?? t.disposition ?? 0 });
+    console.info("Symbaroum Hymnen [trace] Glyphen-Erstgesang", {
+      regionId: glyphRegion.id,
+      pendingUsed: pendingGlyphRegion !== null,
+      collected: traceCollected.map((t) => traceTd(t)),
+      skippedDisposition: traceCollected
+        .filter((t) => {
+          const td = traceTd(t);
+          return !handled.has(td.id) && td.disp >= glyphCasterDisposition;
+        })
+        .map((t) => t.id),
+    });
     for (const nextToken of hymnRegionTokens(glyphRegion)) {
       if (!nextToken?.actor || handled.has(nextToken.id)) continue;
       handled.add(nextToken.id);
