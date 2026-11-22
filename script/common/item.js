@@ -9172,8 +9172,6 @@ async function sphereMasterAllyPlacement(functionStuff) {
     game.symbaroum.log("Kraefte-Paket 1: Sphaere-Verbündetenwahl", sphereAllyError);
   }
 }
-}
-}
 
 /* SL-Reset-Karte für die 1×/Szene-Verwaltung (dokumentierte Szenen-
    Grenze, Epilepsie-Präzedenz): geflüsterte GM-Karte mit Button, der
