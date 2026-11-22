@@ -122,5 +122,12 @@
         <div class="finalTxt">{{localize "COMBAT.CHAT_ACID_CARRIER_RISK"}}</div>
         {{/if}}
         {{/if}}
+        {{!-- Kräfte-Paket 1 (Anhang): Illusorische Korrektur - Taste auf
+            der misslungenen Verteidigungs-Ergebniskarte nur im
+            Verteidigungswurf-Fluss; der Klick läuft über den
+            hooks.js-Handler (Flag symbaroum.illusoryReroll). --}}
+        {{#if illusoryReroll}}
+        <p><button id="illusoryRerollButton">{{localize "POWER_ILLUSORYCORRECTION.CHAT_BUTTON"}}</button></p>
+        {{/if}}
     </div>
 </div>

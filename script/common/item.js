@@ -1739,6 +1739,17 @@ export class SymbaroumItem extends Item {
     let lvl = this.getLevel();
     if (lvl.level == 0) return;
     if (!this.actor.hasCondition("sphere") && !this.actor.getFlag(game.system.id, "sphere")) return;
+    /* Kräfte-Paket 1 (Wahlmodell B, Rudolfs Entscheidung 5): Die
+       Substitution greift nur, wenn im Aktivierungsdialog Willenskraft
+       gewaehlt wurde - Radio-Wahl mit Bindung bis zum Kraftende. Legacy-
+       Marker ohne Wahl-Feld (alte Aktiverungs-Residuen) behalten das
+       A16-Verhalten: Substitution anlegen, der Typ-@-Mechanismus wendet
+       sie nur an, wenn Willenskraft die hoehere Eigenschaft ist. */
+    const sphereMarker = this.actor.hasCondition("sphere");
+    const sphereFlagData = sphereMarker?.getFlag(game.system.id, "flagData");
+    if (sphereFlagData && typeof sphereFlagData === "object" && sphereFlagData.choice) {
+      if (sphereFlagData.choice !== "resolute") return;
+    }
     // A16 Sphere (active toggle): while the sphere condition is active, defense is
     // rolled with Resolute instead of Quick (same replacement mechanism as Tactician,
     // applied when Resolute is the higher attribute)
@@ -1749,7 +1760,12 @@ export class SymbaroumItem extends Item {
       let base = this._getBaseFormat();
       base.attribute = "resolute";
       base.type = game.symbaroum.config.TYPE_ATTRIBUTE;
-      this.system.isIntegrated = true;
+      base.label = game.i18n.localize("POWER_LABEL.SPHERE");
+      /* Wahlmodell B: erzwungene Substitution bei gebundener Wahl
+         (keine Höher-Wert-Automatik); Legacy-Marker ohne choice-Feld
+         (null) bleiben bedingt (A16). */
+      base.force = !!(sphereFlagData && typeof sphereFlagData === "object" && sphereFlagData.choice === "resolute");
+      this.system.isIntegrated = !!(sphereFlagData && typeof sphereFlagData === "object" && sphereFlagData.choice === "resolute");
       combatMods.armors[armors[i].id].attributes.push(base);
     }
   }
@@ -3272,6 +3288,16 @@ export class SymbaroumItem extends Item {
     base.castingAttributeName = "resolute";
     base.traditions = [game.symbaroum.config.TRAD_STAFFM];
     base.gmOnlyChatResultNPC = true;
+    /* Kräfte-Paket 1 (Sphäre, Rudolfs Baufreigabe 21.11.): Wahlmodell B
+       (Rudolfs Entscheidung 5) - Radio-Wahl im Aktivierungsdialog
+       (Gewandtheit ODER Willenskraft), Bindung bis zum Kraftende, kein
+       Wechsel zwischendurch, keine Höher-Wert-Automatik. Die Wahl wandert
+       als {level, choice} in die Marker-flagData; die TYPE_ATTRIBUTE-
+       Substitution in getItemModifierSphere greift nur bei Wahl
+       "resolute" (Legacy-Marker ohne Wahl-Feld behalten das A16-
+       Verhalten "substitutiere, wenn Willenskraft höher" unverändert).
+       Meister-Verbündeten-Sphäre siehe standardPowerResult. */
+    base.askSphereChoice = true;
     base.flagTest = "sphere";
     base.flagPresentFSmod = {
       introText: game.i18n.localize("POWER_SPHERE.CHAT_DEACTIVATE"),
@@ -4186,6 +4212,14 @@ export async function modifierDialog(functionStuff) {
   const html = await foundry.applications.handlebars.renderTemplate(modernRoll ? "systems/symbaroum/template/chat/dialog2-modern.hbs" : "systems/symbaroum/template/chat/dialog2.hbs", {
     hasTarget: hasTarget,
     askCastingAttribute: functionStuff.askCastingAttribute,
+    // Kräfte-Paket 1 (Sphäre): Radio-Wahl Gewandtheit/Willenskraft im
+    // Aktivierungsdialog (Wahlmodell B, Rudolfs Entscheidung 5)
+    askSphereChoice: functionStuff.askSphereChoice === true,
+    sphereChoices: {
+      resolute: game.i18n.localize("ATTRIBUTE.RESOLUTE"),
+      quick: game.i18n.localize("ATTRIBUTE.QUICK"),
+    },
+    defaultSphereChoice: "resolute",
     askTargetAttribute: functionStuff.askTargetAttribute,
     isWeaponRoll: isWeaponRoll,
     autoparamsText: game.i18n.localize("DIALOG.AUTOPARAMS") + functionStuff.autoParams + functionStuff.targetData.autoParams,
@@ -4329,6 +4363,14 @@ export async function modifierDialog(functionStuff) {
             functionStuff.castingAttributeName = "accurate";
             functionStuff.freeAttack = true;
             functionStuff.autoParams += game.i18n.localize("CHAT.CRITICAL_FREEATTACK") + ", ";
+          }
+
+          // Kräfte-Paket 1 (Sphäre): Wahlmodell B - Radio-Wahl im
+          // Aktivierungsdialog (Gewandtheit ODER Willenskraft), Bindung
+          // bis zum Kraftende. Fehlender Fallback = Willenskraft.
+          if (functionStuff.askSphereChoice) {
+            const sphereRadio = html[0].querySelector('input[name="sphere-choice"]:checked');
+            functionStuff.sphereChoice = sphereRadio?.value === "quick" ? "quick" : "resolute";
           }
 
           //resist attribute for d20roll
@@ -4959,6 +5001,48 @@ function releaseZoneTargets(functionStuff) {
 
 export async function buildRolls(functionStuff) {
   game.symbaroum.log("...buildRolls", ...arguments);
+
+  /* Kräfte-Paket 1 (Sphäre, Rudolfs Baufreigabe 21.11., Baustein C):
+     (1) RAW-Endebedingung - greift der Marker-Halter an oder wirkt er
+     eine andere mystische Kraft (Maintains ausgenommen, Adept-Hymnen-
+     Präzedenz: "aktive mystische Effekte dürfen aufrechterhalten
+     werden"), bricht die Sphäre automatisch zusammen (Marker weg +
+     eigene Ergebnis-Karte).
+     (2) Adept/Meister-Auto-Parade (Rudolfs Entscheidung 6): gegen den
+     Marker-Halter gerichtete PHYSISCHE Angriffe verpuffen KOMPLETT
+     WURFLOS - keine Probe, keine Schadenskarte, unbegrenzt pro Runde.
+     Mystische Kräfte, AoE und Alternative-Schaden laufen regulär durch
+     (dieses Gate feuert nur im Waffenpfad). */
+  const ownSphereMarker = getSphereMarkerData(functionStuff.actor);
+  if (ownSphereMarker) {
+    if (
+      functionStuff.combat === true ||
+      (functionStuff?.type === "mysticalPower" &&
+        functionStuff?.ability?.reference !== "sphere" &&
+        !functionStuff.isMaintained &&
+        !game.symbaroum.config.HYMN_REFERENCES.includes(functionStuff?.ability?.reference))
+    ) {
+      await functionStuff.actor.deleteEmbeddedDocuments("ActiveEffect", [
+        ownSphereMarker.marker._id ?? ownSphereMarker.marker.id,
+      ]);
+      await postMaintainChainCard(
+        functionStuff,
+        `<h4>${game.i18n.localize("POWER_SPHERE.CHAT_END_TITLE")}</h4>`,
+        [`<p>${game.i18n.format("POWER_SPHERE.CHAT_END", { actorname: functionStuff.actingCharName })}</p>`],
+        []
+      );
+    }
+  }
+  const targetSphereMarker = getSphereMarkerData(functionStuff.targetData?.actor);
+  if (functionStuff.combat === true && targetSphereMarker && targetSphereMarker.level >= 2) {
+    await postMaintainChainCard(
+      functionStuff,
+      `<h4>${game.i18n.localize("POWER_SPHERE.CHAT_AUTOPARRY_TITLE")}</h4>`,
+      [`<p>${game.i18n.format("POWER_SPHERE.CHAT_AUTOPARRY", { targetname: functionStuff.targetData.name })}</p>`],
+      []
+    );
+    return null;
+  }
 
   /* AoE v2.4 (Rudolfs Testrunde 4, Entscheidungen a+b): Zonen-AKTIVIE-
      RUNG - buildRolls läuft hier mit den finalen Werten (Dialog-Modi-
@@ -8815,6 +8899,282 @@ async function thornCloakRetaliation(functionStuff, damageTot, rollData) {
   }
 }
 
+/* Kraefte-Paket 1 (Rudolfs Baufreigabe "Paket 1 bauen", 21.11., Baustein B):
+   Schutzrunen-Vergeltung + Maintain-Abbruch.
+   Trigger (Rudolfs Entscheidung 2, Dornenmantel-Parallele): physischer
+   Treffer MIT SCHADEN > 0 auf den Runen-Marker-Traeger - NK UND FK
+   physisch (Entscheidung 1), ein Missgeschoss ohne Schaden loest den
+   Spiegel NICHT aus. Alternative-Schaden-Angriffe und Mystik-Pfade
+   bleiben draussen (isAlternativeDamage-Gate wie beim Dornenmantel).
+   Vergeltungs-Spiegel ab Adept: 1W4 (Adept) bzw. 1W6 (Meister) Schaden
+   an den Angreifer, RUESTUNG IGNORIERT (Pur-Buchung ueber die
+   GM-Apply-Karte, Muster thornCloakRetaliation).
+   Maintain-Abbruch (Rudolfs Entscheidung 3, RAW): bei erlittenem
+   Schaden eine [Resolute - Schaden]-Probe des Runen-Traegers wie die
+   Konzentration beim unterbrochenen Wirken (Praezedenz Kampfsymbol-
+   [Res-Mod]-Wurf: 1W20 gegen Eigenschaft abzueglich des ausloesenden
+   Schadens, <= gilt als Erfolg); bei Misslingen Marker entfernen +
+   eigene Ergebnis-Karte. Das Vergeltungs-Wuerfelbild und der
+   Maintain-Wurf teilen sich EINE Karte (Reaktionsmeldung), die
+   Pur-Schaden-Buchung bleibt die separate GM-Apply-Karte. */
+async function protectiveRunesRetaliation(functionStuff, damageTot, rollData) {
+  try {
+    if (damageTot <= 0) return;
+    if (functionStuff.isAlternativeDamage) return;
+    if (!rollData.some((r) => r.trueActorSucceeded)) return;
+    const defenderToken = functionStuff.targetData?.token;
+    const defenderActor = functionStuff.targetData?.actor;
+    if (!defenderToken || !defenderActor) return;
+    const marker = defenderActor.hasCondition("protectiverunes");
+    if (!marker) return;
+    /* Stufe: Item-Referenz schlägt, Fallback auf die flagData-Nummer
+       im Marker (Setup schreibt powerLvl.level als flagData). */
+    const runeItem = defenderActor.items.find((it) => it.system?.reference === "protectiverunes");
+    const itemLevel = runeItem?.getLevel?.()?.level ?? 0;
+    const markerFlagData = marker.getFlag(game.system.id, "flagData");
+    const level = itemLevel > 0 ? itemLevel : Number(markerFlagData) || 0;
+    if (level < 1) return;
+    /* 1) Vergeltungs-Spiegel (ab Adept), Ruestung ignoriert */
+    let retaliationRoll = null;
+    let mirrorLine = "";
+    if (level >= 2) {
+      const mirrorDie = level >= 3 ? "1d6" : "1d4";
+      retaliationRoll = await new Roll(mirrorDie).evaluate();
+      await createModifyTokenChatButton([
+        { tokenId: functionStuff.tokenId, actorId: functionStuff.actor.id, toughnessChange: -1 * retaliationRoll.total },
+      ]);
+      mirrorLine = `<p>${game.i18n.format("POWER_PROTECTIVERUNES.CHAT_RETALIATION", {
+        targetname: functionStuff.actingCharName,
+        count: retaliationRoll.total,
+      })}</p>`;
+    }
+    /* 2) Maintain-Abbruch: [Resolute - Schaden]-Probe des Traegers */
+    const defenderResolute = getAttributeValue(defenderActor, "resolute");
+    const probeTarget = defenderResolute - damageTot;
+    const maintainRoll = await new Roll("1d20").evaluate();
+    const held = maintainRoll.total <= probeTarget;
+    const lines = [];
+    const cardRolls = [];
+    if (retaliationRoll) {
+      lines.push(mirrorLine);
+      cardRolls.push(retaliationRoll);
+    }
+    lines.push(
+      `<p>${game.i18n.format(held ? "POWER_PROTECTIVERUNES.CHAT_MAINTAIN_HELD" : "POWER_PROTECTIVERUNES.CHAT_MAINTAIN_BROKEN", {
+        actorname: defenderActor.name,
+        roll: maintainRoll.total,
+        value: probeTarget,
+      })}</p>`
+    );
+    cardRolls.push(maintainRoll);
+    if (!held) {
+      await defenderActor.deleteEmbeddedDocuments("ActiveEffect", [marker._id ?? marker.id]);
+      lines.push(`<p>${game.i18n.format("POWER_PROTECTIVERUNES.CHAT_MARKER_REMOVED", { actorname: defenderActor.name })}</p>`);
+    }
+    const title = `<h4>${game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_REACTION_TITLE")}</h4>`;
+    await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, lines, cardRolls);
+  } catch (runesError) {
+    game.symbaroum.log("Kraefte-Paket 1: Schutzrunen-Reaktion", runesError);
+  }
+}
+
+/* Kraefte-Paket 1 (Baustein A, Feuerseele): Rueckstoss-/Vergeltungs-
+   formel mit dem REGULAEREN Ruestungsweg (Rudolfs Entscheidung 4:
+   "Ruestung schuetzt wie ueblich" gilt auf ALLEN Stufen) - dieselbe
+   Konvention wie damageRollWithDiceParams: Charakter-Quelle wuerfelt
+   den Rueckstoss und die Ruestung des Ziels zieht als statischer
+   Wert ab (protectionNpc), NSC-Quelle hat Fixwerte (1W6=3 / 1W10=5)
+   und die Charakter-Ruestung des Ziels wird ALS WURF abgezogen
+   (protectionPc, unfavour-Variante bewusst nicht - der Rueckstoss
+   ist kein Gunst-/Missgunst-Angriff). */
+function firesoulCounterFormula(sourceActor, targetActor, die) {
+  const label = game.i18n.localize("POWER_LABEL.FIRE_SOUL");
+  if (sourceActor?.type === "character" || targetActor?.type === "monster") {
+    const protNpc = Number(targetActor?.system?.combat?.protectionNpc ?? 0);
+    return `${die}[${label}] - ${protNpc}`;
+  }
+  const npcFixed = die === "1d6" ? 3 : 5;
+  const protPc = targetActor?.system?.combat?.protectionPc;
+  if (protPc && Number(protPc) !== 0) {
+    return `${npcFixed}[${label}] - (${protPc})`;
+  }
+  return `${npcFixed}[${label}] - 0`;
+}
+
+/* Kraefte-Paket 1, Baustein A (Rudolfs Baufreigabe 21.11.): Feuerseele-
+   Rueckstoss am Ende der Angriffs-Ergebniskarte.
+   Novize/Adept: wird der Mystiker im NAHKAMPF getroffen (Schaden > 0),
+   feuert der Rueckstoss 1W6/1W10 auf den Angreifer - durch dessen
+   Ruestung (Entscheidung 4, obige Formel). MEISTER zusaetzlich die
+   Fernkampf-Vergeltung: auch physische FK-Angriffe (Ruestung schuetzt,
+   RAW explizit) loesen 1W10 aus; Mystik- und Alternative-Schaden-
+   Pfade bleiben draussen (die Kraft-Pfad-Vergeltung des Meisters
+   laeuft separat in standardPowerResult, firesoulMasterPowerCounter).
+   Kein Aktivierungstoggle - die Kraft wirkt als dauerhafte
+   Reaktionsaura (RAW kennt keine Aktivierung). */
+async function firesoulRetaliation(functionStuff, damageTot, rollData) {
+  try {
+    if (damageTot <= 0) return;
+    if (functionStuff.isAlternativeDamage) return;
+    if (!rollData.some((r) => r.trueActorSucceeded)) return;
+    const defenderToken = functionStuff.targetData?.token;
+    const defenderActor = functionStuff.targetData?.actor;
+    if (!defenderToken || !defenderActor) return;
+    const level = getActorAbilityLevel(defenderActor, "firesoul");
+    if (level < 1) return;
+    const isMeleeWeapon = Boolean(functionStuff.weapon?.isMelee ?? functionStuff.weapon?.system?.isMelee);
+    if (!isMeleeWeapon && level < 3) return;
+    const die = isMeleeWeapon ? (level >= 2 ? "1d10" : "1d6") : "1d10";
+    const counterRoll = await new Roll(firesoulCounterFormula(defenderActor, functionStuff.actor, die)).evaluate();
+    const dealt = Math.max(0, counterRoll.total);
+    if (dealt > 0) {
+      await createModifyTokenChatButton([
+        { tokenId: functionStuff.tokenId, actorId: functionStuff.actor.id, toughnessChange: -1 * dealt },
+      ]);
+    }
+    const title = `<h4>${game.i18n.localize("POWER_FIRESOUL.CHAT_REACTION_TITLE")}</h4>`;
+    const line = `<p>${game.i18n.format("POWER_FIRESOUL.CHAT_RETALIATION", {
+      targetname: functionStuff.actingCharName,
+      count: dealt,
+    })}</p>`;
+    await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, [line], [counterRoll]);
+  } catch (firesoulError) {
+    game.symbaroum.log("Kraefte-Paket 1: Feuerseele-Rueckstoss", firesoulError);
+  }
+}
+
+/* Kraefte-Paket 1, Baustein A: Feuerseele-Meister FERN-Vergeltung auf
+   dem Kraft-Pfad - direkte Schadenswuerfe auf den Mystiker (Rudolfs
+   Entscheidung 3) loesen 1W10 durch die Ruestung des Angreifers aus.
+   Filter: Geistesbeeinflussende/alternative Schaden (Resolute-)
+   Pfade loesen NICHT aus (isAlternativeDamage), Feuer-Schaeden wird
+   vom Meister absorbiert (0 Schaden => kein Trigger). */
+async function firesoulMasterPowerCounter(functionStuff, damageTot) {
+  try {
+    if (damageTot <= 0) return;
+    if (functionStuff.isAlternativeDamage) return;
+    const defenderActor = functionStuff.targetData?.actor;
+    if (!defenderActor) return;
+    const level = getActorAbilityLevel(defenderActor, "firesoul");
+    if (level < 3) return;
+    const counterRoll = await new Roll(firesoulCounterFormula(defenderActor, functionStuff.actor, "1d10")).evaluate();
+    const dealt = Math.max(0, counterRoll.total);
+    if (dealt > 0) {
+      await createModifyTokenChatButton([
+        { tokenId: functionStuff.tokenId, actorId: functionStuff.actor.id, toughnessChange: -1 * dealt },
+      ]);
+    }
+    const title = `<h4>${game.i18n.localize("POWER_FIRESOUL.CHAT_REACTION_TITLE")}</h4>`;
+    const line = `<p>${game.i18n.format("POWER_FIRESOUL.CHAT_DISTANT_RETALIATION", {
+      targetname: functionStuff.actingCharName,
+      count: dealt,
+    })}</p>`;
+    await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, [line], [counterRoll]);
+  } catch (firesoulError) {
+    game.symbaroum.log("Kraefte-Paket 1: Feuerseele-Distanz-Vergeltung", firesoulError);
+  }
+}
+
+/* Kraefte-Paket 1 (Sphaere): Marker-Daten robust lesen - die flagData ist
+   ab Paket 1 ein OBJEKT {level, choice} (Aktivierungsdialog-Wahlmodell B);
+   Legacy-Marker tragen die nackte Stufenzahl, choice bleibt dann null
+   (A16-Verhalten: Substitution nur, wenn Willenskraft hoeher ist). */
+export function getSphereMarkerData(actor) {
+  const marker = actor?.hasCondition?.("sphere");
+  if (!marker) return null;
+  const fd = marker.getFlag(game.system.id, "flagData");
+  if (fd && typeof fd === "object") {
+    return { level: Number(fd.level) || 0, choice: typeof fd.choice === "string" ? fd.choice : null, marker };
+  }
+  return { level: Number(fd) || 0, choice: null, marker };
+}
+
+/* Kraefte-Paket 1 (Sphaere-Meister, Rudolfs Entscheidung 7): Verbündeten-
+   Sphaere mit Distanz-Gate Nah - gueltige Ziele sind nur Verbündete im
+   1-Feld-Abstand zum Mystiker (gemessen in Rasterfeldern). GENAU EIN
+   Kandidat => automatische Auswahl; MEHRERE => Auswahl-Dialog (HUD-
+   Manual entfaellt); KEIN Kandidat => Marker bleibt auf dem Mystiker
+   mit SL-Hinweiskarte. Der Marker traegt Stufe 3 + die Dialog-Wahl. */
+async function sphereMasterAllyPlacement(functionStuff) {
+  try {
+    const mysticToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.actor?.id === functionStuff.actor.id);
+    if (!mysticToken) return;
+    const candidates = (canvas.tokens?.placeables ?? [])
+      .filter((t) => t?.actor && t.id !== mysticToken.id)
+      .filter((t) => t.document?.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY)
+      .filter((t) => {
+        try {
+          return canvas.grid.measureDistance(mysticToken, t) <= 1;
+        } catch (measureError) {
+          return false;
+        }
+      });
+    const sphereFlagData = {
+      level: 3,
+      choice: functionStuff.sphereChoice ?? "resolute",
+    };
+    /* Kein Kandidat: Marker bleibt auf dem Mystiker (SL-Hinweis) */
+    if (candidates.length === 0) {
+      await postMaintainChainCard(
+        functionStuff,
+        `<h4>${game.i18n.localize("POWER_SPHERE.CHAT_END_TITLE")}</h4>`,
+        [`<p>${game.i18n.format("POWER_SPHERE.CHAT_ALLY_FALLBACK", { actorname: functionStuff.actingCharName })}</p>`],
+        []
+      );
+      return;
+    }
+    let chosen = candidates[0];
+    if (candidates.length > 1) {
+      chosen = await new Promise((resolve) => {
+        const allyOptions = candidates
+          .map(
+            (c, idx) =>
+              `<label class="lblfavour"><input type="radio" name="sphere-ally" value="${c.id}"${idx === 0 ? " checked" : ""}> ${c.name}</label>`
+          )
+          .join(" ");
+        symbDialog({
+          title: game.i18n.localize("POWER_SPHERE.ALLY_SELECT_TITLE"),
+          content: `<p>${game.i18n.localize("POWER_SPHERE.ALLY_SELECT_HINT")}</p><div class="favour">${allyOptions}</div>`,
+          buttons: {
+            ok: {
+              icon: '<i class="fas fa-check"></i>',
+              label: game.i18n.localize("BUTTON.CONFIRM"),
+              callback: (html) => {
+                const picked = html?.[0]?.querySelector('input[name="sphere-ally"]:checked')?.value;
+                resolve(candidates.find((c) => c.id === picked) ?? null);
+              },
+            },
+            cancel: {
+              icon: '<i class="fas fa-times"></i>',
+              label: game.i18n.localize("BUTTON.CANCEL"),
+              callback: () => resolve(null),
+            },
+          },
+          default: "ok",
+        });
+      });
+      if (!chosen) return;
+    }
+    /* Marker vom Mystiker auf den Verbündeten verschieben */
+    const marker = functionStuff.actor.hasCondition("sphere");
+    if (marker) {
+      const chosenFlag = marker.getFlag(game.system.id, "flagData");
+      await functionStuff.actor.deleteEmbeddedDocuments("ActiveEffect", [marker._id ?? marker.id]);
+      await chosen.actor.addCondition("sphere", { ...chosenFlag, ...sphereFlagData, level: 3 });
+    }
+    await postMaintainChainCard(
+      functionStuff,
+      `<h4>${game.i18n.localize("POWER_SPHERE.CHAT_ALLY_TITLE")}</h4>`,
+      [`<p>${game.i18n.format("POWER_SPHERE.CHAT_ALLY_CHOSEN", { targetname: chosen.name, actorname: functionStuff.actingCharName })}</p>`],
+      []
+    );
+  } catch (sphereAllyError) {
+    game.symbaroum.log("Kraefte-Paket 1: Sphaere-Verbündetenwahl", sphereAllyError);
+  }
+}
+}
+}
+
 /* SL-Reset-Karte für die 1×/Szene-Verwaltung (dokumentierte Szenen-
    Grenze, Epilepsie-Präzedenz): geflüsterte GM-Karte mit Button, der
    hymnMasterScene UND trollRerollScene des Sängers freigibt (Hooks-
@@ -8899,6 +9259,98 @@ export async function trollRerollInvoke(functionStuff) {
   await buildRolls(functionStuff);
 }
 
+/* Kräfte-Paket 1 (Anhang, Rudolfs Baufreigabe 21.11.) — Illusorische
+   Korrektur (Novize, reference "illusorycorrection" im Base-Pack
+   verifiziert): eine misslungene eigene Verteidigungsprobe darf 1x
+   pro Runde wiederholt werden, gegen eine Willenskraft-Probe (1W20
+   <= Willenskraft, pur ohne Gunst/Modifikator - RAW nennt keine).
+   Praezedenz Trollsingen-Reroll: Taste auf der ERGEBNISKARTE des
+   Verteidigungswurfs, Klick laeuft ueber den hooks.js-Handler, der
+   Konsum der Runden-Frequenz erfolgt ERST im invoke (dort auch
+   erneut geprueft - Karten mit Several-Angriffen koennen mehrere
+   Tunen zeigen, der zweite Klick geht leer aus mit Warnung).
+   Runden-Schluessel-Modell identisch mit Trollsingen (Troll-
+   RerollRoundKey: aktiver Kampf = Kampfrunde, sonst Weltzeit-Takt,
+   null = SL-Urteil mit dokumentierter Grenze). */
+function illusoryCorrectionFrequencyFree(actor) {
+  const key = trollRerollRoundKey();
+  if (key !== null && actor.getFlag(game.system.id, "illusoryCorrectionRound") === key) return false;
+  return true;
+}
+
+/* Eligibility + Payload: NUR im Verteidigungswurf-Fluss (resistRoll =
+   true, d.h. NSC-Angriff auf SC-Ziel mit aktiver Verteidigung - dialog.js
+   setzt das Flag) und NUR wenn die Verteidigung misslang (Perspektiv-
+   Dreh: trueActorSucceeded === true bedeutet im resistRoll-Fluss, dass
+   der Angreiffer durchdrang). Der statisch verteidigte Angriffs-Wurf
+   (SC-Angreifer, kein Verteidigungswurf) ist bewusst AUSSEN vor -
+   dort gibt es keine eigene Verteidigungsprobe, SL-Sache (offener
+   Punkt fuer das Auslieferungsdoc). */
+function illusoryCorrectionPayload(functionStuff, rollData) {
+  const roll = rollData?.[0];
+  if (!functionStuff.resistRoll || !roll || roll.trueActorSucceeded !== true) return null;
+  const defenderActor = functionStuff.targetData?.actor;
+  if (!defenderActor) return null;
+  const level = getActorAbilityLevel(defenderActor, "illusorycorrection");
+  if (level < 1) return null;
+  if (!illusoryCorrectionFrequencyFree(defenderActor)) return null;
+  const emitData = Object.assign({}, functionStuff);
+  // resistRoll-Muster: Dokument-Referenzen genullt, hooks.js haengt sie
+  // beim Klick wieder an (Tokens ueber die mitgeschickten Ids)
+  emitData.actor = null;
+  emitData.token = null;
+  emitData.targetData = Object.assign({}, functionStuff.targetData);
+  emitData.targetData.token = null;
+  emitData.targetData.actor = null;
+  emitData.illusoryCorrectionPayload = null;
+  // Die Illusion gehoert dem VERTEIDIGER (targetData), nicht dem Wuerfelnden
+  emitData.illusoryCorrectionDefenderId = defenderActor.id;
+  return emitData;
+}
+
+/* Klick auf die Korrektur-Taste (hooks.js-Handler): Frequenz-Verbrauch
+   hier (Runden-Schluessel bzw. "manual" ohne Takt), nochmaliger
+   Frequenz-Gate gegen Doppel-Klicks auf Parallelkarten, dann die
+   Willenskraft-Probe als eigene Karte und bei Erfolg der reguläre
+   buildRolls-Lauf mit dem restaurierten functionStuff (= komplette
+   Wiederholung der Verteidigung, Schaden/Kosten wie im Original-Lauf -
+   ein Waffen-Angriff kostet nichts, Korruption faellt hier nie an).
+   Bei Misslingen bleibt es beim urspruenglichen Ergebnis, die Frequenz
+   ist verbraucht. */
+export async function illusoryCorrectionInvoke(payload) {
+  const defenderActor =
+    game.actors.get(payload.illusoryCorrectionDefenderId) ??
+    canvas.tokens?.placeables?.find((t) => t.actor?.id === payload.illusoryCorrectionDefenderId)?.actor ??
+    null;
+  if (!defenderActor) return;
+  if (!illusoryCorrectionFrequencyFree(defenderActor)) {
+    ui.notifications.warn(game.i18n.localize("POWER_ILLUSORYCORRECTION.WARN_SPENT"));
+    return;
+  }
+  const key = trollRerollRoundKey();
+  await defenderActor.setFlag(game.system.id, "illusoryCorrectionRound", key ?? "manual");
+  const target = getAttributeValue(defenderActor, "resolute");
+  const probe = await new Roll("1d20").evaluate();
+  await probe.toMessage({
+    speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: defenderActor.id }),
+    flavor:
+      `<div class="symbaroum chat ability"><div class="foreground">` +
+      `<h4>${game.i18n.localize("POWER_ILLUSORYCORRECTION.CHAT_PROBE_TITLE")}</h4>` +
+      `<div class="finalTxt"><p>` +
+      (probe.total <= target
+        ? game.i18n.format("POWER_ILLUSORYCORRECTION.CHAT_PROBE_SUCCESS", { actorname: defenderActor.name })
+        : game.i18n.format("POWER_ILLUSORYCORRECTION.CHAT_PROBE_FAIL", {
+            actorname: defenderActor.name,
+            roll: probe.total,
+            target: target,
+          })) +
+      `</p></div></div></div>`,
+  });
+  if (probe.total <= target) {
+    await buildRolls(payload);
+  }
+}
+
 /* v2.12 (Rudolfs Freigabe 15.11., Gruppe C) — Fegefeuer (APG Theurgie),
    Novize/Adept: keine Mystiker-Probe, der Mystiker zwingt die Opfer zum
    Wurf. je Ziel 1W20 gegen die GESAMTKORRUPTION (temporary + longterm +
@@ -8940,6 +9392,10 @@ async function flamewallResult(rollData, functionStuff) {
     rolls.push(damageRoll);
     const finalDmg = await mathDamageProt(victim, damageRoll.total, { fire: true });
     const damageTot = finalDmg.damage;
+    // Kraefte-Paket 1 (Feuerseele-Meister): Feuerschaden wird zu Heilung
+    if (finalDmg.firesoulHeal > 0) {
+      flagDataArray.push({ tokenId: token.id, toughnessChange: finalDmg.firesoulHeal });
+    }
     lines.push(
       `<p>${game.i18n.format("POWER_FLAMEWALL.CHAT_DAMAGE", { targetname: token.name, count: damageRoll.total })}${finalDmg.text}</p>`
     );
@@ -10646,6 +11102,32 @@ async function mathDamageProt(targetActor, damage, damageType = {}) {
     finalDamage = Math.round(finalDamage * targetActor.system.combat.damageProt.normal);
     infoText = await damageReductionText(targetActor.system.combat.damageProt.normal);
   }
+  // Kraefte-Paket 1 (Baustein A, Feuerseele - Rudolfs Baufreigabe
+  // 21.11., Entscheidung 4): Feuer-Ruestungsbonus PARALLEL zur
+  // Multiplikator-Kette. Novize +1W6 / Adept +1W10 Schutz gegen
+  // Feuerschaden (NSC-Fixwerte 3/5 nach Systemkonvention, Muster
+  // Schutzrunen-NPC-Boni). MEISTER (Raw): KEIN Feuerschaden -
+  // stattdessen Heilung um die Haelfte des erlittenen Feuerschadens;
+  // die Heilung wird als firesoulHeal zurueckgegeben und vom Aufrufer
+  // ueber die GM-Anwenden-Karte gebucht.
+  const fireSoulLevel = damageType.fire ? getActorAbilityLevel(targetActor, "firesoul") : 0;
+  if (fireSoulLevel > 0) {
+    if (fireSoulLevel >= 3) {
+      const fireHeal = Math.floor(finalDamage / 2);
+      finalDamage = 0;
+      infoText += " " + game.i18n.format("POWER_FIRESOUL.CHAT_MASTER_HEAL", { count: fireHeal });
+      return { damage: 0, text: infoText, firesoulHeal: fireHeal };
+    }
+    if (targetActor?.type === "character") {
+      const fireProtRoll = await new Roll(fireSoulLevel >= 2 ? "1d10" : "1d6").evaluate();
+      finalDamage = Math.max(0, finalDamage - fireProtRoll.total);
+      infoText += " " + game.i18n.format("POWER_FIRESOUL.CHAT_PROTECTION", { count: fireProtRoll.total });
+    } else {
+      const npcFireProt = fireSoulLevel >= 2 ? 5 : 3;
+      finalDamage = Math.max(0, finalDamage - npcFireProt);
+      infoText += " " + game.i18n.format("POWER_FIRESOUL.CHAT_PROTECTION", { count: npcFireProt });
+    }
+  }
   // S2.1 (P4 Feuer-Paket, Rudolfs Freigabe 06.11.2026): Feuergeschmiedet
   // (RAW verifiziert, Vault-Notiz): mystischer +1 Schutz gegen Feuer-
   // schaden — PARALLEL zur Multiplikator-Kette (kein weiterer else-if),
@@ -11599,6 +12081,11 @@ async function attackResult(rollData, functionStuff) {
     actorid = functionStuff.targetData?.actor.id;
   }
   // end Maestro support
+  // Kräfte-Paket 1 (Anhang): Illusorische Korrektur - nur im misslungenen
+  // Verteidigungswurf-Fluss mit der Kraft beim Verteidiger; die Taste
+  // haengt an DIESEM Angriffs-Ergebnis, der Klick laeuft ueber hooks.js
+  const illusoryPayload = illusoryCorrectionPayload(functionStuff, rollData);
+  if (illusoryPayload) templateData.illusoryReroll = true;
   const html = await foundry.applications.handlebars.renderTemplate("systems/symbaroum/template/chat/combat.hbs", templateData);
   const chatData = {
     user: game.user.id,
@@ -11611,6 +12098,11 @@ async function attackResult(rollData, functionStuff) {
     rollMode: game.settings.get("core", "messageMode"),
   };
   ChatMessage.applyMode(chatData, "public");
+  // Kräfte-Paket 1 (Anhang): Payload an die Karte flaggen (Trollsingen-
+  // Muster symbaroum.trollReroll), der hooks.js-Handler liest ihn
+  if (illusoryPayload) {
+    chatData[`flags.${game.system.id}.illusoryReroll`] = illusoryPayload;
+  }
   let NewMessage = await ChatMessage.create(chatData);
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
@@ -12015,6 +12507,13 @@ async function attackResult(rollData, functionStuff) {
      erfolgreichem Nahkampftreffer mit Schaden auf einen geschuetzten
      Akteur. */
   await thornCloakRetaliation(functionStuff, damageTot, rollData);
+  /* Kraefte-Paket 1 (Baustein B): Schutzrunen-Vergeltung + Maintain-
+     Abbruch - gleiche Trigger-Stelle wie der Dornenmantel-Rueckschlag,
+     NK UND FK physisch, nur bei Schaden > 0 auf den Marker-Traeger. */
+  await protectiveRunesRetaliation(functionStuff, damageTot, rollData);
+  /* Kraefte-Paket 1 (Baustein A): Feuerseele-Rueckstoss - NK Nov/Adept,
+     NK+FK Meister, durch die Ruestung des Angreifers. */
+  await firesoulRetaliation(functionStuff, damageTot, rollData);
   return templateData;
 }
 
@@ -12394,15 +12893,37 @@ export async function standardPowerResult(rollData, functionStuff) {
   game.symbaroum.log("Flag data", flagData);
 
   game.symbaroum.log("functionStuff before merge", functionStuff);
+  /* Kräfte-Paket 1 (Sphäre): Marker-flagData als OBJEKT {level, choice} -
+     die Radio-Wahl des Aktivierungsdialogs (Wahlmodell B, Rudolfs
+     Entscheidung 5) wandert in den Marker; getItemModifierSphere, die
+     buildRolls-Auto-Parade und die konditionsbasierte Verbündeten-
+     Substitution (actor.js) lesen Stufe und Wahl daraus. Pfade ohne
+     Dialog (Legacy) defaulten auf resolute. */
+  let markerFlagData = functionStuff.flagNotPresentFSmod.flagData;
+  const isSphereActivation = functionStuff.flagTest === "sphere" && functionStuff.ability?.reference === "sphere" && !flagData;
+  if (isSphereActivation) {
+    markerFlagData = {
+      level: Number(functionStuff.flagNotPresentFSmod.flagData) || functionStuff.powerLvl?.level || 1,
+      choice: functionStuff.sphereChoice ?? "resolute",
+    };
+  }
   if (functionStuff.flagTest && trueActorSucceeded) {
     if (flagData) {
       // The following line is just for clean-up legacy
       await functionStuff.actor.unsetFlag(game.system.id, functionStuff.flagTest);
       await functionStuff.actor.removeCondition(functionStuff.flagTest);
       functionStuff = Object.assign({}, functionStuff, functionStuff.flagPresentFSmod);
-    } else {      
-      await functionStuff.actor.addCondition(functionStuff.flagTest, functionStuff.flagNotPresentFSmod.flagData);
+    } else {
+      await functionStuff.actor.addCondition(functionStuff.flagTest, markerFlagData);
       functionStuff = Object.assign({}, functionStuff, functionStuff.flagNotPresentFSmod);
+      /* Kräfte-Paket 1 (Sphäre-Meister, Rudolfs Entscheidung 7): Die
+         Sphäre wandert auf einen VERBÜNDETEN - Distanz-Gate Nah = 1 Feld
+         Abstand zum Mystiker; genau EIN Kandidat => automatisch, mehrere
+         => Auswahl-Dialog (HUD-Manual entfällt). Ohne Kandidat bleibt
+         der Marker auf dem Mystiker (SL-Hinweis auf der Karte). */
+      if (isSphereActivation && (functionStuff.powerLvl?.level ?? 0) >= 3) {
+        await sphereMasterAllyPlacement(functionStuff);
+      }
     }
   }
   game.symbaroum.log("functionStuff after merge", functionStuff);
@@ -12582,6 +13103,11 @@ export async function standardPowerResult(rollData, functionStuff) {
 
     //damage reduction (Undead trait, swarm...)
     let finalDmg = await mathDamageProt(functionStuff.targetData.actor, damage.roll.total, functionStuff.damageType);
+    // Kraefte-Paket 1 (Feuerseele-Meister): Heilung aus mathDamageProt
+    // (Feuerschaden => Haelfte als Zaehigkeit zurueck) mitbuchen
+    if (finalDmg.firesoulHeal > 0) {
+      flagDataArray.push({ tokenId: functionStuff.targetData.tokenId, toughnessChange: finalDmg.firesoulHeal });
+    }
     // pain (damage > toughness treshold)
     let pain = checkPainEffect(functionStuff, finalDmg.damage);
     damageTot = finalDmg.damage;
@@ -12978,6 +13504,11 @@ export async function standardPowerResult(rollData, functionStuff) {
     const dispelFailed = await anathemaDispel(functionStuff, flagDataArray, rollData);
     functionStuff.anathemaDispelFailed = dispelFailed ?? !trueActorSucceeded;
   }
+
+  /* Kraefte-Paket 1 (Baustein A): Feuerseele-Meister-Vergeltung - der
+     direkte Schadenswurf dieser Kraft auf einen Feuerseele-Meister
+     loest die 1W10-Fern-Vergeltung aus (Ruestung schuetzt, RAW). */
+  await firesoulMasterPowerCounter(functionStuff, damageTot);
 
   if (flagDataArray.length) {
     await createModifyTokenChatButton(flagDataArray);

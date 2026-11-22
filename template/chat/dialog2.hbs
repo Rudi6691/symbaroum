@@ -30,6 +30,13 @@
     </select>
   </div>
   {{/if}}
+  {{#if askSphereChoice}}
+  {{!-- Kräfte-Paket 1 (Sphäre): Wahlmodell B - Radio-Wahl Gewandtheit/Willenskraft --}}
+  <div class="favour sphere-choice-row">
+    <label class="lblfavour sphere-choice-label">{{localize "DIALOG.SPHERE_CHOICE"}}</label>
+    <label class="lblfavour">{{radioBoxes "sphere-choice" sphereChoices checked=defaultSphereChoice localize=true}}</label>
+  </div>
+  {{/if}}
 	{{#if askTargetAttribute}}
     <div class="attribute">
         <label>{{localize "DIALOG.RESIST_ATTRIBUTE"}}</label>

@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, illusoryCorrectionInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, getActorAbilityLevel } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -1085,6 +1085,28 @@ async function a28TickActorDotEffects(actor, victimName) {
 			rolls.push(roll);
 			amount = roll.total * (dot.stacks ?? 1);
 		}
+		// Kraefte-Paket 1 (Rudolfs Baufreigabe 21.11., Baustein A Feuerseele):
+		// Feuerschaden-DoTs (Brand) laufen durch DIESE Runden-Engine - die
+		// Feuerseele greift je Tick: Novize +1W6 / Adept +1W10 Feuerruestung
+		// (Charaktere wuerfeln, NSC-Fixwert 3/5 wie die NSC-Boni der
+		// Schutzrunen), MEISTER nimmt gar keinen Feuerschaden und heilt
+		// stattdessen die Haelfte des Zugriffs als Zaehigkeit zurueck.
+		let firesoulConvertHeal = 0;
+		if (dot.resource === 'toughness' && dot.damageType === 'fire' && amount > 0) {
+			const fireSoulLevel = getActorAbilityLevel(actor, 'firesoul');
+			if (fireSoulLevel > 0) {
+				if (fireSoulLevel >= 3) {
+					firesoulConvertHeal = Math.floor(amount / 2);
+					amount = 0;
+				} else if (actor.type === 'character') {
+					const fireProtRoll = await new Roll(fireSoulLevel >= 2 ? '1d10' : '1d6').evaluate();
+					rolls.push(fireProtRoll);
+					amount = Math.max(0, amount - fireProtRoll.total);
+				} else {
+					amount = Math.max(0, amount - (fireSoulLevel >= 2 ? 5 : 3));
+				}
+			}
+		}
 		if (dot.resource === 'corruption') corruptionDamage += amount;
 		// A35: the heal resource turns a dot into a healing tick (Regeneration
 		// trait) - the amount is ADDED to toughness in the batched update below
@@ -1104,6 +1126,11 @@ async function a28TickActorDotEffects(actor, victimName) {
 			// this very tick is running: one round of the duration is consumed
 			const remaining = Number(displayRounds) - 1;
 			line += remaining > 0 ? game.i18n.format('COMBAT.DOT_ROUNDS_LEFT', { count: remaining }) : game.i18n.localize('COMBAT.DOT_EXPIRED');
+		}
+		// Kraefte-Paket 1 (Feuerseele): Meister-Umleitung separat dokumentieren
+		if (firesoulConvertHeal > 0) {
+			line += ' ' + game.i18n.format('POWER_FIRESOUL.CHAT_MASTER_HEAL', { count: firesoulConvertHeal });
+			healAmount += firesoulConvertHeal;
 		}
 		lines.push(line);
 	}
@@ -2277,6 +2304,41 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 				trollRerollPayload.targetData.actor = targetToken.actor;
 				await chatItem.unsetFlag(game.system.id, 'trollReroll');
 				await trollRerollInvoke(trollRerollPayload);
+				return;
+			});
+		}
+	}
+	/* Kräfte-Paket 1 (Anhang): Illusorische Korrektur - Taste auf der
+	   misslungenen Verteidigungs-Ergebniskarte (nur Verteidigungswurf-
+	   Fluss, resistRoll = true). Eigentum: GM oder Besitzer des
+	   VERTEIDIGERS (anders als beim Trollsingen-Reroll wuerfelt hier
+	   nicht der Wirkende des Payload-Akteurs, sondern der Angegriffene).
+	   Token-Referenzen werden wieder angehaengt (resistRoll-Muster),
+	   Flag faellt nach dem Klick weg (eine Karte = ein Versuch), dann
+	   ruft der item.js-Export illusoryCorrectionInvoke:dort geprueft und
+	   verbraucht die Runden-Frequenz, wuerfelt die Willenskraft-Probe
+	   und wiederholt bei Erfolg die komplette Verteidigung. */
+	const illusoryRerollPayload = await chatItem.getFlag(game.system.id, 'illusoryReroll');
+	if (illusoryRerollPayload) {
+		const listenArea = html.querySelectorAll('#illusoryRerollButton');
+		for (const s of listenArea) {
+			s.addEventListener('click', async () => {
+				let tok = canvas.tokens.objects.children.find((token) => token.id === illusoryRerollPayload.tokenId);
+				let targetToken = canvas.tokens.objects.children.find((token) => token.id === illusoryRerollPayload.targetData?.tokenId);
+				if (!tok || !targetToken) {
+					ui.notifications.error(game.i18n.localize('ERROR.NO_TARGET_SELECTED'));
+					return;
+				}
+				if (!game.user.isGM && !targetToken.actor?.isOwner) {
+					ui.notifications.warn(game.i18n.localize('ERROR.NOT_OWNER'));
+					return;
+				}
+				illusoryRerollPayload.token = tok;
+				illusoryRerollPayload.actor = tok.actor;
+				illusoryRerollPayload.targetData.token = targetToken;
+				illusoryRerollPayload.targetData.actor = targetToken.actor;
+				await chatItem.unsetFlag(game.system.id, 'illusoryReroll');
+				await illusoryCorrectionInvoke(illusoryRerollPayload);
 				return;
 			});
 		}

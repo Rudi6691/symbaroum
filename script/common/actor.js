@@ -258,6 +258,38 @@ export class SymbaroumActor extends Actor {
 		// Hook - itemModifiers retrieved
 		game.symbaroum.api.symbaroumItemModifiersSetup(this, combatMods, allArmors, allWeapons, allAbilities);
 
+		/* Kräfte-Paket 1 (Sphäre, Rudolfs Baufreigabe 21.11., Baustein C):
+		   Konditionsbasierte Defense-Substitution für Marker-Halter OHNE
+		   eigenes Sphäre-Item - der Regelfall der Meister-Verbündeten-
+		   Sphäre (sphereMasterAllyPlacement in item.js setzt den Marker
+		   mit {level:3, choice} auf den Verbündeten). Mystiker MIT Item
+		   bekommen die Substitution über getItemModifierSphere (dort
+		   choice-geprüft), das Item-Vorkommen verhindert die Doppelung.
+		   choice "quick" = keine Substitution (Wahlmodell B, Bindung bis
+		   Kraftende); Legacy-Marker ohne Wahl behalten das A16-Verhalten
+		   (Substitution nur, wenn Willenskraft die höhere Eigenschaft ist). */
+		const sphereMarkerSelf = this.hasCondition?.("sphere");
+		if (sphereMarkerSelf && !this.items.some((it) => it.system?.reference === "sphere")) {
+			const sphereFd = sphereMarkerSelf.getFlag(game.system.id, "flagData") ?? null;
+			const sphereChoice = sphereFd && typeof sphereFd === "object" ? sphereFd.choice ?? null : null;
+			if (sphereChoice !== "quick") {
+				const forceSphere = sphereChoice === "resolute";
+				for (let i = 0; i < allArmors.length; i++) {
+					if (allArmors[i].system.isStackableArmor) {
+						continue;
+					}
+					combatMods.armors[allArmors[i].id].attributes.push({
+						id: "sphere-marker",
+						label: game.i18n.localize("POWER_LABEL.SPHERE"),
+						attribute: "resolute",
+						type: game.symbaroum.config.TYPE_ATTRIBUTE,
+						abilityMod: true,
+						force: forceSphere,
+					});
+				}
+			}
+		}
+
 		this._getToughnessValues(combatMods.toughness);
 		this._getCorruptionValues(combatMods.corruption);
 
@@ -380,7 +412,17 @@ export class SymbaroumActor extends Actor {
 			for (let i = 0; i < armorModifiers.attributes.length; i++) {
 				// weaponModifers.attribute[i].label
 				let replacementAttribute = armorModifiers.attributes[i].attribute;
-				if (this.system.attributes[defense.attribute].total < this.system.attributes[replacementAttribute].total) {
+				/* Kräfte-Paket 1 (Sphäre, Wahlmodell B): force-Mitglieder
+				   setzen die Wahl DIREKT durch (keine Höher-Wert-Automatik:
+				   die Dialog-Wahl bindet bis zum Kraftende); ohne force
+				   bleibt die Taktiker-Mechanik (ersetze nur, wenn höher). */
+				if (armorModifiers.attributes[i].force) {
+					if (defense.attribute !== replacementAttribute) {
+						defense.attribute = replacementAttribute;
+						defense.defMsg = `${game.symbaroum.htmlEscape(armorModifiers.attributes[i].label)}<br/>`;
+						totDefense = this.system.attributes[defense.attribute].total;
+					}
+				} else if (this.system.attributes[defense.attribute].total < this.system.attributes[replacementAttribute].total) {
 					defense.attribute = replacementAttribute;
 					defense.defMsg = `${game.symbaroum.htmlEscape(armorModifiers.attributes[i].label)}<br/>`;
 					totDefense = this.system.attributes[defense.attribute].total;

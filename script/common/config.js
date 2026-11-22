@@ -446,6 +446,10 @@ SYMBAROUM.scriptedAbilities = [
   "earthshot",
   "entanglingvines",
   "flamewall",
+  // Kräfte-Paket 1 (Rudolfs Baufreigabe 21.11.): Feuerseele als
+  // dauerhafte Reaktions-Aura gescriptet (NK-Rückstoß, Feuer-Rüstung/
+  // Heilung, Meister-Distanz-Vergeltung) - Badge aus dieser Liste
+  "firesoul",
   // Hymnen v1 (siehe combathymn)
   "heroichymn",
   // Hymnen-Paket 1.5 (Rudolfs Startsignal 17.11.2026): Skript-Badges
