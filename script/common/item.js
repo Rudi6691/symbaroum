@@ -12897,7 +12897,13 @@ export async function standardPowerResult(rollData, functionStuff) {
      buildRolls-Auto-Parade und die konditionsbasierte Verbündeten-
      Substitution (actor.js) lesen Stufe und Wahl daraus. Pfade ohne
      Dialog (Legacy) defaulten auf resolute. */
-  let markerFlagData = functionStuff.flagNotPresentFSmod.flagData;
+  /* v1.2 Hotfix (Rudolfs Testrunde 1, Punkt 16): Optional-Chaining-Guard -
+     Ketten-/Zonenkraefte (Schwefelkaskade, Flammenwand, Schwächende Glyphe,
+     Fegefeuer u. a.) haben KEIN flagNotPresentFSmod im Setup; der v1-Zugriff
+     ohne Guard riss standardPowerResult fuer JEDE dieser Kraefte mit
+     "TypeError: Cannot read properties of undefined (reading 'flagData')"
+     ab (item.js:12900). Die Basis liest flagData NUR im gesicherten Zweig. */
+  let markerFlagData = functionStuff.flagNotPresentFSmod?.flagData;
   const isSphereActivation = functionStuff.flagTest === "sphere" && functionStuff.ability?.reference === "sphere" && !flagData;
   if (isSphereActivation) {
     markerFlagData = {
