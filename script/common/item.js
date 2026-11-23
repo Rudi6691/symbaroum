@@ -9152,33 +9152,58 @@ async function sphereMasterAllyPlacement(functionStuff) {
   try {
     const mysticToken = functionStuff.token ?? canvas.tokens?.placeables?.find((t) => t.actor?.id === functionStuff.actor.id);
     if (!mysticToken) return;
+    /* Kraefte-Paket 1 v1.4 (Rudolfs Baufreigabe 23.11., Testrunde-1-Punkt 8):
+       Szenen-UNABHAENGIGE Naehe-Messung. v1.3 mass ueber canvas.grid.
+       measureDistance gegen gridDistance*1.5 - das kennt in Rudolfs
+       GRIDLESS-Testszene keine Zellen (rohe Szenen-Einheiten) und
+       schnitt dadurch JEDES benachbarte Token aus (Fallback-Karte trotz
+       direkter Nachbarschaft). Fork-Konvention statt dessen wie
+       Zauberstab-Meister v1.6/v1.7 und Dornenmantel-Notfallnaehe
+       (thornCloakInMeleeRange): Chebyshev-Distanz der Token-ZENTREN
+       (thornCloakTokenCenter, tolerant fuer Placeables UND Documents)
+       gegen 1,5 Rasterzellen (gridSize mit Gridless-Fallback 100px) -
+       orthogonal (1 Zelle) UND diagonal (~1,41 Zellen) zaehlen, gridded
+       wie gridless identisch. Diagnose-Log: gepruefte Distanzen je
+       Verbundenem in Zellen landen im game.symbaroum.log. */
+    const cellSize = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.grid?.size ?? 100;
+    const allyDiag = [];
     const candidates = (canvas.tokens?.placeables ?? [])
       .filter((t) => t?.actor && t.id !== mysticToken.id)
       .filter((t) => t.document?.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY)
       .filter((t) => {
         try {
-          /* v1.3 (Rudolfs Entscheidung, Auswahlrunde 2): Fork-Konvention
-             1,5 ZELLEN (identisch zur Dornenmantel-Naehe und senseBlocked-
-             Toleranz) - erfasst auch diagonale Nachbarn und ist robust
-             gegen Szenen-gridDistance (Szenen-Einheiten, z. B. 1,5 m/Kelle):
-             das alte fixe "<= 1" mass Einheiten und lies den direkten
-             Nachbarn bei 1,5-m-Raster nie (Testrunde-1-Punkt 11). */
-          const oneAndAHalfCells = Number(canvas.scene?.gridDistance ?? 1) * 1.5;
-          return canvas.grid.measureDistance(mysticToken, t) <= oneAndAHalfCells;
+          const a = thornCloakTokenCenter(mysticToken);
+          const b = thornCloakTokenCenter(t);
+          const distCells = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) / cellSize;
+          allyDiag.push({ name: t.name, distCells });
+          return distCells <= 1.5;
         } catch (measureError) {
+          allyDiag.push({ name: t.name, distCells: null });
           return false;
         }
       });
+    game.symbaroum.log("Kraefte-Paket 1 v1.4: Sphaere-Verbündeten-Kandidaten", {
+      mystic: functionStuff.actingCharName,
+      cellSize,
+      checked: allyDiag,
+      candidates: candidates.map((c) => c.name),
+    });
     const sphereFlagData = {
       level: 3,
       choice: functionStuff.sphereChoice ?? "resolute",
     };
-    /* Kein Kandidat: Marker bleibt auf dem Mystiker (SL-Hinweis) */
+    /* Kein Kandidat: Marker bleibt auf dem Mystiker (SL-Hinweis).
+       v1.4: EIGENER Titel (v1.3 verwendete der Fehler-"Sphaere endet"-
+       Key, irrefuehrend) PLUS Hint-Zeile, damit die 1,5-Zellen-Bedingung
+       auch ohne Auswahl-Dialog sichtbar ist. */
     if (candidates.length === 0) {
       await postMaintainChainCard(
         functionStuff,
-        `<h4>${game.i18n.localize("POWER_SPHERE.CHAT_END_TITLE")}</h4>`,
-        [`<p>${game.i18n.format("POWER_SPHERE.CHAT_ALLY_FALLBACK", { actorname: functionStuff.actingCharName })}</p>`],
+        `<h4>${game.i18n.localize("POWER_SPHERE.ALLY_FALLBACK_TITLE")}</h4>`,
+        [
+          `<p>${game.i18n.format("POWER_SPHERE.CHAT_ALLY_FALLBACK", { actorname: functionStuff.actingCharName })}</p>`,
+          `<p>${game.i18n.localize("POWER_SPHERE.ALLY_SELECT_HINT")}</p>`,
+        ],
         []
       );
       return;
@@ -9194,6 +9219,10 @@ async function sphereMasterAllyPlacement(functionStuff) {
           .join(" ");
         symbDialog({
           title: game.i18n.localize("POWER_SPHERE.ALLY_SELECT_TITLE"),
+          /* Kraefte-Paket 1 v1.4 (Rudolfs Testrunde v1.3 Punkt 6/8):
+             dialog im MODERNEN Design, wenn Modern-Design aktiv (Muster
+             wie die anderen System-Dialoge via modernDialogClasses) */
+          classes: isModernDialogActive() ? modernDialogClasses("modern-sphere-ally-dialog") : [],
           content: `<p>${game.i18n.localize("POWER_SPHERE.ALLY_SELECT_HINT")}</p><div class="favour">${allyOptions}</div>`,
           buttons: {
             ok: {
@@ -9438,6 +9467,10 @@ export function openIllusoryCorrectionDialog(payload) {
   if (!game.user.isGM && !defenderActor.isOwner) return;
   symbDialog({
     title: game.i18n.localize("POWER_ILLUSORYCORRECTION.DIALOG_TITLE"),
+    /* Kraefte-Paket 1 v1.4 (Rudolfs Testrunde v1.3 Punkt 6): Aktivierungs-
+       Dialog im MODERNEN Design, wenn Modern-Design aktiv (Muster wie die
+       anderen System-Dialoge via modernDialogClasses) */
+    classes: isModernDialogActive() ? modernDialogClasses("modern-illusorycorrection-dialog") : [],
     content: `<p>${game.i18n.format("POWER_ILLUSORYCORRECTION.DIALOG_HINT", { actorname: defenderActor.name })}</p>`,
     buttons: {
       ok: {

@@ -1211,6 +1211,7 @@
   "POWER_SPHERE.CHAT_AUTOPARRY": "Die Sphäre von {targetname} lässt den Angriff verpuffen — keine Probe, kein Schaden.",
   "POWER_SPHERE.ALLY_SELECT_TITLE": "Sphäre: Verbündeten wählen",
   "POWER_SPHERE.ALLY_SELECT_HINT": "Nur Verbündete in 1,5 Zellen Abstand (gerade und diagonal) sind gültig. Wen umschließt die Sphäre?",
+  "POWER_SPHERE.ALLY_FALLBACK_TITLE": "Sphäre: Verbleibt auf dem Mystiker",
   "POWER_SPHERE.CHAT_ALLY_TITLE": "Verbündeten-Sphäre",
   "POWER_SPHERE.CHAT_ALLY_CHOSEN": "{actorname} projiziert die Sphäre auf {targetname}.",
   "POWER_SPHERE.CHAT_ALLY_FALLBACK": "Kein Verbündeter in Nahdistanz — die Sphäre verbleibt auf {actorname}.",

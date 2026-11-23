@@ -1211,6 +1211,7 @@
   "POWER_SPHERE.CHAT_AUTOPARRY": "{targetname}'s sphere dissipates the attack — no test, no damage.",
   "POWER_SPHERE.ALLY_SELECT_TITLE": "Sphere: Choose Ally",
   "POWER_SPHERE.ALLY_SELECT_HINT": "Only allies within 1.5 squares (straight or diagonal) are valid. Whom does the sphere encase?",
+  "POWER_SPHERE.ALLY_FALLBACK_TITLE": "Sphere: Stays on the Mystic",
   "POWER_SPHERE.CHAT_ALLY_TITLE": "Allied Sphere",
   "POWER_SPHERE.CHAT_ALLY_CHOSEN": "{actorname} projects the sphere onto {targetname}.",
   "POWER_SPHERE.CHAT_ALLY_FALLBACK": "No ally in close range — the sphere remains on {actorname}.",
