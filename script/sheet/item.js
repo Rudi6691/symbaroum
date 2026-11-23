@@ -1,6 +1,11 @@
 import { isStackableItem } from '../common/stacking.js';
 // S4 v1.3 (Kapazitätsmodell): Rations-Helfer + Kategorien-Liste
-import { RATION_CATEGORIES, isCapacityRationItem, getRationCount } from '../common/resources.js';
+// Kräfte-Paket 2, Block D (23.11.2026): + getRationLoadGE (dynamischer
+// Effektivwert, konsistent mit allen Last-Lesestellen) für die Blatt-Anzeige
+import { RATION_CATEGORIES, isCapacityRationItem, getRationCount, getRationLoadGE } from '../common/resources.js';
+// Kräfte-Paket 2, Block D: GE-Formatierung der Anzeige (formatGE wie im
+// Spielerblatt; Blatt-Import erzeugt KEINEN Zykel - sheet/ importiert common/)
+import { formatGE } from '../common/encumbrance.js';
 // Übergabe v1: Geben-Button der Titelzeile (Dialog/Consent/Socket in transfer.js)
 import { openGiveDialog } from '../common/transfer.js';
 // Item-Sheet-Modernisierung v1: die moderne Ansicht der Item-Blätter folgt
@@ -1271,6 +1276,12 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			 * bleiben reine Anzahl-Stapel ohne Rationsfeld. */
 			showRationCount: isCapacityRationItem(item),
 			rationCountDisplay: getRationCount(item),
+			/* Kräfte-Paket 2, Block D (Rudolfs Wunsch a): dynamische
+			 * Gewichtsanzeige direkt unter dem Rations-Stepper im Kopf
+			 * („Aktuelles Gewicht: 1,0" - LE-Kürzel hängt das Template
+			 * an); null = kein Kapazitäts-Rations-Item (Template-Gate
+			 * showRationCount lässt die Zeile ohnehin nur dort erscheinen). */
+			rationWeightDisplay: isCapacityRationItem(item) ? formatGE(getRationLoadGE(item)) : null,
 			showCapacityStatus:
 				item.type === 'equipment' &&
 				RATION_CATEGORIES.includes(String(item.system?.resourceCategory ?? '')),

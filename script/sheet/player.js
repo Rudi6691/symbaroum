@@ -29,7 +29,7 @@ import { GIVE_TYPES, openGiveDialog, openGiveMoneyDialog } from '../common/trans
 // Ressourcen v1: Dialog „Ressource verbrauchen (N)" für kategorisierte Items
 // (resourceCategory) ohne System-Trigger - Alchemiezutat bis zum Brau-Dialog
 // des Ökonomie-Projekts; GM und Blattbesitzer (Rudolfs Runde-2-Entscheidung)
-import { openConsumeResourceDialog, getItemCount, isCapacityRationItem, getRationCount } from '../common/resources.js';
+import { openConsumeResourceDialog, getItemCount, isCapacityRationItem, getRationCount, getRationLoadGE, openSetRationCountDialog } from '../common/resources.js';
 // S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026):
 // Selbstversorgung („Verzehren — für den Reisetag versorgt" am Rations-
 // stapel), Reise-Status-Reset am eigenen Blatt und der Reise-Status-Chip
@@ -672,6 +672,20 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		};
 		const itemsById = new Map(context.items.map((it) => [it.id, it]));
 		const weightInfo = (rawItem) => {
+			/* Kräfte-Paket 2, Block D (Rudolfs Wunsch a, 23.11.2026):
+			   Rations-Kapazitäts-Items zeigen den DYNAMISCHEN Effektiv-
+			   wert statt der fixen Kategorie - Wegbrot sinkt anteilig
+			   (Vollgewicht-Modell), der Wasserschlauch wiegt Leergewicht
+			   plus je contained Wasserration Leicht (Behältermodell). */
+			if (isCapacityRationItem(rawItem)) {
+				const ge = getRationLoadGE(rawItem);
+				const catLabelKey = game.symbaroum.config.RESOURCE_CATEGORY_SELECTION?.[String(rawItem.system.resourceCategory ?? '')]?.label;
+				const catLabel = catLabelKey ? ` (${localize(catLabelKey)})` : '';
+				return {
+					display: `${formatGE(ge)} ${localize('WEIGHT.GE_ABBR')}`,
+					tooltip: `${localize('WEIGHT.DYNAMIC_TOOLTIP')}${catLabel}`,
+				};
+			}
 			const cat = game.symbaroum.config.weight[rawItem?.system?.weight] ?? game.symbaroum.config.weight.none;
 			if (cat.id === 'none') return { display: '—', tooltip: localize('WEIGHT.LABEL') + ': ' + localize(cat.label) };
 			if (cat.value === null) return { display: '∞', tooltip: localize('WEIGHT.LABEL') + ': ' + localize(cat.label) };
@@ -718,7 +732,13 @@ export class PlayerSheet extends SymbaroumActorSheet {
 			const n = Number.isFinite(raw) ? Math.max(0, Math.round(raw)) : 1;
 			const max = Number(rawItem?.system?.maxNumber);
 			if (Number.isFinite(max) && max > 0) {
-				return isCapacityRationItem(rawItem) ? `${getRationCount(rawItem)} / ${max}` : `${n} / ${max}`;
+				if (isCapacityRationItem(rawItem)) {
+					/* Kräfte-Paket 2, Block D (Rudolfs Wunsch a): Der
+					 * Chip zeigt neben dem Füllstand den DYNAMISCHEN
+					 * Effektivwert - besonders schön am Ausrüstungs-Tab. */
+					return `${getRationCount(rawItem)} / ${max} · ${formatGE(getRationLoadGE(rawItem))} ${localize('WEIGHT.GE_ABBR')}`;
+				}
+				return `${n} / ${max}`;
 			}
 			return `× ${n}`;
 		};
@@ -1548,6 +1568,27 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
 				onClick: (event, elem) => {
 					openConsumeResourceDialog(this._ctxItem(elem));
+				},
+			},
+			{
+				// Kräfte-Paket 2, Block C (Rudolfs Session-Wunsch
+				// 23.11.2026): Kontextmenü „Rationen einstellen …“ am
+				// Rations-KAPAZITÄTS-Item — analog dem Anzahl-Dialog:
+				// Stepper 0..maxNumber gegen system.rationCount, die
+				// Item-Anzahl (Kauf/Verkauf/Stapel) bleibt unberührt.
+				// GM und Blattbesitzer (elem.isOwner deckt den GM mit
+				// ab), nur im Ausrüstungs-Tab; vom Welt-Setting unab-
+				// hängig (reine Inventar-Pflege). Sichtbarkeit bewusst
+				// OHNE Bestandsgate: auch der leere Behälter (0) darf
+				// neu befüllt werden.
+				label: 'RESOURCE.SET_MENU',
+				icon: `<i class="fa-solid fa-bowl-food"></i>`,
+				visible: (elem) => {
+					return isCapacityRationItem(elem) && elem.isOwner;
+				},
+				visibleEl: (target) => !!target.closest('.m-gear, .gear'),
+				onClick: (event, elem) => {
+					openSetRationCountDialog(this._ctxItem(elem));
 				},
 			},
 			{

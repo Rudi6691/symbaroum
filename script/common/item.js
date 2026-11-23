@@ -19,6 +19,13 @@ import { isModernDialogActive, modernDialogClasses } from "./modernSheetConfig.j
 // kategoriebasierten Ressourcenverbrauchs (Kategorie Kraeuterarznei für den
 // Medicus; Setting „Ressourcenverbrauch" GM-seitig, Default AUS)
 import { RESOURCE_CONSUMERS, isResourceConsumptionEnabled, getHerbalCureAvailability, consumeHerbalCure, getBandageAvailability, consumeBandage, getItemCount } from "./resources.js";
+// Kräfte-Paket 2 (Rudolfs Freigabe 23.11.2026 „Baue Paket 2", Block A
+// Sturmpfeil, Entscheidung 8: Material als Munition, ABBUCHUNG je
+// abgefeuertem Pfeil wenn das Setting „Munitionsverbrauch" aktiv ist):
+// Bestands- und Stapel-Helfer der Munitions-Kategorie „pfeilbolzen"
+// (bewusst GEMEINSAM für Pfeile und Bolzen, config.js). Kein Import-
+// Zyklus - ammo.js importiert nichts aus item.js.
+import { isAmmoConsumptionEnabled, findAmmoStacks, getAmmoTotal } from "./ammo.js";
 // Elixier-Automatisierung v1: Benommen-Malus-Vorbelegung im Faehigkeits-
 // Wuerfeldialog (Nebelball) - Helfer aus elixirs.js
 // Elixiere v1.7 (Waffengift-Dialog-Vereinheitlichung): + consumeElixirDose
@@ -3407,6 +3414,52 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  /* Kräfte-Paket 2 „Sprung & Schuss" (Rudolfs Freigabe 23.11.2026, Konzept-
+     Doc Kraefte-Paket2-Konzept-v1): Sturmpfeil (GRW, Vault Sturmpfeil.md).
+     Aktivierung = probenpflichtige Verzauberung von bis zu fünf Pfeilen
+     (Standard-Wurfdialog, Res); der Bestand wohnt im Actor-Flag „stormArrow"
+     (KEIN Symbol, nichts Sichtbares am Token - die Pfeile selbst bleiben
+     als ordinäre Stapel im Inventar). Zweiter Klick auf die Kraft-Kachel
+     öffnet über preDialogStormArrow den Aktions-Dialog: freier Schuss
+     (1×/Runde), Salve (Adept 2 / Meister 3 Pfeile, Kampfaktion, blockiert
+     den freien Schuss derselben Runde) oder Kraft-Ende. Treffer erfolg-
+     sicher (kein Angriffswurf), Schaden fest 1W6 (N) / 1W8 (A/M) -
+     Rudolfs Entscheidung 1: KEINE Übernahme von Pfeilqualitäten, Fähig-
+     keiten wie Scharfschütze greifen nicht. Munitionsabbuchung je
+     ABGEFEUERTEM Pfeil (Entscheidung 8 + b), Setting aus = keine Buchung;
+     Abbruch/Szenenende lässt die restlichen Pfeile im Vorrat. */
+  mysticPowerSetupStormarrow(base) {
+    base.traditions = [game.symbaroum.config.TRAD_WITCHCRAFT];
+    base.needToken = true;
+    base.preDialogFunction = preDialogStormArrow;
+    base.introText = game.i18n.localize("POWER_STORMARROW.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_STORMARROW.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_STORMARROW.CHAT_FAILURE");
+    return base;
+  }
+
+  /* Kräfte-Paket 2, Block B Teleport (APG, Vault Teleport.md). Aktivierung:
+     Standard-Wurfdialog (Res, unopponiert; Novize erleidet 1W4 Reisescha-
+     den, Rüstung ignoriert - bucht als GM-Anwenden-Karte). SL verschiebt
+     das Token (Rudolfs Entscheidung 2, keine Reichweiten-/Sichtbarkeits-
+     Automatik): Hinweiskarte an die SLen. Fehlschlag: NUR Hinweiskarte
+     (Entscheidung 3): Novize Dämonen-Agent (1W6-Liste), Adept/Meister
+     Aufhalteproben-Hinweis (Rudolfs c: bewusst KEINE Wurftaste). Meister:
+     preDialogTeleport hängt einen Mitreisenden aus der Nahkampfreichweite
+     an; widerwillige Personen laufen als opponierte [Res<-Res]-Probe im
+     Wurfdialog (Entscheidung 4, Schlingranken-Muster - EIN Wurf regelt
+     Reise und Zwang, dokumentierte Vereinfachung). Mitreisender:
+     1W4 Schaden + 1W4 temporäre Korruption (RAW), willig ohne Probe. */
+  mysticPowerSetupTeleport(base) {
+    base.traditions = [game.symbaroum.config.TRAD_WIZARDRY];
+    base.needToken = true;
+    base.preDialogFunction = preDialogTeleport;
+    base.introText = game.i18n.localize("POWER_TELEPORT.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_TELEPORT.CHAT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_TELEPORT.CHAT_FAILURE");
+    return base;
+  }
+
   mysticPowerSetupTormentingspirits(base) {
     base.casting = game.symbaroum.config.CASTING;
     base.getTarget = true;
@@ -5403,6 +5456,13 @@ function getPowerResultFunction(functionStuff) {
       return flamewallResult;
     case "lifegiver":
       return functionStuff.powerLvl.level > 2 ? lifegiverMasterResult : lifegiverResult;
+    // Kräfte-Paket 2 „Sprung & Schuss": Sturmpfeil setzt das Bestands-Flag
+    // nur bei bestandener Aktivierung; Teleport hängt Erfolgs-Buchungen
+    // (Reiseschaden/Mitreisender) und SL-Hinweiskarten an die Standard-Karte
+    case "stormarrow":
+      return stormarrowResult;
+    case "teleport":
+      return teleportResult;
     default:
       return standardPowerResult;
   }
@@ -13164,6 +13224,454 @@ async function poisonCalc(functionStuff, poisonRoll) {
 // Segen & Lasten S1: Export fuer die Delegation der Ertrags-Result-
 // Funktionen in boon.js (buschcraftResult/enterpriseResult reichen
 // finalText + resultRolls weiter und delegieren an diese Funktion)
+/* ================================================================
+ * Kräfte-Paket 2 „Sprung & Schuss" (Rudolfs Freigabe 23.11.2026,
+ * Konzept-Doc Kraefte-Paket2-Konzept-v1): Block A Sturmpfeil + Block B
+ * Teleport. Entscheidungsprotokoll und bewusste Abweichungen: siehe
+ * die Setup-Kommentare und das Auslieferungsdoc.
+ * ================================================================ */
+
+/* Runden-Schlüssel der Sturmpfeil-Gates (Muster trollRerollRoundKey,
+ * lokale Kopie - die Original-Funktion ist nicht exportiert): aktiver
+ * Kampf = Kampfrunde, sonst Weltzeit-Takt aus dem Weltzeit-Setting,
+ * ganz ohne Takt null = SL-Urteil (Gate gilt dann als offen, dokumen-
+ * tierte Grenze). RAW: freier Schuss 1×/Runde (auch in der Aktivierungs-
+ * runde - das Gate startet unbenutzt), die Salve ist eine Kampfaktion
+ * und beendet den freien Schuss derselben Runde. */
+function stormArrowRoundKey() {
+  if (game.combat?.active && game.combat.round > 0) return "c" + game.combat.round;
+  const minutes = Number(game.settings.get("symbaroum", "dotWorldTimeRoundMinutes")) || 0;
+  if (minutes > 0) return "w" + Math.floor(game.time.worldTime / (minutes * 60));
+  return null;
+}
+
+/* Sturmpfeil-Bestand am Aktor lesen - nur für die AKTUELLE Szene gültig:
+ * Szenenwechsel lässt das Flag still verfallen (RAW „Rest der Szene"),
+ * die Pfeile selbst sind dank je-Schuss-Buchung nie aus dem Inventar
+ * entfernt worden, es gibt nichts zurückzubuchen. */
+function stormArrowActiveFlag(actor) {
+  const flag = actor?.getFlag(game.system.id, "stormArrow");
+  if (!flag) return null;
+  if (String(flag.sceneId ?? "") !== String(game.scenes.current?.id ?? "")) return null;
+  return flag;
+}
+
+/* Munitionsabbuchung EINES abgefeuerten Sturmpfeils (Rudolfs Entschei-
+ * dungen 8 + b): Setting aus = keine Buchung. Bevorzugt werden die bei
+ * der Aktivierung gemerkten Stapel, danach fällt die Buchung auf die
+ * gesamte Kategorie zurück (Mischbestand, AP2-Stapelreihenfolge wie
+ * consumeAmmoForAttack); bis 0 erlaubt - die Zeile bleibt stehen. */
+async function stormArrowConsumeOne(actor, flag) {
+  if (!isAmmoConsumptionEnabled()) return false;
+  const stacks = [];
+  const seen = new Set();
+  for (const id of flag?.stacks ?? []) {
+    const item = actor.items.get(id);
+    if (item && !seen.has(item.id)) {
+      seen.add(item.id);
+      stacks.push(item);
+    }
+  }
+  for (const item of findAmmoStacks(actor, "pfeilbolzen")) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      stacks.push(item);
+    }
+  }
+  for (const item of stacks) {
+    const current = getItemCount(item);
+    if (current <= 0) continue;
+    await item.update({ "system.number": current - 1 });
+    return true;
+  }
+  return false;
+}
+
+/* Salve: je Folgepfeil eine kleine Bestätigung (Erdschoss-Brocken-
+ * Muster) - gleiche Wahl übernehmen oder ein NEUES Ziel anvisieren
+ * (Mehrfachziel über die Zielwahl-Schiene, Konzept-Abschnitt 2). */
+function stormArrowNextShotConfirmation(functionStuff, remaining) {
+  return new Promise((resolve) => {
+    symbDialog({
+      title: functionStuff.abilityName,
+      classes: ["chain-confirm", ...(isModernDialogActive() ? modernDialogClasses("modern-chain-confirm-dialog") : [])],
+      content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format(game.i18n.localize("POWER_STORMARROW.CONFIRM_NEXT_SHOT"), { count: remaining })}</p></div>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize("BUTTON.YES"),
+          callback: () => resolve(true),
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize("BUTTON.NO"),
+          callback: () => resolve(false),
+        },
+      },
+      default: "yes",
+    });
+  });
+}
+
+/* Sturmpfeil abfeuern: freier Schuss (1 Pfeil) oder Salve (Adept 2 /
+ * Meister 3, auf den Bestand geklemmt). Treffer erfolgsicher - pro
+ * Pfeil läuft eine eigene Schadenskarte (standardPowerResult null-
+ * Wurf-Muster, Doppelformat wie Prios' Brennglas-Folgeschläge), Muna-
+ * tion je Schuss, Gates am Schluss. Abbruch der Salve lässt die
+ * restlichen Pfeile bewaffnet (Rudolfs b). */
+async function stormArrowFireShots(functionStuff, flag, requested, isVolley) {
+  const actor = functionStuff.actor;
+  const volleySize = Math.min(requested, flag.count);
+  if (volleySize <= 0) {
+    ui.notifications.warn(game.i18n.localize("POWER_STORMARROW.WARN_OUT"));
+    return;
+  }
+  const roundKey = stormArrowRoundKey();
+  if (roundKey !== null) {
+    if (isVolley) {
+      if (flag.volleyKey === roundKey) {
+        ui.notifications.warn(game.i18n.localize("POWER_STORMARROW.WARN_ROUND_VOLLEY"));
+        return;
+      }
+    } else if (flag.freeKey === roundKey || flag.volleyKey === roundKey) {
+      ui.notifications.warn(game.i18n.localize("POWER_STORMARROW.WARN_ROUND"));
+      return;
+    }
+  }
+  let targetToken = Array.from(game.user.targets)[0];
+  if (!targetToken) {
+    ui.notifications.warn(game.i18n.localize("POWER_STORMARROW.WARN_NO_TARGET"));
+    return;
+  }
+  /* Karten-Mutation je Schuss (Erdschoss-Muster), Restore danach: die
+     Folge-Schüsse zahlen KEINE Korruption (nur die Aktivierung zahlt),
+     Schaden fest je Stufe, Rüstung schützt (RAW-gerecht, kein ignore). */
+  const saved = {
+    targetData: functionStuff.targetData,
+    corruption: functionStuff.corruption,
+    hasDamage: functionStuff.hasDamage,
+    damageDice: functionStuff.damageDice,
+    ignoreArm: functionStuff.ignoreArm,
+    introText: functionStuff.introText,
+    resultTextSuccess: functionStuff.resultTextSuccess,
+    resultTextFail: functionStuff.resultTextFail,
+    finalTextSucceed: functionStuff.finalTextSucceed,
+  };
+  functionStuff.corruption = game.symbaroum.config.TEMPCORRUPTION_NONE;
+  functionStuff.hasDamage = true;
+  functionStuff.ignoreArm = false;
+  functionStuff.damageDice = flag.level >= 2 ? "1d8" : "1d6";
+  functionStuff.introText = game.i18n.localize("POWER_STORMARROW.CHAT_SHOT_INTRO");
+  functionStuff.resultTextSuccess = game.i18n.localize("POWER_STORMARROW.CHAT_SHOT_SUCCESS");
+  functionStuff.resultTextFail = game.i18n.localize("POWER_STORMARROW.CHAT_SHOT_FAILURE");
+  let fired = 0;
+  while (fired < volleySize) {
+    if (fired > 0) {
+      if (!(await stormArrowNextShotConfirmation(functionStuff, volleySize - fired))) break;
+      const freshTarget = Array.from(game.user.targets)[0];
+      if (freshTarget) targetToken = freshTarget;
+    }
+    functionStuff.targetData = buildGlyphTargetData(targetToken, null);
+    await standardPowerResult(null, functionStuff);
+    await stormArrowConsumeOne(actor, flag);
+    fired += 1;
+    flag.count -= 1;
+  }
+  Object.assign(functionStuff, saved);
+  /* Gates nachziehen: der freie Schuss verbraucht sein Runden-Gate; die
+     Salve blockiert zusätzlich den freien Schuss derselben Runde (RAW:
+     „... kann er keinen weiteren Pfeil als freie Aktion abschießen"). */
+  const newKey = stormArrowRoundKey();
+  if (isVolley) {
+    flag.volleyKey = newKey;
+  } else {
+    flag.freeKey = newKey;
+  }
+  await actor.setFlag(game.system.id, "stormArrow", flag);
+  if (flag.count <= 0) {
+    await actor.unsetFlag(game.system.id, "stormArrow");
+    await postMaintainChainCard(functionStuff, `<h4>${functionStuff.abilityName}</h4>`, [game.i18n.localize("POWER_STORMARROW.CHAT_OUT")], []);
+  }
+}
+
+/* Aktions-Dialog des aktiven Sturmpfeils (zweiter Klick auf die Kraft-
+ * Kachel): freier Schuss / Salve (Adept+) / Kraft beenden. Ziel vorher
+ * anvisieren (Hinweiszeile im Dialog). */
+function stormArrowActionDialog(functionStuff, flag) {
+  return new Promise((resolve) => {
+    const volleyArrows = Math.min(flag.level >= 3 ? 3 : 2, flag.count);
+    const buttons = {
+      shot: {
+        icon: '<i class="fas fa-crosshairs"></i>',
+        label: game.i18n.format(game.i18n.localize("POWER_STORMARROW.BUTTON_SHOT"), { count: flag.count }),
+        callback: async () => {
+          await stormArrowFireShots(functionStuff, flag, 1, false);
+          resolve();
+        },
+      },
+    };
+    if (flag.level >= 2) {
+      buttons.volley = {
+        icon: '<i class="fas fa-burst"></i>',
+        label: game.i18n.format(game.i18n.localize("POWER_STORMARROW.BUTTON_VOLLEY"), { count: volleyArrows }),
+        callback: async () => {
+          await stormArrowFireShots(functionStuff, flag, flag.level >= 3 ? 3 : 2, true);
+          resolve();
+        },
+      };
+    }
+    buttons.end = {
+      icon: '<i class="fas fa-ban"></i>',
+      label: game.i18n.localize("POWER_STORMARROW.BUTTON_END"),
+      callback: async () => {
+        await functionStuff.actor.unsetFlag(game.system.id, "stormArrow");
+        await postMaintainChainCard(functionStuff, `<h4>${functionStuff.abilityName}</h4>`, [game.i18n.localize("POWER_STORMARROW.CHAT_END")], []);
+        resolve();
+      },
+    };
+    buttons.cancel = {
+      icon: '<i class="fas fa-times"></i>',
+      label: game.i18n.localize("BUTTON.CANCEL"),
+      callback: async () => resolve(),
+    };
+    symbDialog({
+      title: functionStuff.abilityName,
+      content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format(game.i18n.localize("POWER_STORMARROW.ACTIVE_STATUS"), { count: flag.count })}</p><p>${game.i18n.localize("POWER_STORMARROW.ACTION_HINT")}</p></div>`,
+      classes: isModernDialogActive() ? modernDialogClasses("modern-stormarrow-action-dialog") : [],
+      buttons,
+      default: "shot",
+    });
+  });
+}
+
+/* Sturmpfeil-Dispatch vor dem Würfeldialog (Hymnen-Muster): aktives
+ * Flag in der aktuellen Szene = Aktions-Dialog (kein neuer Wurf, keine
+ * Korruption); sonst Aktivierung mit Bestandscap aus dem Inventar. */
+async function preDialogStormArrow(functionStuff) {
+  const actor = functionStuff.actor;
+  let flag = stormArrowActiveFlag(actor);
+  if (flag && flag.count <= 0) {
+    // verbrauchtes Flag räumt still (alle Pfeile verschossen) - danach
+    // darf die Kraft sofort NEU aktiviert werden
+    await actor.unsetFlag(game.system.id, "stormArrow");
+    flag = null;
+  }
+  if (flag) {
+    await stormArrowActionDialog(functionStuff, flag);
+    return;
+  }
+  let count = 5;
+  let stackIds = [];
+  if (isAmmoConsumptionEnabled()) {
+    const stacks = findAmmoStacks(actor, "pfeilbolzen");
+    const total = getAmmoTotal(actor, "pfeilbolzen");
+    if (total < 1) {
+      ui.notifications.warn(game.i18n.localize("POWER_STORMARROW.WARN_NO_ARROWS"));
+      return;
+    }
+    count = Math.min(5, total);
+    stackIds = stacks.map((item) => item.id);
+  }
+  functionStuff.stormArrowCount = count;
+  functionStuff.stormArrowStacks = stackIds;
+  /* Erfolgszeile der Aktivierungskarte (Doppelformat-Muster Stab-
+     geschoss/Erdschuss): {count} wird HIER vorwegs eingesetzt, der
+     {actorname}-Platzhalter bleibt für standardPowerResult stehen. */
+  functionStuff.finalTextSucceed = game.i18n.format(game.i18n.localize("POWER_STORMARROW.CHAT_ARROWS"), { count });
+  await modifierDialog(functionStuff);
+}
+
+/* Sturmpfeil-Aktivierungsergebnis: Standard-Karte (probe/abgebucht wie
+ * immer), bei Bestehen setzt sie den Bestands-Flag - die Pfeile bleiben
+ * sonst ohne jede sichtbare Marke am Token (SL verschiebt/verwaltet). */
+async function stormarrowResult(rollData, functionStuff) {
+  await standardPowerResult(rollData, functionStuff);
+  const succeeded = rollData == null || rollData[0].trueActorSucceeded === true;
+  if (!succeeded) return;
+  const count = Math.max(0, Math.min(5, Math.round(Number(functionStuff.stormArrowCount ?? 5)) || 0));
+  if (count <= 0) return;
+  await functionStuff.actor.setFlag(game.system.id, "stormArrow", {
+    level: functionStuff.powerLvl?.level ?? 1,
+    count: count,
+    sceneId: String(game.scenes.current?.id ?? ""),
+    stacks: functionStuff.stormArrowStacks ?? [],
+    freeKey: null,
+    volleyKey: null,
+  });
+}
+
+/* Teleport: Mitreisende eines Meister-Rituals - alle Token in Nah-
+ * kampfreichweite des Mystikers (Chebyshev <= 1,5 Zellen, A29-Maßstab
+ * thornCloakInMeleeRange), versteckte ausgenommen. */
+function teleportCompanionCandidates(functionStuff) {
+  const casterToken = functionStuff.token;
+  const candidates = [];
+  if (!casterToken) return candidates;
+  for (const token of canvas.tokens.placeables) {
+    if (!token?.actor || token.id === casterToken.id) continue;
+    if (token.document?.hidden === true) continue;
+    if (thornCloakInMeleeRange(casterToken, token)) candidates.push(token);
+  }
+  return candidates;
+}
+
+function teleportTravelDialog(functionStuff) {
+  const candidates = teleportCompanionCandidates(functionStuff);
+  const radios = candidates
+    .map(
+      (token, index) =>
+        `<label class="lblfavour" style="display:block;margin:2px 0;"><input type="radio" name="teleport-companion" value="${token.id}"${index === 0 ? " checked" : ""} style="margin-right:6px;">${token.name}</label>`
+    )
+    .join("");
+  const companionPick = candidates.length > 0
+    ? `<label class="m-sec-label">${game.i18n.localize("POWER_TELEPORT.COMPANION_SELECT")}</label>${radios}`
+    : `<p>${game.i18n.localize("POWER_TELEPORT.WARN_RANGE")}</p>`;
+  const buttons = {
+    alone: {
+      icon: '<i class="fas fa-person-walking"></i>',
+      label: game.i18n.localize("POWER_TELEPORT.BUTTON_ALONE"),
+      callback: async () => {
+        await modifierDialog(functionStuff);
+      },
+    },
+  };
+  if (candidates.length > 0) {
+    const pickCompanion = (unwilling, html) => {
+      const tokenId = html?.[0]?.querySelector?.('input[name="teleport-companion"]:checked')?.value ?? candidates[0]?.id;
+      const token = candidates.find((t) => t.id === tokenId) ?? candidates[0];
+      functionStuff.teleportCompanion = {
+        tokenId: token.id,
+        name: token.name,
+        unwilling: unwilling,
+      };
+      /* Widerwillige: opponierte [Res<-Res]-Probe im Wurfdialog (Rudolfs
+         Entscheidung 4, Schlingranken-Muster) - EIN Wurf regelt Reise
+         UND Zwang, dokumentierte Vereinfachung des RAW-Zweiwurfs. */
+      if (unwilling) {
+        functionStuff.targetData = buildGlyphTargetData(token, "resolute");
+      }
+    };
+    buttons.willing = {
+      icon: '<i class="fas fa-handshake"></i>',
+      label: game.i18n.localize("POWER_TELEPORT.BUTTON_WILLING"),
+      callback: async (html) => {
+        pickCompanion(false, html);
+        await modifierDialog(functionStuff);
+      },
+    };
+    buttons.unwilling = {
+      icon: '<i class="fas fa-magnet"></i>',
+      label: game.i18n.localize("POWER_TELEPORT.BUTTON_UNWILLING"),
+      callback: async (html) => {
+        pickCompanion(true, html);
+        await modifierDialog(functionStuff);
+      },
+    };
+  }
+  buttons.cancel = {
+    icon: '<i class="fas fa-times"></i>',
+    label: game.i18n.localize("BUTTON.CANCEL"),
+    callback: async () => {},
+  };
+  symbDialog({
+    title: functionStuff.abilityName,
+    content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.localize("POWER_TELEPORT.MASTER_DIALOG_HINT")}</p>${companionPick}</div>`,
+    classes: isModernDialogActive() ? modernDialogClasses("modern-teleport-travel-dialog") : [],
+    buttons,
+    default: "alone",
+  });
+}
+
+/* Teleport-Dispatch vor dem Würfeldialog: Novize/Adept reisen direkt
+ * (normaler Wurfdialog), Meister wählt die Reise-Art. */
+async function preDialogTeleport(functionStuff) {
+  if ((functionStuff.powerLvl?.level ?? 1) < 3) {
+    await modifierDialog(functionStuff);
+    return;
+  }
+  teleportTravelDialog(functionStuff);
+}
+
+/* Teleport-Ergebnis: Standard-Karte (Wurf/Korruption wie immer), dann
+ * bei Erfolg: Novize 1W4 Reiseschaden (Rüstung ignoriert - reiner
+ * Zähigkeitsimpuls, kein Angriffs-Ereignis, keine Freie Attacke) und
+ * beim Meister 1W4 Schaden + 1W4 temporäre Korruption auf den Mit-
+ * reisenden, beides als eigene Zusammenfassungs-Karte mit Würfen plus
+ * GM-Anwenden-Karte; anschließend die SL-Hinweiskarte (Token verschie-
+ * ben, Rudolfs 2). Fehlschlag: NUR SL-Hinweiskarte (Rudolfs 3 + c) -
+ * Novize Dämonen-Agent (1W6-Liste), Adept/Meister Aufhalteproben-
+ * Hinweis, KEINE Wurftaste. */
+async function teleportResult(rollData, functionStuff) {
+  await standardPowerResult(rollData, functionStuff);
+  const succeeded = rollData == null || rollData.some((r) => r.trueActorSucceeded === true);
+  const level = functionStuff.powerLvl?.level ?? 1;
+  if (!succeeded) {
+    await postTeleportGmHintCard(functionStuff, level === 1 ? "POWER_TELEPORT.GM_DEMON" : "POWER_TELEPORT.GM_DEMON_HOLD", false);
+    return;
+  }
+  const rolls = [];
+  const lines = [];
+  const gmApply = [];
+  if (level === 1) {
+    const travelRoll = await new Roll("1d4").evaluate();
+    rolls.push(travelRoll);
+    lines.push(game.i18n.format(game.i18n.localize("POWER_TELEPORT.TRAVEL_TEXT"), { count: travelRoll.total }));
+    gmApply.push({
+      tokenId: functionStuff.tokenId,
+      actorId: functionStuff.actor.id,
+      toughnessChange: -1 * travelRoll.total,
+    });
+  }
+  const companion = functionStuff.teleportCompanion;
+  if (companion) {
+    const damageRoll = await new Roll("1d4").evaluate();
+    const corruptionRoll = await new Roll("1d4").evaluate();
+    rolls.push(damageRoll, corruptionRoll);
+    lines.push(
+      game.i18n.format(game.i18n.localize("POWER_TELEPORT.CHAT_COMPANION_COST"), {
+        targetname: companion.name,
+        count: damageRoll.total,
+        corruption: corruptionRoll.total,
+      })
+    );
+    gmApply.push({
+      tokenId: companion.tokenId,
+      toughnessChange: -1 * damageRoll.total,
+      corruptionChange: corruptionRoll.total,
+    });
+  }
+  if (lines.length > 0) {
+    await postMaintainChainCard(functionStuff, `<h4>${functionStuff.abilityName}</h4>`, lines, rolls);
+  }
+  if (gmApply.length > 0) {
+    await createModifyTokenChatButton(gmApply);
+  }
+  await postTeleportGmHintCard(functionStuff, "POWER_TELEPORT.GM_MOVE", Boolean(companion));
+}
+
+/* Geflüsterte SL-Hinweiskarte des Teleports (Muster der GM-Whisper-
+ * Karten): Token verschieben nach Erfolg, Dämonen-Agent bzw. Aufhalte-
+ * probe(n) nach Fehlschlag. Pflegt die SL ad hoc - Rudolfs 2/3/c. */
+async function postTeleportGmHintCard(functionStuff, hintKey, withCompanion) {
+  const namesForText = {
+    actorname: functionStuff.actingCharName,
+    targetname: functionStuff.teleportCompanion?.name ?? "",
+  };
+  let content = game.i18n.format(game.i18n.localize(hintKey), namesForText);
+  if (withCompanion) {
+    content += "<br>" + game.i18n.format(game.i18n.localize("POWER_TELEPORT.GM_MOVE_COMPANION"), namesForText);
+  }
+  const titleHtml = `<h4>${functionStuff.abilityName}</h4>`;
+  const html = `<div class="symbaroum chat ability"><div class="foreground">${titleHtml}<div class="finalTxt"><p>${content}</p></div></div></div>`;
+  const gmList = ChatMessage.getWhisperRecipients("GM");
+  await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: functionStuff.actor.id }),
+    content: html,
+    whisper: gmList.length > 0 ? gmList : undefined,
+  });
+}
+
 export async function standardPowerResult(rollData, functionStuff) {
   game.symbaroum.log("standardPowerResult", ...arguments);
   let hasRoll = false;

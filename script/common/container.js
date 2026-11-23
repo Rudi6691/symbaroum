@@ -34,6 +34,11 @@
  */
 import { SYMBAROUM } from "./config.js";
 import { getCurrencyRates } from "./currency.js";
+// Kräfte-Paket 2, Block D (23.11.2026): dynamischer Effektivwert der
+// Rations-Kapazitäts-Items auch im Behälter-Inhalt (Wasserschlauch im
+// Rucksack zählt Leergewicht + gefüllte Rationen) - Zykel-sicher, siehe
+// die Block-Kommentar in resources.js (getRationLoadGE).
+import { getRationLoadGE } from "./resources.js";
 
 /** Maximale Behälter-Verschachtelungstiefe (Behälter in Behälter: 2 Ebenen). */
 export const MAX_CONTAINER_DEPTH = 2;
@@ -166,6 +171,14 @@ function contentsGEOf(actor, container, visited = new Set()) {
 			if (cat.id !== "toolarge") sum += cat.value ?? 0;
 			sum += contentsGEOf(actor, child, visited);
 		} else {
+			/* Kräfte-Paket 2, Block D: Rations-Kapazitäts-Items zählen
+			   ihren dynamischen Effektivwert in den Behälter-Inhalt
+			   (Sphäre-Lektion: ALLE Lesestellen konsistent). */
+			const rationGE = getRationLoadGE(child);
+			if (rationGE !== null) {
+				sum += rationGE;
+				continue;
+			}
 			const cat = weightCategoryOf(cs.weight);
 			if (cat.id === "toolarge") continue;
 			const number = Math.max(1, Math.round(Number(cs.number ?? 1) || 1));

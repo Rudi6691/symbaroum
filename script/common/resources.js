@@ -172,6 +172,44 @@ export function getRationCount(item) {
 	return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
 }
 
+/* ----------------------------------------------------------------
+ * Kräfte-Paket 2, Block D (Rudolfs virtuelles Rationsgewicht,
+ * Antworten 5/6/a vom 23.11.2026): Aktuelles Gewicht eines Rations-
+ * Kapazitäts-Items in LE. Zentrale Basis für ALLE Lesestellen
+ * (encumbrance.js getItemLoadGE + Lastschleife, container.js
+ * contentsGEOf, Anzeigen am Item-Blatt und im Ausrüstungs-Chip).
+ * Rückgabe null = KEIN Rations-Kapazitäts-Item, der Aufrufer rechnet
+ * wie bisher weiter. Bewusst HIER und nicht in encumbrance.js
+ * (Zykel-Sicherheit): resources.js importiert nur symbDialog und
+ * modernSheetConfig, alle Last-Module dürfen gefahrlos hierher
+ * importieren. Zwei kategorie-getriebene Modelle:
+ * - essensration (Wegbrot, stückweise verzehrt): PROPORTIONAL vom
+ *   Vollgewicht — weight.value × rationCount / maxNumber, auf
+ *   1 Nachkommastelle gerundet (Rudolfs 5), 0 Rationen = 0 LE.
+ *   Beispiel Wegbrot („normal" = 1 LE Vollgewicht): 7/4/1/0
+ *   Rationen = 1,0/0,6/0,1/0 LE.
+ * - wasserration (Wasserschlauch, künftig größere Behälter wie ein
+ *   Wasserfass): BEHÄLTERMODELL — Eigengewicht (weight.value =
+ *   LERGEWICHT, Rudolfs a) + jede enthaltene Ration × Gewicht aus
+ *   der Kategorie-Default-Map (0,5 LE = Leicht), auf 2 Nachkomma-
+ *   stellen. Beispiel Winzig: leer 0,02 / voll (5) 2,52 LE. */
+export function getRationLoadGE(item) {
+	if (!isCapacityRationItem(item)) return null;
+	const category = String(item.system.resourceCategory ?? '');
+	const catValue = Number(game.symbaroum.config.weight[item.system.weight]?.value ?? 0);
+	const rationCount = getRationCount(item);
+	const maxNumber = Math.max(1, Math.round(Number(item.system.maxNumber) || 1));
+	const perRationRaw = game.symbaroum.config.rationWeightLE?.[category];
+	const perRation = typeof perRationRaw === 'number' && Number.isFinite(perRationRaw) ? perRationRaw : null;
+	if (perRation !== null) {
+		// Behältermodell: Eigengewicht + Rationen × Rationsgewicht (2 Stellen)
+		return Math.round((catValue + rationCount * perRation) * 100) / 100;
+	}
+	// Essensration: proportionales Vollgewicht, 1 Nachkommastelle,
+	// ungültige Gewichtskategorie ("zu schwer": value null) = 0 LE
+	return Math.round(((catValue ?? 0) * rationCount / maxNumber) * 10) / 10;
+}
+
 /**
  * Verfügbare Rationen eines Items: Kapazitäts-Item = rationCount,
  * einfacher Stapel = Anzahl (getItemCount). Zentrale Basis für
@@ -402,5 +440,78 @@ export function openConsumeResourceDialog(item) {
 			},
 		},
 		default: 'consume',
+	});
+}
+
+/* ----------------------------------------------------------------
+ * Kräfte-Paket 2, Block C (Rudolfs Session-Wunsch, 23.11.2026):
+ * Dialog „Rationen einstellen …" am Kapazitäts-Rations-Item —
+ * Kontextmenü-Eintrag in script/sheet/player.js. GM und Blatt-
+ * besitzer; schreibt ausschließlich system.rationCount (Klemmung
+ * 0..maxNumber, 0 = leerer Behälter bleibt als Item stehen),
+ * system.number bleibt unberührt. Alle Konsum-Pfade (Verzehren,
+ * Reise-Automatik, Übergabe) lesen den Wert nur und sind unver-
+ * ändert. Muster: openConsumeResourceDialog / A6v8-Anzahl-Dialog.
+ * ---------------------------------------------------------------- */
+export function openSetRationCountDialog(item) {
+	if (!isCapacityRationItem(item)) return;
+	const current = getRationCount(item);
+	const maxNumber = Math.max(0, Math.round(Number(item.system?.maxNumber) || 0));
+	const geAbbr = L('WEIGHT.GE_ABBR');
+	/* Lokale 2-Stellen-GE-Formatierung (Format wie encumbrance.js
+	 * formatGE, aber bewusst KEIN Import — Zykel-Sicherheit). */
+	const formatLoad = (value) => String(Math.round(Number(value) * 100) / 100).replace('.', ',');
+	const html = `<div class="symbaroum modern-give-dialog modern-resource-dialog">
+		<div class="m-give-from">${L('RESOURCE.SET_FROM')}: <b>${item.name}</b></div>
+		<label class="m-sec-label" for="resource-ration-amount">${L('RESOURCE.SET_AMOUNT')}</label>
+		<!-- Stepper-Layout wie der Verbrauchs-Dialog; Klemmung 0..Kapazität,
+		     siehe onRender und Submit. -->
+		<div class="m-eq-row">
+			<button type="button" class="m-eq-btn" data-dir="-1" data-tooltip="${L('MODERN.QTY_DECREASE')}"><i class="fas fa-caret-left"></i></button>
+			<input class="m-give-quantity" id="resource-ration-amount" type="number" min="0" max="${maxNumber}" value="${current}" step="1"/>
+			<button type="button" class="m-eq-btn" data-dir="1" data-tooltip="${L('MODERN.QTY_INCREASE')}"><i class="fas fa-caret-right"></i></button>
+		</div>
+		<div class="m-give-note">
+			<i class="fas fa-circle-info"></i>
+			<span>${F('RESOURCE.SET_HINT', { count: current, max: maxNumber, weight: formatLoad(getRationLoadGE(item)) })} ${geAbbr}</span>
+		</div>
+	</div>`;
+	symbDialog({
+		title: `${L('RESOURCE.SET_TITLE')} — ${item.name}`,
+		content: html,
+		classes: modernDialogClasses('modern-give-dialog', 'modern-resource-dialog'),
+		width: 440,
+		onRender: (element) => {
+			const input = element?.querySelector?.('#resource-ration-amount');
+			if (!input) return;
+			element.querySelectorAll('.m-eq-btn').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const dir = parseInt(btn.dataset.dir, 10) || 0;
+					const raw = parseInt(input.value, 10) || 0;
+					// Klemmung 0..Kapazität - 0 ist gültig (leerer Behälter)
+					input.value = Math.min(maxNumber, Math.max(0, raw + dir));
+				});
+			});
+		},
+		buttons: {
+			apply: {
+				icon: '<i class="fas fa-pen-to-square"></i>',
+				label: L('RESOURCE.SET_BUTTON'),
+				callback: async (html) => {
+					const raw = Number(html[0].querySelector('#resource-ration-amount')?.value);
+					const amount = Math.max(0, Math.min(maxNumber, Number.isFinite(raw) ? Math.round(raw) : current));
+					if (amount !== current) {
+						await item.update({ 'system.rationCount': amount });
+					}
+					ui.notifications.info(F('RESOURCE.SET_RESULT', { name: item.name, count: amount, weight: formatLoad(getRationLoadGE(item)), ge: geAbbr }));
+				},
+			},
+			cancel: {
+				icon: '<i class="fas fa-times"></i>',
+				label: L('BUTTON.CANCEL'),
+				callback: async () => {},
+			},
+		},
+		default: 'apply',
 	});
 }

@@ -43,6 +43,10 @@ import { SYMBAROUM } from "./config.js";
 import { getCurrencyRates } from "./currency.js";
 // Behältersystem: Last-Summen der Behälter (Eigen-GE + Inhalt + Geld)
 import { getContainerTotals } from "./container.js";
+// Kräfte-Paket 2, Block D (Rudolfs virtuelles Rationsgewicht, 23.11.2026):
+// dynamischer Effektivwert der Rations-Kapazitäts-Items - Zykel-sicher
+// in resources.js gepflegt (dort nur symbDialog/modernSheetConfig-Imports)
+import { getRationLoadGE } from "./resources.js";
 
 /* -------------------------------------------- */
 /*  Einstellungen                               */
@@ -133,6 +137,16 @@ export function isCarriedForLoad(item) {
  */
 export function getItemLoadGE(item) {
 	if (!isCarriedForLoad(item)) return null;
+	/* Kräfte-Paket 2, Block D: Rations-Kapazitäts-Items tragen ihren
+	   DYNAMISCHEN Effektivwert (Wegbrot proportional vom Vollgewicht,
+	   Wasserschlauch Leergewicht + je Ration Leicht) statt Kategorie ×
+	   Anzahl - die Anzahl ist beim Behältermodell entkoppelt (1).
+	   „Zu schwer" bleibt wie in der Lastschleife nie tragbar. */
+	const rationGE = getRationLoadGE(item);
+	if (rationGE !== null) {
+		if (getWeightCategory(item.system.weight).id === "toolarge") return null;
+		return roundGE(rationGE);
+	}
 	if (item.system.isContainer) {
 		if (!item.parent) return roundGE(getWeightCategory(item.system.weight).value ?? 0);
 		const totals = getContainerTotals(item.parent, item);
@@ -248,6 +262,13 @@ export function getEncumbranceData(actor) {
 			continue;
 		}
 		if (!isCarriedForLoad(item)) continue; // Status "Andere" bzw. RAW-frei
+		/* Kräfte-Paket 2, Block D: Rations-Kapazitäts-Items zählen den
+		   dynamischen Effektivwert, nicht Kategorie × Anzahl. */
+		const rationGE = getRationLoadGE(item);
+		if (rationGE !== null) {
+			load += rationGE;
+			continue;
+		}
 		const number = Math.max(1, Math.round(Number(item.system.number ?? 1) || 1));
 		load += category.value * number;
 	}

@@ -1362,6 +1362,18 @@ SYMBAROUM.weight = {
 };
 SYMBAROUM.weightOrder = ["none", "tiny", "light", "normal", "heavy", "veryheavy", "toolarge"];
 
+// Kräfte-Paket 2, Block D (Rudolfs virtuelles Rationsgewicht, 23.11.2026):
+// Kategorie-Defaults des Rationsgewichts in LE. essensration = null bedeutet
+// PROPORTIONALES Vollgewicht (weight.value × Bestand / Kapazität, stückweise
+// verzehrtes Wegbrot), wasserration = Behältermodell mit 0,5 LE (Leicht) je
+// enthaltener Ration zuzüglich Leergewicht (weight.value, z. B. Winziger
+// Wasserschlauch). Künftig größere Behälter (Wasserfass) folgen automatisch
+// über dieselbe Modellogik, siehe getRationLoadGE in resources.js.
+SYMBAROUM.rationWeightLE = {
+  essensration: null,
+  wasserration: 0.5,
+};
+
 SYMBAROUM.HOOKS = {
   symbaroumItemModifiersSetup: "symbaroumItemModifiersSetup",
 };

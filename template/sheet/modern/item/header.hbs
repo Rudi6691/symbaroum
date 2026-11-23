@@ -132,6 +132,19 @@
                         {{/if}}
                     </div>
                 </div>
+                {{!-- Kräfte-Paket 2, Block D (Rudolfs Wunsch a, 23.11.2026):
+                      dynamische Gewichtsanzeige unter dem Rations-Stepper -
+                      „Aktuelles Gewicht: 1,0 LE": Wegbrot sinkt anteilig
+                      (Vollgewicht-Modell), der Wasserschlauch wiegt Leer-
+                      gewicht plus je enthaltener Wasserration Leicht
+                      (Behältermodell). Wert aus sheet/item.js (formatGE(
+                      getRationLoadGE)), LE-Kürzel via WEIGHT.GE_ABBR, Tooltip
+                      über die Modell-Erklärung WEIGHT.DYNAMIC_TOOLTIP. --}}
+                {{#if modern.rationWeightDisplay}}
+                <div class="m-inline-field m-qty-field m-possess-field m-rationcount-field">
+                    <div class="m-sec-label" data-tooltip="{{localize "WEIGHT.DYNAMIC_TOOLTIP"}}" data-tooltip-direction="DOWN">{{localize "EQUIPMENT.RATION_WEIGHT"}}: {{modern.rationWeightDisplay}} {{localize "WEIGHT.GE_ABBR"}}</div>
+                </div>
+                {{/if}}
                 {{/if}}
             </div>
         </div>
