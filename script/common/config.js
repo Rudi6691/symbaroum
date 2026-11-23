@@ -458,6 +458,12 @@ SYMBAROUM.scriptedAbilities = [
   "weakeninghymn",
   "holyaura",
   "inheritwound",
+  // Kräfte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11.): Illusorische
+  // Korrektur - die Kachel ist ab v1.3 klickbar (Setup, manueller Pfad
+  // fuer ALLE Stufen) und der Novize hat zusaetzlich den automatisierten
+  // Dialog nach misslungener Verteidigung; das Skript-Badge kommt aus
+  // dieser Liste (actor.js hasScript/script)
+  "illusorycorrection",
   // v2.13 (Rudolfs Testrunde 12, P10b): isScripted-Badge für die drei in
   // v2.12 neu gescripteten Gruppe-C-Kräfte - das Sheet-Badge kommt aus
   // DIESER Liste (actor.js hasScript/script), nicht aus den Setups
@@ -841,6 +847,17 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.LIFEGIVER",
     name: "POWER_LABEL.LIFEGIVER",
     icon: "systems/symbaroum/asset/image/powers/lifegiver.svg",
+  },
+  {
+    // Kräfte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11.): Feuerseele wird zur
+    // MANUELL aktivierbaren Reaktions-Aura analog Schutzrunen - dieses
+    // Symbol ist der AKTIV-Marker (StandardPowerResult setzt/entfernt ihn
+    // ueber flagTest), alle Wirkungen (NK-Rueckstoss, Feuerschutz/Heilung,
+    // Distanz-Vergeltung, A28-DoT-Schutz) laufen nur, solange er steht.
+    id: "firesoul",
+    label: "POWER_LABEL.FIRE_SOUL",
+    name: "POWER_LABEL.FIRE_SOUL",
+    icon: "systems/symbaroum/asset/image/powers/firesoul.svg",
   },
   {
     id: "maltransformation",

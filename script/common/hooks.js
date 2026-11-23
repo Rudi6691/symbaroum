@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, illusoryCorrectionInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, getActorAbilityLevel } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -1093,7 +1093,10 @@ async function a28TickActorDotEffects(actor, victimName) {
 		// stattdessen die Haelfte des Zugriffs als Zaehigkeit zurueck.
 		let firesoulConvertHeal = 0;
 		if (dot.resource === 'toughness' && dot.damageType === 'fire' && amount > 0) {
-			const fireSoulLevel = getActorAbilityLevel(actor, 'firesoul');
+			// Kraefte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11.): Feuerschutz je Tick
+			// nur im AKTIVEN Zustand (firesoulActiveLevel liest den Marker -
+			// Legacy-Zahlen-flagData und Objekt-flagData mit .level)
+			const fireSoulLevel = firesoulActiveLevel(actor);
 			if (fireSoulLevel > 0) {
 				if (fireSoulLevel >= 3) {
 					firesoulConvertHeal = Math.floor(amount / 2);
@@ -2308,41 +2311,12 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 			});
 		}
 	}
-	/* Kräfte-Paket 1 (Anhang): Illusorische Korrektur - Taste auf der
-	   misslungenen Verteidigungs-Ergebniskarte (nur Verteidigungswurf-
-	   Fluss, resistRoll = true). Eigentum: GM oder Besitzer des
-	   VERTEIDIGERS (anders als beim Trollsingen-Reroll wuerfelt hier
-	   nicht der Wirkende des Payload-Akteurs, sondern der Angegriffene).
-	   Token-Referenzen werden wieder angehaengt (resistRoll-Muster),
-	   Flag faellt nach dem Klick weg (eine Karte = ein Versuch), dann
-	   ruft der item.js-Export illusoryCorrectionInvoke:dort geprueft und
-	   verbraucht die Runden-Frequenz, wuerfelt die Willenskraft-Probe
-	   und wiederholt bei Erfolg die komplette Verteidigung. */
-	const illusoryRerollPayload = await chatItem.getFlag(game.system.id, 'illusoryReroll');
-	if (illusoryRerollPayload) {
-		const listenArea = html.querySelectorAll('#illusoryRerollButton');
-		for (const s of listenArea) {
-			s.addEventListener('click', async () => {
-				let tok = canvas.tokens.objects.children.find((token) => token.id === illusoryRerollPayload.tokenId);
-				let targetToken = canvas.tokens.objects.children.find((token) => token.id === illusoryRerollPayload.targetData?.tokenId);
-				if (!tok || !targetToken) {
-					ui.notifications.error(game.i18n.localize('ERROR.NO_TARGET_SELECTED'));
-					return;
-				}
-				if (!game.user.isGM && !targetToken.actor?.isOwner) {
-					ui.notifications.warn(game.i18n.localize('ERROR.NOT_OWNER'));
-					return;
-				}
-				illusoryRerollPayload.token = tok;
-				illusoryRerollPayload.actor = tok.actor;
-				illusoryRerollPayload.targetData.token = targetToken;
-				illusoryRerollPayload.targetData.actor = targetToken.actor;
-				await chatItem.unsetFlag(game.system.id, 'illusoryReroll');
-				await illusoryCorrectionInvoke(illusoryRerollPayload);
-				return;
-			});
-		}
-	}
+	/* Kraefte-Paket 1 v1.3: Der v1-Handler zur Illusorischen Korrektur
+	   (Reroll-TASTE auf der Ergebniskarte) ist ENTFERNT - die Aktivierung
+	   laeuft ab v1.3 direkt nach der Karte ueber den in-process Dialog
+	   (openIllusoryCorrectionDialog in item.js, Rudolfs Entscheidung 3);
+	   das Karten-Flag 'illusoryReroll' und der Button existieren nicht
+	   mehr (combat.hbs-Block ebenfalls entfernt). */
 	/* Hymnen-Paket v1: SL-Reset-Karte der 1x/Szene-Verwaltung (dokumen-
 	   tierte Szenen-Grenze). GM-only: der Klick loescht hymnMasterScene
 	   UND trollRerollScene des Saengers und entfernt die Karte. */

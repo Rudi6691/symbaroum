@@ -2885,6 +2885,42 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  mysticPowerSetupFiresoul(base) {
+    /* Kraefte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11.2026): Feuerseele
+       wird zur MANUELL aktivierbaren Kraft analog Schutzrunen (Rudolfs
+       Entscheidung 2 + Ergaenzung): Kachel-Klick = Wuerfeldialog mit
+       Willenskraft-Probe (Modifikator/Gunst waehlbar), die Ergebnis-Karte
+       bucht 1W4 temporaere Korruption ergebnisunabhaengig (Standard-Pfad),
+       bei Probeerfolg setzt sie den firesoul-Marker MIT Maintain-Tags - der
+       nimmt automatisch am A29-Maintain-Reminder im Kampf (je Runde) UND
+       am Weltzeit-Reminder (alle 15 Minuten ohne Kampf, AoE v2.5) teil;
+       der Besitzer entscheidet behalten/abbrechen. Erneuter Klick bei
+       aktivem Marker = Deaktivierungs-Dialog (flagTest-Toggle-Pfad, keine
+       Korruption). Alle Aurawirkungen (NK-Rueckstoss, Feuerschutzwurf,
+       Meister: 0 Feuerschaden + halbe Heilung + Distanz-Vergeltung) greifen
+       nur im AKTIVEN Zustand (Gates laufen ueber firesoulActiveLevel).
+       Bewusste RAW-Abweichung (RAW: dauerhafte Reaktion ohne Kosten), von
+       Rudolf so entschieden (Entscheidung 1 + 2). */
+    base.casting = game.symbaroum.config.CASTING;
+    base.castingAttributeName = "resolute";
+    base.gmOnlyChatResultNPC = true;
+    base.flagTest = "firesoul";
+    base.flagPresentFSmod = {
+      introText: game.i18n.localize("POWER_FIRESOUL.CHAT_DEACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_FIRESOUL.CHAT_RESULT_DEACTIVATE"),
+      corruption: game.symbaroum.config.TEMPCORRUPTION_NONE,
+      removeCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "firesoul"))],
+    };
+    base.flagNotPresentFSmod = {
+      flagData: base.powerLvl.level,
+      introText: game.i18n.localize("POWER_FIRESOUL.CHAT_ACTIVATE"),
+      resultTextSuccess: game.i18n.localize("POWER_FIRESOUL.CHAT_RESULT_ACTIVATE"),
+      addCasterEffect: [foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "firesoul"))],
+    };
+    base.finalText = game.i18n.localize("POWER_FIRESOUL.CHAT_AURA_HINT");
+    return base;
+  }
+
   mysticPowerSetupHeroichymn(base) {
     /* Hymnen-Paket v1 (Rudolfs Startsignal „Leg los“ 16.11.2026, RAW:
     Heldenhafte Hymne, Tradition Trollgesang): Aktion Frei, KEINE
@@ -2939,6 +2975,31 @@ export class SymbaroumItem extends Item {
       base.auraDamageDice = "1d10";
       base.auraHealDice = "1d6";
     }
+    return base;
+  }
+
+  mysticPowerSetupIllusorycorrection(base) {
+    /* Kraefte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11.2026): Die Kachel
+       ist ab sofort klickbar - usePower kehrt bei fehlendem Setup sonst
+       STILL zurueck (Testschwerpunkt 5/12-14 der Testrunde 1). Klick =
+       direkter Wuerfeldialog mit Willenskraft-Probe (Modifikator/Gunst
+       waehlbar), die Ergebnis-Karte bucht 1W4 temporaere Korruption
+       ergebnisunabhaengig (Standard-Pfad) - das ist der MANUELLE Pfad
+       fuer ALLE STUFEN (Rudolfs Entscheidung 3: Adept/Meister bleiben
+       bewusst SL-Verwaltung, Spieler aktiviert manuell, Wirkung und
+       Wiederholung steuert die SL). Der NOVIZE zusaetzlich automatisiert:
+       nach misslungener eigener Verteidigung oeffnet sich ein Dialog
+       (attackResult, resistRoll-Fluss), der bei Ja die Willenskraft-Probe
+       PUR wuerfelt + 1W4 Korruption bucht und bei Probeerfolg die
+       Verteidigung komplett wiederholt (1x/Runde, Trollsingen-Schluessel).
+       Bewusste RAW-Abweichung (RAW: keine Korruption pro Nutzung), von
+       Rudolf so entschieden (Entscheidung 1). */
+    base.casting = game.symbaroum.config.CASTING;
+    base.castingAttributeName = "resolute";
+    base.gmOnlyChatResultNPC = true;
+    base.introText = game.i18n.localize("POWER_ILLUSORYCORRECTION.CHAT_INTRO");
+    base.resultTextSuccess = game.i18n.localize("POWER_ILLUSORYCORRECTION.CHAT_RESULT_SUCCESS");
+    base.resultTextFail = game.i18n.localize("POWER_ILLUSORYCORRECTION.CHAT_RESULT_FAIL");
     return base;
   }
 
@@ -8908,15 +8969,14 @@ async function thornCloakRetaliation(functionStuff, damageTot, rollData) {
    bleiben draussen (isAlternativeDamage-Gate wie beim Dornenmantel).
    Vergeltungs-Spiegel ab Adept: 1W4 (Adept) bzw. 1W6 (Meister) Schaden
    an den Angreifer, RUESTUNG IGNORIERT (Pur-Buchung ueber die
-   GM-Apply-Karte, Muster thornCloakRetaliation).
-   Maintain-Abbruch (Rudolfs Entscheidung 3, RAW): bei erlittenem
-   Schaden eine [Resolute - Schaden]-Probe des Runen-Traegers wie die
-   Konzentration beim unterbrochenen Wirken (Praezedenz Kampfsymbol-
-   [Res-Mod]-Wurf: 1W20 gegen Eigenschaft abzueglich des ausloesenden
-   Schadens, <= gilt als Erfolg); bei Misslingen Marker entfernen +
-   eigene Ergebnis-Karte. Das Vergeltungs-Wuerfelbild und der
-   Maintain-Wurf teilen sich EINE Karte (Reaktionsmeldung), die
-   Pur-Schaden-Buchung bleibt die separate GM-Apply-Karte. */
+   GM-Apply-Karte, Muster thornCloakRetaliation); eine eigene
+   Reaktionskarte zeigt den Spiegelwurf.
+   v1.3 (Rudolfs 4a-Entscheidung): Die [Resolute - Schaden]-Probe bei
+   erlittenem Schaden laeuft NICHT mehr still auf dieser Karte, sondern
+   ueber die generische Hymnen-1.5/1.6-Konzentrations-maschine
+   (preUpdateActor: GM-Karte mit Proben-Taste + SC-Spieler-Karte, bei
+   Misslingen Ende ueber a29AbortMaintainPower) - der Marker traegt die
+   Maintain-Tags {maintained, caster, ability} (siehe standardPowerResult). */
 async function protectiveRunesRetaliation(functionStuff, damageTot, rollData) {
   try {
     if (damageTot <= 0) return;
@@ -8932,8 +8992,16 @@ async function protectiveRunesRetaliation(functionStuff, damageTot, rollData) {
     const runeItem = defenderActor.items.find((it) => it.system?.reference === "protectiverunes");
     const itemLevel = runeItem?.getLevel?.()?.level ?? 0;
     const markerFlagData = marker.getFlag(game.system.id, "flagData");
-    const level = itemLevel > 0 ? itemLevel : Number(markerFlagData) || 0;
-    if (level < 1) return;
+    /* v1.3: Marker-flagData ist jetzt ein OBJEKT {level, maintained, caster,
+       ability} - Level aus .level, Legacy-Zahl bleibt lesbar. */
+    const level = itemLevel > 0 ? itemLevel : Number(markerFlagData?.level) || Number(markerFlagData) || 0;
+    if (level < 2) {
+      /* Novize: kein Spiegel (erst ab Adept) - und die [Willenskraft -
+         Schaden]-Probe laeuft v1.3 nicht mehr still hier, sondern ueber
+         die generische Konzentrations-Karte (preUpdateActor). Kein
+       Karteninhalt => keine Karte. */
+      return;
+    }
     /* 1) Vergeltungs-Spiegel (ab Adept), Ruestung ignoriert */
     let retaliationRoll = null;
     let mirrorLine = "";
@@ -8948,31 +9016,14 @@ async function protectiveRunesRetaliation(functionStuff, damageTot, rollData) {
         count: retaliationRoll.total,
       })}</p>`;
     }
-    /* 2) Maintain-Abbruch: [Resolute - Schaden]-Probe des Traegers */
-    const defenderResolute = getAttributeValue(defenderActor, "resolute");
-    const probeTarget = defenderResolute - damageTot;
-    const maintainRoll = await new Roll("1d20").evaluate();
-    const held = maintainRoll.total <= probeTarget;
-    const lines = [];
-    const cardRolls = [];
-    if (retaliationRoll) {
-      lines.push(mirrorLine);
-      cardRolls.push(retaliationRoll);
-    }
-    lines.push(
-      `<p>${game.i18n.format(held ? "POWER_PROTECTIVERUNES.CHAT_MAINTAIN_HELD" : "POWER_PROTECTIVERUNES.CHAT_MAINTAIN_BROKEN", {
-        actorname: defenderActor.name,
-        roll: maintainRoll.total,
-        value: probeTarget,
-      })}</p>`
-    );
-    cardRolls.push(maintainRoll);
-    if (!held) {
-      await defenderActor.deleteEmbeddedDocuments("ActiveEffect", [marker._id ?? marker.id]);
-      lines.push(`<p>${game.i18n.format("POWER_PROTECTIVERUNES.CHAT_MARKER_REMOVED", { actorname: defenderActor.name })}</p>`);
-    }
+    /* v1.3 (Rudolfs 4a-Entscheidung): KEINE stille [Willenskraft -
+       Schaden]-Probe mehr auf dieser Karte - die Konzentrations-Abfrage
+       feuert bei Schaden ueber die generische Hymnen-1.5/1.6-Maschine
+       (gefluesterte GM-Karte mit Proben-Taste + EIGENE Spieler-Karte,
+       Abbruch via a29AbortMaintainPower mit Ende-Karte im Glyphen/
+       Hymnen-Stil). Auf der Reaktionskarte bleibt nur der Spiegel. */
     const title = `<h4>${game.i18n.localize("POWER_PROTECTIVERUNES.CHAT_REACTION_TITLE")}</h4>`;
-    await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, lines, cardRolls);
+    await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, [mirrorLine], [retaliationRoll]);
   } catch (runesError) {
     game.symbaroum.log("Kraefte-Paket 1: Schutzrunen-Reaktion", runesError);
   }
@@ -9020,7 +9071,8 @@ async function firesoulRetaliation(functionStuff, damageTot, rollData) {
     const defenderToken = functionStuff.targetData?.token;
     const defenderActor = functionStuff.targetData?.actor;
     if (!defenderToken || !defenderActor) return;
-    const level = getActorAbilityLevel(defenderActor, "firesoul");
+    /* v1.3: Marker-Gate - der Rueckstoss feuert nur im AKTIVEN Zustand */
+    const level = firesoulActiveLevel(defenderActor);
     if (level < 1) return;
     const isMeleeWeapon = Boolean(functionStuff.weapon?.isMelee ?? functionStuff.weapon?.system?.isMelee);
     if (!isMeleeWeapon && level < 3) return;
@@ -9055,7 +9107,8 @@ async function firesoulMasterPowerCounter(functionStuff, damageTot) {
     if (functionStuff.isAlternativeDamage) return;
     const defenderActor = functionStuff.targetData?.actor;
     if (!defenderActor) return;
-    const level = getActorAbilityLevel(defenderActor, "firesoul");
+    /* v1.3: Marker-Gate - die Distanz-Vergeltung nur im AKTIVEN Zustand */
+    const level = firesoulActiveLevel(defenderActor);
     if (level < 3) return;
     const counterRoll = await new Roll(firesoulCounterFormula(defenderActor, functionStuff.actor, "1d10")).evaluate();
     const dealt = Math.max(0, counterRoll.total);
@@ -9104,7 +9157,14 @@ async function sphereMasterAllyPlacement(functionStuff) {
       .filter((t) => t.document?.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY)
       .filter((t) => {
         try {
-          return canvas.grid.measureDistance(mysticToken, t) <= 1;
+          /* v1.3 (Rudolfs Entscheidung, Auswahlrunde 2): Fork-Konvention
+             1,5 ZELLEN (identisch zur Dornenmantel-Naehe und senseBlocked-
+             Toleranz) - erfasst auch diagonale Nachbarn und ist robust
+             gegen Szenen-gridDistance (Szenen-Einheiten, z. B. 1,5 m/Kelle):
+             das alte fixe "<= 1" mass Einheiten und lies den direkten
+             Nachbarn bei 1,5-m-Raster nie (Testrunde-1-Punkt 11). */
+          const oneAndAHalfCells = Number(canvas.scene?.gridDistance ?? 1) * 1.5;
+          return canvas.grid.measureDistance(mysticToken, t) <= oneAndAHalfCells;
         } catch (measureError) {
           return false;
         }
@@ -9262,14 +9322,14 @@ export async function trollRerollInvoke(functionStuff) {
    verifiziert): eine misslungene eigene Verteidigungsprobe darf 1x
    pro Runde wiederholt werden, gegen eine Willenskraft-Probe (1W20
    <= Willenskraft, pur ohne Gunst/Modifikator - RAW nennt keine).
-   Praezedenz Trollsingen-Reroll: Taste auf der ERGEBNISKARTE des
-   Verteidigungswurfs, Klick laeuft ueber den hooks.js-Handler, der
-   Konsum der Runden-Frequenz erfolgt ERST im invoke (dort auch
-   erneut geprueft - Karten mit Several-Angriffen koennen mehrere
-   Tunen zeigen, der zweite Klick geht leer aus mit Warnung).
-   Runden-Schluessel-Modell identisch mit Trollsingen (Troll-
-   RerollRoundKey: aktiver Kampf = Kampfrunde, sonst Weltzeit-Takt,
-   null = SL-Urteil mit dokumentierter Grenze). */
+   Praezedenz Trollsingen-Reroll: v1 hing eine TASTE an die Ergebniskarte
+   des Verteidigungswurfs; v1.3 (Rudolfs Entscheidung 3, Auswahlrunde 2)
+   oeffnet stattdessen DIREKT den Aktivierungs-DIALOG (Je-neu-Entscheidung
+   je misslungene Verteidigung). Der Konsum der Runden-Frequenz erfolgt
+   ERST im invoke (dort auch erneut geprueft), 1x/Runde nach dem
+   Runden-Schluessel-Modell wie Trollsingen (Troll-RerollRoundKey:
+   aktiver Kampf = Kampfrunde, sonst Weltzeit-Takt, null = SL-Urteil mit
+   dokumentierter Grenze). */
 function illusoryCorrectionFrequencyFree(actor) {
   const key = trollRerollRoundKey();
   if (key !== null && actor.getFlag(game.system.id, "illusoryCorrectionRound") === key) return false;
@@ -9293,28 +9353,26 @@ function illusoryCorrectionPayload(functionStuff, rollData) {
   if (level < 1) return null;
   if (!illusoryCorrectionFrequencyFree(defenderActor)) return null;
   const emitData = Object.assign({}, functionStuff);
-  // resistRoll-Muster: Dokument-Referenzen genullt, hooks.js haengt sie
-  // beim Klick wieder an (Tokens ueber die mitgeschickten Ids)
-  emitData.actor = null;
-  emitData.token = null;
-  emitData.targetData = Object.assign({}, functionStuff.targetData);
-  emitData.targetData.token = null;
-  emitData.targetData.actor = null;
+  /* v1.3: Der Aktivierungs-Dialog laeuft IM PROZESS (keine Serialisierung
+     ueber ein Chat-Flag mehr wie bei der v1-Taste) - die Dokument-
+     Referenzen im Payload koennen daher LIVE bleiben, das invoke braucht
+     keine Rekonstruktion. */
   emitData.illusoryCorrectionPayload = null;
   // Die Illusion gehoert dem VERTEIDIGER (targetData), nicht dem Wuerfelnden
   emitData.illusoryCorrectionDefenderId = defenderActor.id;
   return emitData;
 }
 
-/* Klick auf die Korrektur-Taste (hooks.js-Handler): Frequenz-Verbrauch
-   hier (Runden-Schluessel bzw. "manual" ohne Takt), nochmaliger
-   Frequenz-Gate gegen Doppel-Klicks auf Parallelkarten, dann die
+/* Aktivierung der Korrektur (v1.3: aufgerufen aus dem Aktivierungs-
+   Dialog, offIllusoryCorrectionDialog; v1.3 kostet jede Aktivierung
+   zusaetzlich 1W4 temporaere Korruption - Rudolfs Entscheidungen 1+2,
+   "immer buchen", Schutzrunen-Muster): Frequenz-Verbrauch hier
+   (Runden-Schluessel bzw. "manual" ohne Takt), nochmaliger Frequenz-
+   Gate gegen Parallel-Karten, dann die Korruptionsbuchung, die
    Willenskraft-Probe als eigene Karte und bei Erfolg der reguläre
-   buildRolls-Lauf mit dem restaurierten functionStuff (= komplette
-   Wiederholung der Verteidigung, Schaden/Kosten wie im Original-Lauf -
-   ein Waffen-Angriff kostet nichts, Korruption faellt hier nie an).
-   Bei Misslingen bleibt es beim urspruenglichen Ergebnis, die Frequenz
-   ist verbraucht. */
+   buildRolls-Lauf (= komplette Wiederholung der Verteidigung, Schaden/
+   Kosten wie im Original-Lauf). Bei Misslingen bleibt es beim
+   urspruenglichen Ergebnis, die Frequenz ist verbraucht. */
 export async function illusoryCorrectionInvoke(payload) {
   const defenderActor =
     game.actors.get(payload.illusoryCorrectionDefenderId) ??
@@ -9327,6 +9385,17 @@ export async function illusoryCorrectionInvoke(payload) {
   }
   const key = trollRerollRoundKey();
   await defenderActor.setFlag(game.system.id, "illusoryCorrectionRound", key ?? "manual");
+  /* Kräfte-Paket 1 v1.3 (Rudolfs Entscheidungen 1+2, Auswahlrunde 2:
+     "immer buchen", Schutzrunen-Muster): Jede Aktivierung kostet 1W4
+     temporaere Korruption, ergebnisunabhaengig gebucht (Probeerfolg UND
+     -misserfolg), ein eigener Wurf, Buchung ueber die GM-Anwenden-Karte
+     am Verteidiger-Token (Bewusst RAW-abweichend - RAW kostet die Kraft
+     nichts pro Nutzung). */
+  const corruptionRoll = await new Roll("1d4").evaluate();
+  const corruptionEntry = { corruptionChange: corruptionRoll.total };
+  if (payload.targetData?.tokenId) corruptionEntry.tokenId = payload.targetData.tokenId;
+  else corruptionEntry.actorId = defenderActor.id;
+  await createModifyTokenChatButton([corruptionEntry]);
   const target = getAttributeValue(defenderActor, "resolute");
   const probe = await new Roll("1d20").evaluate();
   await probe.toMessage({
@@ -9347,6 +9416,44 @@ export async function illusoryCorrectionInvoke(payload) {
   if (probe.total <= target) {
     await buildRolls(payload);
   }
+}
+
+/* Kräfte-Paket 1 v1.3 (Rudolfs Entscheidung 3, Auswahlrunde 2): Statt
+   der v1-Reroll-Taste auf der Ergebniskarte öffnet sich nach der
+   misslungenen Verteidigung DIREKT der Aktivierungs-Dialog (Je-neu-
+   Entscheidung je misslungene Verteidigung, 1x/Runde-Frequenz prueft
+   und verbraucht erst das invoke). Bei Ja: Frequenzverbrauch +
+   1W4-Korruptionsbuchung + Willenskraft-Probe PUR als Karte, bei
+   Probeerfolg komplette Wiederholung der Verteidigung (siehe
+   illusoryCorrectionInvoke); bei Nein bleibt alles unverändert und die
+   Frequenz unangetastet. Der Dialog öffnet auf dem auswertenden Client
+   (GM-Standard bei NSC-Angriffen); Eigentums-Check wie beim v1-Handler
+   (GM darf immer, sonst nur der Verteidiger-Besitzer). */
+export function openIllusoryCorrectionDialog(payload) {
+  const defenderActor =
+    game.actors.get(payload.illusoryCorrectionDefenderId) ??
+    canvas.tokens?.placeables?.find((t) => t.actor?.id === payload.illusoryCorrectionDefenderId)?.actor ??
+    null;
+  if (!defenderActor) return;
+  if (!game.user.isGM && !defenderActor.isOwner) return;
+  symbDialog({
+    title: game.i18n.localize("POWER_ILLUSORYCORRECTION.DIALOG_TITLE"),
+    content: `<p>${game.i18n.format("POWER_ILLUSORYCORRECTION.DIALOG_HINT", { actorname: defenderActor.name })}</p>`,
+    buttons: {
+      ok: {
+        icon: '<i class="fas fa-check"></i>',
+        label: game.i18n.localize("BUTTON.CONFIRM"),
+        callback: async () => {
+          await illusoryCorrectionInvoke(payload);
+        },
+      },
+      cancel: {
+        icon: '<i class="fas fa-times"></i>',
+        label: game.i18n.localize("BUTTON.CANCEL"),
+      },
+    },
+    default: "cancel",
+  });
 }
 
 /* v2.12 (Rudolfs Freigabe 15.11., Gruppe C) — Fegefeuer (APG Theurgie),
@@ -11108,7 +11215,7 @@ async function mathDamageProt(targetActor, damage, damageType = {}) {
   // stattdessen Heilung um die Haelfte des erlittenen Feuerschadens;
   // die Heilung wird als firesoulHeal zurueckgegeben und vom Aufrufer
   // ueber die GM-Anwenden-Karte gebucht.
-  const fireSoulLevel = damageType.fire ? getActorAbilityLevel(targetActor, "firesoul") : 0;
+  const fireSoulLevel = damageType.fire ? firesoulActiveLevel(targetActor) : 0;
   if (fireSoulLevel > 0) {
     if (fireSoulLevel >= 3) {
       const fireHeal = Math.floor(finalDamage / 2);
@@ -11146,6 +11253,25 @@ async function mathDamageProt(targetActor, damage, damageType = {}) {
 export function getActorAbilityLevel(actor, reference) {
   const ability = actor?.items?.find((i) => i.system?.reference === reference);
   return ability?.getLevel?.().level ?? 0;
+}
+
+/* Kraefte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11. "Leg los"): Die
+   Feuerseele ist ab v1.3 eine MANUELL AKTIVIERBARE Reaktions-Aura
+   analog Schutzrunen (Kachel-Klick -> Wuerfeldialog -> Marker bis zur
+   Deaktivierung). ALLE Wirkungen - NK-Rueckstoss, Feuerschutzwurf in
+   mathDamageProt, Meister: 0 Feuerschaden + halbe Heilung + Distanz-
+   Vergeltung, A28-DoT-Feuerschutz je Tick - greifen NUR im aktiven
+   Zustand. Diese Funktion ist das EINE Gate: 0 = inaktiv, sonst Stufe
+   (Marker-flagData.level schlaegt, Fallback Item-Referenz fuer
+   Legacy-Marker ohne Objekt-flagData). */
+export function firesoulActiveLevel(actor) {
+  if (!actor) return 0;
+  const marker = actor.hasCondition?.("firesoul");
+  if (!marker) return 0;
+  const markerFlagData = marker.getFlag?.(game.system.id, "flagData");
+  const level = Number(markerFlagData?.level) || 0;
+  if (level >= 1) return level;
+  return getActorAbilityLevel(actor, "firesoul");
 }
 
 /* schwere Waffe in beiden Waffen-Formen erkennen - die vorverarbeitete
@@ -12079,11 +12205,12 @@ async function attackResult(rollData, functionStuff) {
     actorid = functionStuff.targetData?.actor.id;
   }
   // end Maestro support
-  // Kräfte-Paket 1 (Anhang): Illusorische Korrektur - nur im misslungenen
-  // Verteidigungswurf-Fluss mit der Kraft beim Verteidiger; die Taste
-  // haengt an DIESEM Angriffs-Ergebnis, der Klick laeuft ueber hooks.js
+  // Kräfte-Paket 1 v1.3 (Anhang): Illusorische Korrektur - nur im
+  // misslungenen Verteidigungswurf-Fluss mit der Kraft beim Verteidiger.
+  // Statt der v1-Taste auf der Karte oeffnet sich NACH der Karte direkt
+  // der AKTIVIERUNGS-DIALOG (Rudolfs Entscheidung 3, Auswahlrunde 2) -
+  // Frequency/Kosten/Wiederholung macht illusoryCorrectionInvoke.
   const illusoryPayload = illusoryCorrectionPayload(functionStuff, rollData);
-  if (illusoryPayload) templateData.illusoryReroll = true;
   const html = await foundry.applications.handlebars.renderTemplate("systems/symbaroum/template/chat/combat.hbs", templateData);
   const chatData = {
     user: game.user.id,
@@ -12096,12 +12223,13 @@ async function attackResult(rollData, functionStuff) {
     rollMode: game.settings.get("core", "messageMode"),
   };
   ChatMessage.applyMode(chatData, "public");
-  // Kräfte-Paket 1 (Anhang): Payload an die Karte flaggen (Trollsingen-
-  // Muster symbaroum.trollReroll), der hooks.js-Handler liest ihn
-  if (illusoryPayload) {
-    chatData[`flags.${game.system.id}.illusoryReroll`] = illusoryPayload;
-  }
   let NewMessage = await ChatMessage.create(chatData);
+  // Kräfte-Paket 1 v1.3 (Anhang): Aktivierungs-Dialog nach der Karte
+  // (Besitzer-/GM-Check im Dialog selbst; kein Karten-Flag, kein
+  // hooks.js-Handler mehr - die v1-Taste ist ersetzt).
+  if (illusoryPayload) {
+    openIllusoryCorrectionDialog(illusoryPayload);
+  }
   if (flagDataArray.length > 0) {
     await createModifyTokenChatButton(flagDataArray);
   }
@@ -12909,6 +13037,40 @@ export async function standardPowerResult(rollData, functionStuff) {
     markerFlagData = {
       level: Number(functionStuff.flagNotPresentFSmod.flagData) || functionStuff.powerLvl?.level || 1,
       choice: functionStuff.sphereChoice ?? "resolute",
+    };
+  }
+  /* Kraefte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11. "Leg los"): Feuerseele
+     und Schutzrunen tragen ihre Marker ab sofort als OBJEKT mit den
+     Maintain-Tags {maintained, caster, ability} - so erkennen sie die
+     bestehenden Maschinen: der A29-Maintain-Reminder (Kampf je Runde +
+     Weltzeit alle 15 Minuten ohne Kampf, AoE v2.5) UND die Hymnen-1.5/1.6-
+     Konzentrations-Karte (preUpdateActor auf Zaehigkeitsverlust: geflues-
+     terte GM-Karte mit Proben-Taste je andauernder Kraft PLUS EIGENE
+     Spieler-Karte, 1W20 <= [Willenskraft - Schaden], EINE verfehlte Probe
+     beendet ALLE, Abraeumen via a29AbortMaintainPower mit Ende-Karten im
+     Glyphen/Hymnen-Stil). Die stille Maintain-Auto-Probe aus
+     protectiveRunesRetaliation ist damit ENTFERNT (Rudolfs 4a-Wunsch:
+     interaktive Probe statt stiller Wuerfe, "gilt fuer alle Kraefte" -
+     hier ueber die generische Schadens-Erkennung abgedeckt). Die Sphaere
+     bleibt bewusst OHNE Maintain-Tags (Rudolfs Entscheidung: keine
+     Konzentrations-Logik, Ende laeuft ueber den Angriffs-/Kraft-Trigger). */
+  const isFiresoulActivation = functionStuff.flagTest === "firesoul" && functionStuff.ability?.reference === "firesoul" && !flagData;
+  if (isFiresoulActivation) {
+    markerFlagData = {
+      level: functionStuff.powerLvl?.level ?? 1,
+      maintained: true,
+      caster: functionStuff.actor.id,
+      ability: "firesoul",
+    };
+  }
+  const isProtectiveRunesActivation = functionStuff.flagTest === "protectiverunes" && functionStuff.ability?.reference === "protectiverunes" && !flagData;
+  if (isProtectiveRunesActivation) {
+    const protectiveRunesLevel = Number(functionStuff.flagNotPresentFSmod?.flagData) || functionStuff.powerLvl?.level || 1;
+    markerFlagData = {
+      level: protectiveRunesLevel,
+      maintained: true,
+      caster: functionStuff.actor.id,
+      ability: "protectiverunes",
     };
   }
   if (functionStuff.flagTest && trueActorSucceeded) {
