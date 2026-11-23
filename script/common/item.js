@@ -9378,13 +9378,19 @@ async function sphereMasterAllyPlacement(functionStuff) {
       });
       if (!chosen) return;
     }
-    /* Marker vom Mystiker auf den Verbündeten verschieben */
-    const marker = functionStuff.actor.hasCondition("sphere");
-    if (marker) {
-      const chosenFlag = marker.getFlag(game.system.id, "flagData");
-      await functionStuff.actor.deleteEmbeddedDocuments("ActiveEffect", [marker._id ?? marker.id]);
-      await chosen.actor.addCondition("sphere", { ...chosenFlag, ...sphereFlagData, level: 3 });
-    }
+    /* Kräfte-Paket 1 v1.7 (Rudolfs Freigabe 24.11.2026, Vault-RAW-Abgleich):
+       Dornenmantel-Modell - der Mystiker BEHÄLT seinen eigenen Sphären-
+       Marker (eigner Schutz, Vault-Notiz Sphäre-Meister: „ohne die Waffe zu
+       berühren ... Verbündeten in die Sphäre einschließen", die Hände frei;
+       nirgends verliert der Mystiker seine Sphäre - das v1.3-„statt"-Modell
+       war die unbemerkte Abweichung und erzeugte über das ungetaggte
+       13768er-Restsymbol den halbgeräumten Zustand aus Testrunde v1.6
+       Punkt 7). Der VERBÜNDETE bekommt seinen getaggten Marker ZUSÄTZLICH;
+       kein Löschen/Verschieben des Mystiker-Markers mehr. Der A29-Rescan
+       (v1.6) räumt bei Nahbereichs-Verlassen nur den Verbündeten-Marker,
+       der Mystiker-Marker bleibt - „kein Rejoin" (Rudolfs Ausnahme zum
+       Dornenmantel): Neue Projektion nur per Neuaktivierung. */
+    await chosen.actor.addCondition("sphere", { ...sphereFlagData });
     await postMaintainChainCard(
       functionStuff,
       `<h4>${game.i18n.localize("POWER_SPHERE.CHAT_ALLY_TITLE")}</h4>`,
@@ -13279,11 +13285,13 @@ export async function standardPowerResult(rollData, functionStuff) {
     } else {
       await functionStuff.actor.addCondition(functionStuff.flagTest, markerFlagData);
       functionStuff = Object.assign({}, functionStuff, functionStuff.flagNotPresentFSmod);
-      /* Kräfte-Paket 1 (Sphäre-Meister, Rudolfs Entscheidung 7): Die
-         Sphäre wandert auf einen VERBÜNDETEN - Distanz-Gate Nah = 1 Feld
-         Abstand zum Mystiker; genau EIN Kandidat => automatisch, mehrere
-         => Auswahl-Dialog (HUD-Manual entfällt). Ohne Kandidat bleibt
-         der Marker auf dem Mystiker (SL-Hinweis auf der Karte). */
+      /* Kräfte-Paket 1 (Sphäre-Meister, Rudolfs Entscheidung 7; v1.7
+         Vault-RAW-Abgleich): Der VERBÜNDETE wird zusätzliche eingeschlossen
+         (Distanz-Gate Nah = 1,5 Felder Abstand zum Mystiker; genau EIN
+         Kandidat => automatisch, mehrere => Auswahl-Dialog, HUD-Manual
+         entfällt; ohne Kandidat bleibt es bei der Mystiker-Sphäre, SL-
+         Hinweis auf der Karte). Seit v1.7 BEHÄLT der Mystiker seinen
+         eigenen Marker (Dornenmantel-Modell, Vault-RAW: kein „statt"). */
       if (isSphereActivation && (functionStuff.powerLvl?.level ?? 0) >= 3) {
         await sphereMasterAllyPlacement(functionStuff);
       }
