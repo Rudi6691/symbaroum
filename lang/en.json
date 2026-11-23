@@ -1436,7 +1436,6 @@
   "TOOLTIP.DIALOG.HASSCRIPT": "Can be clicked on the icon or right click and select USE to roll",
   "TOOLTIP.DIALOG.ISINTERGRATED": "Effects automatically applied to character",
   "TOOLTIP.DIALOG.HASBOONLINE": "Gives a situational bonus or penalty on rolls (context line in the roll dialog).",
-  "TOOLTIP.DIALOG.POWER_ACTIVE": "This power is currently active (token status icon, stock flag set).",
   "TRADITION.BLESSINGS": "Blessings",
   "TRADITION.DIALOG_HINT": "Select traditions",
   "TRADITION.DIALOG_INTRO": "Choose the associated traditions (multiple selection).",

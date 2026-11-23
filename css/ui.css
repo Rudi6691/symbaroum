@@ -1,0 +1,9 @@
+/*
+  Kräfte-Paket 2 v3 — CSS-Part „ui": Dialoge und Chat-Karten.
+  Ladung und Disziplin: siehe common.css.
+*/
+
+/* ( aktuell keine UI-Regeln — der Sturmpfeil-Aktionsdialog mit seinen
+   untereinander gestapelten Footer-Buttons ist JS-seitig gestylt
+   (onRender, 1:1 Alchemie-Menü-Muster) und bleibt bewusst dort;
+   künftige Dialog-/Karten-Optiken tragen ihre Regeln hierher. ) */

@@ -480,6 +480,14 @@ SYMBAROUM.scriptedAbilities = [
   "revenantstrike",
   "sphere",
   "staffprojectile",
+  // Kräfte-Paket 2 v3 (Rudolfs Korrekturwunsch 1, Testrunde v2): die
+  // klassischen isScripted-Badges für die beiden Paket-2-Kräfte -
+  // Sturmpfeil (Dauer-Aktionsdialog) und Teleport (Einwurf-Ver-
+  // einigung) sind gescriptete Krafte; die Liste treibt via actor.js
+  // markScripted das Standard-Badge (script-Flag ohne Nebenwirkung),
+  // anstelle des in v2 irrtuemlich gebauten vierten Kachel-Badges.
+  "stormarrow",
+  "teleport",
   "tormentingspirits",
   "trueform",
   "unholyaura",

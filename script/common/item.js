@@ -13499,6 +13499,13 @@ async function preDialogStormArrow(functionStuff) {
     await stormArrowClearMarker(actor);
     flag = null;
   }
+  /* Kräfte-Paket 2 v3 (Rudolfs Korrekturwunsch 2, Testrunde v2): A29-
+     „Beibehalten" läuft STILL weiter (Feuerseele/Schutzrunen-Muster:
+     kein Dialog, kein Wurf, keine Karte); der Aktions-Dialog (Salve/
+     Abbruch) erscheint NUR beim direkten Kachel-Klick. */
+  if (functionStuff.presetMaintain && flag) {
+    return;
+  }
   if (flag) {
     await stormArrowActionDialog(functionStuff, flag);
     return;

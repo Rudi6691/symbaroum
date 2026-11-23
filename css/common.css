@@ -1,0 +1,22 @@
+/*
+  Kräfte-Paket 2 v3 (Rudolfs Baufreigabe 23.11.2026): CSS-Part-Architektur
+  nach Domäne — gemeinsame, systemübergreifende Regeln.
+
+  Ladung: script/common/hooks.js, Hooks.once("setup") — diese Dateien
+  hängen NACH dem Upstream-Bündel (css/symbaroum.css) ans <head>, gleiche
+  Spezifität gewinnt deshalb ohne !important-Wildwuchs.
+
+  Disziplin (im Gesamtkonzept mit Rudolf abgestimmt): Abschnitte je
+  Thema mit Projekt-Kommentarstandard (Paket, Version, Datum, Rudolf-
+  Entscheidung); jede Regel gehört zu GENAU EINER Domäne; NIE nach
+  Einzelkraft split-ten.
+
+  Bestehende gescopelte Template-<style>-Blöcke (brew-dialog.hbs,
+  Teleport-Radios) bleiben unberührt — Template-Styles sind für künf-
+  tige lokale Einmal-Optiken weiterhin erlaubt, alles Domain-
+  Relevante gehört hierher.
+*/
+
+/* ( aktuell keine systemübergreifenden Regeln — diese Datei ist der
+   Ankerpunkt der Part-Architektur; v3 füllt powers.css, equipment.css
+   und ui.css. ) */

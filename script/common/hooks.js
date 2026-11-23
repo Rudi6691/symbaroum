@@ -84,6 +84,28 @@ import { migrateWorld } from './migration.js';
 
 import { tourSetup } from '../../tours/toursetup.js';
 
+/* Kräfte-Paket 2 v3 (Rudolfs Baufreigabe 23.11.2026, Gesamtkonzept
+   abgestimmt): CSS-Part-Architektur nach Domäne — Ladung über DIESEN
+   EINEN Hooks.once("setup")-Hook, der die Part-Dateien in FESTER
+   Reihenfolge als <link> ans Ende des <head> hängt (also NACH dem
+   Upstream-Bündel css/symbaroum.css: gleiche Spezifität gewinnt, kein
+   !important-Wildwuchs). system.json bleibt UNVERÄNDERT (Invariante
+   aller Pakete — deshalb Hook statt styles-Eintrag); der Cache-Buster
+   trägt Systemversion + Paket-Tag, damit Foundry-Updates und Paket-
+   Iterationen die Browser-Caches sauberinvalidieren. Die Reihenfolge
+   ist an genau DIESER Stelle definiert: common vor Domain-Dateien, ui
+   zuletzt. */
+Hooks.once('setup', () => {
+	const cacheBuster = `?v=${game.system.version}-kraeftepaket2-v3`;
+	const cssParts = ['common.css', 'powers.css', 'equipment.css', 'ui.css'];
+	for (const part of cssParts) {
+		const link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.href = `systems/${game.system.id}/css/${part}${cacheBuster}`;
+		document.head.appendChild(link);
+	}
+});
+
 Hooks.once('init', () => {
 	const debouncedReload = foundry.utils.debounce(() => window.location.reload(), 250);
 

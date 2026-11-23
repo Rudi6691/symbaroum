@@ -1,0 +1,47 @@
+/*
+  Kräfte-Paket 2 v3 — CSS-Part „equipment": Rationen, dynamische Last,
+  Behälter (dynamische Gewichtsanzeige am Item-Blatt, künftig auch
+  Ausrüstungs-Chip-Optiken dieser Domäne).
+  Ladung und Disziplin: siehe common.css.
+*/
+
+/*
+  Layout-Fix Paket 2 v3 (Rudolfs Entscheidung 23.11.2026 zur v2-
+  Screenshot-Runde, Wasserschlauch): In der Besitz-Zeile des modernen
+  Item-Blatts blähte die dynamische Gewichtszeile („AKTUELLES GEWICHT:
+  X LE", .m-sec-label, uppercase + 0.14em) die Soll-Breite der Räti-
+  onen-Zelle auf — m-possess-row ist nowrap, die Zellen flex 0 1 auto
+  mit min-width 0, der Stepper selbst flex 0 0 auto (nicht stauchbar):
+  der Shrink drückte Anzahl-Stepper übereinander und ließ den Preis
+  aus seiner Kiste quellen (der Preis war nur Symptom).
+
+  Rudolfs Entscheidungen: (1) Die Gewichtszeile bricht bei engem Platz
+  DYNAMISCH in eine zweite Zeile um (kein kürzeres Label, kein reiner
+  Wert); (2) kleiner Abstand zwischen Rationen und Anzahl über einen
+  negativen linken Außenaufschlag an der Rationen-Zelle — der Row-Gap
+  1.2rem für Preis/Gewicht/Anzahl bleibt unberührt; (3) Preis- und
+  Bandagen-Optik (Referenz Screenshot 2) bleiben völlig unangetastet.
+  Die HTML-Struktur der Gewichtszeile (v2: innerhalb der Rationen-Zelle
+  unter dem Stepper, header.hbs) bleibt unverändert — reine Stil-Breite.
+*/
+
+/* (1) Gewichtszeile: trägt nichts mehr zur Soll-Breite der Zelle bei
+  (width 0 / min-width 100%), läuft auf volle Zellbreite und bricht
+  bei engem Platz dynamisch in die zweite Zeile um (white-space
+  normal statt nowrap, Umbruch auch mitten im Wort-Verbund erlaubt). */
+.symbaroum.sheet.item .modern-root .m-possess-row .m-rationcount-field div.m-sec-label {
+  width: 0;
+  min-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+  align-self: flex-start;
+  margin-top: 0.1rem;
+}
+
+/* (2) Kleiner Abstand Rationen ↔ Anzahl: negativer linker Außen-
+  abschlag zieht die Rationen-Zelle ein Stück Richtung Stepper; der
+  1.2rem-Spaltenabstand der Besitz-Zeile gilt für alle übrigen Zellen
+  unverändert weiter. */
+.symbaroum.sheet.item .modern-root .m-possess-row .m-rationcount-field {
+  margin-left: -0.5rem;
+}

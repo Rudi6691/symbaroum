@@ -620,15 +620,12 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		const powerTraditionFilter = knownTraditions().map((id) => ({ id, label: traditionLabel(id) }));
 		const groupById = Object.fromEntries(powerGroups.map((g) => [g.id, g]));
 		const powerEntryById = {};
-		/* Kräfte-Paket 2 v2 (Rudolfs Testrunde v1, Freigabe 23.11.2026):
-		   aktive-Kraft-Badge an der Kachel (sein Hinweis "Kein Badge am
-		   Chip-Icon" war ein Wunsch): das Sturmpfeil-Bestandsflag am
-		   Akteur ist die Wahrheit; Szene-Sperre und Bestand > 0 sind
-		   dieselben Kriterien wie stormArrowActiveFlag (common/item.js)
-		   - bewusst hier lokal gerechnet (player.js importiert keine
-		   Mystik-Kraft-Helfer), das vierte Kachel-Badge oben links. */
-		const saFlag = this.actor?.getFlag?.(game.system.id, 'stormArrow');
-		const saActive = !!saFlag && String(saFlag.sceneId ?? '') === String(game.scenes.current?.id ?? '') && Number(saFlag.count ?? 0) > 0;
+		/* Kräfte-Paket 2 v3 (Rudolfs Korrekturwunsch 1, Testrunde v2): das
+		   in v2 gebaute vierte Kachel-Badge (aktiver Sturmpfeil) ist
+		   KOMPLETT zurückgebaut - Sturmpfeil und Teleport zeigen jetzt
+		   das klassische isScripted-Badge via scriptedAbilities
+		   (config.js); das Sturmpfeil-Bestandsflag wird hier nicht mehr
+		   lokal ausgewertet. */
 		for (const item of context.items) {
 			const s = item.system;
 			if (!s?.isPower) continue;
@@ -649,9 +646,6 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				hasScript: !!s.hasScript,
 				hasBoonLine: !!s.hasBoonLine,
 				isIntegrated: !!s.isIntegrated,
-				/* Paket-2 v2: aktive-Kraft-Badge (Sturmpfeil, Kachel oben
-				   links) - siehe saActive-Kommentar oben. */
-				isActivePower: item.type === 'mysticalPower' && String(s?.reference ?? '') === 'stormarrow' && saActive,
 				favorite: !!item.flags?.symbaroum?.favorite,
 				level: 0,
 				pipsOff: 0,
@@ -932,7 +926,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				const entry = powerEntryById[item.id];
 				// Bestienkunde v1.1: Favorit uebernimmt den erweiterten Titel
 				// aus dem powers-Eintrag (Suffix bereits in entry.name)
-				if (entry) favorites.push({ id: item.id, name: entry.name, img: item.img, kind: 'power', hasScript: entry.hasScript, hasBoonLine: entry.hasBoonLine, isActivePower: entry.isActivePower, sub: entry.sub });
+				if (entry) favorites.push({ id: item.id, name: entry.name, img: item.img, kind: 'power', hasScript: entry.hasScript, hasBoonLine: entry.hasBoonLine, sub: entry.sub });
 			} else if (s.isGear) {
 				// Aktive Waffen/Rüstungen erscheinen ohnehin immer im Kampf-Tab
 				if ((s.isWeapon || s.isArmor) && s.isActive) continue;
