@@ -1,4 +1,4 @@
-import { modifierDialog, standardPowerResult, getActorAbilityLevel, isHeavyWeapon } from "./item.js";
+import { modifierDialog, standardPowerResult, getActorAbilityLevel, isHeavyWeapon, findSphereMarkerByCaster } from "./item.js";
 import { symbDialog } from "./symbDialog.js";
 import { modernDialogClasses, isModernDialogActive } from "./modernSheetConfig.js";
 // Hymnen-Paket 1.2: Übernahme der im Ausführungsdialog frisch platzierten
@@ -1220,7 +1220,15 @@ export class SymbaroumActor extends Actor {
 					const toggleActive = Boolean(
 						functionStuff.actor.hasCondition(functionStuff.flagTest) || functionStuff.actor.getFlag(game.system.id, functionStuff.flagTest)
 					);
-					if (toggleActive) {
+					/* Kräfte-Paket 1 v1.5 (Rudolfs Testrunde v1.4 Punkt 5a): Bei
+					   der Sphäre liegt der Marker bei der Meister-Projektion auf
+					   dem VERBÜNDETEN - der Abbruch-Dialog muss auch dann
+					   erscheinen (Caster-Scan, Muster A29-Maschinen; sonst kam
+					   der Kachel-Klick beim aktiven Verbündeten in den Würfe-
+					   dialog zurück). */
+					const sphereToggleActive =
+						functionStuff.flagTest === "sphere" && Boolean(findSphereMarkerByCaster(functionStuff.actor?.id));
+					if (toggleActive || sphereToggleActive) {
 						symbDialog({
 							title: functionStuff.abilityName,
 							content: `<p>${game.i18n.format("DIALOG.CONFIRM_DEACTIVATE", { ability: functionStuff.abilityName })}</p>`,

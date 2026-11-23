@@ -1576,6 +1576,19 @@ async function a29AbortMaintainPower(actor, abilityRef) {
 		});
 		return;
 	}
+	/* Kraefte-Paket 1 v1.5 (Rudolfs Entscheidung 23.11., "wie Feuerseele"):
+	   Die Sphaere nimmt am Maintain-Reminder teil - A29-"Nein" und
+	   "Alle beenden" raeumen ihre Marker ueber die generische Schleife
+	   oben ab (Maintain-/Caster-Tags); die kleine Ende-Karte dokumentiert
+	   das Ende fuer die SL (Dornenmantel-Muster, Titel mit Kraftnamen). */
+	if (abilityRef === 'sphere') {
+		const powerLabel = game.i18n.localize('POWER_LABEL.SPHERE');
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format('POWER_HYMN.CHAT_END_POWER', { powername: powerLabel })}</h4><div class="finalTxt"><p>${game.i18n.format('POWER_HYMN.CHAT_END_ABORTED', { actorname: actor.name, powername: powerLabel })}</p></div></div></div>`,
+		});
+	}
 	/* Hymnen-Paket 1.3 (Rudolfs Testrunde v1.2, P5 - Root-Cause): Für
 	   Hymnen räumt der A29-"Nein"-Abbruch jetzt AUCH die Gesangsfläche
 	   (Region) und das Actor-Flag hymnZone.{ref}. Die 1.2-Version

@@ -9142,6 +9142,58 @@ export function getSphereMarkerData(actor) {
   return { level: Number(fd) || 0, choice: null, marker };
 }
 
+/* Kraefte-Paket 1 v1.5 (Rudolfs Freigabe 23.11. "Baue v1.5"): Sphaere-
+   Marker-Suche ueber die Caster-Marke (flagData.caster) - findet den
+   Marker UNABHAENGIG vom Halter (Mystiker selbst oder Meister-Projektion
+   auf dem Verbundeten), Muster a29ScanMaintainedPowers. Ausfuhrlich:
+   der Kachel-Abbruch und die Toggle-Aufloesung in standardPowerResult
+   laufen damit auch, wenn der Verbundete die Sphaere haelt (Testrunde
+   v1.4 Punkt 5a). Alte Marker OHNE Caster-Marke (Sessions vor v1.5)
+   werden hier nicht gefunden - der SL entfernt sie manuell (dokumen-
+   tierte Migration im Auslieferungsdoc). */
+export function findSphereMarkerByCaster(casterId) {
+  if (!casterId) return null;
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const tokenActor = token.actor;
+    if (!tokenActor) continue;
+    for (const effect of tokenActor.effects) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (typeof fd === "object" && fd?.ability === "sphere" && fd?.caster === casterId) {
+        return { tokenActor, effect, flagData: fd };
+      }
+    }
+  }
+  return null;
+}
+
+/* Kraefte-Paket 1 v1.5: Deaktivierungs-Aufraeumung - entfernt ALLE
+   Sphaeren-Marker mit der Caster-Marke des Mystikers in der Szene
+   (eigenen hat removeCondition kurz vorher schon weggeraeumt; der
+   VERBUENDETEN-Marker ist der eigentliche Fall). Fehler je Loeschung
+   werden geloggt und uebersprungen (ein Token-Defekt darf den Rest-
+   Abruf nicht blockieren). */
+async function removeSphereMarkersByCaster(casterActor) {
+  if (!casterActor?.id) return;
+  const doomed = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const tokenActor = token.actor;
+    if (!tokenActor) continue;
+    for (const effect of [...tokenActor.effects]) {
+      const fd = effect.getFlag(game.system.id, "flagData");
+      if (typeof fd === "object" && fd?.ability === "sphere" && fd?.caster === casterActor.id) {
+        doomed.push([tokenActor, effect]);
+      }
+    }
+  }
+  for (const [tokenActor, effect] of doomed) {
+    try {
+      await tokenActor.deleteEmbeddedDocuments("ActiveEffect", [effect._id ?? effect.id]);
+    } catch (sphereRemoveError) {
+      game.symbaroum.log("Kraefte-Paket 1 v1.5: Sphaere-Marker-Loeschung", sphereRemoveError);
+    }
+  }
+}
+
 /* Kraefte-Paket 1 (Sphaere-Meister, Rudolfs Entscheidung 7): Verbündeten-
    Sphaere mit Distanz-Gate Nah - gueltige Ziele sind nur Verbündete im
    1-Feld-Abstand zum Mystiker (gemessen in Rasterfeldern). GENAU EIN
@@ -9191,6 +9243,12 @@ async function sphereMasterAllyPlacement(functionStuff) {
     const sphereFlagData = {
       level: 3,
       choice: functionStuff.sphereChoice ?? "resolute",
+      /* Kraefte-Paket 1 v1.5: dieselben Maintain-/Caster-Tags wie auf dem
+         Mystiker-Marker (Rudolfs Entscheidung 23.11.: Sphaere nimmt am
+         Maintain-Reminder + Konzentrations-Maschine teil, "wie Feuerseele") */
+      maintained: true,
+      caster: functionStuff.actor.id,
+      ability: "sphere",
     };
     /* Kein Kandidat: Marker bleibt auf dem Mystiker (SL-Hinweis).
        v1.4: EIGENER Titel (v1.3 verwendete der Fehler-"Sphaere endet"-
@@ -13051,6 +13109,17 @@ export async function standardPowerResult(rollData, functionStuff) {
 
   game.symbaroum.log("Flag data", flagData);
 
+  /* Kraefte-Paket 1 v1.5 (Rudolfs Testrunde v1.4 Punkt 5a): Bei der
+     Sphaere liegt der Marker bei der Meister-Projektion auf dem
+     VERBUENDETEN - der Mystiker traegt ihn NICHT. Die Toggle-Aufloesung
+     (Aktivierung vs. Deaktivierung) muss den Verbundeten-Marker daher
+     ueber die Caster-Marke (flagData.caster) finden, Muster a29Scan-
+     MaintainedPowers; ohne den Lookup lief der Kachel-Abbruch in den
+     AKTIVIERUNGS-Zweig zurueck (Endlos-Schleife, Testrunde v1.4). */
+  if (functionStuff.flagTest === "sphere" && !flagData) {
+    flagData = findSphereMarkerByCaster(functionStuff.actor?.id)?.flagData ?? null;
+  }
+
   game.symbaroum.log("functionStuff before merge", functionStuff);
   /* Kräfte-Paket 1 (Sphäre): Marker-flagData als OBJEKT {level, choice} -
      die Radio-Wahl des Aktivierungsdialogs (Wahlmodell B, Rudolfs
@@ -13067,9 +13136,20 @@ export async function standardPowerResult(rollData, functionStuff) {
   let markerFlagData = functionStuff.flagNotPresentFSmod?.flagData;
   const isSphereActivation = functionStuff.flagTest === "sphere" && functionStuff.ability?.reference === "sphere" && !flagData;
   if (isSphereActivation) {
+    /* Kraefte-Paket 1 v1.5 (Rudolfs Entscheidung 23.11., "wie Feuerseele"):
+       Die Sphaere traegt JETZT die Maintain-/Caster-Tags - damit nimmt sie
+       am A29-Maintain-Reminder teil (Kampf je Runde + Weltzeit alle 15 min
+       ohne Kampf "Behalten/Abbrechen") UND an der Hymnen-1.5/1.6-Konzen-
+       trations-Maschine (Zahigkeitsverlust => GM-+Spieler-Karte, EINE
+       verfehlte Probe beendet ALLE) - vorher bewusst ohne Tags (Rudolfs
+       Entscheidung 5 in der v1.3-Auswahlrunde, jetzt ersetzt). {level,
+       choice} bleiben unveraendert (Auto-Parade/Wahl lesen weiter daraus). */
     markerFlagData = {
       level: Number(functionStuff.flagNotPresentFSmod.flagData) || functionStuff.powerLvl?.level || 1,
       choice: functionStuff.sphereChoice ?? "resolute",
+      maintained: true,
+      caster: functionStuff.actor.id,
+      ability: "sphere",
     };
   }
   /* Kraefte-Paket 1 v1.3 (Rudolfs Baufreigabe 22.11. "Leg los"): Feuerseele
@@ -13111,6 +13191,14 @@ export async function standardPowerResult(rollData, functionStuff) {
       // The following line is just for clean-up legacy
       await functionStuff.actor.unsetFlag(game.system.id, functionStuff.flagTest);
       await functionStuff.actor.removeCondition(functionStuff.flagTest);
+      /* Kraefte-Paket 1 v1.5 (Punkt 5a): Bei der Sphaere kann der Marker
+         auf dem VERBUENDETEN liegen (Meister-Projektion) - die Deakti-
+         vierung raeumt zusaetzlich ALLE Sphaeren-Marker mit dieser
+         Caster-Marke in der Szene ab, sonst bliebe der Verbundete
+         ewig umschlossen und der Abbruch startete die Aktivierung neu. */
+      if (functionStuff.flagTest === "sphere") {
+        await removeSphereMarkersByCaster(functionStuff.actor);
+      }
       functionStuff = Object.assign({}, functionStuff, functionStuff.flagPresentFSmod);
     } else {
       await functionStuff.actor.addCondition(functionStuff.flagTest, markerFlagData);
