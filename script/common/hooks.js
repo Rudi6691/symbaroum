@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -1887,6 +1887,19 @@ async function a29SocketHandler(message) {
 		if (actor) {
 			const abilityItem = a29FindAbilityItem(actor, message.data.abilityRef);
 			if (abilityItem) aoeMaintainZoneRound(actor, message.data.abilityRef);
+		}
+	} else if (message.type === 'a29SphereRescan' && game.user.isActiveGM) {
+		/* Kräfte-Paket 1 v1.6 (Rudolfs Freigabe 24.11.2026, Nahbereichs-
+		   Ergänzung): Spieler hat im A29-Reminder „Ja“ gewählt, die Sphäre
+		   läuft formlos (MAINTAIN_NOT, formloser Behalten-Zweig in
+		   actor.js) - der GM-Client führt den Sphären-Rescan aus (Verbün-
+		   deten-Marker jenseits der 1,5-Zellen-Nähe zum Wirker räumen +
+		   kleine Ende-Karte), Delegations-Muster wie die a29Maintain-
+		   ZoneRound-Antwort. Der Kraftname für die Karte läuft über
+		   a29FindAbilityItem (Zonen-Instanz-Muster). */
+		const actor = game.actors.get(message.data.actorId);
+		if (actor) {
+			await sphereRescanMaintain(actor, a29FindAbilityItem(actor, 'sphere')?.name);
 		}
 	}
 }

@@ -9194,6 +9194,82 @@ async function removeSphereMarkersByCaster(casterActor) {
   }
 }
 
+/* Kräfte-Paket 1 v1.6 (Rudolfs Freigabe 24.11.2026 „Baue v1.6“, Nahbereichs-
+   Ergänzung): Sphären-Rescan je eigene Runde - Rolle des thornCloakRescan
+   (Dornenmantel-Modell, Sphären-Marker-Datenmodell statt Zone). Der Rescan
+   läuft NUR über die A29-Erinnerung des Mystikers („Ja“ = Rescan, „Nein“ =
+   Abbruch über die bestehende Maschine) - Rudolfs Entscheidungen „genau wie
+   beim Dornenmantel“ und „A29-Rescan je eigene Runde“ (rahmenkonform,
+   dokumentierte Grenze des Dornenmantel-Modells: KEINE Echtzeit-Reaktion
+   auf Bewegung). Prüfung: Chebyshev-Distanz der Token-Zentren (thornCloak-
+   TokenCenter, Zellen-Größe mit Gridless-Fallback 100 px - dieselbe
+   Mess-Konvention wie die Verbündeten-Auswahl in sphereMasterAllyPlacement).
+   Verlässt der VERBÜNDETE den 1,5-Zellen-Nahbereich zum Wirker - Bewegung
+   des Verbündeten ODER des Wirkers, je eigene Runde erfasst - verliert er
+   den Schutz: Marker räumen (Muster removeSphereMarkersByCaster, je
+   Löschung try/catch) plus kleine Ende-Karte (Dornenmantel-Muster, Titel
+   CHAT_END_POWER mit Kraftnamen). Kein Auto-Return (Rudolfs Entscheidung):
+   Rückkehr in den Nahbereich stellt den Schutz NICHT wieder her, nur
+   Neuaktivierung. Betroffen ist nur der Verbündeten-Marker mit Caster-
+   Marke; läuft die Sphäre auf dem Mystiker selbst, bleibt die Runde
+   still. Wirker ohne Token in der Szene: SL-Urteil, Marker bleiben
+   unangetastet. Läuft auf dem GM-Client (direkt aus dem formlosen
+   Behalten-Zweig in actor.js oder über den a29SphereRescan-Socket). */
+export async function sphereRescanMaintain(actor, powerLabel) {
+  try {
+    const casterActor = actor;
+    if (!casterActor?.id) return;
+    const mysticToken = canvas.tokens?.placeables?.find((t) => t.actor?.id === casterActor.id);
+    const cellSize = canvas.grid?.sizeX ?? canvas.grid?.w ?? canvas.grid?.size ?? 100;
+    const leavers = [];
+    const checkDiag = [];
+    for (const token of canvas.tokens?.placeables ?? []) {
+      const tokenActor = token.actor;
+      if (!tokenActor || tokenActor.id === casterActor.id) continue;
+      for (const effect of [...tokenActor.effects]) {
+        const fd = effect.getFlag(game.system.id, "flagData");
+        if (typeof fd !== "object" || fd?.ability !== "sphere" || fd?.caster !== casterActor.id) continue;
+        if (!mysticToken) continue;
+        try {
+          const a = thornCloakTokenCenter(mysticToken);
+          const b = thornCloakTokenCenter(token);
+          const distCells = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) / cellSize;
+          checkDiag.push({ name: token.name, distCells });
+          if (distCells > 1.5) leavers.push({ tokenActor, effect, name: token.name });
+        } catch (measureError) {
+          checkDiag.push({ name: token.name, distCells: null });
+        }
+      }
+    }
+    game.symbaroum.log("Kräfte-Paket 1 v1.6: Sphären-Rescan (A29-Runde)", {
+      mystic: casterActor.name,
+      cellSize,
+      checked: checkDiag,
+      leavers: leavers.map((l) => l.name),
+    });
+    for (const leaver of leavers) {
+      try {
+        await leaver.tokenActor.deleteEmbeddedDocuments("ActiveEffect", [leaver.effect._id ?? leaver.effect.id]);
+      } catch (sphereRemoveError) {
+        game.symbaroum.log("Kraefte-Paket 1 v1.6: Sphaere-Marker-Loeschung nach Nahbereichs-Verlassen", sphereRemoveError);
+      }
+    }
+    if (leavers.length > 0) {
+      const label = powerLabel ?? game.i18n.localize("POWER_LABEL.SPHERE");
+      const lines = leavers
+        .map((leaver) => `<p>${game.i18n.format("POWER_SPHERE.CHAT_END_LEFT_RANGE", { targetname: leaver.name, actorname: casterActor.name })}</p>`)
+        .join("");
+      await ChatMessage.create({
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: casterActor.id }),
+        content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.format("POWER_HYMN.CHAT_END_POWER", { powername: label })}</h4><div class="finalTxt">${lines}</div></div></div>`,
+      });
+    }
+  } catch (sphereRescanError) {
+    game.symbaroum.log("Kraefte-Paket 1 v1.6: Sphaeren-Rescan", sphereRescanError);
+  }
+}
+
 /* Kraefte-Paket 1 (Sphaere-Meister, Rudolfs Entscheidung 7): Verbündeten-
    Sphaere mit Distanz-Gate Nah - gueltige Ziele sind nur Verbündete im
    1-Feld-Abstand zum Mystiker (gemessen in Rasterfeldern). GENAU EIN

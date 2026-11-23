@@ -1215,6 +1215,7 @@
   "POWER_SPHERE.CHAT_ALLY_TITLE": "Verbündeten-Sphäre",
   "POWER_SPHERE.CHAT_ALLY_CHOSEN": "{actorname} projiziert die Sphäre auf {targetname}.",
   "POWER_SPHERE.CHAT_ALLY_FALLBACK": "Kein Verbündeter in Nahdistanz — die Sphäre verbleibt auf {actorname}.",
+  "POWER_SPHERE.CHAT_END_LEFT_RANGE": "{targetname} hat den Nahbereich von {actorname} verlassen und verliert den Schutz ({targetname} muss die Sphäre neu aktivieren, um sie zurückzugewinnen).",
   "DIALOG.SPHERE_CHOICE": "Verteidigung",
   "POWER_ILLUSORYCORRECTION.CHAT_PROBE_TITLE": "Illusorische Korrektur",
   "POWER_ILLUSORYCORRECTION.DIALOG_TITLE": "Illusorische Korrektur",

@@ -1,4 +1,4 @@
-import { modifierDialog, standardPowerResult, getActorAbilityLevel, isHeavyWeapon, findSphereMarkerByCaster } from "./item.js";
+import { modifierDialog, standardPowerResult, getActorAbilityLevel, isHeavyWeapon, findSphereMarkerByCaster, sphereRescanMaintain } from "./item.js";
 import { symbDialog } from "./symbDialog.js";
 import { modernDialogClasses, isModernDialogActive } from "./modernSheetConfig.js";
 // Hymnen-Paket 1.2: Übernahme der im Ausführungsdialog frisch platzierten
@@ -1228,6 +1228,36 @@ export class SymbaroumActor extends Actor {
 					   dialog zurück). */
 					const sphereToggleActive =
 						functionStuff.flagTest === "sphere" && Boolean(findSphereMarkerByCaster(functionStuff.actor?.id));
+					/* Kräfte-Paket 1 v1.6 (Rudolfs Testrunde v1.5, Rot 4/5/8; Freigabe
+					   24.11.2026 „Baue v1.6“): Formloser Behalten-Zweig. Der A29-
+					   Maintain-Reminder-„Ja“ (presetMaintain) ist bei den formlosen
+					   Toggles (Feuerseele, Schutzrunen, Sphäre - maintain
+					   MAINTAIN_NOT, bewusste RAW-Abweichungen, im Auslieferungsdoc
+					   dokumentiert) KEINE neue Aktivierung: Bis v1.5 fiel das
+					   Toggle-Gate hier auf den aktiven Marker und öffnete den
+					   DEAKTIVIERUNGS-Dialog. „Ja“ = Behalten bestätigt jetzt still
+					   (kein Dialog, kein Wurf, keine Korruption - Feuerseele/
+					   Schutzrunen); die Sphäre läuft als A29-Rescan je eigene Runde
+					   (Nahbereich 1,5 Zellen, Dornenmantel-thornCloakRescan-
+					   Parallele: Verlassene verlieren Marker + Ende-Karte, auf dem
+					   GM-Client - Spieler-Antwort via a29SphereRescan-Socket,
+					   Muster der a29MaintainZoneRound-Delegation; Dornenmantel
+					   und Hymnen sind nicht betroffen, sie treffen über ihre
+					   preDialogFunction nie auf dieses Gate). Kachel-/Item-Klick
+					   bleibt unverändert der Deaktivierungs-Dialog; ein gewürfelter
+					   Maintain (MAINTAIN_RES) wird von der maintain-Prüfung nicht
+					   verschluckt. */
+					if (options?.presetMaintain && functionStuff.maintain === game.symbaroum.config.MAINTAIN_NOT && (toggleActive || sphereToggleActive)) {
+						if (functionStuff.flagTest === "sphere") {
+							if (game.user.isActiveGM) {
+								await sphereRescanMaintain(functionStuff.actor, functionStuff.abilityName);
+							} else {
+								game.socket.emit("system.symbaroum", { type: "a29SphereRescan", data: { actorId: functionStuff.actor.id } });
+							}
+						}
+						game.symbaroum.log("Kräfte-Paket 1 v1.6: Formlose Maintain-Runde (A29-„Ja“ = Behalten)", { actor: functionStuff.actor?.name, ability: functionStuff.abilityName });
+						return;
+					}
 					if (toggleActive || sphereToggleActive) {
 						symbDialog({
 							title: functionStuff.abilityName,
