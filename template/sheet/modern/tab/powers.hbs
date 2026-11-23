@@ -38,6 +38,14 @@
                             {{!-- S2.1 (P27): dritter Badge unten links am Kachel-Icon — Segen/Last
                                 mit situationsabhängigem Bonus/Malus auf Proben (BOON_LINES). --}}
                             {{#if p.hasBoonLine}}<span class="boonline" data-tooltip="{{localize "TOOLTIP.DIALOG.HASBOONLINE"}}"></span>{{/if}}
+                            {{!-- Kräfte-Paket 2 v2 (Rudolfs Testrunde v1, Freigabe 23.11.): vierter
+                                Badge OBEN LINKS — die Kraft ist AKTIV (Sturmpfeil-Bestandsflag,
+                                aktive Szene, Bestand > 0; Identifikation wie stormArrowActiveFlag
+                                in common/item.js). Inline-Stilgleisung wie die Radios des Teleport-
+                                Reisedialogs: Position/Maße/Radius 1:1 die .automatic-Familie
+                                (modern CSS-Block), Farbe --m-warn — ohne Änderung an
+                                css/symbaroum.css und ohne eigenen Selektor. --}}
+                            {{#if p.isActivePower}}<span class="powerbadge" data-tooltip="{{localize "TOOLTIP.DIALOG.POWER_ACTIVE"}}" style="position:absolute; top:-0.2rem; left:-0.2rem; width:0.5rem; height:0.5rem; border-radius:50%; border:0.0625rem solid var(--m-bg); background:var(--m-warn); display:inline-block;"></span>{{/if}}
                         </div>
                         <button type="button" class="item-edit m-tile-name">{{p.name}}<small>{{p.sub}}</small></button>
                         <button type="button" class="favorite-toggle{{#if p.favorite}} active{{/if}}" data-tooltip="{{localize "MODERN.FAVORITE_TOGGLE"}}"><svg class="m-star" viewBox="0 0 576 512" aria-hidden="true"><path d="M288 24L342.8 192.6L520.1 192.6L376.6 296.8L431.4 465.4L288 361.2L144.6 465.4L199.4 296.8L55.9 192.6L233.2 192.6Z"/></svg></button>

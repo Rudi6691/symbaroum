@@ -95,6 +95,9 @@
                             <button type="button" class="activate-ability {{#if fav.hasScript}}isScripted{{else}}notScripted{{/if}} m-tile-img" style="background-image: url('{{fav.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ABILITY"}}"></button>
                             {{#if fav.hasScript}}<span class="automatic" data-tooltip="{{localize "TOOLTIP.DIALOG.HASSCRIPT"}}"></span>{{/if}}
                             {{#if fav.hasBoonLine}}<span class="boonline" data-tooltip="{{localize "TOOLTIP.DIALOG.HASBOONLINE"}}"></span>{{/if}}
+                            {{!-- Kräfte-Paket 2 v2: aktive-Kraft-Badge auch an der Favoriten-
+                                Kachel des Kampf-Tabs (gleicher Sturmpfeil-Marker wie powers.hbs). --}}
+                            {{#if fav.isActivePower}}<span class="powerbadge" data-tooltip="{{localize "TOOLTIP.DIALOG.POWER_ACTIVE"}}" style="position:absolute; top:-0.2rem; left:-0.2rem; width:0.5rem; height:0.5rem; border-radius:50%; border:0.0625rem solid var(--m-bg); background:var(--m-warn); display:inline-block;"></span>{{/if}}
                         </div>
                         {{/ife}}
                         {{#ife fav.kind 'weapon'}}

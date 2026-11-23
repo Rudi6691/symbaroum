@@ -794,6 +794,20 @@ SYMBAROUM.systemConditionEffects = [
     icon: "systems/symbaroum/asset/image/vines.png",
   },
   {
+    /* Kräfte-Paket 2 v2 (Rudolfs Testrunde v1, Freigabe 23.11.2026):
+       Sturmpfeil-Symbol - Kraftsymbol am Token, solange die Verzaube-
+       rung aktiv ist; flagData {maintained, caster, ability: "storm-
+       arrow", stormArrow: true} identifiziert Ursprung und Teilnahme
+       an der A29-Maintain-Erinnerung (Kampf je Runde + Weltzeit alle
+       15 Minuten ohne Kampf, Sphäre-Präzedenzfall v1.5); Räumung über
+       den deleteActiveEffect-Hook (hooks.js) synchronisiert das
+       stormArrow-Bestandsflag am Aktor. */
+    id: "stormarrow",
+    label: "POWER_LABEL.STORM_ARROW",
+    name: "POWER_LABEL.STORM_ARROW",
+    icon: "systems/symbaroum/asset/image/powers/stormarrow.svg",
+  },
+  {
     /* Hymnen-Paket v1 (Rudolfs Startsignal 16.11.): Heldenhafte-Hymne-
        Symbol - 1:1-Spiegel des Kampfhymne-Symbols (Sänger + Verbündete,
        Attributs-Boni als attributeChanges im flagData). */

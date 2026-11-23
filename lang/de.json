@@ -1436,6 +1436,7 @@
   "TOOLTIP.DIALOG.HASSCRIPT": "Mit einem Linksklick auf das Icon oder über das Kontextmenü nach einem Rechtsklick kann eine vorkonfigurierte Probe abgelegt werden.",
   "TOOLTIP.DIALOG.ISINTERGRATED": "Bei Verwendung werden assoziierte Effekte automatisch auf den Charakter angewandt.",
   "TOOLTIP.DIALOG.HASBOONLINE": "Gibt situationsabhängig einen Bonus oder Malus auf Proben (Situations-Zeile im Wurfdialog).",
+  "TOOLTIP.DIALOG.POWER_ACTIVE": "Diese Kraft ist gerade aktiv (Kraftsymbol am Token, Bestandsflag gesetzt).",
   "TRADITION.BLESSINGS": "Segnungen",
   "TRADITION.DIALOG_HINT": "Traditionen auswählen",
   "TRADITION.DIALOG_INTRO": "Wähle die zugeordneten Traditionen (Mehrfachauswahl).",

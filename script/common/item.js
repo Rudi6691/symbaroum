@@ -13390,6 +13390,10 @@ async function stormArrowFireShots(functionStuff, flag, requested, isVolley) {
   await actor.setFlag(game.system.id, "stormArrow", flag);
   if (flag.count <= 0) {
     await actor.unsetFlag(game.system.id, "stormArrow");
+    /* Paket-2 v2: alle Pfeile abgefeuert - das Kraftsymbol am Token
+       verschwindet mit (Reihenfolge-Konvention: Flag zuerst, Marker
+       danach, der deleteActiveEffect-Hook bleibt damit still). */
+    await stormArrowClearMarker(actor);
     await postMaintainChainCard(functionStuff, `<h4>${functionStuff.abilityName}</h4>`, [game.i18n.localize("POWER_STORMARROW.CHAT_OUT")], []);
   }
 }
@@ -13425,6 +13429,10 @@ function stormArrowActionDialog(functionStuff, flag) {
       label: game.i18n.localize("POWER_STORMARROW.BUTTON_END"),
       callback: async () => {
         await functionStuff.actor.unsetFlag(game.system.id, "stormArrow");
+        /* Paket-2 v2: "Kraft beenden" nimmt das Kraftsymbol am Token
+           mit ab (Flag zuerst, Marker danach, Hook bleibt still - die
+           Ende-Karte kommt direkt darunter). */
+        await stormArrowClearMarker(functionStuff.actor);
         await postMaintainChainCard(functionStuff, `<h4>${functionStuff.abilityName}</h4>`, [game.i18n.localize("POWER_STORMARROW.CHAT_END")], []);
         resolve();
       },
@@ -13438,6 +13446,29 @@ function stormArrowActionDialog(functionStuff, flag) {
       title: functionStuff.abilityName,
       content: `<div class="symbaroum dialog"><p class="lblfavour">${game.i18n.format(game.i18n.localize("POWER_STORMARROW.ACTIVE_STATUS"), { count: flag.count })}</p><p>${game.i18n.localize("POWER_STORMARROW.ACTION_HINT")}</p></div>`,
       classes: isModernDialogActive() ? modernDialogClasses("modern-stormarrow-action-dialog") : [],
+      /* Paket-2 v2 (Rudolfs Testrunde v1: "Tasten übereinander anordnen
+         wie bei Alchemie", Freigabe 23.11.): Footer-Buttons unterein-
+         ander, gleiche Breite - 1:1 das Muster des Alchemie-Menüs
+         (brewing.js): DialogV2 rendert sie im <footer>, das Spalten-
+         Layout am Footer-Container; width 100% je Button braucht das
+         WICHTIGE Inline-Style gegen die System-Regel
+         "dialog.symb-dialog footer button" (width:auto !important),
+         box-sizing + align-self sichern die exakt gleiche Breite. */
+      onRender: (element) => {
+        const btns = element?.querySelectorAll?.("footer button");
+        if (!btns || btns.length === 0) return;
+        const footer = btns[0].closest("footer") ?? btns[0].parentElement;
+        if (footer) {
+          footer.style.display = "flex";
+          footer.style.flexDirection = "column";
+          footer.style.gap = "0.25rem";
+        }
+        for (const b of btns) {
+          b.style.boxSizing = "border-box";
+          b.style.setProperty("width", "100%", "important");
+          b.style.setProperty("align-self", "stretch", "important");
+        }
+      },
       buttons,
       default: "shot",
     });
@@ -13449,11 +13480,23 @@ function stormArrowActionDialog(functionStuff, flag) {
  * Korruption); sonst Aktivierung mit Bestandscap aus dem Inventar. */
 async function preDialogStormArrow(functionStuff) {
   const actor = functionStuff.actor;
+  /* Paket-2 v2: Szenenwechsel lässt das Flag still verfallen (RAW
+     "Rest der Szene") - dabei wird JETZT auch das Kraftsymbol am Token
+     mit abgeräumt (vorher hing die Marke in der neuen Szene am Aktor,
+     obwohl die Verzauberung kraftlos war) und das Flag gelöscht, dann
+     ist sofort eine Neuaktivierung möglich. */
+  const rawFlag = actor?.getFlag(game.system.id, "stormArrow");
+  if (rawFlag && String(rawFlag.sceneId ?? "") !== String(game.scenes.current?.id ?? "")) {
+    await actor.unsetFlag(game.system.id, "stormArrow");
+    await stormArrowClearMarker(actor);
+  }
   let flag = stormArrowActiveFlag(actor);
   if (flag && flag.count <= 0) {
     // verbrauchtes Flag räumt still (alle Pfeile verschossen) - danach
-    // darf die Kraft sofort NEU aktiviert werden
+    // darf die Kraft sofort NEU aktiviert werden; das Kraftsymbol am
+    // Token nimmt der normale Endpfad schon mit (v2), hier nur Nachsoge
     await actor.unsetFlag(game.system.id, "stormArrow");
+    await stormArrowClearMarker(actor);
     flag = null;
   }
   if (flag) {
@@ -13474,10 +13517,17 @@ async function preDialogStormArrow(functionStuff) {
   }
   functionStuff.stormArrowCount = count;
   functionStuff.stormArrowStacks = stackIds;
-  /* Erfolgszeile der Aktivierungskarte (Doppelformat-Muster Stab-
-     geschoss/Erdschuss): {count} wird HIER vorwegs eingesetzt, der
-     {actorname}-Platzhalter bleibt für standardPowerResult stehen. */
-  functionStuff.finalTextSucceed = game.i18n.format(game.i18n.localize("POWER_STORMARROW.CHAT_ARROWS"), { count });
+  /* Erfolgszeile der Aktivierungskarte (Paket-2-v2-Fix, Rudolfs Testrunde
+     Punkt 1): i18n.format ersetzt UNBELEGT bleibende Platzhalter mit
+     "undefined" - der v1-Kommentar (Doppelformat, {actorname} bleibt für
+     standardPowerResult stehen) war falsch, die Karte zeigte "undefined
+     verzaubert 5 Pfeile". Beide Platzhalter werden HIER komplett eingesetzt;
+     standardPowerResult formatiert den fertigen String ein zweites Mal,
+     findet dann keinen Platzhalter mehr und laesst ihn unveraendert. */
+  functionStuff.finalTextSucceed = game.i18n.format(game.i18n.localize("POWER_STORMARROW.CHAT_ARROWS"), {
+    count,
+    actorname: functionStuff.actingCharName ?? functionStuff.actor?.name ?? "",
+  });
   await modifierDialog(functionStuff);
 }
 
@@ -13498,6 +13548,36 @@ async function stormarrowResult(rollData, functionStuff) {
     freeKey: null,
     volleyKey: null,
   });
+  /* Paket-2 v2 (Rudolfs Testrunde v1: Kraftsymbol am Token + Maintain-
+     Reminder nach Weltzeit, Freigabe 23.11.): Das Bestandsflag bleibt
+     die alleinige Wahrheit; ZUSÄTZLICH trägt der Aktor jetzt das
+     Sturmpfeil-Statussymbol (config.js statusEffects), dessen flagData
+     {maintained, caster, ability, stormArrow} die A29-Maschine scannt
+     (Kampf je Runde + Weltzeit alle 15 Minuten ohne Kampf, Sphäre-
+     Präzedenzfall 1.5): "Beibehalten" öffnet über preDialogStormArrow
+     den Aktions-Dialog (Kraft läuft weiter), "Abbrechen" löscht das
+     Symbol -> der deleteActiveEffect-Hook (hooks.js) räumt Flag nach.
+     Der Marker wird vor dem Neu-Antrag still entfernt (Rest-Marke
+     nach Szenenwechsel oder händischem Flag-Lösch). */
+  await stormArrowClearMarker(functionStuff.actor);
+  await functionStuff.actor.addCondition("stormarrow", {
+    maintained: true,
+    caster: functionStuff.actor.id,
+    ability: "stormarrow",
+    stormArrow: true,
+  });
+}
+
+/* Paket-2 v2: Sturmpfeil-Marker still abschrauben (idempotent, kein
+   Fehler ohne Symbol). Reihenfolge-Konvention: IMMER zuerst das
+   Bestandsflag räumen, DANACH den Marker - der deleteActiveEffect-
+   Hook_postet seine Ende-Karte nur, solange das Flag noch stand
+   (A29-Abbruch / SL zieht Icon ab); die eigenen Enden-Pfade (Kraft
+   beenden, alle Pfeile verschossen) räumen das Flag zuerst, der Hook
+   bleibt still, die eigene Karte des Endpfads erscheint. */
+async function stormArrowClearMarker(actor) {
+  if (!actor?.hasCondition?.("stormarrow")) return;
+  await actor.removeCondition("stormarrow");
 }
 
 /* Teleport: Mitreisende eines Meister-Rituals - alle Token in Nah-
@@ -13615,7 +13695,16 @@ async function teleportResult(rollData, functionStuff) {
   if (level === 1) {
     const travelRoll = await new Roll("1d4").evaluate();
     rolls.push(travelRoll);
-    lines.push(game.i18n.format(game.i18n.localize("POWER_TELEPORT.TRAVEL_TEXT"), { count: travelRoll.total }));
+    /* Paket-2-v2-Fix (Rudolfs Testrunde Punkt 8): TRAVEL_TEXT traegt den
+       {actorname}-Platzhalter - ohne ihn schrieb i18n.format "Undefined
+       erleidet ... Schaden". Der Wirkername ist im functionStuff verfueg-
+       bar (setup: actingCharName). */
+    lines.push(
+      game.i18n.format(game.i18n.localize("POWER_TELEPORT.TRAVEL_TEXT"), {
+        count: travelRoll.total,
+        actorname: functionStuff.actingCharName ?? functionStuff.actor?.name ?? "",
+      })
+    );
     gmApply.push({
       tokenId: functionStuff.tokenId,
       actorId: functionStuff.actor.id,

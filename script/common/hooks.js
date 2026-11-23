@@ -1436,6 +1436,30 @@ Hooks.on('deleteActiveEffect', async (effect) => {
 	}
 });
 
+/* Kräfte-Paket 2 v2 (Rudolfs Testrunde v1, Freigabe 23.11.2026): Wird das
+   Sturmpfeil-Kraftsymbol vom Token entfernt - A29-"Abbrechen" (Marker trägt
+   maintained/caster/ability und läuft deshalb durch a29AbortMaintainPower) ODER
+   die SL zieht das Icon händisch ab - endet die Kraft sauber: das Bestands-
+   flag am Aktor wird geräumt und die gleiche Ende-Karte wie beim Button
+   "Kraft beenden" erscheint (restliche Pfeile bleiben als gewöhnliche
+   Munition im Vorrat, nichts zurückzubuchen). Die eigenen Endpfade in
+   item.js räumen das Flag IMMER zuerst und löschen den Marker danach -
+   hier steht dann kein Flag mehr, der Hook bleibt still (Reihenfolge-
+   Konvention, weiter unten im Kommentar in item.js). */
+Hooks.on('deleteActiveEffect', async (effect) => {
+	const fd = effect?.getFlag?.(game.system.id, 'flagData');
+	if (!fd?.stormArrow) return;
+	const actor = effect.parent;
+	if (!actor) return;
+	if (!actor.getFlag?.(game.system.id, 'stormArrow')) return;
+	await actor.unsetFlag(game.system.id, 'stormArrow');
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+		content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.symbaroum.htmlEscape(game.i18n.localize('POWER_LABEL.STORM_ARROW'))}</h4><div class="finalTxt"><p>${game.i18n.localize('POWER_STORMARROW.CHAT_END')}</p></div></div></div>`,
+	});
+});
+
 /* ==================================================================
    A29 - Zug-Start-Maintain-Erinnerung (Rudolfs Idee; GO G1-G4, 23.10.)
    At the start of a combatant's turn the GM client scans the scene tokens
