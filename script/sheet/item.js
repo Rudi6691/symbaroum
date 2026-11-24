@@ -1340,11 +1340,10 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		   ist in den Bonus-Tab gewandert - der WERTE-Abschnitt erscheint
 		   fuer Segen/Lasten wieder nur bei Referenz-Sichtbarkeit. */
 		modern.showValues = modern.showReference || modern.showComputed;
-		/* Hymnen-Paket 1.1 (Rudolfs Testrunde v1, letzter Punkt): das
-		   WERTE-Label unter dem Icon entfaellt auf den Kraft-Blättern -
-		   die Werte-Sektion selbst bleibt, nur der Abschnittstitel ist
-		   dort nichtssagend. */
-		modern.showValuesLabel = this.item.type !== 'mysticalPower';
+		/* Kräfte-Paket 2 v4 (Rudolfs Freigabe „Baue v4“, 23.11.2026): Das
+		   WERTE-Titel-Boolean ist ENTFALLEN — der Abschnittstitel ist
+		   auf allen Blättern entfernt, die Werte-Sektion selbst bleibt
+		   (Titelzeile samt showValuesLabel-Gate aus header.hbs raus). */
 		/* ItemSheets v3.1 (Rudolfs Testrunde 4, Punkt 7): Rail-Stufen-
 		   markierung. V3 hatte die verschachtelten Handlebars-ifs DIREKT im
 		   class-Attribut notiert - durch einen Ersetzungsfehler standen dort

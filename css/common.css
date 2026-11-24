@@ -1,6 +1,6 @@
 /*
-  Kräfte-Paket 2 v3 (Rudolfs Baufreigabe 23.11.2026): CSS-Part-Architektur
-  nach Domäne — gemeinsame, systemübergreifende Regeln.
+  Kräfte-Paket 2 v3/v4 (Rudolfs Baufreigabe 23.11.2026): CSS-Part-
+  Architektur nach Domäne — gemeinsame, systemübergreifende Regeln.
 
   Ladung: script/common/hooks.js, Hooks.once("setup") — diese Dateien
   hängen NACH dem Upstream-Bündel (css/symbaroum.css) ans <head>, gleiche
@@ -14,9 +14,25 @@
   Bestehende gescopelte Template-<style>-Blöcke (brew-dialog.hbs,
   Teleport-Radios) bleiben unberührt — Template-Styles sind für künf-
   tige lokale Einmal-Optiken weiterhin erlaubt, alles Domain-
-  Relevante gehört hierher.
+  Relevante gehört hierher. v3 füllt powers.css, equipment.css und
+  ui.css; v4 füllt common.css (erste systemübergreifende Regel).
 */
 
-/* ( aktuell keine systemübergreifenden Regeln — diese Datei ist der
-   Ankerpunkt der Part-Architektur; v3 füllt powers.css, equipment.css
-   und ui.css. ) */
+/* Kräfte-Paket 2 v4 (Rudolfs Freigabe „Baue v4“, 23.11.2026, Testrunde
+   v3 Punkt 6 rot): Die Besitz-Zeile des modernen Item-Blatts bricht bei
+   Platzmangel in Folgezeilen UM, statt ihre Zellen zu quetschen.
+   Messkette der v3-Testrunde: die Zeile benötigte 466 px, verfügbar
+   waren 457 px — nowrap quetschte die Anzahl-Zelle auf 104.5 von
+   113 px benötigtem Minimum (−8.5 px) und die Rationen-Zelle auf
+   111.5 von 121 px (−9.5 px), die Anzahl- und Rationen-Stepper
+   rutschten ineinander. Rudolfs v4-Entscheidung: Umbrechen statt
+   Quetschen — bei schmalen Fenstern fließen die Zellen in Folge-
+   zeilen (extrem schmal = je Zelle eine eigene Zeile). Die Regel
+   liegt hier und NICHT in equipment.css, weil die Besitz-Zeile das
+   geteilte Kopf-Layout ALLER elf modernen Item-Blätter ist
+   (template/sheet/modern/item/header.hbs). Gleiche Spezifität wie
+   die Upstream-Regel (css/symbaroum.css, flex-wrap: nowrap) —
+   dieser Part hängt später im <head> und gewinnt ohne !important. */
+.symbaroum.sheet.item .modern-root .m-possess-row {
+  flex-wrap: wrap;
+}

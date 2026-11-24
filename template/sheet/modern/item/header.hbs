@@ -131,36 +131,39 @@
                         <button type="button" class="m-qty-btn" data-action="rationCountPlus" data-tooltip="{{localize 'MODERN.QTY_INCREASE'}}"><i class="fas fa-caret-right"></i></button>
                         {{/if}}
                     </div>
-                    {{!-- Kräfte-Paket 2, Block D v2 (Rudolfs Testrunde Punkt 14):
-                          die dynamische Gewichtszeile sitzt jetzt INNERHALB
-                          der Rationen-Zelle (m-inline-field ist eine Spalte
-                          mit 0.1rem Gepäck) direkt UNTER dem Stepper — als
-                          eigene Grid-Zelle klebte sie in der m-possess-row
-                          unmittelbar an „Rationen“. --}}
-                    {{#if modern.rationWeightDisplay}}
-                    <div class="m-sec-label" data-tooltip="{{localize "WEIGHT.DYNAMIC_TOOLTIP"}}" data-tooltip-direction="DOWN">{{localize "EQUIPMENT.RATION_WEIGHT"}}: {{modern.rationWeightDisplay}} {{localize "WEIGHT.GE_ABBR"}}</div>
-                    {{/if}}
                 </div>
-                {{!-- Kräfte-Paket 2, Block D (Rudolfs Wunsch a, 23.11.2026):
-                      dynamische Gewichtsanzeige unter dem Rations-Stepper -
-                      „Aktuelles Gewicht: 1,0 LE": Wegbrot sinkt anteilig
-                      (Vollgewicht-Modell), der Wasserschlauch wiegt Leer-
-                      gewicht plus je enthaltener Wasserration Leicht
-                      (Behältermodell). Wert aus sheet/item.js (formatGE(
-                      getRationLoadGE)), LE-Kürzel via WEIGHT.GE_ABBR, Tooltip
-                      über die Modell-Erklärung WEIGHT.DYNAMIC_TOOLTIP. --}}
+                {{/if}}
+                {{#if modern.rationWeightDisplay}}
+                {{!-- Kräfte-Paket 2 v4 (Rudolfs Freigabe “Baue v4”, 23.11.2026):
+                      Das dynamische Rationsgewicht ist eine EIGENE, fünfte,
+                      read-only Besitz-Zelle ("Akt. Gewicht”, MODERN_ITEM.
+                      CURRENT_WEIGHT) NACH der Rationen-Zelle, noch INNER-
+                      HALB der m-possess-row — Wegbrot sinkt anteilig (Voll-
+                      gewicht-Modell), der Wasserschlauch wiegt Leergewicht
+                      plus je enthaltener Wasserration Leicht (Behälter-
+                      modell). Wert aus sheet/item.js (formatGE(getRation-
+                      LoadGE)), LE-Kürzel via WEIGHT.GE_ABBR, Tooltip über
+                      die Modell-Erklärung WEIGHT.DYNAMIC_TOOLTIP. Die v2/v3-
+                      Textzeile INNERHALB der Rationen-Zelle ist restlos
+                      entfernt, damit auch ihre CSS-Tricks weg (css/
+                      equipment.css); zum v4-Zeilen-Umbruch siehe css/
+                      common.css (Messwerte: Zeile benötigt 466 px, verfügbar
+                      457 px). --}}
+                <div class="m-inline-field m-possess-field m-rationweight-field">
+                    <label class="m-sec-label" data-tooltip="{{localize "WEIGHT.DYNAMIC_TOOLTIP"}}" data-tooltip-direction="DOWN">{{localize "MODERN_ITEM.CURRENT_WEIGHT"}}</label>
+                    <div class="m-readonly-value" data-tooltip="{{localize "WEIGHT.DYNAMIC_TOOLTIP"}}" data-tooltip-direction="DOWN">{{modern.rationWeightDisplay}}&nbsp;{{localize "WEIGHT.GE_ABBR"}}</div>
+                </div>
                 {{/if}}
             </div>
         </div>
         {{/if}}
         {{#if modern.showValues}}
         <div class="m-item-section">
-            {{!-- Hymnen-Paket 1.1 (Rudolfs Testrunde v1, letzter Punkt):
-                das WERTE-Label entfaellt auf den Kraft-Blättern, der
-                Abschnitts-Inhalt bleibt unverändert. --}}
-            {{#if modern.showValuesLabel}}
-            <div class="m-sec-label">{{localize "MODERN_ITEM.SECTION_VALUES"}}</div>
-            {{/if}}
+            {{!-- Kräfte-Paket 2 v4 (Rudolfs Freigabe “Baue v4”, 23.11.2026):
+                Der WERTE-Abschnittstitel ist ENTFERNT — das Referenz-Feld
+                trägt sein eigenes Label „Referenz” (ABILITY.REFERENCE);
+                MODERN_ITEM.SECTION_VALUES lebt weiter für das klassische
+                Sheet (template/sheet/header.hbs). --}}
             <div class="m-item-chips">
                 {{!-- S2.1-Fix (Testpunkt 29): Das Bonus/Malus-Feld ist aus
                     dem geteilten Kopf ENTFERNT (er wäre auf jedem Tab

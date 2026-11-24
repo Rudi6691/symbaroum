@@ -1,47 +1,47 @@
 /*
-  Kräfte-Paket 2 v3 — CSS-Part „equipment": Rationen, dynamische Last,
+  Kräfte-Paket 2 v4 — CSS-Part „equipment“: Rationen, dynamische Last,
   Behälter (dynamische Gewichtsanzeige am Item-Blatt, künftig auch
   Ausrüstungs-Chip-Optiken dieser Domäne).
   Ladung und Disziplin: siehe common.css.
+
+  v3-Lieferung: „Layout-Fix der Gewichtszeile“ (width 0 / min-width
+  100 % Trick + negativer linker Außenabstand der Rationen-Zelle) —
+  die zugehörige Textzeile existierte INNERHALB der Rationen-Zelle.
+  v4 (Rudolfs Freigabe „Baue v4“, 23.11.2026): Das dynamische
+  Rationsgewicht ist eine EIGENE, fünfte, read-only Besitz-Zelle
+  NACH der Rationen-Zelle („Akt. Gewicht”, MODERN_ITEM.CURRENT_
+  WEIGHT, siehe template/sheet/modern/item/header.hbs). Damit sind
+  BEIDE v3-Regeln obsolet und restlos entfernt (die width-0-Text-
+  zeile ebenso wie der −0.5rem-Abstand der Rationen-Zelle); die
+  Rationen-Zelle steht wieder im normalen Spaltenraster, den
+  Platzmangel löst der v4-Zeilen-Umbruch (css/common.css).
 */
 
-/*
-  Layout-Fix Paket 2 v3 (Rudolfs Entscheidung 23.11.2026 zur v2-
-  Screenshot-Runde, Wasserschlauch): In der Besitz-Zeile des modernen
-  Item-Blatts blähte die dynamische Gewichtszeile („AKTUELLES GEWICHT:
-  X LE", .m-sec-label, uppercase + 0.14em) die Soll-Breite der Räti-
-  onen-Zelle auf — m-possess-row ist nowrap, die Zellen flex 0 1 auto
-  mit min-width 0, der Stepper selbst flex 0 0 auto (nicht stauchbar):
-  der Shrink drückte Anzahl-Stepper übereinander und ließ den Preis
-  aus seiner Kiste quellen (der Preis war nur Symptom).
-
-  Rudolfs Entscheidungen: (1) Die Gewichtszeile bricht bei engem Platz
-  DYNAMISCH in eine zweite Zeile um (kein kürzeres Label, kein reiner
-  Wert); (2) kleiner Abstand zwischen Rationen und Anzahl über einen
-  negativen linken Außenaufschlag an der Rationen-Zelle — der Row-Gap
-  1.2rem für Preis/Gewicht/Anzahl bleibt unberührt; (3) Preis- und
-  Bandagen-Optik (Referenz Screenshot 2) bleiben völlig unangetastet.
-  Die HTML-Struktur der Gewichtszeile (v2: innerhalb der Rationen-Zelle
-  unter dem Stepper, header.hbs) bleibt unverändert — reine Stil-Breite.
-*/
-
-/* (1) Gewichtszeile: trägt nichts mehr zur Soll-Breite der Zelle bei
-  (width 0 / min-width 100%), läuft auf volle Zellbreite und bricht
-  bei engem Platz dynamisch in die zweite Zeile um (white-space
-  normal statt nowrap, Umbruch auch mitten im Wort-Verbund erlaubt). */
-.symbaroum.sheet.item .modern-root .m-possess-row .m-rationcount-field div.m-sec-label {
-  width: 0;
-  min-width: 100%;
-  white-space: normal;
-  overflow-wrap: break-word;
-  align-self: flex-start;
-  margin-top: 0.1rem;
+/* Kräfte-Paket 2 v4 (Rudolfs Freigabe „Baue v4“, 23.11.2026): Optik
+   der read-only Gewichts-Zelle analog dem Gewicht-Select derselben
+   Besitz-Zeile — Maßstab m-weight-field (flex 0 1 5.5rem), Wert-Box
+   auf der einheitlichen Kontrollhöhe --m-ctrl-h, Palette der Feld-
+   Steuerungen (--m-input-bg-Fläche mit --m-line-Rand), Schrift
+   0.85rem, waagerechtes Padding 0.5rem, Text senkrecht zentriert
+   über Flex (kein vertikales Padding — die Höhe ist fix). Basis-
+   Select-Regeln der Zeile: css/symbaroum.css
+   (.m-possess-row select { height: var(--m-ctrl-h); box-sizing:
+   border-box; width: 100% }). */
+.symbaroum.sheet.item .modern-root .m-possess-row .m-rationweight-field {
+  flex: 0 1 5.5rem;
 }
 
-/* (2) Kleiner Abstand Rationen ↔ Anzahl: negativer linker Außen-
-  abschlag zieht die Rationen-Zelle ein Stück Richtung Stepper; der
-  1.2rem-Spaltenabstand der Besitz-Zeile gilt für alle übrigen Zellen
-  unverändert weiter. */
-.symbaroum.sheet.item .modern-root .m-possess-row .m-rationcount-field {
-  margin-left: -0.5rem;
+.symbaroum.sheet.item .modern-root .m-possess-row .m-rationweight-field .m-readonly-value {
+  height: var(--m-ctrl-h);
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  background: var(--m-input-bg);
+  color: var(--m-input-ink);
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
