@@ -14,7 +14,7 @@ import { enrichTextEditors } from './enricher.js';
 import { SymbaroumActor } from './actor.js';
 import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
-import { createRollData, getAttributeValue, getOwnerPlayer } from './roll.js';
+import { createRollData, getAttributeValue, getOwnerPlayer, createModifyTokenChatButton } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
 // DialogV2 compatibility helper
 import { symbDialog } from './symbDialog.js';
@@ -1422,7 +1422,28 @@ Hooks.on('updateCombat', async (combat, changed) => {
 		// seit 14.368/#14725 sonst wieder scharf) - flagData allein autoritativ.
 		else effectUpdates.push({ _id: e.id, [`flags.${game.system.id}.flagData.turnEndRounds`]: remaining });
 	}
-	if (effectUpdates.length > 0) await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
+	if (effectUpdates.length > 0) {
+		await actor.updateEmbeddedDocuments('ActiveEffect', effectUpdates);
+		/* MM-Paket 1 v1.1 (Rudolfs Testrunde-Notizen P4/P5): Restdauer-
+		   Karte - das Zugende dekrementiert weiterhin lautlos im
+		   flagData und die Ablauf-Karte bleibt unverändert; NEU ist
+		   diese Karte für die WEITERLAUFENDEN Bedingungen (je Zeile
+		   Name + Restrunden, COMBAT.DOT_ROUNDS_LEFT-Reuse; Optik nach
+		   der Ablauf-Karte). Nur auf dem aktiven GM-Client, nur wenn
+		   tatsächlich dekrementiert wurde, nur im Kampf. */
+		const remainingRounds = new Map(effectUpdates.map((u) => [u._id, Number(u[`flags.${game.system.id}.flagData.turnEndRounds`])]));
+		const lines = turnEndEffects
+			.filter((e) => remainingRounds.has(e.id))
+			.map((e) => `${e.name}${game.i18n.format('COMBAT.DOT_ROUNDS_LEFT', { count: remainingRounds.get(e.id) })}`)
+			.join(', ');
+		const remainingTitle = `<h4>${prevCombatant.token?.name ?? actor.token?.name ?? actor.name}${game.i18n.localize('COMBAT.TURNEND_TITLE')}</h4>`;
+		const remainingHtml = `<div class="symbaroum chat ability"><div class="foreground">${remainingTitle}<div class="finalTxt"><p>${game.i18n.format('COMBAT.TURNEND_REMAINING_LINE', { lines })}</p></div></div></div>`;
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: actor.id }),
+			content: remainingHtml,
+		});
+	}
 	if (expireIds.length > 0) {
 		const names = turnEndEffects.filter((e) => expireIds.includes(e.id)).map((e) => e.name).join(', ');
 		await actor.deleteEmbeddedDocuments('ActiveEffect', expireIds);
@@ -2498,6 +2519,127 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 					game.socket.emit('system.symbaroum', { type: 'concentrationFail', data: { actorId: actor.id } });
 					await chatItem.delete();
 				}
+			});
+		}
+	}
+	/* MM-Paket 1 v1.1 (Rudolfs Wunsch 1, SC-Widerstandsproben): Anfrage-
+	   karte aus mm1SendResistProbe (item.js) bzw. dem symbcomms-MM1-
+	   ResistProbe-Branch - der OPFER-BESITZER würfelt die Widerstands-
+	   probe je Merkmal SELBST (Klassen-Handler auf .mm1-resist-probe,
+	   data-kind; Muster concentrationRequest). Das Ergebnis erscheint
+	   als öffentliche Karte mit Wurf-Titel „Wirkung von {Merkmal}" und
+	   den bestehenden CHAT_*-Wirkungszeilen des Merkmals; Zustands-
+	   Anwendungen (Missgunst, vollständige Lähmung, Säure-DoT) laufen
+	   als GM-Anwenden-Karte (createModifyTokenChatButton = emit
+	   GMMessage, wird beim GM bearbeitet - auch vom Spieler-Client
+	   aufrufbar), reine SL-Hinweise (reaktive Aktionen, Krankheit)
+	   als GM-Whisper. Danach gilt die Probe als erledigt: Taste
+	   deaktiviert und versteckt, Karte gelöscht, sobald keine offene
+	   Probe mehr übrig ist. NSC-Opfer nehmen diesen Fluss bewusst NICHT
+	   (kein Besitzer: v1.0-Vollautomatik in item.js). */
+	const mm1ResistRequest = await chatItem.getFlag(game.system.id, 'mm1ResistRequest');
+	if (mm1ResistRequest) {
+		const mm1ProbeButtons = html.querySelectorAll('.mm1-resist-probe');
+		for (const s of mm1ProbeButtons) {
+			s.addEventListener('click', async () => {
+				const probe = (mm1ResistRequest.probes ?? []).find((p) => p.kind === s.dataset?.kind);
+				if (!probe) return;
+				const victimName = mm1ResistRequest.victimName;
+				const target = Number(probe.target);
+				const probeRoll = await new Roll('1d20').evaluate();
+				const rolls = [probeRoll];
+				const lines = [];
+				const gmActions = [];
+				const gmWhisperLines = [];
+				/* Werte-Richtungen bewusst wie in der v1.0-Vollautomatik:
+				   Lähmendes Gift: W20 <= Ziel = Missgunst, Meister>Fehl-
+				   schlag = 1W8 gelähmt, sonst nur reaktive Aktionen;
+				   Infektiös: W20 <= Stärke = widerstanden, sonst
+				   Krankheit; Säureblut: W20 <= Verteidigung = wider-
+				   standen, sonst Säure-DoT auf dem Angreifer. */
+				if (probe.kind === 'paralyzingvenom') {
+					if (probeRoll.total <= target) {
+						const effectLine = game.i18n.format('TRAIT_PARALYZINGVENOM.CHAT_MISSGUNST', { targetname: victimName, roll: probeRoll.total, target: target });
+						lines.push(effectLine);
+						gmActions.push({
+							tokenId: mm1ResistRequest.tokenId,
+							addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'missgunst')),
+							turnEnd: true,
+							effectDuration: 1,
+							conditionData: {},
+							label: `${probe.label}: ${effectLine}`,
+						});
+					} else if (Number(probe.level) >= 3) {
+						const roundsRoll = await new Roll('1d8').evaluate();
+						rolls.push(roundsRoll);
+						const effectLine = game.i18n.format('TRAIT_PARALYZINGVENOM.CHAT_PARALYZED', { targetname: victimName, roll: probeRoll.total, target: target, rounds: roundsRoll.total });
+						lines.push(effectLine);
+						gmActions.push({
+							tokenId: mm1ResistRequest.tokenId,
+							addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'paralysis')),
+							turnEnd: true,
+							effectDuration: roundsRoll.total,
+							conditionData: {},
+							label: `${probe.label}: ${effectLine}`,
+						});
+					} else {
+						gmWhisperLines.push(game.i18n.format('TRAIT_PARALYZINGVENOM.CHAT_REACTIVE', { targetname: victimName, roll: probeRoll.total, target: target }));
+					}
+				} else if (probe.kind === 'infectious') {
+					if (probeRoll.total <= target) {
+						lines.push(game.i18n.format('TRAIT_INFECTIOUS.CHAT_RESISTED', { targetname: victimName, roll: probeRoll.total, target: target }));
+					} else {
+						const severity = game.i18n.localize('TRAIT_INFECTIOUS.SEVERITY_' + Number(probe.level));
+						gmWhisperLines.push(game.i18n.format('TRAIT_INFECTIOUS.CHAT_DISEASE', { targetname: victimName, roll: probeRoll.total, target: target, severity: severity }));
+					}
+				} else if (probe.kind === 'acidicblood') {
+					if (probeRoll.total <= target) {
+						lines.push(game.i18n.format('TRAIT_ACIDICBLOOD.CHAT_RESISTED', { targetname: victimName, roll: probeRoll.total, target: target }));
+					} else if (probe.alreadyAcid) {
+						lines.push(game.i18n.format('TRAIT_ACIDICBLOOD.CHAT_NOTEXTEND', { targetname: victimName }));
+					} else {
+						const effectLine = game.i18n.format('TRAIT_ACIDICBLOOD.CHAT_APPLIED', { targetname: victimName, damage: probe.dmgText, rounds: probe.rounds });
+						lines.push(effectLine);
+						gmActions.push({
+							tokenId: mm1ResistRequest.tokenId,
+							addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'acid')),
+							effectDuration: probe.rounds,
+							label: `${probe.label}: ${effectLine}`,
+							dot: {
+								label: 'CONDITION.ACID',
+								formula: probe.formula,
+								fixedDamage: probe.fixedDamage,
+								resource: 'toughness',
+								damageType: 'acid',
+								stackable: false,
+								separateRoll: false,
+							},
+						});
+					}
+				}
+				const title = `<h4>${game.i18n.format('TRAIT_MM1.CHAT_REACTION_TITLE_ONE', { name: probe.label })}</h4>`;
+				await ChatMessage.create({
+					user: game.user.id,
+					speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+					rolls: [createRollData(rolls)],
+					content: `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt">${lines.length > 0 ? lines.map((l) => `<p>${probe.label}: ${l}</p>`).join('') : `<p>${probe.label}: ${game.i18n.format('TRAIT_MM1.PROBE_ROLL_LINE', { targetname: victimName, roll: probeRoll.total, target: target })}</p>`}</div></div></div>`,
+				});
+				if (gmWhisperLines.length > 0) {
+					await ChatMessage.create({
+						user: game.user.id,
+						speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+						whisper: ChatMessage.getWhisperRecipients('GM'),
+						content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt">${gmWhisperLines.map((l) => `<p>${probe.label}: ${l}</p>`).join('')}</div></div></div>`,
+					});
+				}
+				if (gmActions.length > 0) {
+					await createModifyTokenChatButton(gmActions);
+				}
+				/* Probe erledigt: Taste raus, Karte weg, wenn keine offene
+				   Probe mehr übrig ist */
+				s.disabled = true;
+				s.style.display = 'none';
+				if (Array.from(mm1ProbeButtons).every((b) => b.disabled)) await chatItem.delete();
 			});
 		}
 	}

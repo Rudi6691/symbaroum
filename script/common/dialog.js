@@ -8,7 +8,7 @@ import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.j
 // S3 (07.11.2026): getDeathTestFavour sperrt das Gunst-Radio des
 // Todesprobe-Dialogs bei Zäh/Kränklich (Zwangswert), getEpilepsyPenalty
 // vorbelegt den Modifikator in der Anfalls-Erschöpfungsphase (−1).
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty, hasPoisonManual, getWeakeningHymnFavour } from './boon.js';
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty, hasPoisonManual, getWeakeningHymnFavour, getMissgunstFavour } from './boon.js';
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
@@ -174,6 +174,14 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   const weakeningHymnFavour = getWeakeningHymnFavour(actor);
   if(weakeningHymnFavour.forced) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(weakeningHymnFavour.labelKey) + ', ';
+  }
+  // MM-Paket 1 v1.1 (Rudolfs Testrunde, Bewertungsfrage 3): Missgunst-
+  // Vorbelegung des Gunst-Radios fuer die missgunst-Condition (Laehmendes
+  // Gift "zwei Chancen zu scheitern") - identisches Muster wie Hunger/
+  // Durst und Schwaechende Hymne (Vorauswahl, nicht verriegelt).
+  const missgunstFavour = getMissgunstFavour(actor);
+  if(missgunstFavour.forced) {
+    ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(missgunstFavour.labelKey) + ', ';
   }
   // Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Stärke-Malus
   // scheiternder Hunger-Proben ist ab jetzt IM STÄRKE-GESAMTWERT
@@ -481,7 +489,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
     "groupName":"favour",
     "attri_mods" : attri_mods,
-    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 || travelFavour.forced || weakeningHymnFavour.forced
+    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 || travelFavour.forced || weakeningHymnFavour.forced || missgunstFavour.forced
       ? { ...attri_defaults,
           // Hunger-Paket v1: travelStrengthPenalty wirkt NICHT mehr über
           // die roll_defaults (im Gesamtwert gebacken, s. Kommentar oben) —
@@ -492,7 +500,9 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             : {}),
           ...(travelFavour.forced ? { selectedFavour: String(travelFavour.favour) } : {}),
           // Hymnen-Paket 1.5: Schwächende Hymne - Missgunst vorauswählen
-          ...(weakeningHymnFavour.forced ? { selectedFavour: String(weakeningHymnFavour.favour) } : {}) }
+          ...(weakeningHymnFavour.forced ? { selectedFavour: String(weakeningHymnFavour.favour) } : {}),
+          // MM-Paket 1 v1.1: Missgunst-Condition - Missgunst vorauswählen
+          ...(missgunstFavour.forced ? { selectedFavour: String(missgunstFavour.favour) } : {}) }
       : attri_defaults,
     // S4: Hinweiszeile über dem Gunst-Radio (4 Templates, Muster
     // dialog-deathtest.hbs deathMod-Zeile) — bereits lokalisierter Text
@@ -722,6 +732,24 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
                   }
                 }
               } else if(pack.type === game.symbaroum.config.PACK_CHECK) {
+                // MM-Paket 1 v1.1 (Rudolfs Checkbox-Wunsch "wie bei den
+                // Fähigkeiten"): Merkmals-Pakete (mm1TraitRef) sammeln ihre
+                // Checkbox-Auswahl in ecData.mm1Ticked - BEWUSST VOR der
+                // Freien-Angriff-Unterdrückung: Merkmals-Zeilen bleiben
+                // auch im Freien Angriff sichtbar & abwählbar (v1.0-
+                // Semantik, Rudolfs "vorangehakt"-Entscheidung), nur die
+                // Fähigkeits-Pakete folgen der "aktive Pakete aus"-RAW.
+                if (pack.mm1TraitRef) {
+                  // Map SOFORT initialisieren (auch wenn abgewaehlt):
+                  // "undefined" reserviert der Automatik-Rueckfall (Flows
+                  // OHNE Dialog) - eine geleerte Map heisst bewusst
+                  // "kein Merkmal aktiv" (Rudolfs Checkbox-Entscheidung)
+                  ecData.mm1Ticked = ecData.mm1Ticked ?? {};
+                  const mm1Ticked = html[0].querySelector(`#pgkid-${did}-${pack.id}`);
+                  if (mm1Ticked?.checked) {
+                    ecData.mm1Ticked[pack.mm1TraitRef] = true;
+                  }
+                }
                 // Automatisierungspaket 1: aktive Pakete sind beim Freien
                 // Angriff unterdrückt (RAW: passive ja, aktive nein)
                 if(hasFreeAttack) continue;

@@ -217,9 +217,12 @@
         </fieldset>
       {{/ife}}
       {{#ife package.type "checkbox"}}
-        <div class="m-roll-check freeattack-suppress">
+        {{!-- MM-Paket 1 v1.1: Merkmals-Pakete (mm1TraitRef) auch im Freien
+             Angriff sichtbar & abwählbar, VORANGEHAKT (Rudolfs Entscheidung;
+             klassisches Gegenstück siehe dialog.hbs). --}}
+        <div class="m-roll-check{{#unless package.mm1TraitRef}} freeattack-suppress{{/unless}}">
           <label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label>
-          <input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" >
+          <input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" {{#if package.preselect}}checked{{/if}}>
         </div>
       {{/ife}}
     {{/each}}

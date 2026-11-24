@@ -1186,6 +1186,19 @@ export function getWeakeningHymnFavour(actor) {
   return weakened ? { favour: -1, forced: true, labelKey: 'POWER_WEAKENING_HYMN.AUTOPARAM' } : { favour: 0, forced: false, labelKey: null };
 }
 
+/* MM-Paket 1 v1.1 (Rudolfs Testrunde, Antwort auf Bewertungsfrage 3):
+   Missgunst-Condition (Lähmendes Gift: "zwei Chancen zu scheitern").
+   Dieselbe Kanonik wie Schwächende Hymne: die Condition-tragende Figur
+   bekommt in BEIDEN Wurfdialogen (item.js modifierDialog + dialog.js
+   Eigenschafts-/Angriffswurf) die Missgunst-VORBELEGUNG des Gunst-Radios
+   (favourMod -1, Vorauswahl, NICHT verriegelt) plus autoParams-Hinweis-
+   zeile. Erkennung über den missgunst-Status auf den Actor-Effekten. */
+export function getMissgunstFavour(actor) {
+  if (!actor) return { favour: 0, forced: false, labelKey: null };
+  const disfavoured = actor.effects?.some((effect) => effect.statuses?.has?.('missgunst'));
+  return disfavoured ? { favour: -1, forced: true, labelKey: 'CONDITION.MISSGUNST.AUTOPARAM' } : { favour: 0, forced: false, labelKey: null };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Gift v1 (Rudolfs Freigabe 08.11.2026): Giftresistent & Handbuch    */
 /* ------------------------------------------------------------------ */

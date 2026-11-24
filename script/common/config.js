@@ -493,6 +493,11 @@ SYMBAROUM.scriptedAbilities = [
   "unholyaura",
   "unnoticeable",
   "poisonous",
+  /* MM-Paket 1 v1.1 (Rudolfs Wunsch "Badges wie bei den Faehigkeiten"):
+     Giftspucke ist ein KLICKBARER Trait (traitSetupPoisonspit, Kachel-
+     Klick oeffnet den Fernkampf-Wuerfeldialog) - das Skript-Badge kommt
+     aus DIESER Liste (Muster Giftig/Regeneration, actor.js markScripted). */
+  "poisonspit",
   "regeneration",
   "shapeshifter",
   "wisdomages",
@@ -769,6 +774,23 @@ SYMBAROUM.systemConditionEffects = [
     label: "CONDITION.PARALYSIS",
     name: "CONDITION.PARALYSIS",
     icon: "systems/symbaroum/asset/image/biceps.svg",
+  },
+  {
+    // MM-Paket 1 v1.1 (Rudolfs Testrunde, Antwort auf Bewertungsfrage 3):
+    // "Zwei Chancen zu scheitern" des Laehmenden Gifts wird als MISSGUNST
+    // abgebildet, nicht mehr als Benommen-Malus: die Condition-traegende
+    // Figur bekommt ihre Erfolgsproben mit Missgunst-VORBELEGUNG des
+    // Gunst-Radios in BEIDEN Wuerfeldialogen (getMissgunstFavour/boon.js,
+    // Muster Hunger/Durst + Schwaechende Hymne: Vorauswahl, NICHT
+    // verriegelt, mit autoParams-Hinweiszeile). 1 Runde: gesetzt mit
+    // turnEnd:true + effectDuration 1, die A34-Zugende-Engine raeumt ab
+    // (Benommen-timing unveraendert uebernommen). Icon degen.svg (bewusst
+    // nur garantiert vorhandene System-Assets; Nutzen mit Draining-Glyphe
+    // geteilt, austauschbar).
+    id: "missgunst",
+    label: "CONDITION.MISSGUNST",
+    name: "CONDITION.MISSGUNST",
+    icon: "icons/svg/degen.svg",
   },
   {
     // S3 Phase 2: Erschöpfung nach dem Anfall — −1 auf alle
@@ -2110,14 +2132,20 @@ SYMBAROUM.POISON_GRADE_NPC_DAMAGE = Object.fromEntries(
 );
 SYMBAROUM.POISONOUS_FIXED_ROUNDS = { 1: 2, 2: 3, 3: 4 };
 SYMBAROUM.POISONOUS_FIXED_DAMAGE = { 1: 2, 2: 3, 3: 4 };
-/* MM-Paket 1 „Oberflächen-DoT & Gifte" (Rudolfs Baufreigabe 24.11.2026):
-   Feste RAW-Werte der Säure-Merkmale je Stufe - Säure-Angriff und Säureblut
-   (Vault-Notizen "Säure-Angriff.md"/"Säureblut.md"): Novize 3 Runden à 3,
-   Adept 4 à 4, Meister 5 à 5. Muster B5 (Giftig): Merkmals-DoTs mit festen
-   RAW-Werten OHNE Würfel-Variante - die Baustein-0-Konvention (SC würfelt,
-   NSC fix) greift bewusst NICHT, weil der RAW-Text flache Werte nennt. */
+/* MM-Paket 1 v1.1 (Rudolfs Testrunde, Antwort auf Bewertungsfrage 2):
+   TRAGEND sind jetzt die WUERFEL-Formeln der Saeure-Merkmale je Stufe
+   (Novize 1d6, Adept 1d8, Meister 1d10). Ist der MERKMALSTRAEGER ein SC,
+   wuerfelt der A28-Tick sie je Runde (dotDiceOrNpcFixed); fuer NSC-
+   Traeger leitet npcFixedFromDice den Festwert 3/4/5 ab = exakt die
+   flachen RAW-Werte der Vault-Notizen "Säure-Angriff.md"/"Säureblut.md"
+   (Novize 3 Runden à 3, Adept 4 à 4, Meister 5 à 5). Runden wie bisher
+   fest (MM1_ACID_ROUNDS). Ableitungs-Muster POISON_GRADE_NPC_DAMAGE
+   (Baustein 0). */
 SYMBAROUM.MM1_ACID_ROUNDS = { 1: 3, 2: 4, 3: 5 };
-SYMBAROUM.MM1_ACID_DAMAGE = { 1: 3, 2: 4, 3: 5 };
+SYMBAROUM.MM1_ACID_DICE = { 1: "1d6", 2: "1d8", 3: "1d10" };
+SYMBAROUM.MM1_ACID_DAMAGE = Object.fromEntries(
+	Object.entries(SYMBAROUM.MM1_ACID_DICE).map(([lvl, dice]) => [lvl, SYMBAROUM.npcFixedFromDice(dice)])
+);
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
    eine Wuerfelstufe gesenkt (1d8 -> 1d6 -> 1d4 -> neutralisiert); exotische
    SL-kalibrierte Formeln bleiben unberuehrt (dokumentierte Begrenzung). */

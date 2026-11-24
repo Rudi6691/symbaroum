@@ -132,6 +132,30 @@ export class SymbaroumCommsListener
             chatData[`flags.${game.system.id}.concentrationRequest`] = d;
             return ChatMessage.create(chatData);
         }
+        /* MM-Paket 1 v1.1 (Rudolfs Wunsch 1, SC-Widerstandsproben): Anfrage-
+           karte des Opfer-Besitzers (emit aus item.js mm1SendResistProbe).
+           Der Spieler würfelt die Widerstandsprobe je MERKMAL selbst (ein
+           Button je ausstehendem Merkmal; Auswertung im render-
+           ChatMessageHTML-Handler zum Flag mm1ResistRequest in hooks.js).
+           NSC-Opfer nehmen diesen Fluss nicht (kein Besitzer: v1.0-
+           Vollautomatik in item.js); die GM-Info-Whisper-Karte erzeugt
+           mm1SendResistProbe selbst. Optik nach dem Hymnen-1.7-Muster
+           der Konzentrations-Karte (h4-Zeilen, Buttons im <p>). */
+        else if(comData.type === "MM1ResistProbe" && comData.data.targetUserId === game.userId)
+        {
+            const d = comData.data;
+            const buttons = (d.probes ?? []).map((p) =>
+                `<button class="mm1-resist-probe" data-kind="${p.kind}"><i class="fas fa-dice-d20"></i> ${game.i18n.format("TRAIT_MM1.PROBE_BUTTON", { traitname: p.label, target: p.target })}</button>`
+            ).join(" ");
+            const content = `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize("TRAIT_MM1.PROBE_CARD_TITLE")}</h4><h4>${game.i18n.format("TRAIT_MM1.PROBE_CARD_LINE", { victimname: d.victimName, attackername: d.attackerName })}</h4><p>${buttons}</p></div></div>`;
+            const chatData = {
+                speaker: ChatMessage.getSpeaker({alias: game.i18n.localize("DIALOG.SYSTEM_MESSAGE")}),
+                whisper: [game.user],
+                content: content
+            };
+            chatData[`flags.${game.system.id}.mm1ResistRequest`] = d;
+            return ChatMessage.create(chatData);
+        }
         /* v1.5 (Rudolfs Punkt 2, Hungerprobe): Je-Besitzer-Anfragekarte —
            completeTravelDays sendet nach der Tageskarte pro Hunger-Mitglied
            eine geflüsterte Anfrage an den ersten aktiven Spieler-Besitzer

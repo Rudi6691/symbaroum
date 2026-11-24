@@ -145,7 +145,12 @@
         <div class="favour"><label class="lblfavour">{{radioBoxes package.id package.radioAlternatives checked=package.defaultSelect localize=false}}</label></div>
       {{/ife}}
       {{#ife package.type "checkbox"}}
-        <div class="advantage freeattack-suppress"><label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" ><input for="pgkid-{{../did}}-{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
+        {{!-- MM-Paket 1 v1.1 (Rudolfs Checkbox-Wunsch): Merkmals-Pakete
+             (mm1TraitRef) bleiben auch im Freien Angriff sichtbar &
+             abwählbar und sind VORANGEHAKT (Automatik-Nähe, Rudolfs
+             Entscheidung) - nur Fähigkeits-Pakete behalten die
+             freeattack-suppress-Klasse. --}}
+        <div class="advantage{{#unless package.mm1TraitRef}} freeattack-suppress{{/unless}}"><label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" {{#if package.preselect}}checked{{/if}}><input for="pgkid-{{../did}}-{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
       {{/ife}}
     {{/each}}
     {{!-- Axtkünstler v1.1 (Rudolfs Testrunde 1): Technik-Auswahl im

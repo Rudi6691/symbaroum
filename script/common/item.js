@@ -40,7 +40,7 @@ import { getBoonRollConfig } from "./boon.js";
 // Segen & Lasten S2 (Rudolfs „Leg los“, 06.11.2026): Kontext-Zeilen im
 // Kräfte-/Fähigkeits-Würfeldialog (Typ B + B/G „Zweite Chance“ mit
 // Radio-Exklusivität) — Kanonik und Helfer in boon.js
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty, hasPoisonResilient, hasPoisonManual, getWeakeningHymnFavour } from "./boon.js";
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, formatModifierChain, hasBoonFireProtection, getEpilepsyPenalty, hasPoisonResilient, hasPoisonManual, getWeakeningHymnFavour, getMissgunstFavour } from "./boon.js";
 // S4-Paket „Tag/Reise/Ressourcen" (Rudolfs Freigabe 07.11.2026):
 // Hunger/Durst-Missgunst als Radio-VORBELEGUNG + Hunger-Stärke-Malus
 // als Modifikator-Vorbelegung im Fähigkeits-Würfeldialog (Helfer aus
@@ -1475,6 +1475,66 @@ export class SymbaroumItem extends Item {
       this.system.isIntegrated = true;
       combatMods.weapons[weapons[i].id].package[0].member.push(base);
     }
+  }
+
+  /* MM-Paket 1 v1.1 (Rudolfs Checkbox-Entscheidung "wie bei den
+     Faehigkeiten"): Die Nahkampf-Treffer-Merkmale des Pakets legen
+     ein JE-MERKMAL-Checkbox-Paket auf die NATUERLICHE Waffe (unarmed)
+     des Merkmalsträgers - VORANGEHAKT (Automatik-Naehe, Rudolfs
+     Entscheidung), im Waffendialog abwaehlbar. Die Auswahl reitet als
+     mm1Ticked-Map (dialog.js) in den Angriff; die mm1AttackerTraits-
+     Kette feuert dann NUR noch angehakte Merkmale (kein Dialog im
+     Fluss = v1.0-Automatik). Das leere member-Array ist Absicht:
+     Merkmale wirken ueber die eigene Kette, nicht ueber Paket-
+     Mitglieder; die autoParams-Zeile der Ergebniskarte (Analogon zu
+     den Faehigkeits-Paketen) kommt aus dem Tick-Handling des Dialogs.
+     isIntegrated gibt das "vollautomatisch"-Badge (Muster Natuerliche
+     Waffe/Robust). */
+  getItemModifierAcidicattack(combatMods, armors, weapons, abilities) {
+    const lvl = this.getLevel();
+    if (lvl.level === 0) return;
+    this.system.isIntegrated = true;
+    for (let i = 0; i < weapons.length; i++) {
+      if (weapons[i].system.reference !== "unarmed" || weapons[i].system.alternativeDamage !== "none") continue;
+      const pack = this._getPackageFormat(game.i18n.localize("TRAIT_LABEL.ACIDICATTACK"));
+      pack.mm1TraitRef = "acidicattack";
+      pack.preselect = true;
+      combatMods.weapons[weapons[i].id].package.push(pack);
+    }
+  }
+
+  getItemModifierParalyzingvenom(combatMods, armors, weapons, abilities) {
+    const lvl = this.getLevel();
+    if (lvl.level === 0) return;
+    this.system.isIntegrated = true;
+    for (let i = 0; i < weapons.length; i++) {
+      if (weapons[i].system.reference !== "unarmed" || weapons[i].system.alternativeDamage !== "none") continue;
+      const pack = this._getPackageFormat(game.i18n.localize("TRAIT_LABEL.PARALYZINGVENOM"));
+      pack.mm1TraitRef = "paralyzingvenom";
+      pack.preselect = true;
+      combatMods.weapons[weapons[i].id].package.push(pack);
+    }
+  }
+
+  getItemModifierInfectious(combatMods, armors, weapons, abilities) {
+    const lvl = this.getLevel();
+    if (lvl.level === 0) return;
+    this.system.isIntegrated = true;
+    for (let i = 0; i < weapons.length; i++) {
+      if (weapons[i].system.reference !== "unarmed" || weapons[i].system.alternativeDamage !== "none") continue;
+      const pack = this._getPackageFormat(game.i18n.localize("TRAIT_LABEL.INFECTIOUS"));
+      pack.mm1TraitRef = "infectious";
+      pack.preselect = true;
+      combatMods.weapons[weapons[i].id].package.push(pack);
+    }
+  }
+
+  /* Saeureblut bleibt Verteidiger-VOLLautomatik (Rudolfs Bestaetigung:
+     keine Checkbox) - die Methode setzt NUR das Badge. */
+  getItemModifierAcidicblood(combatMods, armors, weapons, abilities) {
+    const lvl = this.getLevel();
+    if (lvl.level === 0) return;
+    this.system.isIntegrated = true;
   }
 
   getItemModifierNopainthreshold(combatMods, armors, weapons, abilities) {
@@ -3842,8 +3902,17 @@ export class SymbaroumItem extends Item {
     base.introText = game.i18n.localize("TRAIT_POISONSPIT.CHAT_INTRO");
     base.usePoison = true;
     base.poison = base.powerLvl.level;
-    // B5-Festwerte (Muster Giftig): Runden 2/3/4, Schaden 2/3/4 je Stufe
-    base.poisonFixedValues = true;
+    // MM-Paket 1 v1.1 (Rudolfs Testrunde, Bewertungsfrage 2: trait-
+    // besitzende SC wuerfeln): Ist der Merkmalstraeger ein SC (Dunkles
+    // Blut/Bestial), gilt die Baustein-0-Konvention - Giftschaden einmal
+    // gewuerfelt aus dem Grad-Wuerfelmodell (1d4/1d6/1d8, POISON_GRADE_
+    // DAMAGE), Runden bleiben RAW-fest (2/3/4). NSC-Traeger behalten die
+    // B5-Festwerte (Muster Giftig): Runden 2/3/4, Schaden 2/3/4 je Stufe.
+    if (this.actor?.system?.isPlayer) {
+      base.poisonSpitSC = true;
+    } else {
+      base.poisonFixedValues = true;
+    }
     base.poisonResistSeparate = true;
     return base;
   }
@@ -4221,6 +4290,16 @@ export async function modifierDialog(functionStuff) {
   if (weakeningHymnFavour.forced) {
     functionStuff.autoParams += game.i18n.localize(weakeningHymnFavour.labelKey) + ", ";
   }
+  // MM-Paket 1 v1.1 (Bewertungsfrage 3): Missgunst-VORBELEGUNG des Gunst-
+  // Radios fuer die missgunst-Condition (Laehmendes Gift) - drittes
+  // Glied der erzwungenen Gunst-Kette (Hunger/Durst, Schwaechende
+  // Hymne, jetzt Missgunst), NICHT verriegelt, plus autoParams-Zeile.
+  // Nur bei Wuerfen (hasRoll); Freiform-Makro-Wuerfe bleiben draussen
+  // (gleiche dokumentierte Begrenzung).
+  const missgunstFavour = hasRoll ? getMissgunstFavour(functionStuff.actor) : { forced: false, favour: 0, labelKey: null };
+  if (missgunstFavour.forced) {
+    functionStuff.autoParams += game.i18n.localize(missgunstFavour.labelKey) + ", ";
+  }
   const travelStrengthPenalty =
     hasRoll && !functionStuff.askCastingAttribute && functionStuff.castingAttributeName === "strong"
       ? getHungerPenalty(functionStuff.actor)
@@ -4379,7 +4458,9 @@ export async function modifierDialog(functionStuff) {
     d4: d4,
     choices: { 0: game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1": game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), 1: game.i18n.localize("DIALOG.FAVOUR_FAVOUR") },
     groupName: "favour",
-    defaultFavour: travelFavour.forced ? String(travelFavour.favour) : weakeningHymnFavour.forced ? String(weakeningHymnFavour.favour) : "0",
+    // MM-Paket 1 v1.1: Missgunst als drittes Glied der Vorbelegungs-Kette
+    // (alle drei erzwingen -1; Reihenfolge nur fuer die Auswertung relevant)
+    defaultFavour: travelFavour.forced ? String(travelFavour.favour) : weakeningHymnFavour.forced ? String(weakeningHymnFavour.favour) : missgunstFavour.forced ? String(missgunstFavour.favour) : "0",
     // S4: Hinweiszeile über dem Gunst-Radio (dialog2[-modern].hbs)
     travelFavourHint: travelFavour.forced ? game.i18n.localize(travelFavour.labelKey) : null,
     defaultModifier: functionStuff.modifier,
@@ -9215,39 +9296,81 @@ async function firesoulMasterPowerCounter(functionStuff, damageTot) {
   }
 }
 
+/* MM-Paket 1 v1.1 (Rudolfs Testrunde-Entscheidungen): Pruefen, ob ein
+   Widerstands-OPFER die Probe SELBST wuerfeln darf - identische
+   Kriterien wie der etablierte playerResistButton-Fluss
+   (Verteidigungswurf): Opfer ist KEIN Monster, hat einen
+   Spieler-Besitzer und die Einstellung steht. Rueckgabe: der erste
+   Besitzer-User oder null (null = Auto-Wurf wie in v1.0). */
+async function mm1ProbeOwner(victimActor) {
+  try {
+    if (!victimActor || victimActor.type === "monster") return null;
+    const owners = await getOwnerPlayer(victimActor);
+    if (!owners || owners.length === 0) return null;
+    if (!game.settings.get("symbaroum", "playerResistButton")) return null;
+    return owners[0];
+  } catch (mm1Error) {
+    game.symbaroum.log("MM-Paket 1: Widerstands-Besitzerfrage", mm1Error);
+    return null;
+  }
+}
+
+/* MM-Paket 1 v1.1 (SC-Widerstandsproben, Rudolfs Wunsch 1): Anfrage-
+   karte an den SC-Besitzer (Muster ConcentrationCard) plus Whisper-
+   GM-Info. EINE Karte, EIN Button je haengigem Merkmal - die Auswertung
+   laeuft im renderChatMessageHTML-Handler zum Flag mm1ResistRequest
+   (hooks.js) bzw. im symbcomms-MM1ResistProbe-Branch. */
+async function mm1SendResistProbe(probeOwner, victimTokenId, victimName, attackerName, probes) {
+  game.symbaroum.emit({
+    type: "MM1ResistProbe",
+    data: {
+      targetUserId: probeOwner.id,
+      targetUserName: probeOwner.name ?? probeOwner.id,
+      victimName: victimName,
+      attackerName: attackerName,
+      tokenId: victimTokenId,
+      probes: probes,
+    },
+  });
+  await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+    whisper: ChatMessage.getWhisperRecipients("GM"),
+    content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.format("TRAIT_MM1.PROBE_GM_INFO", { username: probeOwner.name ?? probeOwner.id, victim: victimName })}</p></div></div></div>`,
+  });
+}
+
 /* ================================================================
- * MM-Paket 1 „Oberflächen-DoT & Gifte" (Rudolfs Baufreigabe 24.11.2026).
+ * MM-Paket 1 „Oberflächen-DoT & Gifte" (Rudolfs Baufreigabe 24.11.2026,
+ * v1.1-Umbau nach Rudolfs Testrunde 26.11.2026).
  * Automatisierung der aufgeladenen Nahkampf-Monstermerkmale:
  * - Säure-Angriff (acidicattack, Reaktion): unbewaffneter Treffer mit
- *   Schaden legt einen Säure-DoT mit FESTEN RAW-Werten je Stufe
- *   (3/3, 4/4, 5/5, config.MM1_ACID_*) - KEINE Widerstandsprobe
- *   (Vault-Notiz "Säure-Angriff.md"), Anzeige auf der Angriffs-Karte
- *   über die native Säurezeile (printAcid/acidChat, A28-Muster).
+ *   Schaden legt einen Säure-DoT - KEINE Widerstandsprobe (Vault-Notiz
+ *   „Säure-Angriff.md"), Anzeige auf der Angriffs-Karte über die
+ *   native Säurezeile (printAcid/acidChat, A28-Muster). v1.1
+ *   (Bewertungsfrage 2, Baustein-0-Konvention): der MERKMALSTRÄGER
+ *   würfelt den Rundenschaden als SC über die WÜRFEL-Formel
+ *   1d6/1d8/1d10 je Stufe (MM1_ACID_DICE), für NSC-Träger leitet
+ *   dotDiceOrNpcFixed den Festwert 3/4/5 ab (MM1_ACID_DAMAGE).
  * - Lähmendes Gift (paralyzingvenom, passiv) und Infektiös
- *   (infectious, Reaktion): Stärke-Einfachprobe des Opfers
- *   (1W20 <= Stärke, Muster Troll-Regenerationsprobe; Meister:
- *   [Stärke-5]) auf einer EIGENEN Reaktionskarte hinter der
- *   Angriffs-Karte. Erfolg = benommen (dazed-Kanonik des
- *   Elixier-Pakets, dazedPenalty 1, Zugende), Novize/Adept-Fehlschlag
- *   = nur noch reaktive Aktionen (SL-Karte, keine Zustands-Engine),
- *   Meister-Fehlschlag = vollständig gelähmt 1W8 (paralysis-Condition,
- *   S3-Muster turnEnd/effectDuration/conditionData {}).
- * - Säureblut (acidicblood, Verteidiger-Reaktion): Nahkampfangreifer
- *   mit Schaden erleidet eine Verteidigungs-Einfachprobe
- *   (1W20 <= Verteidigungswert), bei Misslingen Säure-DoT auf dem
- *   ANGREIFER (Festwerte je Stufe) - Muster Feuerseele-Rückstoß
- *   (eigene Reaktionskarte hinter der Angriffs-Karte).
- * Säure läuft über die BESTEHENDE Condition "acid" (A28-Palette) und
- * die A28-Runden-/DoT-Engine (Rüstung ignorierend, erster Tick im
- * nächsten Zug des Opfers) - dieselbe Tick-Mechanik wie Säurebeschichtet,
- * bewusst OHNE separates Widerstandsmodell (RAW kennt keines).
- * Wirkeffekte des ANGREIFERS sammeln für flagDataArray des Angriffs
- * (EINE GM-Karte pro Vorgang, v2.7), Säureblut bekommt als
- * Nachschalter-Muster wie Feuerseele eine eigene GM-Karte.
- * Anker ist der unbewaffnet/natürliche Angriff (weapon.reference
- * 'unarmed', Vault-Konvention der On-Hit-Merkmale); ALLE Merkmale
- * wirken ohne Aktivierungstoggle (RAW kennt keine Abwahl, SL kann
- * Effektsymbole jederzeit löschen - Feuerseele-Präzedenz).
+ *   (infectious, Reaktion): Stärke-Einfachprobe des Opfers (1W20 <=
+ *   Stärke, Meister: [Stärke-5]) auf einer EIGENEN Reaktionskarte
+ *   hinter der Angriffs-Karte, Titel v1.1 „Wirkung von {Merkmal}"
+ *   (Rudolfs Wunsch 2). Erfolg = MISSGUNST statt Benommen (Rudolfs
+ *   Bewertungsfrage 3: „zwei Chancen zu scheitern" = eine Runde alle
+ *   Erfolgsproben mit Missgunst-Vorbelegung, boon.js), Novize/Adept-
+ *   Fehlschlag = nur noch reaktive Aktionen (SL-Hinweis), Meister-
+ *   Fehlschlag = vollständig gelähmt 1W8 (paralysis, S3-Muster).
+ *   v1.1 (Rudolfs Wunsch 1): SC-Opfer würfeln die Probe SELBST über
+ *   eine Anfragekarte (playerResistButton-Kriterien), NSC-Opfer
+ *   bleiben Vollautomatik.
+ * - v1.1 (Rudolfs Checkbox-Entscheidung „wie bei den Fähigkeiten"):
+ *   Der Waffendialog der natürlichen Waffe zeigt je Merkmal eine
+ *   VORANGEHAKTE Checkbox (dialog.js sammelt die Auswahl in
+ *   functionStuff.mm1Ticked); über einen Dialog geführter Angriff
+ *   feuert NUR noch angehakte Merkmale. Fehlt die Map komplett
+ *   (Flows ohne Dialog, z. B. Makro/Riposte), greift die v1.0-
+ *   Vollautomatik als Rückfall (mm1Ticked === undefined).
  * ================================================================ */
 async function mm1AttackerTraits(functionStuff, damageTot, targetDies, rollData, templateData) {
   const result = { flags: [], reactionCard: null };
@@ -9265,20 +9388,46 @@ async function mm1AttackerTraits(functionStuff, damageTot, targetDies, rollData,
     if (!attacker || !victim?.actor || !victim.tokenId) return result;
     const cfg = game.symbaroum.config;
     const acidEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "acid"));
+
+    // v1.1: Checkbox-Gating des Waffendialogs (siehe Blockkopf)
+    const mm1Ticked = functionStuff.mm1Ticked;
+    const mm1Auto = mm1Ticked === undefined;
+    const traitWanted = (ref) => mm1Auto || mm1Ticked[ref] === true;
+
+    // v1.1: Säure-Werte - Würfel je Stufe für SC-Träger, Festwert 3/4/5
+    // für NSC-Träger (dotDiceOrNpcFixed leitet den Spiegelwert ab)
     const acidRounds = (lvl) => cfg.MM1_ACID_ROUNDS[lvl] ?? cfg.MM1_ACID_ROUNDS[3];
-    const acidDamage = (lvl) => cfg.MM1_ACID_DAMAGE[lvl] ?? cfg.MM1_ACID_DAMAGE[3];
+    const acidDice = (lvl) => cfg.MM1_ACID_DICE[lvl] ?? cfg.MM1_ACID_DICE[3];
+    const acidDamageFixed = (lvl) => cfg.MM1_ACID_DAMAGE[lvl] ?? cfg.MM1_ACID_DAMAGE[3];
+    const attackerIsPlayer = Boolean(attacker.system?.isPlayer);
+    const mm1AcidDotSpec = (lvl) => {
+      const spec = cfg.dotDiceOrNpcFixed(attackerIsPlayer, acidDice(lvl));
+      return {
+        formula: spec.formula,
+        fixedDamage: spec.fixedDamage,
+        dmgText: attackerIsPlayer ? acidDice(lvl) : String(acidDamageFixed(lvl)),
+      };
+    };
+
+    const acidLvl = getActorAbilityLevel(attacker, "acidicattack");
+    const paralyzeLvl = getActorAbilityLevel(attacker, "paralyzingvenom");
+    const infectiousLvl = getActorAbilityLevel(attacker, "infectious");
+    const lines = [];
+    const reactionRolls = [];
+    const reactionTraits = [];
+    const pendingProbes = [];
 
     // --- Säure-Angriff: DoT ohne Widerstandsprobe, Zeile auf der Angriffs-Karte ---
-    const acidLvl = getActorAbilityLevel(attacker, "acidicattack");
-    if (acidLvl > 0) {
+    if (acidLvl > 0 && traitWanted("acidicattack")) {
+      reactionTraits.push(game.i18n.localize("TRAIT_LABEL.ACIDICATTACK"));
       const rounds = acidRounds(acidLvl);
-      const damage = acidDamage(acidLvl);
+      const dotSpec = mm1AcidDotSpec(acidLvl);
       templateData.printAcid = true;
       if (victim.actor.hasCondition?.("acid")) {
         // NOTEXTEND (Muster Gift): bereits säuerndes Ziel läuft weiter
         templateData.acidChat = game.i18n.format("TRAIT_ACIDICATTACK.CHAT_NOTEXTEND", { targetname: victim.name });
       } else {
-        const appliedLine = game.i18n.format("TRAIT_ACIDICATTACK.CHAT_APPLIED", { targetname: victim.name, damage, rounds });
+        const appliedLine = game.i18n.format("TRAIT_ACIDICATTACK.CHAT_APPLIED", { targetname: victim.name, damage: dotSpec.dmgText, rounds });
         templateData.acidChat = appliedLine;
         result.flags.push({
           tokenId: victim.tokenId,
@@ -9287,8 +9436,8 @@ async function mm1AttackerTraits(functionStuff, damageTot, targetDies, rollData,
           label: appliedLine,
           dot: {
             label: "CONDITION.ACID",
-            formula: String(damage),
-            fixedDamage: damage,
+            formula: dotSpec.formula,
+            fixedDamage: dotSpec.fixedDamage,
             resource: "toughness",
             damageType: "acid",
             stackable: false,
@@ -9299,66 +9448,100 @@ async function mm1AttackerTraits(functionStuff, damageTot, targetDies, rollData,
     }
 
     // --- Lähmendes Gift + Infektiös: Proben auf der eigenen Reaktionskarte ---
-    const paralyzeLvl = getActorAbilityLevel(attacker, "paralyzingvenom");
-    const infectiousLvl = getActorAbilityLevel(attacker, "infectious");
-    const lines = [];
-    const reactionRolls = [];
-    if (paralyzeLvl > 0) {
-      const strongVal = getAttributeValue(victim.actor, "strong");
-      // Meister: [Stärke-5] (Vault-Notiz "Lähmendes Gift.md")
-      const targetVal = paralyzeLvl >= 3 ? strongVal - 5 : strongVal;
-      const probe = await new Roll("1d20").evaluate();
-      reactionRolls.push(probe);
+    const paralyzeWanted = paralyzeLvl > 0 && traitWanted("paralyzingvenom");
+    const infectiousWanted = infectiousLvl > 0 && traitWanted("infectious");
+    const probeOwner = paralyzeWanted || infectiousWanted ? await mm1ProbeOwner(victim.actor) : null;
+    const strongVal = getAttributeValue(victim.actor, "strong");
+
+    if (paralyzeWanted) {
       const traitLabel = game.i18n.localize("TRAIT_LABEL.PARALYZINGVENOM");
-      if (probe.total <= targetVal) {
-        // Erfolg: benommen (Benommen-Kanonik des Elixier-Pakets, -1 auf
-        // alle Erfolgsproben bis zum Zugende - Näherung der RAW-"zwei
-        // Chancen zu scheitern", dokumentierte bewusste Abweichung)
-        result.flags.push({
-          tokenId: victim.tokenId,
-          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "dazed")),
-          turnEnd: true,
-          effectDuration: 1,
-          conditionData: { dazedPenalty: 1 },
-          label: `${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_DAZED", { targetname: victim.name, roll: probe.total, target: targetVal })}`,
+      reactionTraits.push(traitLabel);
+      // Meister: [Stärke-5] (Vault-Notiz „Lähmendes Gift.md")
+      const targetVal = paralyzeLvl >= 3 ? strongVal - 5 : strongVal;
+      if (probeOwner) {
+        // v1.1 (Rudolfs Wunsch 1): SC-Opfer würfelt selbst - Anfrage-
+        // karte statt Auto-Wurf, Ergebnis landet beim Besitzer-Button
+        pendingProbes.push({
+          kind: "paralyzingvenom",
+          label: traitLabel,
+          target: targetVal,
+          level: paralyzeLvl,
+          victimName: victim.name,
         });
-        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_DAZED", { targetname: victim.name, roll: probe.total, target: targetVal })}</p>`);
-      } else if (paralyzeLvl >= 3) {
-        // Meister-Fehlschlag: vollständig gelähmt 1W8 Runden (S3-Muster)
-        const roundsRoll = await new Roll("1d8").evaluate();
-        reactionRolls.push(roundsRoll);
-        result.flags.push({
-          tokenId: victim.tokenId,
-          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "paralysis")),
-          turnEnd: true,
-          effectDuration: roundsRoll.total,
-          conditionData: {},
-          label: `${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_PARALYZED", { targetname: victim.name, roll: probe.total, target: targetVal, rounds: roundsRoll.total })}`,
-        });
-        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_PARALYZED", { targetname: victim.name, roll: probe.total, target: targetVal, rounds: roundsRoll.total })}</p>`);
+        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_MM1.CHAT_PROBE_PENDING", { targetname: victim.name })}</p>`);
       } else {
-        // Novize/Adept-Fehlschlag: nur noch reaktive Aktionen - keine
-        // Zustands-Engine im System, SL wendet die Einschränkung an
-        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_REACTIVE", { targetname: victim.name, roll: probe.total, target: targetVal })}</p>`);
+        const probe = await new Roll("1d20").evaluate();
+        reactionRolls.push(probe);
+        if (probe.total <= targetVal) {
+          // Erfolg v1.1: MISSGUNST statt Benommen (Rudolfs Bewertungs-
+          // frage 3) - eine Runde alle Erfolgsproben mit Missgunst-
+          // Vorbelegung (boon.js getMissgunstFavour), Zugende-Räumer wie
+          // beim v1.0-Benommen (Turn Ende der A34-Engine)
+          const effectLine = game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_MISSGUNST", { targetname: victim.name, roll: probe.total, target: targetVal });
+          result.flags.push({
+            tokenId: victim.tokenId,
+            addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "missgunst")),
+            turnEnd: true,
+            effectDuration: 1,
+            conditionData: {},
+            label: `${traitLabel}: ${effectLine}`,
+          });
+          lines.push(`<p>${traitLabel}: ${effectLine}</p>`);
+        } else if (paralyzeLvl >= 3) {
+          // Meister-Fehlschlag: vollständig gelähmt 1W8 Runden (S3-Muster)
+          const roundsRoll = await new Roll("1d8").evaluate();
+          reactionRolls.push(roundsRoll);
+          const effectLine = game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_PARALYZED", { targetname: victim.name, roll: probe.total, target: targetVal, rounds: roundsRoll.total });
+          result.flags.push({
+            tokenId: victim.tokenId,
+            addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "paralysis")),
+            turnEnd: true,
+            effectDuration: roundsRoll.total,
+            conditionData: {},
+            label: `${traitLabel}: ${effectLine}`,
+          });
+          lines.push(`<p>${traitLabel}: ${effectLine}</p>`);
+        } else {
+          // Novize/Adept-Fehlschlag: nur noch reaktive Aktionen - keine
+          // Zustands-Engine im System, SL wendet die Einschränkung an
+          lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_REACTIVE", { targetname: victim.name, roll: probe.total, target: targetVal })}</p>`);
+        }
       }
     }
-    if (infectiousLvl > 0) {
-      const strongVal = getAttributeValue(victim.actor, "strong");
-      const probe = await new Roll("1d20").evaluate();
-      reactionRolls.push(probe);
+    if (infectiousWanted) {
       const traitLabel = game.i18n.localize("TRAIT_LABEL.INFECTIOUS");
-      if (probe.total <= strongVal) {
-        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_INFECTIOUS.CHAT_RESISTED", { targetname: victim.name, roll: probe.total, target: strongVal })}</p>`);
+      reactionTraits.push(traitLabel);
+      if (probeOwner) {
+        pendingProbes.push({
+          kind: "infectious",
+          label: traitLabel,
+          target: strongVal,
+          level: infectiousLvl,
+          victimName: victim.name,
+        });
+        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_MM1.CHAT_PROBE_PENDING", { targetname: victim.name })}</p>`);
       } else {
-        // Krankheit je Stufe (leicht/mittelschwer/schwer) - keine
-        // Krankheits-Engine im System, SL wendet die Folge an
-        const severity = game.i18n.localize("TRAIT_INFECTIOUS.SEVERITY_" + infectiousLvl);
-        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_INFECTIOUS.CHAT_DISEASE", { targetname: victim.name, roll: probe.total, target: strongVal, severity })}</p>`);
+        const probe = await new Roll("1d20").evaluate();
+        reactionRolls.push(probe);
+        if (probe.total <= strongVal) {
+          lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_INFECTIOUS.CHAT_RESISTED", { targetname: victim.name, roll: probe.total, target: strongVal })}</p>`);
+        } else {
+          // Krankheit je Stufe (leicht/mittelschwer/schwer) - keine
+          // Krankheits-Engine im System, SL wendet die Folge an
+          const severity = game.i18n.localize("TRAIT_INFECTIOUS.SEVERITY_" + infectiousLvl);
+          lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_INFECTIOUS.CHAT_DISEASE", { targetname: victim.name, roll: probe.total, target: strongVal, severity })}</p>`);
+        }
       }
+    }
+    if (pendingProbes.length > 0) {
+      await mm1SendResistProbe(probeOwner, victim.tokenId, victim.name, functionStuff.actingCharName, pendingProbes);
     }
     if (lines.length > 0) {
+      // v1.1 (Rudolfs Wunsch 2): Titel „Wirkung von {Merkmalsname}", bei
+      // mehreren Merkmalen mit „ & " verbunden, statt Pauschal-Titel
+      const titleName = reactionTraits.join(" & ");
       result.reactionCard = {
-        titleHtml: `<h4>${game.i18n.localize("TRAIT_MM1.CHAT_REACTION_TITLE")}</h4>`,
+        titleHtml: `<h4>${game.i18n.format("TRAIT_MM1.CHAT_REACTION_TITLE_ONE", { name: titleName })}</h4>`,
         lines,
         rolls: reactionRolls,
       };
@@ -9373,8 +9556,13 @@ async function mm1AttackerTraits(functionStuff, damageTot, targetDies, rollData,
    (Nachschalter-Muster Feuerseele-Rückstoß). Wer die Kreatur im
    Nahkampf trifft und Schaden verursacht, muss eine Verteidigungs-
    Einfachprobe bestehen (1W20 <= Verteidigungswert des Angreifers),
-   sonst erfasst ihn die Säure (Festwerte je Stufe, Condition acid,
-   A28-Engine). */
+   sonst erfasst ihn die Säure (Condition acid, A28-Engine). v1.1 nach
+   Rudolfs Testrunde: (Bewertungsfrage 2) der Rundenschaden läuft über
+   die WÜRFEL-Formel 1d6/1d8/1d10 je Stufe, wenn der MERKMALSTRÄGER
+   (Säureblut-Kreatur) ein SC ist, sonst Festwert 3/4/5; (Wunsch 1) ein
+   SC-ANGREIFER würfelt die Verteidigungsprobe selbst über eine
+   Anfragekarte (playerResistButton-Kriterien), NSC-Angreifer bleiben
+   wie in v1.0 Vollautomatik. */
 async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
   try {
     if (damageTot <= 0) return;
@@ -9390,6 +9578,44 @@ async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
     if (!attackerActor || !functionStuff.tokenId) return;
     const cfg = game.symbaroum.config;
     const defenceVal = Number(attackerActor.system?.combat?.defense ?? 0);
+
+    // v1.1 (Bewertungsfrage 2): Würfel je Stufe für SC-Träger, Festwert
+    // für NSC-Träger (Kriterium MERKMALSTRÄGER, wie beim Säure-Angriff)
+    const defenderIsPlayer = Boolean(defenderActor.system?.isPlayer);
+    const acidDice = cfg.MM1_ACID_DICE[lvl] ?? cfg.MM1_ACID_DICE[3];
+    const acidDamageFixed = cfg.MM1_ACID_DAMAGE[lvl] ?? cfg.MM1_ACID_DAMAGE[3];
+    const dotSpec = cfg.dotDiceOrNpcFixed(defenderIsPlayer, acidDice);
+    const dmgText = defenderIsPlayer ? acidDice : String(acidDamageFixed);
+    const rounds = cfg.MM1_ACID_ROUNDS[lvl] ?? cfg.MM1_ACID_ROUNDS[3];
+
+    // v1.1 (Rudolfs Wunsch 1): SC-Angreifer würfelt die Verteidigungs-
+    // probe selbst (Anfragekarte + GM-Info); die Reaktionskarte der
+    // Kreatur vermerkt die ausstehende Probe
+    const probeOwner = await mm1ProbeOwner(attackerActor);
+    if (probeOwner) {
+      const traitLabel = game.i18n.localize("TRAIT_LABEL.ACIDICBLOOD");
+      const probes = [
+        {
+          kind: "acidicblood",
+          label: traitLabel,
+          target: defenceVal,
+          level: lvl,
+          victimName: functionStuff.actingCharName,
+          rounds: rounds,
+          formula: dotSpec.formula,
+          fixedDamage: dotSpec.fixedDamage,
+          dmgText: dmgText,
+          alreadyAcid: Boolean(attackerActor.hasCondition?.("acid")),
+        },
+      ];
+      const pendingLine = game.i18n.format("TRAIT_MM1.CHAT_PROBE_PENDING", { targetname: functionStuff.actingCharName });
+      await mm1SendResistProbe(probeOwner, functionStuff.tokenId, functionStuff.actingCharName, defenderActor.name, probes);
+      const title = `<h4>${game.i18n.format("TRAIT_MM1.CHAT_REACTION_TITLE_ONE", { name: traitLabel })}</h4>`;
+      await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, [`<p>${traitLabel}: ${pendingLine}</p>`], []);
+      return;
+    }
+
+    // NSC-Angreifer: v1.0-Automatik (vom System gewürfelte Einfachprobe)
     const probe = await new Roll("1d20").evaluate();
     const lines = [];
     if (probe.total <= defenceVal) {
@@ -9398,9 +9624,7 @@ async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
       // NOTEXTEND (Muster Gift): bereits säuerndes Ziel läuft weiter
       lines.push(`<p>${game.i18n.format("TRAIT_ACIDICBLOOD.CHAT_NOTEXTEND", { targetname: functionStuff.actingCharName })}</p>`);
     } else {
-      const rounds = cfg.MM1_ACID_ROUNDS[lvl] ?? cfg.MM1_ACID_ROUNDS[3];
-      const damage = cfg.MM1_ACID_DAMAGE[lvl] ?? cfg.MM1_ACID_DAMAGE[3];
-      const appliedLine = game.i18n.format("TRAIT_ACIDICBLOOD.CHAT_APPLIED", { targetname: functionStuff.actingCharName, damage, rounds });
+      const appliedLine = game.i18n.format("TRAIT_ACIDICBLOOD.CHAT_APPLIED", { targetname: functionStuff.actingCharName, damage: dmgText, rounds });
       lines.push(`<p>${appliedLine}</p>`);
       await createModifyTokenChatButton([
         {
@@ -9410,8 +9634,8 @@ async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
           label: appliedLine,
           dot: {
             label: "CONDITION.ACID",
-            formula: String(damage),
-            fixedDamage: damage,
+            formula: dotSpec.formula,
+            fixedDamage: dotSpec.fixedDamage,
             resource: "toughness",
             damageType: "acid",
             stackable: false,
@@ -9420,7 +9644,7 @@ async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
         },
       ]);
     }
-    const title = `<h4>${game.i18n.localize("TRAIT_LABEL.ACIDICBLOOD")}</h4>`;
+    const title = `<h4>${game.i18n.format("TRAIT_MM1.CHAT_REACTION_TITLE_ONE", { name: game.i18n.localize("TRAIT_LABEL.ACIDICBLOOD") })}</h4>`;
     await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, lines, [probe]);
   } catch (mm1Error) {
     game.symbaroum.log("MM-Paket 1: Säureblut", mm1Error);
@@ -12920,12 +13144,15 @@ async function attackResult(rollData, functionStuff) {
     functionStuff.targetData?.hasTarget &&
     functionStuff.targetData.actor !== functionStuff.actor &&
     jabLevel >= 1;
-  // Dreckiger Kampf v1.1 (Meister, Rudolfs Auswahlrunde 29.10. + Hotfix
-  // 29.10.): blutige Riposte — jeder Meister erleidet sie "direkt nach
-  // jedem Angriff", also feuert sie JEDEM Nahkampf-Angriffsaufruf gegen
-  // ihn nach (auch nach Treffern UND Fehlschlägen, auch nach FA/2.
-  // Doppelschlag-Schlag, RAW "nach jedem Angriff"). v1.1-Hotfix (Rudolfs
-  // Testrunde 1): feuert AUCH im Verteidigungswurf-Fluss — wenn ein NSC
+  // Dreckiger Kampf v1.2 (Meister; v1.1 Rudolfs Auswahlrunde 29.10. +
+  // Hotfix 29.10.; v1.2 aus Rudolfs MM-Paket-1-Testrunde 26.11.2026,
+  // Wunsch 3): blutige Riposte — feuert JEDEM Nahkampf-Angriffsaufruf
+  // gegen den Meister nach, ABER nur noch bei TREFFER (auch Schaden 0),
+  // nicht mehr bei Fehlschlag (Rudolfs Befund: Fehlschlag-Riposte ist
+  // zu rerlastig; Guard = rollData.some(trueActorSucceeded), das Flag
+  // steht auch im Verteidigungswurf-Fluss aus ANGREIFER-Sicht,
+  // v1.1-Lernweis roll.js). Rest des v1.1-Bestands unverändert: feuert
+  // AUCH im Verteidigungswurf-Fluss — wenn ein NSC
   // einen SC-Meister angreift, würfelt das System die Verteidigung
   // automatisch (resistRoll = true, Setting playerResistButton aus) bzw.
   // der Spieler per Button (Setting an); der v1-Guard !resistRoll ließ die
@@ -12948,6 +13175,9 @@ async function attackResult(rollData, functionStuff) {
     functionStuff.targetData?.hasTarget &&
     functionStuff.targetData.actor !== functionStuff.actor &&
     !arrowJabWillFire &&
+    // v1.2 (Rudolfs MM1-Testrunde, Wunsch 3): nur bei Treffer des
+    // Original-Angriffs (auch mit Schaden 0), nicht bei Fehlschlag
+    rollData.some((r) => r.trueActorSucceeded) &&
     getActorAbilityLevel(functionStuff.targetData.actor, "cheapshot") >= 3
   ) {
     const defender = functionStuff.targetData;
@@ -13445,6 +13675,17 @@ async function poisonCalc(functionStuff, poisonRoll) {
         NewPoisonRounds = cfg.POISONOUS_FIXED_ROUNDS[origGrade];
         poisonDotTotal = cfg.POISONOUS_FIXED_DAMAGE[damageGrade];
         poisonDotFormula = String(poisonDotTotal);
+      } else if (functionStuff.poisonSpitSC === true) {
+        // MM-Paket 1 v1.1 (Bewertungsfrage 2): Giftspucke eines SC-
+        // Merkmalstraegers - HYBRID aus B5-RUNDEN (RAW-fest 2/3/4) und
+        // Baustein-0-SCHADEN (Grad-Wuerfel 1d4/1d6/1d8, einmal gewuerfelt
+        // und v1.6-konstant ueber die Laufzeit als dot.fixedDamage);
+        // Giftresistent senkt wie ueblich NUR den Schaden um eine Stufe.
+        NewPoisonRounds = cfg.POISONOUS_FIXED_ROUNDS[origGrade];
+        poisonDotFormula = cfg.POISON_GRADE_DAMAGE[damageGrade];
+        const poisonDotRoll = await new Roll(poisonDotFormula).evaluate();
+        poisonRes.poisonDotRoll = poisonDotRoll;
+        poisonDotTotal = poisonDotRoll.total;
       } else {
         // B2: Dauer mit der Originalstufe (B1: Giftresistent fasst die
         // Dauer NICHT an), Schaden mit der (ggf. gesenkten) Stufe.
