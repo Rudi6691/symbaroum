@@ -8,7 +8,7 @@ import { isModernDialogActive, modernDialogClasses } from './modernSheetConfig.j
 // S3 (07.11.2026): getDeathTestFavour sperrt das Gunst-Radio des
 // Todesprobe-Dialogs bei Zäh/Kränklich (Zwangswert), getEpilepsyPenalty
 // vorbelegt den Modifikator in der Anfalls-Erschöpfungsphase (−1).
-import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty, hasPoisonManual, getWeakeningHymnFavour, getMissgunstFavour } from './boon.js';
+import { getBoonLinesForActor, collectCheckedBoonLines, activateBoonLineExclusive, getDeathTestFavour, getEpilepsyPenalty, hasPoisonManual, getWeakeningHymnFavour, getMissgunstFavour, getShapeshiftFavour } from './boon.js';
 // Munitionsverbrauch v1: Abbuchung beim Wurf-Submit (Menge × Angriffs-
 // anzahl, Block bei zu geringem Bestand - Pre-Flight lief in rollWeapon)
 // Elixiere v1.4: + Spezialmunition-Opt-in (Betäubungspfeil/Treffpfeil)
@@ -182,6 +182,16 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
   const missgunstFavour = getMissgunstFavour(actor);
   if(missgunstFavour.forced) {
     ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(missgunstFavour.labelKey) + ', ';
+  }
+  // MM-Paket 2 v1 (Gestaltwandel-Baustein): Bestiengestalt - alle
+  // [Heimlichkeit]/[Gewandtheit]-Proben wiederholbar als Gunst-
+  // VORBELEGUNG (boon.js getShapeshiftFavour, Muster Missgunst, nicht
+  // verriegelt), nur für die zwei Form-Attribute, nur bei aktivem
+  // shapeshift-Marker. Präzedenz: erzwungene Missgunst gewinnt (dann
+  // weder autoParams-Zeile noch Radio-Vorbelegung, s. roll_defaults).
+  const shapeshiftFavour = getShapeshiftFavour(actor, attributeName);
+  if(shapeshiftFavour.favour !== 0 && !missgunstFavour.forced) {
+    ecData.autoParams = (ecData.autoParams ?? '') + game.i18n.localize(shapeshiftFavour.labelKey) + ', ';
   }
   // Hunger-Paket v1 (Rudolfs Option A, 09.11.2026): Der Stärke-Malus
   // scheiternder Hunger-Proben ist ab jetzt IM STÄRKE-GESAMTWERT
@@ -489,7 +499,7 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "choices": { "0": game.i18n.localize("DIALOG.FAVOUR_NORMAL"), "-1":game.i18n.localize("DIALOG.FAVOUR_DISFAVOUR"), "1":game.i18n.localize("DIALOG.FAVOUR_FAVOUR")},
     "groupName":"favour",
     "attri_mods" : attri_mods,
-    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 || travelFavour.forced || weakeningHymnFavour.forced || missgunstFavour.forced
+    "roll_defaults": (elixirDazedPenalty + epilepsyPenalty) > 0 || travelFavour.forced || weakeningHymnFavour.forced || missgunstFavour.forced || shapeshiftFavour.favour !== 0
       ? { ...attri_defaults,
           // Hunger-Paket v1: travelStrengthPenalty wirkt NICHT mehr über
           // die roll_defaults (im Gesamtwert gebacken, s. Kommentar oben) —
@@ -502,7 +512,14 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
           // Hymnen-Paket 1.5: Schwächende Hymne - Missgunst vorauswählen
           ...(weakeningHymnFavour.forced ? { selectedFavour: String(weakeningHymnFavour.favour) } : {}),
           // MM-Paket 1 v1.1: Missgunst-Condition - Missgunst vorauswählen
-          ...(missgunstFavour.forced ? { selectedFavour: String(missgunstFavour.favour) } : {}) }
+          ...(missgunstFavour.forced ? { selectedFavour: String(missgunstFavour.favour) } : {}),
+          // MM-Paket 2 v1 (Gestaltwandel): Form-Gunst für [Heimlichkeit]/
+          // [Gewandtheit] vorauswählen (nicht verriegelt, RAF-Wortlaut
+          // „wiederholbar" = Vorbelegung 2 Würfel, Muster Missgunst).
+          // Präzedenz: eine erzwungene Missgunst (Zwangswert) gewinnt -
+          // Verfall/Neid frisst keine Form-Gunst, sonst stünde +1 im
+          // Radio während die Karte −2 anzeigt.
+          ...(shapeshiftFavour.favour !== 0 && !missgunstFavour.forced ? { selectedFavour: String(shapeshiftFavour.favour) } : {}) }
       : attri_defaults,
     // S4: Hinweiszeile über dem Gunst-Radio (4 Templates, Muster
     // dialog-deathtest.hbs deathMod-Zeile) — bereits lokalisierter Text
@@ -713,7 +730,14 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
                   else if(member.type == game.symbaroum.config.TYPE_ROLL_MOD) {
                     modifier += member.modifier;
                     ecData.modifier += member.modifier;
-                    ecData.autoParams += ", "+member.label;
+                    /* MM-Paket 2 v1 (Rudolfs v1.1-Punkt B, Fix-Entwurf Konzept
+                       §4.1): Komma-Normalisierung statt fuehrendem ", "-Anhang -
+                       der Leerstart des Waffendialogs erzeugte sonst ", Label"
+                       und in Kombination mit dem subText-Merge (item.js,
+                       ", " + autoParams) Doppelkommas auf der Ergebniskarte
+                       (Biss (Unbewaffneter Angriff), , Saeure-Angriff). Deckt
+                       Leerstart UND vorangegangene Trailing-Kommas ab. */
+                    ecData.autoParams = (ecData.autoParams ? ecData.autoParams.replace(/[,\s]+$/, "") + ", " : "") + member.label;
                   }
                   else if(ecOn && member.type == game.symbaroum.config.STATUS_DOT) {
                     let dotime = Object.assign({}, member);
@@ -750,13 +774,31 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
                     ecData.mm1Ticked[pack.mm1TraitRef] = true;
                   }
                 }
+                // MM-Paket 2 v1 (Konzept Baustein 7): identisches
+                // Checkbox-Gating fuer die MM2-Reaktions-Merkmale an der
+                // natuerlichen Waffe (Erdrueckende Umarmung, Verschlingen,
+                // Zerstörer Nov/Adept) - dieselbe v1.1-Semantik: vorange-
+                // hakt, im Freien Angriff sichtbar & abwaehlbar, leere Map
+                // ohne Dialog = bewusst aus, fehlende Map = Automatik-
+                // Rueckfall.
+                if (pack.mm2TraitRef) {
+                  ecData.mm2Ticked = ecData.mm2Ticked ?? {};
+                  const mm2Ticked = html[0].querySelector(`#pgkid-${did}-${pack.id}`);
+                  if (mm2Ticked?.checked) {
+                    ecData.mm2Ticked[pack.mm2TraitRef] = true;
+                  }
+                }
                 // Automatisierungspaket 1: aktive Pakete sind beim Freien
                 // Angriff unterdrückt (RAW: passive ja, aktive nein)
                 if(hasFreeAttack) continue;
                 // Find if the box is checked
                 let ticked = html[0].querySelector(`#pgkid-${did}-${pack.id}`);              
                 if( ticked?.checked ){
-                  ecData.autoParams += ", "+pack.label;
+                  /* MM-Paket 2 v1 (Rudolfs v1.1-Punkt B, Fix-Entwurf Konzept
+                     §4.1): Komma-Normalisierung (gleicher Ausdruck wie beim
+                     Default-Paket-Member oben) - eliminiert die Doppel-
+                     kommas vor MM1-Merkmals-Labels auf der Ergebniskarte. */
+                  ecData.autoParams = (ecData.autoParams ? ecData.autoParams.replace(/[,\s]+$/, "") + ", " : "") + pack.label;
                   for(let member of pack.member) {
                     if(member.type == game.symbaroum.config.DAM_MOD) {
                       if(/\[[^\]]+\]/.test(member.alternatives[0].damageMod)) {
@@ -1169,6 +1211,16 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
               }
             };
             faBox.addEventListener("change", faApply);
+            /* MM-Paket 2 v1 (Blitzschnell, Konzept §3.8): Der Freie
+               Angriff aus der Blitzschnell-Taste der Angriffs-Karte
+               oeffnet den Waffendialog mit VORANGEHAKTER Freier-
+               Angriff-Box (ecData.mm2SwiftFA aus den Presets) - gleiche
+               Vorbelegung-Nicht-Zwang-Konvention wie bei "Ruestung
+               ignorieren", die Box bleibt abwaehlbar. */
+            if (ecData.mm2SwiftFA && !faBox.checked) {
+              faBox.checked = true;
+              faApply();
+            }
           }
         },
         () => {}

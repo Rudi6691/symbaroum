@@ -18,6 +18,11 @@ import { isStackableItem, getStackKey, findStackTarget, mergeStackDrop, splitSta
 // Script-Behaviors (aoeZoneEnter), Zonen-Karten-Tasten und Makros (freie
 // Zone platzieren) - siehe aoe.js
 import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone, aoeMaintainZoneRound, aoeConcludeInstantZone, aoeZoneActivationCompleted, aoeZoneActivationAborted } from './aoe.js';
+// MM-Paket 2 v1 (Rudolfs Baufreigabe 24.11.2026, Konzept Rev. 2,
+// Entscheidung 9 Fallschaden-Baustein): oeffentlicher Makro-Pfad
+// applyFallDamage(actor, sturzmeter, { weich }) - GRW "Schaden durch
+// einen Sturz", siehe item.js.
+import { applyFallDamage } from './item.js';
 
 export class SymbaroumAPI
 {
@@ -84,6 +89,10 @@ export class SymbaroumAPI
         // bei ABBRUCH des Aktivierungs-Wuerfeldialogs (item.js modifierDialog
         // cancel-Callback ruft diesen API-Pfad; siehe aoe.js).
         this.aoeZoneActivationAborted = aoeZoneActivationAborted;
+        // MM-Paket 2 v1 (Fallschaden-Baustein, Konzept Entscheidung 9):
+        // makro-aufrufbarer Fallschaden (GRW-Sturzregeln, Ruestung
+        // schuetzt wie immer, siehe applyFallDamage in item.js).
+        this.applyFallDamage = applyFallDamage;
     }
 
 

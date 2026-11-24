@@ -498,6 +498,21 @@ SYMBAROUM.scriptedAbilities = [
      Klick oeffnet den Fernkampf-Wuerfeldialog) - das Skript-Badge kommt
      aus DIESER Liste (Muster Giftig/Regeneration, actor.js markScripted). */
   "poisonspit",
+  /* MM-Paket 2 v1 (Rudolfs Baufreigabe 24.11.2026, Konzept Rev. 2):
+     Die AKTIVEN Kampfkontroll-Merkmale als KLICKBARE Traits (Baustein 6,
+     Giftspucke-Präzedenz): Netz (Netzkarte mit Verfangen-Buttons je
+     Ziel-Token), Greifzunge und Greifklauen (öffnen den Waffendialog der
+     natürlichen Waffe mit MM2-Presets), Rammen (SL-Kettendialog) und
+     Blitzschnell (Hinweiskarte - die eigentliche Reaktion läuft als
+     Hinweiszeile + Button auf der Angriffs-Ergebniskarte). Die
+     REAKTIONS-Merkmale (Erdrückende Umarmung, Verschlingen, Zerstörer)
+     bewusst NICHT hier: sie laufen als Checkbox-Pakete am Waffendialog
+     (v1.1-Muster) und tragen das isIntegrated-Badge. */
+  "web",
+  "grapplingtongue",
+  "prehensileclaws",
+  "rampage",
+  "swift",
   "regeneration",
   "shapeshifter",
   "wisdomages",
@@ -908,6 +923,20 @@ SYMBAROUM.systemConditionEffects = [
     label: "POWER_LABEL.MALTRANSFORMATION",
     name: "POWER_LABEL.MALTRANSFORMATION",
     icon: "systems/symbaroum/asset/image/frog.png",
+  },
+  {
+    /* MM-Paket 2 v1 (Gestaltwandel-Baustein, Rudolfs Baufreigabe
+       "Kern MIT Gestaltwandel bauen"): Form-Marker der Kraft Gestaltwandel -
+       Feuerseele-Muster (mysticPowerSetupShapeshift: flagTest-Toggle,
+       [Willenskraft]-Probe, 1W4 temporäre Korruption ergebnisunabhängig,
+       Maintain-Tags auf dem Marker). Adept/Meister-Formqualitäten
+       (Gepanzert/Natürliche Waffe/Regeneration/Robust) werden über
+       getItemModifierShapeshift NUR im aktiven Zustand formgebunden
+       freigeschaltet. */
+    id: "shapeshift",
+    label: "POWER_LABEL.SHAPESHIFT",
+    name: "POWER_LABEL.SHAPESHIFT",
+    icon: "systems/symbaroum/asset/image/powers/shapeshift.svg",
   },
   {
     id: "protectiverunes",
@@ -2146,6 +2175,26 @@ SYMBAROUM.MM1_ACID_DICE = { 1: "1d6", 2: "1d8", 3: "1d10" };
 SYMBAROUM.MM1_ACID_DAMAGE = Object.fromEntries(
 	Object.entries(SYMBAROUM.MM1_ACID_DICE).map(([lvl, dice]) => [lvl, SYMBAROUM.npcFixedFromDice(dice)])
 );
+/* MM-Paket 2 v1 „Festhalten & Kampf-Kontrolle" (Rudolfs Baufreigabe
+   24.11.2026, Konzept Rev. 2 + Gestaltwandel-Erweiterung): zentrale
+   RAW-Werte-Tabellen. MM2_EMBRACE_DOT = Erdrückende Umarmung Griff-
+   Schaden je Stufe (Novize 2, Adept 3, Meister 4, ignoriert Rüstung
+   nativ über den A28-Festwert-Pfad). MM2_RAMPAGE_DAMAGE = Rammen-
+   Grundschaden je Stufe (Rüstung schützt wie immer; +2 je Robust-
+   Stufe addiert die Engine). MM2_BELLY_DOT = Bauch-Schaden je Zug
+   bei Verschlingen (ignoriert Rüstung, RAW 2). MM2_WEB_MASTER_
+   THREADS = Netz-Meister Fäden je Runde (RAW 3). MM2_FALL_* =
+   Fallschaden-Baustein (GRW „Schaden durch einen Sturz": gelungene
+   [Gewandtheit]-Probe −3 Meter, weicher Untergrund −5 Meter, Rüstung
+   schützt wie immer über mathDamageProt). MM2_ROBUST_BONUS_PER_LEVEL
+   = Robust ±2 je Stufe beidseitig (Rammen/Zerstörer/Verschlingen). */
+SYMBAROUM.MM2_EMBRACE_DOT = { 1: 2, 2: 3, 3: 4 };
+SYMBAROUM.MM2_RAMPAGE_DAMAGE = { 1: 2, 2: 3, 3: 4 };
+SYMBAROUM.MM2_BELLY_DOT = 2;
+SYMBAROUM.MM2_WEB_MASTER_THREADS = 3;
+SYMBAROUM.MM2_FALL_PROBE_REDUCE = 3;
+SYMBAROUM.MM2_FALL_SOFT_REDUCE = 5;
+SYMBAROUM.MM2_ROBUST_BONUS_PER_LEVEL = 2;
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
    eine Wuerfelstufe gesenkt (1d8 -> 1d6 -> 1d4 -> neutralisiert); exotische
    SL-kalibrierte Formeln bleiben unberuehrt (dokumentierte Begrenzung). */

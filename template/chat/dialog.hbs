@@ -149,8 +149,9 @@
              (mm1TraitRef) bleiben auch im Freien Angriff sichtbar &
              abwählbar und sind VORANGEHAKT (Automatik-Nähe, Rudolfs
              Entscheidung) - nur Fähigkeits-Pakete behalten die
-             freeattack-suppress-Klasse. --}}
-        <div class="advantage{{#unless package.mm1TraitRef}} freeattack-suppress{{/unless}}"><label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" {{#if package.preselect}}checked{{/if}}><input for="pgkid-{{../did}}-{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
+             freeattack-suppress-Klasse. MM-Paket 2 v1: MM2-Reaktions-
+             Merkmale (mm2TraitRef) folgen derselben Semantik. --}}
+        <div class="advantage{{#unless package.mm1TraitRef}}{{#unless package.mm2TraitRef}} freeattack-suppress{{/unless}}{{/unless}}"><label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label><div class="packageInfo"><input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" {{#if package.preselect}}checked{{/if}}><input for="pgkid-{{../did}}-{{package.id}}" class="packageDetail" type="text" value="{{package.value}}" data-dtype="Text" disabled/></div></div>
       {{/ife}}
     {{/each}}
     {{!-- Axtkünstler v1.1 (Rudolfs Testrunde 1): Technik-Auswahl im

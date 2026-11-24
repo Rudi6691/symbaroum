@@ -219,8 +219,10 @@
       {{#ife package.type "checkbox"}}
         {{!-- MM-Paket 1 v1.1: Merkmals-Pakete (mm1TraitRef) auch im Freien
              Angriff sichtbar & abwählbar, VORANGEHAKT (Rudolfs Entscheidung;
-             klassisches Gegenstück siehe dialog.hbs). --}}
-        <div class="m-roll-check{{#unless package.mm1TraitRef}} freeattack-suppress{{/unless}}">
+             klassisches Gegenstück siehe dialog.hbs). MM-Paket 2 v1: die
+             MM2-Reaktions-Merkmale (mm2TraitRef) folgen derselben v1.1-
+             Semantik und bleiben im Freien Angriff ebenfalls sichtbar. --}}
+        <div class="m-roll-check{{#unless package.mm1TraitRef}}{{#unless package.mm2TraitRef}} freeattack-suppress{{/unless}}{{/unless}}">
           <label for="pgkid-{{../did}}-{{package.id}}">{{package.label}}</label>
           <input class="checkbox" type="checkbox" id="pgkid-{{../did}}-{{package.id}}" value="{{package.value}}" data-dtype="Text" {{#if package.preselect}}checked{{/if}}>
         </div>

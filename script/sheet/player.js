@@ -926,7 +926,7 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				const entry = powerEntryById[item.id];
 				// Bestienkunde v1.1: Favorit uebernimmt den erweiterten Titel
 				// aus dem powers-Eintrag (Suffix bereits in entry.name)
-				if (entry) favorites.push({ id: item.id, name: entry.name, img: item.img, kind: 'power', hasScript: entry.hasScript, hasBoonLine: entry.hasBoonLine, sub: entry.sub });
+				if (entry) favorites.push({ id: item.id, name: entry.name, img: item.img, kind: 'power', hasScript: entry.hasScript, isIntegrated: entry.isIntegrated, hasBoonLine: entry.hasBoonLine, sub: entry.sub });
 			} else if (s.isGear) {
 				// Aktive Waffen/Rüstungen erscheinen ohnehin immer im Kampf-Tab
 				if ((s.isWeapon || s.isArmor) && s.isActive) continue;

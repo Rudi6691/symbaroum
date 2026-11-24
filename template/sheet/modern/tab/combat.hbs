@@ -94,6 +94,10 @@
                         <div class="m-tile-imgwrap">
                             <button type="button" class="activate-ability {{#if fav.hasScript}}isScripted{{else}}notScripted{{/if}} m-tile-img" style="background-image: url('{{fav.img}}');" data-tooltip="{{localize "TOOLTIP.USE_ABILITY"}}"></button>
                             {{#if fav.hasScript}}<span class="automatic" data-tooltip="{{localize "TOOLTIP.DIALOG.HASSCRIPT"}}"></span>{{/if}}
+                            {{!-- MM-Paket 2 v1 (Rudolfs v1.1-Punkt A): „vollautomatisch"-Badge
+                                auch auf den Kampf-Tab-Favoriten-Chips, exakt wie powers.hbs
+                                (Muster MM1-Trait-Badges; CSS .automatic1 existiert bereits). --}}
+                            {{#if fav.isIntegrated}}<span class="automatic1" data-tooltip="{{localize "TOOLTIP.DIALOG.ISINTERGRATED"}}"></span>{{/if}}
                             {{#if fav.hasBoonLine}}<span class="boonline" data-tooltip="{{localize "TOOLTIP.DIALOG.HASBOONLINE"}}"></span>{{/if}}
                         </div>
                         {{/ife}}

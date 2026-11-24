@@ -796,6 +796,21 @@ export class SymbaroumActor extends Actor {
 			this.system.health.toughness.threshold = 0;
 		} else {
 			this.system.health.toughness.threshold = Math.ceil(strong / 2) + this.system.bonus.toughness.threshold;
+			/* MM-Paket 2 v1 (Gestaltwandel-Baustein, Rudolfs Baufrage-
+			   Antwort "Kern MIT Gestaltwandel bauen"): Robust (M) I in
+			   Bestiengestalt - die Meister-Form liest +2 auf die
+			   Zaehigkeitsschwelle DIREKT vom aktiven shapeshift-Marker
+			   (Feuerseele-Gate-Muster firesoulActiveLevel). Bewusst
+			   INLINE gelesen: actor.js importiert item.js nicht, der
+			   Marker-Read entspricht shapeshiftActiveLevel in item.js
+			   (Legacy-Zahlen-flagData und Objekt-flagData mit .level). */
+			const ssMarker = this.hasCondition?.('shapeshift');
+			if (ssMarker) {
+				const ssFlagData = ssMarker.getFlag?.(game.system.id, 'flagData');
+				if ((Number(ssFlagData?.level) || 0) >= 3) {
+					this.system.health.toughness.threshold += game.symbaroum.config.MM2_ROBUST_BONUS_PER_LEVEL;
+				}
+			}
 		}
 	}
 

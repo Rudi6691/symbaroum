@@ -122,6 +122,20 @@
         <div class="finalTxt">{{localize "COMBAT.CHAT_ACID_CARRIER_RISK"}}</div>
         {{/if}}
         {{/if}}
+        {{!-- MM-Paket 2 v1 (Blitzschnell, Konzept §3.8): Stufen-Reaktion
+            der Kampfaktion - Hinweiszeile + Taste, Klick oeffnet den
+            Waffendialog mit vorangehakter Freier-Angriff-Box (Daten im
+            Flag mm2SwiftAttack, Verdrahtung im hooks.js-Handler). --}}
+        {{#if mm2SwiftHint}}
+        <div class="finalTxt">
+            <p>{{removeMarkup mm2SwiftHintText}}</p>
+        </div>
+        {{#if mm2SwiftButton}}
+        <div class="finalTxt">
+            <button class="mm2-swift-freeattack"><i class="fas fa-dice-d20"></i> {{localize "TRAIT_SWIFT.FA_BUTTON"}}</button>
+        </div>
+        {{/if}}
+        {{/if}}
         {{!-- Kräfte-Paket 1 v1.3: Die v1-Reroll-TASTE für die Illusorische
             Korrektur ist entfernt - stattdessen öffnet sich nach der
             Karte der Aktivierungs-Dialog (item.js, in-process), ohne

@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain, mm2ResolveDevourPending, mm2ResolveClawPull, mm2PostLiberateCard, applyFallDamage } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer, createModifyTokenChatButton } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -2617,6 +2617,65 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						});
 					}
 				}
+				/* MM-Paket 2 v1 (Erdrueckende Umarmung, Konzept §3.4): SC-Opfer
+				   wuerfelt die Verfangens-Escape-Probe [GW<-PR] selbst - Erfolg
+				   = entkommen, Fehlschlag = bind + Griff-Festwert-DoT (ignoriert
+				   Ruestung nativ) + Hinweis-Zeile zu den bewussten Grenzen +
+				   Befreiungskarte [ST<-ST] (1x pro Runde, SL/Player-Buchung). */
+				else if (probe.kind === 'mm2embrace') {
+					if (probeRoll.total <= target) {
+						lines.push(game.i18n.format('TRAIT_CRUSHINGEMBRACE.CHAT_RESISTED', { targetname: victimName, roll: probeRoll.total, target: target }));
+					} else {
+						const effectLine = game.i18n.format('TRAIT_CRUSHINGEMBRACE.CHAT_APPLIED', { targetname: victimName, damage: probe.griffDamage });
+						lines.push(effectLine);
+						gmActions.push({
+							tokenId: mm1ResistRequest.tokenId,
+							addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'bind')),
+							conditionData: { mm2Bind: { source: 'embrace' } },
+							dot: {
+								label: 'TRAIT_CRUSHINGEMBRACE.CHAT_DOT_LABEL',
+								fixedDamage: probe.griffDamage,
+								resource: 'toughness',
+								separateRoll: false,
+								stackable: false,
+							},
+							label: `${probe.label}: ${effectLine}`,
+						});
+						gmWhisperLines.push(game.i18n.localize('TRAIT_CRUSHINGEMBRACE.CHAT_NOACTION_HINT'));
+						await mm2PostLiberateCard(mm1ResistRequest.tokenId, victimName, {
+							target: probe.liberateTarget,
+							source: 'embrace',
+							titleHtml: `<h4>${game.i18n.localize('TRAIT_CRUSHINGEMBRACE.LIBERATE_TITLE')}</h4>`,
+						});
+					}
+				}
+				/* MM-Paket 2 v1 (Zerstörer, Konzept §3.7): SC-Opfer wuerfelt die
+				   Niedergerungen-Probe [ST<-ST, Robust ±2 je Stufe beidseitig]
+				   selbst - Fehlschlag = prone, Adept zusaetzlich 1W6 Meter
+				   Rueckschleuderung + Fallschaden (applyFallDamage, Ruestung
+				   schuetzt normal) + SL-Verschiebe-Hinweis. */
+				else if (probe.kind === 'mm2wrecker') {
+					if (probeRoll.total <= target) {
+						lines.push(game.i18n.format('TRAIT_WRECKER.CHAT_STOOD', { targetname: victimName, roll: probeRoll.total, target }));
+					} else {
+						const proneLine = game.i18n.format('TRAIT_WRECKER.CHAT_PRONE_LINE', { targetname: victimName, roll: probeRoll.total, target: target });
+						lines.push(proneLine);
+						gmActions.push({
+							tokenId: mm1ResistRequest.tokenId,
+							addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'prone')),
+							label: `${probe.label}: ${proneLine}`,
+						});
+						if (Number(probe.level) >= 2) {
+							const distRoll = await new Roll('1d6').evaluate();
+							rolls.push(distRoll);
+							lines.push(game.i18n.format('TRAIT_WRECKER.CHAT_THROWN', { targetname: victimName, count: distRoll.total }));
+							const victimToken = canvas.tokens?.objects?.children?.find((t) => t.id === mm1ResistRequest.tokenId) ?? canvas.tokens?.placeables?.find((t) => t.id === mm1ResistRequest.tokenId);
+							const victimActor = victimToken?.actor ?? null;
+							if (victimActor) await applyFallDamage(victimActor, distRoll.total, { weich: false, withProbe: false });
+							gmWhisperLines.push(game.i18n.localize('TRAIT_WRECKER.CHAT_MOVE_HINT'));
+						}
+					}
+				}
 				const title = `<h4>${game.i18n.format('TRAIT_MM1.CHAT_REACTION_TITLE_ONE', { name: probe.label })}</h4>`;
 				await ChatMessage.create({
 					user: game.user.id,
@@ -2640,6 +2699,252 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 				s.disabled = true;
 				s.style.display = 'none';
 				if (Array.from(mm1ProbeButtons).every((b) => b.disabled)) await chatItem.delete();
+			});
+		}
+	}
+	/* ================================================================
+	 * MM-Paket 2 v1 (Rudolfs Baufreigabe 24.11.2026, Konzept Rev. 2):
+	 * Karten-Button-Handler der klickbaren Kampfkontroll-Merkmale.
+	 * Alle Proben laufen als lokale 1W20-Vergleichswuerfe auf dem
+	 * Klick-Client (Opfer-Besitzer oder SL); Zustands-Buchungen
+	 * laufen ausnahmslos ueber die GM-Anwenden-Karte (createModify-
+	 * TokenChatButton = emit GMMessage, GM wendet an - auch vom
+	 * Spieler-Client aufrufbar). 1x pro Runde = SL/Player-Buchung.
+	 * ================================================================ */
+	/* Netz (§3.1): Verfangen-Probe [GW<-SF] je Ziel-Token - Fehlschlag:
+	 * bind + Verfangen-Missgunst (Disfavoured ueber die bestehende
+	 * Missgunst-Kette, boon.js) + Befreiungskarte [ST<-SF] mit
+	 * automatischere Symbol-Loeschung (Konzept Baustein 2). */
+	const mm2WebCard = await chatItem.getFlag(game.system.id, 'mm2WebCard');
+	if (mm2WebCard) {
+		const traitsLabel = game.i18n.localize('TRAIT_LABEL.WEB');
+		for (const s of html.querySelectorAll('.mm2-web-probe')) {
+			s.addEventListener('click', async () => {
+				const victimEntry = (mm2WebCard.victims ?? []).find((v) => v.tokenId === s.dataset?.victim);
+				if (!victimEntry) return;
+				s.disabled = true;
+				s.style.display = 'none';
+				const probeRoll = await new Roll('1d20').evaluate();
+				const rolls = [probeRoll];
+				const lines = [];
+				const gmActions = [];
+				if (probeRoll.total <= victimEntry.target) {
+					lines.push(game.i18n.format('TRAIT_WEB.CHAT_ESCAPED', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target }));
+				} else {
+					const caughtLine = game.i18n.format('TRAIT_WEB.CHAT_CAUGHT', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target });
+					lines.push(caughtLine);
+					gmActions.push({
+						tokenId: victimEntry.tokenId,
+						addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'bind')),
+						conditionData: { mm2Bind: { source: 'web' } },
+						label: `${traitsLabel}: ${caughtLine}`,
+					});
+					gmActions.push({
+						tokenId: victimEntry.tokenId,
+						addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'missgunst')),
+						label: `${traitsLabel}: ${game.i18n.format('TRAIT_WEB.CHAT_MISSGUNST_LINE', { targetname: victimEntry.name })}`,
+					});
+					/* Befreiung [ST<-SF]: Zielwert am Klick-Zeitpunkt aus der
+					Staerke des Opfers gegen den Scharfsinn der Netz-Kreatur */
+					const webVictimToken = canvas.tokens?.placeables?.find((t) => t.id === victimEntry.tokenId);
+					const webVictimActor = webVictimToken?.actor ?? null;
+					if (webVictimActor) {
+						await mm2PostLiberateCard(victimEntry.tokenId, victimEntry.name, {
+							target: getAttributeValue(webVictimActor, 'strong') + (10 - Number(mm2WebCard.creatureSF ?? 10)),
+							source: 'web',
+							titleHtml: `<h4>${game.i18n.localize('TRAIT_WEB.LIBERATE_TITLE')}</h4>`,
+						});
+					}
+				}
+				const cardTitle = `<h4>${game.i18n.format('TRAIT_MM2.CHAT_REACTION_TITLE_ONE', { name: traitsLabel })}</h4>`;
+				await ChatMessage.create({
+					user: game.user.id,
+					speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+					rolls: [createRollData(rolls)],
+					content: `<div class="symbaroum chat ability"><div class="foreground">${cardTitle}<div class="finalTxt">${lines.length > 0 ? lines.map((l) => `<p>${traitsLabel}: ${l}</p>`).join('') : `<p>${traitsLabel}: ${game.i18n.format('TRAIT_MM2.PROBE_ROLL_LINE', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target })}</p>`}</div></div></div>`,
+				});
+				if (gmActions.length > 0) {
+					await createModifyTokenChatButton(gmActions);
+				}
+			});
+		}
+	}
+	/* Befreiungs-Karte (Netz/Umarmung/Greifklauen): Erfolg entfernt das
+	 * bind-Symbol (bei Netz zusaetzlich die Verfangen-Missgunst)
+	 * automatisch, Fehlschlag verbleibt im Zustand; ein Klick ver-
+	 * braucht die Probe (Taste deaktiviert, 1x pro Runde SL-Buchung). */
+	const mm2Liberate = await chatItem.getFlag(game.system.id, 'mm2Liberate');
+	if (mm2Liberate) {
+		for (const s of html.querySelectorAll('.mm2-liberate-probe')) {
+			s.addEventListener('click', async () => {
+				if (s.disabled) return;
+				const liberateTarget = Number(mm2Liberate.target);
+				if (liberateTarget == null || Number.isNaN(liberateTarget)) return;
+				s.disabled = true;
+				s.style.display = 'none';
+				const probeRoll = await new Roll('1d20').evaluate();
+				const rolls = [probeRoll];
+				const lines = [];
+				const gmActions = [];
+				if (probeRoll.total <= liberateTarget) {
+					lines.push(game.i18n.format('TRAIT_MM2.LIBERATE_SUCCESS', { targetname: mm2Liberate.victimName, roll: probeRoll.total, target: liberateTarget }));
+					gmActions.push({
+						tokenId: mm2Liberate.tokenId,
+						removeEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'bind')),
+					});
+					if (mm2Liberate.source === 'web') {
+						gmActions.push({
+							tokenId: mm2Liberate.tokenId,
+							removeEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'missgunst')),
+						});
+					}
+				} else {
+					lines.push(game.i18n.format('TRAIT_MM2.LIBERATE_FAIL', { targetname: mm2Liberate.victimName, roll: probeRoll.total, target: liberateTarget }));
+				}
+				const cardTitle = `<h4>${game.i18n.localize('TRAIT_MM2.LIBERATE_CARD_TITLE')}</h4>`;
+				await ChatMessage.create({
+					user: game.user.id,
+					speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+					rolls: [createRollData(rolls)],
+					content: `<div class="symbaroum chat ability"><div class="foreground">${cardTitle}<div class="finalTxt">${lines.map((l) => `<p>${l}</p>`).join('')}</div></div></div>`,
+				});
+				if (gmActions.length > 0) {
+					await createModifyTokenChatButton(gmActions);
+				}
+			});
+		}
+	}
+	/* Ausspucken (Verschlingen, §3.5): freie Aktion der Kreatur -
+	 * entfernt das Bauch-bind (mitsamt des Bauch-DoTs, der auf der
+	 * Condition laeuft) automatisch. */
+	const mm2SpitOut = await chatItem.getFlag(game.system.id, 'mm2SpitOut');
+	if (mm2SpitOut) {
+		for (const s of html.querySelectorAll('.mm2-spit-out')) {
+			s.addEventListener('click', async () => {
+				if (s.disabled) return;
+				s.disabled = true;
+				s.style.display = 'none';
+				await createModifyTokenChatButton([
+					{
+						tokenId: mm2SpitOut.tokenId,
+						removeEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'bind')),
+					},
+				]);
+				await ChatMessage.create({
+					user: game.user.id,
+					speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+					content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${game.i18n.localize('TRAIT_DEVOUR.SPIT_TITLE')}</h4><div class="finalTxt"><p>${game.i18n.format('TRAIT_DEVOUR.SPIT_DONE', { targetname: mm2SpitOut.victimName })}</p></div></div></div>`,
+				});
+			});
+		}
+	}
+	/* Rammen (§3.6): SL-Kettendialog - je Ziel-Taste wuerfelt die
+	 * Kreatur [ST<-ST, Robust ±2 je Stufe beidseitig]; Fehlschlag des
+	 * Opfers = Rammen-Schaden je Stufe (Ruestung schuetzt wie immer,
+	 * Feuerseele-Konvention) + prone; ERSTE bestandene Opfer-Probe
+	 * stoppt den Amoklauf (Karte + restliche Tasten deaktiviert). */
+	const mm2Rampage = await chatItem.getFlag(game.system.id, 'mm2Rampage');
+	if (mm2Rampage) {
+		const traitsLabel = game.i18n.localize('TRAIT_LABEL.RAMPAGE');
+		const rampageButtons = html.querySelectorAll('.mm2-rampage-probe');
+		for (const s of rampageButtons) {
+			s.addEventListener('click', async () => {
+				if (mm2Rampage.stopped || s.disabled) return;
+				const victimEntry = (mm2Rampage.victims ?? []).find((v) => v.tokenId === s.dataset?.victim);
+				if (!victimEntry) return;
+				s.disabled = true;
+				s.style.display = 'none';
+				const victimToken = canvas.tokens?.placeables?.find((t) => t.id === victimEntry.tokenId);
+				const victimActor = victimToken?.actor ?? null;
+				if (!victimActor) return;
+				/* Ruestung schuetzt wie immer: Charaktere wuerfeln die
+				 * Ruestungsformel, NSC ziehen den Festwert ab */
+				let armorValue = 0;
+				let armorText = '0';
+				let armorRoll = null;
+				if (victimActor.type === 'character') {
+					const protPc = String(victimActor.system?.combat?.protectionPc ?? '0') || '0';
+					try {
+						armorRoll = await new Roll(protPc).evaluate();
+						armorValue = armorRoll.total;
+						armorText = protPc;
+					} catch (armorError) {
+						game.symbaroum.log('MM-Paket 2: Rammen-Ruestungsformel', armorError);
+						armorValue = 0;
+						armorText = protPc;
+					}
+				} else {
+					armorValue = Number(victimActor.system?.combat?.protectionNpc ?? 0) || 0;
+					armorText = String(armorValue);
+				}
+				const probeRoll = await new Roll('1d20').evaluate();
+				const rolls = [probeRoll];
+				if (armorRoll) rolls.push(armorRoll);
+				const lines = [];
+				const gmActions = [];
+				if (probeRoll.total > victimEntry.target) {
+					/* Opfer besteht die Probe: Amoklauf endet hier */
+					lines.push(game.i18n.format('TRAIT_RAMPAGE.CHAT_STOOD', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target }));
+					mm2Rampage.stopped = true;
+					for (const other of rampageButtons) {
+						other.disabled = true;
+						other.style.display = 'none';
+					}
+					await ChatMessage.create({
+						user: game.user.id,
+						speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+						whisper: ChatMessage.getWhisperRecipients('GM'),
+						content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${game.i18n.localize('TRAIT_RAMPAGE.STOP_CARD')}</p></div></div></div>`,
+					});
+				} else {
+					const damage = Math.max(0, Number(mm2Rampage.damage) - armorValue);
+					lines.push(game.i18n.format('TRAIT_RAMPAGE.CHAT_KNOCKED', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target }));
+					lines.push(game.i18n.format('TRAIT_RAMPAGE.CHAT_DAMAGE_LINE', { targetname: victimEntry.name, damage, armor: armorText }));
+					gmActions.push({
+						tokenId: victimEntry.tokenId,
+						addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'prone')),
+						label: `${traitsLabel}: ${game.i18n.format('TRAIT_RAMPAGE.CHAT_DAMAGE_LINE', { targetname: victimEntry.name, damage, armor: armorText })}`,
+					});
+					if (damage > 0) {
+						gmActions.push({
+							tokenId: victimEntry.tokenId,
+							toughnessChange: -damage,
+						});
+					}
+				}
+				const cardTitle = `<h4>${game.i18n.format('TRAIT_MM2.CHAT_REACTION_TITLE_ONE', { name: traitsLabel })}</h4>`;
+				await ChatMessage.create({
+					user: game.user.id,
+					speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+					rolls: [createRollData(rolls)],
+					content: `<div class="symbaroum chat ability"><div class="foreground">${cardTitle}<div class="finalTxt">${lines.map((l) => `<p>${traitsLabel}: ${l}</p>`).join('')}</div></div></div>`,
+				});
+				if (gmActions.length > 0) {
+					await createModifyTokenChatButton(gmActions);
+				}
+			});
+		}
+	}
+	/* Blitzschnell (§3.8): Taste der Angriffs-Ergebniskarte oeffnet den
+	 * Waffendialog des Angreifers MIT vorangehakter Freier-Angriff-Box
+	 * (dialog.js liest ecData.mm2SwiftFA) - aktive Pakete bleiben wie
+	 * immer beim Freien Angriff unterdrueckt (RAW "Zusatzangriffe ohne
+	 * aktive Faehigkeiten"); keine Rekursion (isSwiftFreeAttack). */
+	const mm2SwiftAttack = await chatItem.getFlag(game.system.id, 'mm2SwiftAttack');
+	if (mm2SwiftAttack) {
+		for (const s of html.querySelectorAll('.mm2-swift-freeattack')) {
+			s.addEventListener('click', async () => {
+				const token = canvas.tokens?.placeables?.find((t) => t.id === mm2SwiftAttack.tokenId);
+				const actor = token?.actor ?? game.actors?.get(mm2SwiftAttack.actorId) ?? null;
+				if (!actor) return;
+				let weapon = null;
+				if (mm2SwiftAttack.weaponId) weapon = actor.items?.get(mm2SwiftAttack.weaponId) ?? null;
+				if (!weapon) weapon = actor.items?.find((w) => w.type === 'weapon') ?? null;
+				if (!weapon) {
+					ui.notifications?.warn(game.i18n.localize('TRAIT_MM2.ERROR_NO_NATURAL_WEAPON'));
+					return;
+				}
+				await actor.enhancedAttackRoll(weapon, { mm2SwiftFA: true, isSwiftFreeAttack: true });
 			});
 		}
 	}
@@ -2897,3 +3202,39 @@ function preLocalizeConfig() {
 	localizeConfigObject(game.symbaroum.config.ATTRIBUTE_SELECTION, ['label']);
 	localizeConfigObject(game.symbaroum.config.WEAPON_TYPE_SELECTION, ['label']);
 }
+
+/* MM-Paket 2 v1 (Rudolfs Baufreigabe 24.11.2026, Konzept Rev. 2):
+   Verzoegerte Auflösung am ZUGBEGINN der KREATUR (A34-Nachbarschaft
+   zum A28-Tick): scannt alle Szenen-Token auf bind-Conditions, deren
+   flagData die ausstehende Verschlingens- (mm2DevourPending) bzw.
+   Greifklauen-Zug-Marke (mm2ClawPending) der JETZT aktiven Kreatur
+   traegt, und loest die zugehoerige Probe auf (item.js
+   mm2ResolveDevourPending / mm2ResolveClawPull - Verschlingen:
+   [ST<-ST, Robust ±2 je Stufe beidseitig], Greifklauen: [ST<-ST]).
+   Ausserhalb eines Kampfes loest nichts auf (SL manuell via Makro/
+   Karte - dokumentierte Grenze, kein Weltzeit-Pendant). */
+Hooks.on('updateCombat', async (combat, changed) => {
+	if (!game.user.isActiveGM) return;
+	if (!('turn' in changed) && !('round' in changed)) return;
+	const combatant = combat.combatant;
+	const creatureActor = combatant?.actor;
+	if (!creatureActor) return;
+	for (const token of canvas.tokens?.placeables ?? []) {
+		const tokenActor = token.actor;
+		if (!tokenActor) continue;
+		const bind = tokenActor.hasCondition?.('bind');
+		if (!bind) continue;
+		try {
+			const fd = bind.getFlag(game.system.id, 'flagData');
+			if (!fd) continue;
+			if (fd.mm2DevourPending && fd.mm2DevourPending.devourerActorId === creatureActor.id) {
+				await mm2ResolveDevourPending(token, creatureActor);
+			}
+			if (fd.mm2ClawPending && fd.mm2ClawPending.pullerActorId === creatureActor.id) {
+				await mm2ResolveClawPull(token, creatureActor);
+			}
+		} catch (mm2PendingError) {
+			game.symbaroum.log('MM-Paket 2: Zugbeginn-Aufloesung', mm2PendingError);
+		}
+	}
+});

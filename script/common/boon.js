@@ -1206,6 +1206,24 @@ export function getMissgunstFavour(actor) {
   return disfavoured ? { favour: -1, forced: true, labelKey: 'MISSGUNST.AUTOPARAM' } : { favour: 0, forced: false, labelKey: null };
 }
 
+/**
+ * MM-Paket 2 v1 (Gestaltwandel-Baustein, Rudolfs Baufreigabe „Kern MIT
+ * Gestaltwandel bauen"): Form-Gunst-Präzedenz nach getMissgunstFavour.
+ * RAW „Gestaltwandel" (Vault-Notiz): In der Bestiengestalt sind ALLE
+ * [Heimlichkeit]- und [Gewandtheit]-Proben wiederholbar (inkl. Vertei-
+ * digung) - als VORBELEGUNG des Gunst-Radios (favour +1, nicht ver-
+ * riegelt, Muster Todesprobe/Benommen), nur für die Attribute diskret
+ * und quick, nur im AKTIVEN Form-Zustand (shapeshift-Marker). Die
+ * Rückverwandlung läuft über den Kachel-Toggle (flagTest-Pfad), ein
+ * aktiver Marker wird also über die Kraft selbst beendet.
+ */
+export function getShapeshiftFavour(actor, attributeName) {
+  if (!actor) return { favour: 0, forced: false, labelKey: null };
+  if (attributeName !== 'discreet' && attributeName !== 'quick') return { favour: 0, forced: false, labelKey: null };
+  const inForm = actor.effects?.some((effect) => effect.statuses?.has?.('shapeshift'));
+  return inForm ? { favour: 1, forced: false, labelKey: 'SHAPESHIFT.AUTOPARAM' } : { favour: 0, forced: false, labelKey: null };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Gift v1 (Rudolfs Freigabe 08.11.2026): Giftresistent & Handbuch    */
 /* ------------------------------------------------------------------ */
