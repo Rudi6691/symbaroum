@@ -3821,6 +3821,33 @@ export class SymbaroumItem extends Item {
     return base;
   }
 
+  /* MM-Paket 1 (Rudolfs Baufreigabe 24.11.2026, B7-Backlog der Gift-Reihe):
+     Giftspucke als KLICKBARER Trait, Muster traitSetupPoisonous. Der
+     Trait-Klick ist ein Fernkampfangriff [Präzision<-Gewandtheit]
+     (CASTING_RES, askCastingAttribute false - RAW nutzt die Spucke
+     immer Präzision); NUR bei Treffer folgt die SEPARATE Giftresistenz
+     [Scharfsinn<-Stärke] (Verarbeitung im usePoison-Block der
+     standardPowerResult, Flag poisonResistSeparate), deren Scheitern den
+     Gift-DoT mit B5-Festwerten je Stufe legt (2/2, 3/3, 4/4).
+     Kein Waffenschaden - die Spucke wirkt allein über das Gift (Vault-
+     Notiz "Giftspucke.md"). Bewusst KEINE Reichweiten-Prüfung (Kurz,
+     SL-Angelegenheit, Muster der übrigen Trait-Angriffe). */
+  traitSetupPoisonspit(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.casting = game.symbaroum.config.CASTING_RES;
+    base.castingAttributeName = "accurate";
+    base.askCastingAttribute = false;
+    base.targetResistAttribute = "quick";
+    base.introText = game.i18n.localize("TRAIT_POISONSPIT.CHAT_INTRO");
+    base.usePoison = true;
+    base.poison = base.powerLvl.level;
+    // B5-Festwerte (Muster Giftig): Runden 2/3/4, Schaden 2/3/4 je Stufe
+    base.poisonFixedValues = true;
+    base.poisonResistSeparate = true;
+    return base;
+  }
+
   traitSetupRegeneration(base) {
     base.introText = game.i18n.localize("TRAIT_REGENERATION.CHAT_ACTION");
     base.casting = game.symbaroum.config.CASTING_NOT;
@@ -9188,6 +9215,218 @@ async function firesoulMasterPowerCounter(functionStuff, damageTot) {
   }
 }
 
+/* ================================================================
+ * MM-Paket 1 „Oberflächen-DoT & Gifte" (Rudolfs Baufreigabe 24.11.2026).
+ * Automatisierung der aufgeladenen Nahkampf-Monstermerkmale:
+ * - Säure-Angriff (acidicattack, Reaktion): unbewaffneter Treffer mit
+ *   Schaden legt einen Säure-DoT mit FESTEN RAW-Werten je Stufe
+ *   (3/3, 4/4, 5/5, config.MM1_ACID_*) - KEINE Widerstandsprobe
+ *   (Vault-Notiz "Säure-Angriff.md"), Anzeige auf der Angriffs-Karte
+ *   über die native Säurezeile (printAcid/acidChat, A28-Muster).
+ * - Lähmendes Gift (paralyzingvenom, passiv) und Infektiös
+ *   (infectious, Reaktion): Stärke-Einfachprobe des Opfers
+ *   (1W20 <= Stärke, Muster Troll-Regenerationsprobe; Meister:
+ *   [Stärke-5]) auf einer EIGENEN Reaktionskarte hinter der
+ *   Angriffs-Karte. Erfolg = benommen (dazed-Kanonik des
+ *   Elixier-Pakets, dazedPenalty 1, Zugende), Novize/Adept-Fehlschlag
+ *   = nur noch reaktive Aktionen (SL-Karte, keine Zustands-Engine),
+ *   Meister-Fehlschlag = vollständig gelähmt 1W8 (paralysis-Condition,
+ *   S3-Muster turnEnd/effectDuration/conditionData {}).
+ * - Säureblut (acidicblood, Verteidiger-Reaktion): Nahkampfangreifer
+ *   mit Schaden erleidet eine Verteidigungs-Einfachprobe
+ *   (1W20 <= Verteidigungswert), bei Misslingen Säure-DoT auf dem
+ *   ANGREIFER (Festwerte je Stufe) - Muster Feuerseele-Rückstoß
+ *   (eigene Reaktionskarte hinter der Angriffs-Karte).
+ * Säure läuft über die BESTEHENDE Condition "acid" (A28-Palette) und
+ * die A28-Runden-/DoT-Engine (Rüstung ignorierend, erster Tick im
+ * nächsten Zug des Opfers) - dieselbe Tick-Mechanik wie Säurebeschichtet,
+ * bewusst OHNE separates Widerstandsmodell (RAW kennt keines).
+ * Wirkeffekte des ANGREIFERS sammeln für flagDataArray des Angriffs
+ * (EINE GM-Karte pro Vorgang, v2.7), Säureblut bekommt als
+ * Nachschalter-Muster wie Feuerseele eine eigene GM-Karte.
+ * Anker ist der unbewaffnet/natürliche Angriff (weapon.reference
+ * 'unarmed', Vault-Konvention der On-Hit-Merkmale); ALLE Merkmale
+ * wirken ohne Aktivierungstoggle (RAW kennt keine Abwahl, SL kann
+ * Effektsymbole jederzeit löschen - Feuerseele-Präzedenz).
+ * ================================================================ */
+async function mm1AttackerTraits(functionStuff, damageTot, targetDies, rollData, templateData) {
+  const result = { flags: [], reactionCard: null };
+  try {
+    // Payload reitet nur auf einem Rüstung durchdringenden Treffer mit
+    // Schaden (Säure muss laut Vault die Rüstung des Ziels durchdringen;
+    // ein totes Opfer lähmt/infiziert nicht mehr)
+    if (damageTot <= 0 || targetDies) return result;
+    if (functionStuff.isAlternativeDamage) return result;
+    if (!rollData.some((r) => r.trueActorSucceeded)) return result;
+    const weaponRef = functionStuff.weapon?.system?.reference ?? functionStuff.weapon?.reference;
+    if (weaponRef !== "unarmed") return result;
+    const attacker = functionStuff.actor;
+    const victim = functionStuff.targetData;
+    if (!attacker || !victim?.actor || !victim.tokenId) return result;
+    const cfg = game.symbaroum.config;
+    const acidEffect = foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "acid"));
+    const acidRounds = (lvl) => cfg.MM1_ACID_ROUNDS[lvl] ?? cfg.MM1_ACID_ROUNDS[3];
+    const acidDamage = (lvl) => cfg.MM1_ACID_DAMAGE[lvl] ?? cfg.MM1_ACID_DAMAGE[3];
+
+    // --- Säure-Angriff: DoT ohne Widerstandsprobe, Zeile auf der Angriffs-Karte ---
+    const acidLvl = getActorAbilityLevel(attacker, "acidicattack");
+    if (acidLvl > 0) {
+      const rounds = acidRounds(acidLvl);
+      const damage = acidDamage(acidLvl);
+      templateData.printAcid = true;
+      if (victim.actor.hasCondition?.("acid")) {
+        // NOTEXTEND (Muster Gift): bereits säuerndes Ziel läuft weiter
+        templateData.acidChat = game.i18n.format("TRAIT_ACIDICATTACK.CHAT_NOTEXTEND", { targetname: victim.name });
+      } else {
+        const appliedLine = game.i18n.format("TRAIT_ACIDICATTACK.CHAT_APPLIED", { targetname: victim.name, damage, rounds });
+        templateData.acidChat = appliedLine;
+        result.flags.push({
+          tokenId: victim.tokenId,
+          addEffect: acidEffect,
+          effectDuration: rounds,
+          label: appliedLine,
+          dot: {
+            label: "CONDITION.ACID",
+            formula: String(damage),
+            fixedDamage: damage,
+            resource: "toughness",
+            damageType: "acid",
+            stackable: false,
+            separateRoll: false,
+          },
+        });
+      }
+    }
+
+    // --- Lähmendes Gift + Infektiös: Proben auf der eigenen Reaktionskarte ---
+    const paralyzeLvl = getActorAbilityLevel(attacker, "paralyzingvenom");
+    const infectiousLvl = getActorAbilityLevel(attacker, "infectious");
+    const lines = [];
+    const reactionRolls = [];
+    if (paralyzeLvl > 0) {
+      const strongVal = getAttributeValue(victim.actor, "strong");
+      // Meister: [Stärke-5] (Vault-Notiz "Lähmendes Gift.md")
+      const targetVal = paralyzeLvl >= 3 ? strongVal - 5 : strongVal;
+      const probe = await new Roll("1d20").evaluate();
+      reactionRolls.push(probe);
+      const traitLabel = game.i18n.localize("TRAIT_LABEL.PARALYZINGVENOM");
+      if (probe.total <= targetVal) {
+        // Erfolg: benommen (Benommen-Kanonik des Elixier-Pakets, -1 auf
+        // alle Erfolgsproben bis zum Zugende - Näherung der RAW-"zwei
+        // Chancen zu scheitern", dokumentierte bewusste Abweichung)
+        result.flags.push({
+          tokenId: victim.tokenId,
+          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "dazed")),
+          turnEnd: true,
+          effectDuration: 1,
+          conditionData: { dazedPenalty: 1 },
+          label: `${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_DAZED", { targetname: victim.name, roll: probe.total, target: targetVal })}`,
+        });
+        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_DAZED", { targetname: victim.name, roll: probe.total, target: targetVal })}</p>`);
+      } else if (paralyzeLvl >= 3) {
+        // Meister-Fehlschlag: vollständig gelähmt 1W8 Runden (S3-Muster)
+        const roundsRoll = await new Roll("1d8").evaluate();
+        reactionRolls.push(roundsRoll);
+        result.flags.push({
+          tokenId: victim.tokenId,
+          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "paralysis")),
+          turnEnd: true,
+          effectDuration: roundsRoll.total,
+          conditionData: {},
+          label: `${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_PARALYZED", { targetname: victim.name, roll: probe.total, target: targetVal, rounds: roundsRoll.total })}`,
+        });
+        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_PARALYZED", { targetname: victim.name, roll: probe.total, target: targetVal, rounds: roundsRoll.total })}</p>`);
+      } else {
+        // Novize/Adept-Fehlschlag: nur noch reaktive Aktionen - keine
+        // Zustands-Engine im System, SL wendet die Einschränkung an
+        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_PARALYZINGVENOM.CHAT_REACTIVE", { targetname: victim.name, roll: probe.total, target: targetVal })}</p>`);
+      }
+    }
+    if (infectiousLvl > 0) {
+      const strongVal = getAttributeValue(victim.actor, "strong");
+      const probe = await new Roll("1d20").evaluate();
+      reactionRolls.push(probe);
+      const traitLabel = game.i18n.localize("TRAIT_LABEL.INFECTIOUS");
+      if (probe.total <= strongVal) {
+        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_INFECTIOUS.CHAT_RESISTED", { targetname: victim.name, roll: probe.total, target: strongVal })}</p>`);
+      } else {
+        // Krankheit je Stufe (leicht/mittelschwer/schwer) - keine
+        // Krankheits-Engine im System, SL wendet die Folge an
+        const severity = game.i18n.localize("TRAIT_INFECTIOUS.SEVERITY_" + infectiousLvl);
+        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_INFECTIOUS.CHAT_DISEASE", { targetname: victim.name, roll: probe.total, target: strongVal, severity })}</p>`);
+      }
+    }
+    if (lines.length > 0) {
+      result.reactionCard = {
+        titleHtml: `<h4>${game.i18n.localize("TRAIT_MM1.CHAT_REACTION_TITLE")}</h4>`,
+        lines,
+        rolls: reactionRolls,
+      };
+    }
+  } catch (mm1Error) {
+    game.symbaroum.log("MM-Paket 1: Angreifer-Merkmale", mm1Error);
+  }
+  return result;
+}
+
+/* MM-Paket 1: Säureblut - Verteidiger-Reaktion NACH der Angriffs-Karte
+   (Nachschalter-Muster Feuerseele-Rückstoß). Wer die Kreatur im
+   Nahkampf trifft und Schaden verursacht, muss eine Verteidigungs-
+   Einfachprobe bestehen (1W20 <= Verteidigungswert des Angreifers),
+   sonst erfasst ihn die Säure (Festwerte je Stufe, Condition acid,
+   A28-Engine). */
+async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
+  try {
+    if (damageTot <= 0) return;
+    if (functionStuff.isAlternativeDamage) return;
+    if (!rollData.some((r) => r.trueActorSucceeded)) return;
+    const defenderActor = functionStuff.targetData?.actor;
+    if (!defenderActor) return;
+    const lvl = getActorAbilityLevel(defenderActor, "acidicblood");
+    if (lvl < 1) return;
+    const isMeleeWeapon = Boolean(functionStuff.weapon?.isMelee ?? functionStuff.weapon?.system?.isMelee);
+    if (!isMeleeWeapon) return;
+    const attackerActor = functionStuff.actor;
+    if (!attackerActor || !functionStuff.tokenId) return;
+    const cfg = game.symbaroum.config;
+    const defenceVal = Number(attackerActor.system?.combat?.defense ?? 0);
+    const probe = await new Roll("1d20").evaluate();
+    const lines = [];
+    if (probe.total <= defenceVal) {
+      lines.push(`<p>${game.i18n.format("TRAIT_ACIDICBLOOD.CHAT_RESISTED", { targetname: functionStuff.actingCharName, roll: probe.total, target: defenceVal })}</p>`);
+    } else if (attackerActor.hasCondition?.("acid")) {
+      // NOTEXTEND (Muster Gift): bereits säuerndes Ziel läuft weiter
+      lines.push(`<p>${game.i18n.format("TRAIT_ACIDICBLOOD.CHAT_NOTEXTEND", { targetname: functionStuff.actingCharName })}</p>`);
+    } else {
+      const rounds = cfg.MM1_ACID_ROUNDS[lvl] ?? cfg.MM1_ACID_ROUNDS[3];
+      const damage = cfg.MM1_ACID_DAMAGE[lvl] ?? cfg.MM1_ACID_DAMAGE[3];
+      const appliedLine = game.i18n.format("TRAIT_ACIDICBLOOD.CHAT_APPLIED", { targetname: functionStuff.actingCharName, damage, rounds });
+      lines.push(`<p>${appliedLine}</p>`);
+      await createModifyTokenChatButton([
+        {
+          tokenId: functionStuff.tokenId,
+          addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "acid")),
+          effectDuration: rounds,
+          label: appliedLine,
+          dot: {
+            label: "CONDITION.ACID",
+            formula: String(damage),
+            fixedDamage: damage,
+            resource: "toughness",
+            damageType: "acid",
+            stackable: false,
+            separateRoll: false,
+          },
+        },
+      ]);
+    }
+    const title = `<h4>${game.i18n.localize("TRAIT_LABEL.ACIDICBLOOD")}</h4>`;
+    await postMaintainChainCard({ actor: defenderActor, actingCharName: defenderActor.name }, title, lines, [probe]);
+  } catch (mm1Error) {
+    game.symbaroum.log("MM-Paket 1: Säureblut", mm1Error);
+  }
+}
+
 /* Kraefte-Paket 1 (Sphaere): Marker-Daten robust lesen - die flagData ist
    ab Paket 1 ein OBJEKT {level, choice} (Aktivierungsdialog-Wahlmodell B);
    Legacy-Marker tragen die nackte Stufenzahl, choice bleibt dann null
@@ -12089,6 +12328,17 @@ async function attackResult(rollData, functionStuff) {
       templateData = Object.assign(templateData, poisonRes);
     }
   }
+  // MM-Paket 1 „Oberflächen-DoT & Gifte" (Rudolfs Baufreigabe 24.11.2026):
+  // Angreifer-seitige Nahkampf-Merkmale (Säure-Angriff, Lähmendes Gift,
+  // Infektiös) - Säure auf der NATIVEN Säurezeile der Angriffs-Karte
+  // (printAcid/acidChat), Proben/Karteninformationen auf einer eigenen
+  // Reaktionskarte nach der Angriffs-Karte, Zustands-Einträge in DIESEM
+  // flagDataArray (EINE GM-Karte pro Vorgang, v2.7). Kein Aktivierungs-
+  // toggle (RAW kennt keine Abwahl, SL löscht Symbole - Feuerseele-Muster).
+  const mm1Traits = await mm1AttackerTraits(functionStuff, damageTot, targetDies, rollData, templateData);
+  if (mm1Traits.flags.length > 0) {
+    flagDataArray.push(...mm1Traits.flags);
+  }
   // Elixiere v1.5 (Gift auftragen, Rudolfs Freigabe 02.11.): Waffenbeschichtung
   // aus dem INVENTAR - der Spieler hat im Wuerfeldialog einen Gift-Dosis-
   // Stapel gewaehlt (dialog.js, 1 Dosis je Angriff abgebucht, Muster
@@ -12457,6 +12707,12 @@ async function attackResult(rollData, functionStuff) {
   };
   ChatMessage.applyMode(chatData, "public");
   let NewMessage = await ChatMessage.create(chatData);
+  // MM-Paket 1: Reaktionskarte der Angreifer-Merkmale (Lähmendes Gift/
+  // Infektiös-Proben) NACH der Angriffs-Karte (Optik nach Feuerseele-
+  // Rückstoß: Wirkung folgt dem auslösenden Treffer in der Chat-Folge)
+  if (mm1Traits.reactionCard) {
+    await postMaintainChainCard(functionStuff, mm1Traits.reactionCard.titleHtml, mm1Traits.reactionCard.lines, mm1Traits.reactionCard.rolls);
+  }
   // Kräfte-Paket 1 v1.3 (Anhang): Aktivierungs-Dialog nach der Karte
   // (Besitzer-/GM-Check im Dialog selbst; kein Karten-Flag, kein
   // hooks.js-Handler mehr - die v1-Taste ist ersetzt).
@@ -12873,6 +13129,12 @@ async function attackResult(rollData, functionStuff) {
   /* Kraefte-Paket 1 (Baustein A): Feuerseele-Rueckstoss - NK Nov/Adept,
      NK+FK Meister, durch die Ruestung des Angreifers. */
   await firesoulRetaliation(functionStuff, damageTot, rollData);
+  // MM-Paket 1: Säureblut-Verteidigerreaktion als Nachschalter wie der
+  // Feuerseele-Rückstoß (eigene Karte + eigene GM-Karte hinter der
+  // Angriffs-Karte) - auch der Rueckwaertsschwung und alle weiteren
+  // Nahkampftreffer loesen die Reaktion aus (RAW: "wer die Kreatur im
+  // Nahkampf trifft und ihr Schaden zufügt")
+  await mm1AcidicBlood(functionStuff, damageTot, rollData);
   return templateData;
 }
 
@@ -14024,33 +14286,56 @@ export async function standardPowerResult(rollData, functionStuff) {
   }
 
   if (functionStuff.usePoison && functionStuff.poison > 0) {
-    let poisonRes = await poisonCalc(functionStuff, rollData[0]);
-    // Gift v1: nur bei echtem Giftwurf auf die Karte (Neutralisierung
-    // durch Giftresistent zeigt poisonCalc ohne eigenen Wurf an).
-    if (poisonRes.roll) rolls.push(poisonRes.roll);
-    // Elixiere v1.6: konstanter Gift-Rundenschaden als eigener Wurf auf der Karte
-    if (poisonRes.poisonDotRoll) rolls.push(poisonRes.poisonDotRoll);
+    /* MM-Paket 1 (Giftspucke): Flag poisonResistSeparate (traitSetupPoisonspit)
+       - der Angriffswurf [Präzision<-Gewandtheit] ist NICHT die Resistenz;
+       bei TREFFER folgt die SEPARATE Giftresistenz [Scharfsinn<-Stärke]
+       (RAW: das Opfer widersteht dem Gift mit [Stärke<-Scharfsinn], Vault-
+       Notiz "Giftspucke.md") als eigener einseitiger Wurf - Funktion wie die
+       Giftprobe im Angriffs-Pfad (Muster baseRoll-Giftprobe im
+       Angriffs-Block der attackResult).
+       Bei ANGRIFFS-MISSERFELG läuft KEIN Giftpfad: die Karte zeigt allein
+       den Fehlschlag (bewusster Unterschied zum Giftig-Pfad, dessen
+       Aktionswurf identisch mit der Resistenz ist). */
+    let poisonRes = null;
+    if (functionStuff.poisonResistSeparate === true) {
+      if (rollData[0]?.trueActorSucceeded) {
+        const spitResistRoll = await baseRoll(functionStuff.actor, "cunning", functionStuff.targetData.actor, "strong", 0, 0, functionStuff.resistRoll);
+        // Wuerfelpaar auf der Karte sichtbar machen (Muster Beschichtungs-
+        // probe: rolls.push(...coatingRoll.rolls))
+        if (spitResistRoll?.rolls) rolls.push(...spitResistRoll.rolls);
+        poisonRes = await poisonCalc(functionStuff, spitResistRoll);
+      }
+    } else {
+      poisonRes = await poisonCalc(functionStuff, rollData[0]);
+    }
+    if (poisonRes) {
+      // Gift v1: nur bei echtem Giftwurf auf die Karte (Neutralisierung
+      // durch Giftresistent zeigt poisonCalc ohne eigenen Wurf an).
+      if (poisonRes.roll) rolls.push(poisonRes.roll);
+      // Elixiere v1.6: konstanter Gift-Rundenschaden als eigener Wurf auf der Karte
+      if (poisonRes.poisonDotRoll) rolls.push(poisonRes.poisonDotRoll);
 
-    introText = poisonRes.poisonChatIntro;
-    resultText = poisonRes.poisonChatResult;
-    if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
-    // Gift v1 B3 (Stufen des Giftmischers): Dosis-Abbuchung erst bei
-    // GELUNGENER Vergiftung (poisonApplied), nie bei Misslingen oder
-    // Neutralisierung; poisonFromCoat = der Wurf lief schon ueber eine
-    // abgebuchte Beschichtungs-Dosis, kein zweiter Verbrauch.
-    // Novize: 1 Dosis je vergiftetem Treffer (je Stufe).
-    // Adept/Meister: 1 Dosis startet die Beschichtung fuer die GANZE
-    // Kampfszene (Condition poisoncoat); laeuft dieselbe Stufe bereits,
-    // wird NICHT neu abgebucht.
-    if (poisonRes.poisonApplied && functionStuff.poisonChosen > 0 && !functionStuff.poisonFromCoat) {
-      const poisonerLevel = getActorAbilityLevel(functionStuff.actor, "poisoner");
-      if (poisonerLevel === 1) {
-        await consumePoisonDoseByGrade(functionStuff.actor, functionStuff.poisonChosen);
-      } else if (poisonerLevel >= 2) {
-        const coatGrade = getActivePoisonCoatGrade(functionStuff.actor);
-        if (coatGrade !== functionStuff.poisonChosen) {
-          if (await consumePoisonDoseByGrade(functionStuff.actor, functionStuff.poisonChosen)) {
-            await setPoisonCoat(functionStuff.actor, functionStuff.poisonChosen);
+      introText = poisonRes.poisonChatIntro;
+      resultText = poisonRes.poisonChatResult;
+      if (poisonRes.flagData) flagDataArray.push(poisonRes.flagData);
+      // Gift v1 B3 (Stufen des Giftmischers): Dosis-Abbuchung erst bei
+      // GELUNGENER Vergiftung (poisonApplied), nie bei Misslingen oder
+      // Neutralisierung; poisonFromCoat = der Wurf lief schon ueber eine
+      // abgebuchte Beschichtungs-Dosis, kein zweiter Verbrauch.
+      // Novize: 1 Dosis je vergiftetem Treffer (je Stufe).
+      // Adept/Meister: 1 Dosis startet die Beschichtung fuer die GANZE
+      // Kampfszene (Condition poisoncoat); laeuft dieselbe Stufe bereits,
+      // wird NICHT neu abgebucht.
+      if (poisonRes.poisonApplied && functionStuff.poisonChosen > 0 && !functionStuff.poisonFromCoat) {
+        const poisonerLevel = getActorAbilityLevel(functionStuff.actor, "poisoner");
+        if (poisonerLevel === 1) {
+          await consumePoisonDoseByGrade(functionStuff.actor, functionStuff.poisonChosen);
+        } else if (poisonerLevel >= 2) {
+          const coatGrade = getActivePoisonCoatGrade(functionStuff.actor);
+          if (coatGrade !== functionStuff.poisonChosen) {
+            if (await consumePoisonDoseByGrade(functionStuff.actor, functionStuff.poisonChosen)) {
+              await setPoisonCoat(functionStuff.actor, functionStuff.poisonChosen);
+            }
           }
         }
       }

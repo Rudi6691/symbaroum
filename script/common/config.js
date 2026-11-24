@@ -2110,6 +2110,14 @@ SYMBAROUM.POISON_GRADE_NPC_DAMAGE = Object.fromEntries(
 );
 SYMBAROUM.POISONOUS_FIXED_ROUNDS = { 1: 2, 2: 3, 3: 4 };
 SYMBAROUM.POISONOUS_FIXED_DAMAGE = { 1: 2, 2: 3, 3: 4 };
+/* MM-Paket 1 „Oberflächen-DoT & Gifte" (Rudolfs Baufreigabe 24.11.2026):
+   Feste RAW-Werte der Säure-Merkmale je Stufe - Säure-Angriff und Säureblut
+   (Vault-Notizen "Säure-Angriff.md"/"Säureblut.md"): Novize 3 Runden à 3,
+   Adept 4 à 4, Meister 5 à 5. Muster B5 (Giftig): Merkmals-DoTs mit festen
+   RAW-Werten OHNE Würfel-Variante - die Baustein-0-Konvention (SC würfelt,
+   NSC fix) greift bewusst NICHT, weil der RAW-Text flache Werte nennt. */
+SYMBAROUM.MM1_ACID_ROUNDS = { 1: 3, 2: 4, 3: 5 };
+SYMBAROUM.MM1_ACID_DAMAGE = { 1: 3, 2: 4, 3: 5 };
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
    eine Wuerfelstufe gesenkt (1d8 -> 1d6 -> 1d4 -> neutralisiert); exotische
    SL-kalibrierte Formeln bleiben unberuehrt (dokumentierte Begrenzung). */
