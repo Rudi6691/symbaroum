@@ -2094,7 +2094,7 @@
   "CONDITION.CALMED": "Beruhigt",
   "CONDITION.DAZED": "Benommen",
   "CONDITION.MISSGUNST": "Missgunst",
-  "CONDITION.MISSGUNST.AUTOPARAM": "Missgunst",
+  "MISSGUNST.AUTOPARAM": "Missgunst",
   "CONDITION.POISONCOAT": "Waffe vergiftet (Szene)",
   "CONDITION.EPILEPSY": "Epilepsie-Anfall (−1)",
   "CONDITION.PARALYSIS": "Gelähmt",

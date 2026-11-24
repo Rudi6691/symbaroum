@@ -2094,7 +2094,7 @@
   "CONDITION.CALMED": "Calmed",
   "CONDITION.DAZED": "Dazed",
   "CONDITION.MISSGUNST": "Disfavoured",
-  "CONDITION.MISSGUNST.AUTOPARAM": "Disfavoured",
+  "MISSGUNST.AUTOPARAM": "Disfavoured",
   "CONDITION.POISONCOAT": "Weapon Poisoned (scene)",
   "CONDITION.EPILEPSY": "Epileptic Fit (−1)",
   "CONDITION.PARALYSIS": "Paralyzed",

@@ -1196,7 +1196,14 @@ export function getWeakeningHymnFavour(actor) {
 export function getMissgunstFavour(actor) {
   if (!actor) return { favour: 0, forced: false, labelKey: null };
   const disfavoured = actor.effects?.some((effect) => effect.statuses?.has?.('missgunst'));
-  return disfavoured ? { favour: -1, forced: true, labelKey: 'CONDITION.MISSGUNST.AUTOPARAM' } : { favour: 0, forced: false, labelKey: null };
+  // v1.1-Fix: Der autoParams-Key liegt auf einem TOP-LEVEL-Praefix
+  // (Praezedenz EPILEPSY.AUTOPARAM / POWER_WEAKENING_HYMN.AUTOPARAM),
+  // NICHT unter dem flachen Blatt CONDITION.MISSGUNST - Foundry expandiert
+  // die Sprachdatei zu einem verschachtelten Objekt, ein Blatt darf nicht
+  // gleichzeitig Zweig sein, sonst faellt die GESAMTE Sprachdatei auf
+  // rohe i18n-Keys zurueck (Rudolfs Befund „Alle Sprachbezeichnungen
+  // als i18n-Keywords", 24.11.).
+  return disfavoured ? { favour: -1, forced: true, labelKey: 'MISSGUNST.AUTOPARAM' } : { favour: 0, forced: false, labelKey: null };
 }
 
 /* ------------------------------------------------------------------ */
