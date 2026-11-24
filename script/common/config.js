@@ -2057,6 +2057,36 @@ SYMBAROUM.REZEPTUR_ORIGIN_SELECTION = {
    Antidotstufe (Ausfuehrung im GM-Apply-Pfad hooks.js, Metadaten in
    flagData.conditionData.poison { damage, formula, rounds, roundsFormula }). */
 
+/* Monstermerkmale-Baustein 0 (Rudolfs Freigabe 24.11.2026): ZENTRALE
+   SC/NSC-KONVENTION - "SC wuerfeln, NSC bekommen halbe Wuerfelseiten
+   als Festwert" (1d4<->2, 1d6<->3, 1d8<->4, 1d10<->5, 1d12<->6).
+   Die Konvention war bisher an drei Stellen unabhaengig implementiert:
+   actor.js Anzeige-/Wurfpfad (diceSides/2), die Gift-Tabelle
+   POISON_GRADE_NPC_DAMAGE und die A35-Regeneration (wuorfelte auch
+   bei NSC). Ab Baustein 0 ist DIESE Block der eine Ursprungsort:
+   bestehende Muster rufen die Helfer, und jede kuenftige
+   Automatisierung (Monstermerkmale-Pakete 1-5) nutzt die Helfer statt
+   eigener Umrechnungen. NSC-Literale in Sonderwegen (Feuerschutz
+   3/5, NSC-Merkmalsschaeden) sind Adoptionskandidaten der MM-Pakete. */
+SYMBAROUM.npcFixedFromSides = function (diceSides) {
+	return Math.max(0, Math.round(diceSides / 2));
+};
+/* Formel-Variante: "1d8" -> 4; nichts Gefundenes -> 0. */
+SYMBAROUM.npcFixedFromDice = function (formula) {
+	const m = String(formula ?? "").match(/d\s*(\d+)/i);
+	return m ? SYMBAROUM.npcFixedFromSides(parseInt(m[1], 10)) : 0;
+};
+/* SC/NSC-Gate fuer Dot-Bloecke (Muster A35-Regeneration, Gift-Engine):
+   SC behalten die Wuerfel-Formel (der Tick wuerfelt je Runde); NSC
+   bekommen den Festwert als dot.fixedDamage (der Tick uebernimmt ihn
+   ohne Wurf - Elixiere-v1.6-Festwertmodell der A28-Engine). */
+SYMBAROUM.dotDiceOrNpcFixed = function (isPlayer, formula) {
+	const f = String(formula ?? "").trim();
+	if (isPlayer) return { formula: f };
+	const fixed = SYMBAROUM.npcFixedFromDice(f);
+	return { formula: String(fixed), fixedDamage: fixed };
+};
+
 /* Gift v1 (Rudolfs Freigabe 08.11.2026): Stufenmodelle der Gift-Engine.
    B2: Der Rundenschaden ist gradabhaengig - PCs (bzw. Monster als Opfer)
    wuerfeln je Schadensstufe 1d4/1d6/1d8, NPC-Angreifer nutzen den fixen
@@ -2069,7 +2099,15 @@ SYMBAROUM.REZEPTUR_ORIGIN_SELECTION = {
    B3-Meister: Gift zaehlt eine Stufe hoeher (Schaden UND Dauer), ein
    bereits starkes Gift gibt stattdessen Gunst auf die Giftprobe. */
 SYMBAROUM.POISON_GRADE_DAMAGE = { 1: "1d4", 2: "1d6", 3: "1d8" };
-SYMBAROUM.POISON_GRADE_NPC_DAMAGE = { 1: 2, 2: 3, 3: 4 };
+/* Baustein 0: NPC-Spiegelwerte der Grad-Wuerfel ABGELEITET aus
+   POISON_GRADE_DAMAGE ueber die zentrale Konvention (ergibt wie zuvor
+   die gepflegte Tabelle 2/3/4). POISONOUS_FIXED_DAMAGE/ROUNDS bleiben
+   UNANGETASTET UND UNABGELEITET: B5 sind feste RAW-Werte des Merkmal
+   Giftig je Stufe, KEINE Wuerfel-Spiegelung (die Wertgleichheit mit
+   der NPC-Tabelle ist Koinzidenz, keine Quelle). */
+SYMBAROUM.POISON_GRADE_NPC_DAMAGE = Object.fromEntries(
+	Object.entries(SYMBAROUM.POISON_GRADE_DAMAGE).map(([grade, dice]) => [grade, SYMBAROUM.npcFixedFromDice(dice)])
+);
 SYMBAROUM.POISONOUS_FIXED_ROUNDS = { 1: 2, 2: 3, 3: 4 };
 SYMBAROUM.POISONOUS_FIXED_DAMAGE = { 1: 2, 2: 3, 3: 4 };
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um

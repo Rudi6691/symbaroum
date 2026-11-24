@@ -1333,15 +1333,21 @@ Hooks.on('updateWorldTime', async (worldTime) => {
 /* A35 - Regeneration Auto-Tick (GO erteilt 23.10.). The regeneration trait
    becomes engine-managed: when a combatant with the trait enters a combat,
    the GM client equips them with the regeneration condition whose dot block
-   carries the new 'heal' resource - 1d4/1d6/1d8 per trait level (GRW) - and
-   NO durationRounds, so the A28 round/DoT engine ticks the healing at the
-   START of the carrier's own turn forever (outside a combat nothing ticks,
-   K6 precedent; the symbol itself is permanent like the trait). Double
-   application is guarded (hasCondition), re-entering a combat re-equips.
-   The trait's manual click stays available for ad-hoc healing OUTSIDE the
-   automation - in combat the symbol ticks, no manual rolls needed.
-   Aborting mid-fight (e.g. a troll set on fire): the GM removes the symbol
-   (drag off) or runs the A35 abort macro from the delivery doc. */
+   carries the new 'heal' resource - 1d4/1d6/1d8 per trait level (GRW) for
+   player characters - and NO durationRounds, so the A28 round/DoT engine
+   ticks the healing at the START of the carrier's own turn forever (outside
+   a combat nothing ticks, K6 precedent; the symbol itself is permanent
+   like the trait). Double application is guarded (hasCondition),
+   re-entering a combat re-equips. The trait's manual click stays available
+   for ad-hoc healing OUTSIDE the automation - in combat the symbol ticks,
+   no manual rolls needed. Aborting mid-fight (e.g. a troll set on fire):
+   the GM removes the symbol (drag off) or runs the A35 abort macro from
+   the delivery doc.
+   Monstermerkmale-Baustein 0 (Rudolfs Entscheidung 24.11.): die zentrale
+   SC/NSC-Konvention gilt ab hier auch fuer die Regeneration - SC wuerfeln
+   die Wuerfelwerte (1d4/1d6/1d8) je Runde, NSC erhalten den festen
+   Spiegelwert 2/3/4 (halbe Wuerfelseiten, DE-RAW) als dot.fixedDamage,
+   der Tick uebernimmt ihn ohne Wurf. Vorher wuerfelten auch NSC. */
 Hooks.on('createCombatant', async (combatant) => {
 	if (!game.user.isActiveGM) return;
 	const actor = combatant.actor;
@@ -1354,9 +1360,10 @@ Hooks.on('createCombatant', async (combatant) => {
 	// to tier 1 so the symbol still ticks
 	const ts = traitItem.system;
 	const level = ts?.master?.isActive ? 3 : ts?.adept?.isActive ? 2 : 1;
-	const formula = level >= 3 ? '1d8' : level === 2 ? '1d6' : '1d4';
+	const regenFormula = level >= 3 ? '1d8' : level === 2 ? '1d6' : '1d4';
+	const dotCfg = game.symbaroum.config.dotDiceOrNpcFixed(!!actor.system.isPlayer, regenFormula);
 	await actor.addCondition('regeneration', {
-		dot: { label: 'TRAIT_LABEL.REGENERATION', formula, resource: 'heal', separateRoll: false },
+		dot: { label: 'TRAIT_LABEL.REGENERATION', resource: 'heal', separateRoll: false, ...dotCfg },
 	});
 	const regenName = combatant.token?.name ?? actor.token?.name ?? actor.name;
 	await ChatMessage.create({

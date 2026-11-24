@@ -515,7 +515,7 @@ export class SymbaroumActor extends Actor {
 				// allDefenseProtNPC contains a 0 if npc
 				diceRoller = this.system.isPlayer ? "0" : "";
 			} else if (!item.system.isStackableArmor) {
-				diceRoller = this.system.isPlayer ? `1d${diceSides}` : diceSides / 2;
+				diceRoller = this.system.isPlayer ? `1d${diceSides}` : game.symbaroum.config.npcFixedFromSides(diceSides);
 				unfavourPcProt = `2d${diceSides}kl${allDefenseProt}`;
 			}
 			let finalProtText = diceRoller + (this.system.isPlayer ? allDefenseProt : allDefenseProtNPC) + "";
@@ -535,7 +535,7 @@ export class SymbaroumActor extends Actor {
 				displayText: finalProtText.replace(/(d1\[[^\]]+\])/g, ""),
 				displayTextShort: finalProtText.replace(/(d1\[[^\]]+\])/g, "").replace(/\[[^\]]+\]/g, ""),
 				protectionPc: finalProtText,
-				protectionNpc: diceSides / 2 + allDefenseProtNPC + "",
+				protectionNpc: game.symbaroum.config.npcFixedFromSides(diceSides) + allDefenseProtNPC + "",
 				unfavourPcProt: unfavourPcProt,
 				tooltip: tooltip,
 				impeding: impeding,
@@ -660,11 +660,11 @@ export class SymbaroumActor extends Actor {
 			});
 			// game.symbaroum.log("Weapon stats", item.name,"attacks", numAttacks, "1d"+diceSides,"plus ",plusAttacksNPC, "single", singleAttackNPC, "first", firstAttackNPC, "Allattacks", allAttacksNPC, "npcDamage", npcDamage);
 			// game.symbaroum.log("Weapon stats", item.name,"attacks", numAttacks, "1d"+diceSides,"plus ",plusAttacks, "single", singleAttack, "first", firstAttack, "Allattacks", allAttacks);
-			npcDamage = diceSides / 2 + npcDamage; // TODO max dice sides == 12
+			npcDamage = game.symbaroum.config.npcFixedFromSides(diceSides) + npcDamage; // TODO max dice sides == 12
 
 			// Display Npc damage is:
 			for (let i = 0; i < numAttacks; i++) {
-				let dam = diceSides / 2 + (i == 0 ? firstAttackNPC : 0) + plusAttacksNPC + allAttacksNPC;
+				let dam = game.symbaroum.config.npcFixedFromSides(diceSides) + (i == 0 ? firstAttackNPC : 0) + plusAttacksNPC + allAttacksNPC;
 				displayText += dam;
 				if (!game.settings.get("symbaroum", "showNpcAttacks")) {
 					break;
@@ -678,7 +678,7 @@ export class SymbaroumActor extends Actor {
 			let singleText = "";
 			if (game.settings.get("symbaroum", "showNpcAttacks")) {
 				for (let i = 0; i < singleAttackNPC.length; i++) {
-					let dam = diceSides / 2 + firstAttackNPC + allAttacksNPC + singleAttackNPC[i];
+					let dam = game.symbaroum.config.npcFixedFromSides(diceSides) + firstAttackNPC + allAttacksNPC + singleAttackNPC[i];
 					singleText += dam + " ";
 					if (i + 1 < singleAttackNPC.length) {
 						// not last element
@@ -690,7 +690,7 @@ export class SymbaroumActor extends Actor {
 				}
 			}
 			baseDamage = `1d${diceSides}`;
-			let baseDamageNPC = diceSides / 2;
+			let baseDamageNPC = game.symbaroum.config.npcFixedFromSides(diceSides);
 			if (weaponModifiers.specialEffects.includes(game.symbaroum.config.DAM_FAVOUR)) {
 				baseDamage = `2d${diceSides}kh`;
 				damageFavour = 1;
