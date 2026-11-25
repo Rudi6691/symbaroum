@@ -2200,7 +2200,7 @@ SYMBAROUM.MM2_FALL_SOFT_REDUCE = 5;
    (actor.js usePower) ist fuer diese Referenzen offen. Kompendium-
    Merkmale tragen teils hasLevels ohne aktivierte Stufe - die Liste
    ist die eine Kanonik-Stelle fuer kuenftige stufen-lose Merkmale. */
-SYMBAROUM.LEVELLESS_TRAITS = ["grapplingtongue"];
+SYMBAROUM.LEVELLESS_TRAITS = ["grapplingtongue", "amphibian"];
 SYMBAROUM.MM2_ROBUST_BONUS_PER_LEVEL = 2;
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
    eine Wuerfelstufe gesenkt (1d8 -> 1d6 -> 1d4 -> neutralisiert); exotische

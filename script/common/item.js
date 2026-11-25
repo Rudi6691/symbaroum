@@ -10048,12 +10048,17 @@ async function mm2WebCard(_null, functionStuff) {
     if (!attacker) return null;
     const cfg = game.symbaroum.config;
     const actingToken = game.symbaroum.api.getActorToken(attacker);
+    /* MM2 v1.2 (Rudolfs Testbefund Netz/12): getActorToken liefert bei
+       SYNTHETISCHEM Actor (Blatt ueber den Szenen-Token geoeffnet) das
+       TokenDOCUMENT statt des Placeables - Documents haben kein .document.
+       Normalisieren: Placeable -> .document, TokenDocument -> selbst. */
+    const actingTokenDoc = actingToken?.document ?? actingToken ?? null;
     const creatureName = functionStuff.actingCharName ?? actingToken?.name ?? attacker.name;
     const creatureSF = getAttributeValue(attacker, "cunning");
     let threadsLine = "";
-    if (actingToken) {
+    if (actingTokenDoc) {
       const combatRound = game.combat?.round ?? 0;
-      const counter = actingToken.document.getFlag(game.system.id, "mm2WebThreads") ?? { round: combatRound, used: 0 };
+      const counter = actingTokenDoc.getFlag(game.system.id, "mm2WebThreads") ?? { round: combatRound, used: 0 };
       if (counter.round !== combatRound) {
         counter.round = combatRound;
         counter.used = 0;
@@ -10065,7 +10070,7 @@ async function mm2WebCard(_null, functionStuff) {
         return null;
       }
       counter.used += 1;
-      await actingToken.document.setFlag(game.system.id, "mm2WebThreads", counter);
+      await actingTokenDoc.setFlag(game.system.id, "mm2WebThreads", counter);
       threadsLine = `<p>${game.i18n.format("TRAIT_WEB.MASTER_THREADS", { used: counter.used, max: cfg.MM2_WEB_MASTER_THREADS })}</p>`;
     }
     const marked = Array.from(game.user.targets).filter((t) => t.actor && t.id !== actingToken?.id);

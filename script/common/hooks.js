@@ -241,6 +241,28 @@ Hooks.once('init', () => {
 			}
 		}
 	}
+	/* MM2 v1.2 (Rudolfs Freigabe, Punkt 4): eigene Marke fuer den
+	   MM2-Weltzeit-Takt (unabhaengig von der A28-DOT-Marke, damit beide
+	   Sweeps einzeln zurueckgesetzt werden koennen), Registrierung und
+	   Marken-Initialisierung exakt im a28DotLastWorldTimeMark-Muster:
+	   OHNE Tick nach F5, 0 = noch nie initialisiert. */
+	game.settings.register('symbaroum', 'mm2TurnWorldTimeMark', {
+		name: 'MM2 world-time turn mark',
+		hint: 'Technical marker (world-time round mark) for the MM2 turn-start sweep.',
+		scope: 'world',
+		type: Number,
+		default: 0,
+		config: false,
+	});
+	{
+		const _mm2InitMinutes = Math.max(0, Math.round(Number(game.settings.get('symbaroum', 'dotWorldTimeRoundMinutes')) || 0));
+		if (_mm2InitMinutes > 0) {
+			const _mm2InitMark = Math.floor(Number(game.time?.worldTime ?? 0) / (_mm2InitMinutes * 60));
+			if (!(Number(game.settings.get('symbaroum', 'mm2TurnWorldTimeMark')) || 0) && _mm2InitMark > 0) {
+				game.settings.set('symbaroum', 'mm2TurnWorldTimeMark', _mm2InitMark);
+			}
+		}
+	}
 
 	game.settings.register('symbaroum', 'playerResistButton', {
 		name: 'SYMBAROUM.OPTIONAL_PLAYER_RESIST',
@@ -3244,34 +3266,63 @@ Hooks.on('preUpdateToken', (tokenDoc, changed) => {
 	}
 });
 
-/* MM2 v1.1 (Rudolfs Nachtest 4a/9b): Zugbeginn der aktiven Kreatur -
- * (a) ist der AKTIVE Kampfteilnehmer selbst gebunden (Netz/Umarmung/
- *     Greifklauen - Daten in der bind-Condition-FlagData mm2Liberate),
- *     erscheint seine Befreiungskarte JEDES Mal am eigenen Zugbeginn;
- * (b) verschluckte Opfer (bind source devoured dieser Kreatur) werden
- *     je Zug per GM-Rundendialog ausgespuckt oder im Bauch behalten;
- * daraus zusaetzlich die v1-Pending-Aufloesungen (Verschlingen-Zug/
- * Greifklauen-Zug unveraendert). */
-Hooks.on('updateCombat', async (combat, changed) => {
-	if (!game.user.isActiveGM) return;
-	if (!('turn' in changed) && !('round' in changed)) return;
-	const combatant = combat.combatant;
-	const creatureActor = combatant?.actor;
-	if (!creatureActor) return;
-	/* (a) Befreiungskarte am Zugbeginn des gebundenen Opfers */
+/* MM2 v1.1 (Rudolfs Nachtest 4a/9b) -> v1.2: ZUGBEGINN-SWEEP - gemeinsamer
+   Kern fuer den Kampf-Zugbeginn (updateCombat) und den Weltzeit-Takt
+   (updateWorldTime, Punkt 4). creatureActor == null = WELTZEIT-Modus:
+   ohne aktiven Kaempfer bedient der Sweep pauschal ALLE betroffenen
+   Token der aktiven Szene (dokumentierte Grenze: keine "aktiver
+   Kaempfer"-Semantik, Dialogflut moeglich):
+   (a) ist der AKTIVE Kampfteilnehmer (Kampf) bzw. JEDES gebundene
+       Token (Weltzeit) an Netz/Umarmung/Greifklauen gefesselt (Daten
+       in der bind-Condition-FlagData mm2Liberate), erscheint seine
+       Befreiungskarte am Zugbeginn;
+   (b) verschluckte Opfer (bind source devoured) werden je Runde per
+       GM-Dialog ausgespuckt oder im Bauch behalten (Weltzeit: Kreatur
+       aus mm2Bind.creatureActorId aufgeloest);
+   dazu die v1-Pending-Aufloesungen (Verschlingen-Zug/Greifklauen-Zug;
+   Weltzeit: ALLE Marken, Actor-Aufloesung ueber die hinterlegte Id,
+   fehlt der Actor still ueberspringen). */
+const mm2FindActorById = (actorId) => {
+	if (actorId == null) return null;
+	return game.actors.get(actorId) ?? canvas.tokens?.placeables?.find((t) => t.actor?.id === actorId)?.actor ?? null;
+};
+
+async function mm2TurnStartSweep(creatureActor, combatantTokenId = null) {
+	const inCombat = creatureActor != null;
+	/* (a) Befreiungskarte(n): Kampf = nur die aktive Kreatur selbst,
+	 * Weltzeit = jedes bind-Opfer mit gueltigen mm2Liberate-Daten. */
 	try {
-		const creatureBind = creatureActor.hasCondition?.('bind');
-		if (creatureBind) {
-			const libData = creatureBind.getFlag(game.system.id, 'flagData')?.mm2Liberate;
-			if (libData && ['web', 'embrace', 'claws'].includes(libData.source) && libData.target != null) {
-				const titleKeys = { web: 'TRAIT_WEB.LIBERATE_TITLE', embrace: 'TRAIT_CRUSHINGEMBRACE.LIBERATE_TITLE', claws: 'TRAIT_PREHENSILECLAWS.LIBERATE_TITLE' };
-				const liberateTokenId = combatant.token?.id ?? canvas.tokens?.placeables?.find((t) => t.actor?.id === creatureActor.id)?.id ?? null;
-				if (liberateTokenId) {
-					await mm2PostLiberateCard(liberateTokenId, creatureActor.name, {
+		if (inCombat) {
+			const creatureBind = creatureActor.hasCondition?.('bind');
+			if (creatureBind) {
+				const libData = creatureBind.getFlag(game.system.id, 'flagData')?.mm2Liberate;
+				if (libData && ['web', 'embrace', 'claws'].includes(libData.source) && libData.target != null) {
+					const titleKeys = { web: 'TRAIT_WEB.LIBERATE_TITLE', embrace: 'TRAIT_CRUSHINGEMBRACE.LIBERATE_TITLE', claws: 'TRAIT_PREHENSILECLAWS.LIBERATE_TITLE' };
+					const liberateTokenId = combatantTokenId ?? canvas.tokens?.placeables?.find((t) => t.actor?.id === creatureActor.id)?.id ?? null;
+					if (liberateTokenId) {
+						await mm2PostLiberateCard(liberateTokenId, creatureActor.name, {
+							target: libData.target,
+							source: libData.source,
+							attr: libData.attr,
+							titleHtml: `<h4>${game.i18n.localize(titleKeys[libData.source])}</h4>`,
+						});
+					}
+				}
+			}
+		} else {
+			for (const token of canvas.tokens?.placeables ?? []) {
+				const tokenActor = token?.actor;
+				if (!tokenActor) continue;
+				const bind = tokenActor.hasCondition?.('bind');
+				if (!bind) continue;
+				const libData = bind.getFlag(game.system.id, 'flagData')?.mm2Liberate;
+				if (libData && ['web', 'embrace', 'claws'].includes(libData.source) && libData.target != null) {
+					const titleKeys = { web: 'TRAIT_WEB.LIBERATE_TITLE', embrace: 'TRAIT_CRUSHINGEMBRACE.LIBERATE_TITLE', claws: 'TRAIT_PREHENSILECLAWS.LIBERATE_TITLE' };
+					await mm2PostLiberateCard(token.id, tokenActor.name, {
 						target: libData.target,
 						source: libData.source,
 						attr: libData.attr,
-						titleHtml: `<h4>${game.i18n.localize(titleKeys[libData.source])}</h4>`,
+					titleHtml: `<h4>${game.i18n.localize(titleKeys[libData.source])}</h4>`,
 					});
 				}
 			}
@@ -3281,22 +3332,31 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	}
 	const devouredVictims = [];
 	for (const token of canvas.tokens?.placeables ?? []) {
-		const tokenActor = token.actor;
+		const tokenActor = token?.actor;
 		if (!tokenActor) continue;
 		const bind = tokenActor.hasCondition?.('bind');
 		if (!bind) continue;
 		try {
 			const fd = bind.getFlag(game.system.id, 'flagData');
 			if (!fd) continue;
-			if (fd.mm2DevourPending && fd.mm2DevourPending.devourerActorId === creatureActor.id) {
-				await mm2ResolveDevourPending(token, creatureActor);
+			const devourPending = fd.mm2DevourPending;
+			if (devourPending && (!inCombat || devourPending.devourerActorId === creatureActor.id)) {
+				const devourer = inCombat ? creatureActor : mm2FindActorById(devourPending.devourerActorId);
+				if (devourer) await mm2ResolveDevourPending(token, devourer);
 			}
-			if (fd.mm2ClawPending && fd.mm2ClawPending.pullerActorId === creatureActor.id) {
-				await mm2ResolveClawPull(token, creatureActor);
+			const clawPending = fd.mm2ClawPending;
+			if (clawPending && (!inCombat || clawPending.pullerActorId === creatureActor.id)) {
+				const puller = inCombat ? creatureActor : mm2FindActorById(clawPending.pullerActorId);
+				if (puller) await mm2ResolveClawPull(token, puller);
 			}
-			/* (b) verschluckte Opfer dieser Kreatur fuer den Ausspucken-Dialog */
-			if (fd.mm2Bind?.source === 'devoured' && fd.mm2Bind?.creatureActorId === creatureActor.id) {
-				devouredVictims.push(token);
+			/* (b) verschluckte Opfer: Kampf = der aktiven Kreatur, Weltzeit =
+			 * JEDES devoured-Opfer (Kreatur aus mm2Bind.creatureActorId). */
+			if (fd.mm2Bind?.source === 'devoured') {
+				const bindCreatureId = fd.mm2Bind.creatureActorId;
+				if (bindCreatureId && (!inCombat || bindCreatureId === creatureActor.id)) {
+					const spitCreature = inCombat ? creatureActor : mm2FindActorById(bindCreatureId);
+					if (spitCreature) devouredVictims.push({ token, creature: spitCreature });
+				}
 			}
 		} catch (mm2PendingError) {
 			game.symbaroum.log('MM-Paket 2: Zugbeginn-Aufloesung', mm2PendingError);
@@ -3304,15 +3364,17 @@ Hooks.on('updateCombat', async (combat, changed) => {
 	}
 	/* (b) Ausspucken-GM-Rundendialog: je verschlucktem Opfer EIN Dialog;
 	 * "Ausspucken" entfernt das Bauch-bind mitsamt des Bauch-DoTs,
-	 * "Im Bauch behalten" fragt zu Beginn des naechsten Zugs erneut. */
-	for (const victimToken of devouredVictims) {
+	 * "Im Bauch behalten" fragt zu Beginn der naechsten Runde erneut. */
+	for (const victim of devouredVictims) {
+		const victimToken = victim.token;
+		const spitCreature = victim.creature;
 		try {
 			const victimName = victimToken.name ?? victimToken.actor?.name ?? '';
 			const spitAction = await foundry.applications.api.DialogV2.wait({
-				window: { title: game.i18n.format('TRAIT_DEVOUR.SPIT_DIALOG_TITLE', { creaturename: creatureActor.name }) },
+				window: { title: game.i18n.format('TRAIT_DEVOUR.SPIT_DIALOG_TITLE', { creaturename: spitCreature.name }) },
 				classes: ['symb-dialog', 'modern-dialog', 'modern-theme-dark'],
 				position: { width: 440 },
-				content: `<div class="finalTxt"><p>${game.i18n.format('TRAIT_DEVOUR.SPIT_DIALOG_TEXT', { creaturename: creatureActor.name, targetname: victimName })}</p></div>`,
+				content: `<div class="finalTxt"><p>${game.i18n.format('TRAIT_DEVOUR.SPIT_DIALOG_TEXT', { creaturename: spitCreature.name, targetname: victimName })}</p></div>`,
 				buttons: [
 					{ action: 'spit', icon: 'fas fa-check', label: game.i18n.localize('TRAIT_DEVOUR.SPIT_DIALOG_YES'), default: true },
 					{ action: 'keep', icon: 'fas fa-times', label: game.i18n.localize('TRAIT_DEVOUR.SPIT_DIALOG_NO') },
@@ -3323,11 +3385,52 @@ Hooks.on('updateCombat', async (combat, changed) => {
 				await ChatMessage.create({
 					user: game.user.id,
 					speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize('DIALOG.SYSTEM_MESSAGE') }),
-					content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${creatureActor.name}</h4><div class="finalTxt"><p>${game.i18n.format('TRAIT_DEVOUR.SPIT_DONE', { targetname: victimName })}</p></div></div></div>`,
+					content: `<div class="symbaroum chat ability"><div class="foreground"><h4>${spitCreature.name}</h4><div class="finalTxt"><p>${game.i18n.format('TRAIT_DEVOUR.SPIT_DONE', { targetname: victimName })}</p></div></div></div>`,
 				});
 			}
 		} catch (mm2SpitError) {
 			game.symbaroum.log('MM-Paket 2: Ausspucken-Rundendialog', mm2SpitError);
 		}
+	}
+}
+
+/* MM2 v1.1 (Rudolfs Nachtest 4a/9b): Kampf-Zugbeginn - duenner Wrapper
+ * um den gemeinsamen Zugbeginn-Sweep (GM-gated, turn/round-Gate). */
+Hooks.on('updateCombat', async (combat, changed) => {
+	if (!game.user.isActiveGM) return;
+	if (!('turn' in changed) && !('round' in changed)) return;
+	const combatant = combat.combatant;
+	const creatureActor = combatant?.actor;
+	if (!creatureActor) return;
+	await mm2TurnStartSweep(creatureActor, combatant?.token?.id ?? null);
+});
+
+/* MM2 v1.2 (Rudolfs Freigabe, Punkt 4): WELTZEIT-Anbindung - Befreiungs-
+ * karte und Ausspucken-Dialog auch AUSSERHALB des Kampfs, getaktet wie
+ * die A28-Weltzeit-Engine (v2.14) ueber dotWorldTimeRoundMinutes (eine
+ * Runde Weltzeit = X Minuten, 0 = aus). Markmodell im
+ * a28DotLastWorldTimeMark-Muster: Marke = floor(Weltzeit / (Minuten*60)),
+ * ein Sweep je Marken-Voranschritt, Rueckwaerts-Klemme wie v2.15.
+ * Im aktiven Kampf gewinnt der Zug-Tick des Kampftrackers ("ein Takt,
+ * keine zweite Uhr") - stiller Ruecktritt OHNE Markensetzung (erster
+ * Schub nach Kampfende); das Kampf-Pendant bedient die aktive Kreatur
+ * bereits am Zugbeginn. */
+Hooks.on('updateWorldTime', async (worldTime) => {
+	if (!game.user.isActiveGM) return;
+	const minutes = Math.max(0, Math.round(Number(game.settings.get('symbaroum', 'dotWorldTimeRoundMinutes')) || 0));
+	if (minutes <= 0) return;
+	const mark = Math.floor(Number(worldTime ?? 0) / (minutes * 60));
+	const last = Number(game.settings.get('symbaroum', 'mm2TurnWorldTimeMark')) || 0;
+	if (mark < last) {
+		game.settings.set('symbaroum', 'mm2TurnWorldTimeMark', mark);
+		return;
+	}
+	if (mark === last) return;
+	if (game.combat?.active) return;
+	game.settings.set('symbaroum', 'mm2TurnWorldTimeMark', mark);
+	try {
+		await mm2TurnStartSweep(null);
+	} catch (mm2WorldTimeError) {
+		game.symbaroum.log('MM-Paket 2: Weltzeit-Zugbeginn-Sweep', mm2WorldTimeError);
 	}
 });
