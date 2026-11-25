@@ -88,6 +88,17 @@ function preloadHandlebarsTemplates() {
     'systems/symbaroum/template/sheet/tab/traditions-field.hbs',
     'systems/symbaroum/template/sheet/tab/traditions-display.hbs',
     'systems/symbaroum/template/sheet/modern/item/tab-traditions.hbs',
+    // Konzept Runde 4 (Commit A, Master-Item-Sheet): neue Master-Partials
+    // (gleiche Pflicht-Registrierung wie alle Blatt-Partials oben - die
+    // 11 Typ-Dateien modern/item/*.hbs sind duenne Includes auf das
+    // Geruest; ohne diese Zeilen bricht das Rendering mit
+    // "partial ... could not be found").
+    'systems/symbaroum/template/sheet/modern/item/master/item-master.hbs',
+    'systems/symbaroum/template/sheet/modern/item/master/tab-qualities.hbs',
+    'systems/symbaroum/template/sheet/modern/item/master/tab-weapon-stats.hbs',
+    'systems/symbaroum/template/sheet/modern/item/master/tab-armor-stats.hbs',
+    'systems/symbaroum/template/sheet/modern/item/master/tab-zone.hbs',
+    'systems/symbaroum/template/sheet/modern/item/master/tab-rezeptur.hbs',
   ];
   return foundry.applications.handlebars.loadTemplates(templatePaths);
 }

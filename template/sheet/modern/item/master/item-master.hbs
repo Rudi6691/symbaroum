@@ -1,0 +1,432 @@
+{{!-- Konzept Runde 4 (Commit A, Rudolfs Freigabe „Bau Commit A“ 25.11.2026):
+    EIN Master-Item-Sheet-Gerüst für die modernen Zweige der 11 Typ-Blätter.
+    Ausnahme: der Artefakt-TYP behält sein eigenes modernes Blatt (dokumen-
+    tierte Grenze der R4-12-Nachmessung — 0 Bestandsinstanzen, Legacy-Pfade
+    bleiben unangetastet). Die Typ-Dateien modern/item/*.hbs sind Dünn-
+    Includes auf dieses Gerüst; die klassischen Blätter (template/sheet/
+    *.hbs) und die 12 Wrapper-Klassen (PARTS bleiben auf den Wurzel-
+    Templates) sind unberührt. Slot-Gates sind flache Kontext-Booleans aus
+    SymbaroumItemSheet._prepareContext (A6-Lernweis, kein Template-Logik-
+    Spagat):
+      - Beschreibung: immer erster Tab; Typ-Sonderäste Ausrüstung/Rezeptur/
+        Behälter VERBATIM aus den bisherigen Typ-Templates (Reihenfolge
+        und Layout unverändert), Rest im vereinheitlichten Standard-Ast.
+        Das Merkmal VERLIERT seine Marker-Checkbox und die Cross-GM-Zeilen
+        aus dem Beschreibungs-Tab an den Status-Tab (§3.9 Ablösung).
+      - Status (NEU, GM-only, direkt hinter der Beschreibung): Cross-Flag-
+        Radio Normal/Waffe/Rüstung (system.crossFlag, additive Datenfelder,
+        Kanonik-Vorbelegung R4-8 via _prepareContext) + Stufen-Checkbox
+        „hat keine Abstufungen“ (system.marker, steuert die N/A/M-Tabs,
+        Nachfolger der Merkmal-Beschreibungs-Checkbox) + Cross-Felder
+        (binden die additiven Felder baseDamage/attribute/alternativeDamage/
+        bonusDamage/weaponReference bzw. baseProtection/bonusProtection —
+        KEINE Dupletten) + Traditionen-Zuordnung (ehemaliger Traditionen-
+        Tab-Inhalt, §3.5 — der Traditionen-ANZEIGE-Tab entfällt) + beim
+        Segen/Last der Bonus/Malus-Chip (S2.1-37) + bei Ausrüstung der
+        komplette bisherige GM-Status-Inhalt (tab-status.hbs als Slot-
+        Inhalt). Kampfmäßig wirkt das Feld erst mit Engine-Commit B.
+      - Novize/Adept/Meister: gemeinsame Einzelquelle über die Kontext-
+        Liste levelList (Schleife), GATE hasLevelSlots UND NICHT
+        system.marker; Stufen-Label-Keys je Typ aus dem Kontext.
+      - Zone (Mystische Kraft, GM), Stats (Waffe/Rüstung), Qualitäten
+        (nativ Waffe/Rüstung ODER Cross-Radio über die selectOptions-
+        Kontext-Listen), Kraft (isArtifact-Checkbox-Weg auf Waffe/Rüstung/
+        Ausrüstung/Behälter), Rezeptur (GM), Bonus (GM, nur Typen mit
+        Bonus-Template). Umschalten von Radio/Checkbox: normaler
+        Form-Submit + AppV2-Voll-Rerender (kein CSS-Hide, §3.8). --}}
+{{> systems/symbaroum/template/sheet/modern/item/header.hbs}}
+    <div class="sheet-body m-item-body">
+        <div class="tab" data-group="primary" data-tab="description">
+            {{#ife item.type "equipment"}}
+{{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
+            {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
+            {{!-- Status-Tab v1 (02.11.): Die GM-Felder (Artefakt, Stapelbar,
+                Ressourcen-Kategorie, „Ist alchemistisch?“ + Alchemie-
+                eigenschaften) sind in den GM-only Status-Tab (data-tab=
+                "stats", eigenes Partial tab-status.hbs) gezogen - das
+                Beschreibungs-Panel ist wieder das reine Fill-Layout, der
+                v1.2-Interim-Scroll-Fix (m-panel-ovY) entfällt komplett. --}}
+            <div class="m-panel">
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                {{!-- Status-Tab v1.1 (Rudolfs Ergänzung): ReadOnly-
+                    Alchemiestufe auf dem Beschreibungs-Tab - nur bei
+                    alchemistisch=„Ja“, für Spieler sichtbar, nicht
+                    editierbar; Wertpflege bleibt im Status-Tab. --}}
+                {{#if alchemical}}
+                <div class="alchemylevel-readonly">
+                    <label>{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
+                    <span>{{alchemyLevelLabel}}</span>
+                </div>
+                {{/if}}
+                {{!-- S4 v1.4 (Rudolfs Wunsch 2): „Anzahl Rationen“ ist vom
+                    Beschreibungs-Tab ins Kopf-m-grid gezogen (header.hbs,
+                    Optik wie das Anzahl-Feld) — dieser Block ist ENTFALLEN. --}}
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+            {{else}}
+            {{#ife item.type "rezeptur"}}
+<div class="m-panel">
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                {{!-- Alchemie Modul 3 (GM): Schein-Rezeptur-Banner — das Item
+                    behauptet ein falsches Ziel; hier steht, was es tatsächlich
+                    beschreibt (Flag 'schein' in item.js).
+                    v1.2 (P10): Entlarven-Knopf — Fälschungs-Marker am
+                    Namen, Flag entlarvt (item.js exposeScheinRecipe). --}}
+                {{#if symbaroumOptions.isGM}}
+                {{#if scheinBanner}}
+                <div class="m-inline-field">
+                    <label>{{scheinBanner.text}}</label>
+                    {{#unless scheinBanner.exposed}}<button type="button" data-action="exposeSchein" data-tooltip="{{localize "SCHEIN.EXPOSE_BUTTON_TOOLTIP"}}">{{localize "SCHEIN.EXPOSE_BUTTON"}}</button>{{/unless}}
+                </div>
+                {{/if}}
+                {{/if}}
+                {{!-- Info-Chips (Attribut-Chip-Stil des modernen Kopfes):
+                    Spieler-Kopien bleiben lesbar, die Werte werden im
+                    GM-Rezeptur-Tab gepflegt. --}}
+                <div class="m-item-chips">
+                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.TARGET"}}">
+                        <span class="v">{{#if targetName}}{{targetName}}{{else}}{{localize "REZEPTUR.TARGET_NONE"}}{{/if}}</span>
+                        <span class="l">{{localize "REZEPTUR.TARGET"}}</span>
+                    </div>
+                    <div class="m-stat-chip" data-tooltip="{{localize "ALCHEMY_LEVEL.LABEL"}}">
+                        <span class="v">{{alchemyLevelLabel}}</span>
+                        <span class="l">{{localize "ALCHEMY_LEVEL.LABEL"}}</span>
+                    </div>
+                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.TRADITION"}}">
+                        <span class="v">{{traditionLabel}}</span>
+                        <span class="l">{{localize "REZEPTUR.TRADITION"}}</span>
+                    </div>
+                    <div class="m-stat-chip" data-tooltip="{{localize "REZEPTUR.PRICE"}}">
+                        <span class="v">{{system.price}} Ort.</span>
+                        <span class="l">{{localize "REZEPTUR.PRICE"}}</span>
+                    </div>
+                </div>
+                {{!-- Traditionen v1/Rezeptur-Relaunch (Rudolfs Klärung 03.11.):
+                    Besitz, Herkunft, Basis-Rezeptur und „selbst entwickelt“
+                    sind SPIELER-editierbar (kein GM-Gate, Widgets unverändert
+                    aus dem früheren GM-Tab); die Auto-Felder bleiben Chips. --}}
+                <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.ownership" data-tooltip="{{localize "REZEPTUR.OWNERSHIP_TOOLTIP"}}">{{localize "REZEPTUR.OWNERSHIP"}}</label>
+                        <select id="{{id}}-system.ownership" name="system.ownership" data-tooltip="{{localize "REZEPTUR.OWNERSHIP_TOOLTIP"}}">
+                            {{selectOptions rezeptur_ownership_selection selected=system.ownership valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.origin" data-tooltip="{{localize "REZEPTUR.ORIGIN_TOOLTIP"}}">{{localize "REZEPTUR.ORIGIN"}}</label>
+                        <select id="{{id}}-system.origin" name="system.origin" data-tooltip="{{localize "REZEPTUR.ORIGIN_TOOLTIP"}}">
+                            {{selectOptions rezeptur_origin_selection selected=system.origin valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseTarget" data-tooltip="{{localize "REZEPTUR.BASE_TARGET_TOOLTIP"}}">{{localize "REZEPTUR.BASE_TARGET"}}</label>
+                        <input id="{{id}}-system.baseTarget" name="system.baseTarget" type="text" value="{{system.baseTarget}}" data-tooltip="{{localize "REZEPTUR.BASE_TARGET_TOOLTIP"}}"/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.invented" data-tooltip="{{localize "REZEPTUR.INVENTED_TOOLTIP"}}">{{localize "REZEPTUR.INVENTED"}}</label>
+                        <input id="{{id}}-system.invented" name="system.invented" type="checkbox" value="true" {{#if inventedChecked}}checked{{/if}} data-tooltip="{{localize "REZEPTUR.INVENTED_TOOLTIP"}}"/>
+                    </div>
+                </div>
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+            {{else}}
+            {{#ife item.type "container"}}
+<div class="m-panel">
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.capacity">{{localize "CONTAINER.CAPACITY"}}</label>
+                        <input id="{{id}}-system.capacity" name="system.capacity" type="number" min="0" step="0.5" data-dtype="Number" value="{{item.system.capacity}}" data-tooltip="{{localize "CONTAINER.CAPACITY_TOOLTIP"}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.currency">{{localize "CONTAINER.CURRENCY_LABEL"}}</label>
+                        <input id="{{id}}-system.currency" name="system.currency" type="number" min="0" step="1" data-dtype="Number" value="{{item.system.currency}}" data-tooltip="{{localize "CONTAINER.CURRENCY_SHEET_HINT"}}"/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.carried">{{localize "CONTAINER.CARRIED"}}</label>
+                        <input id="{{id}}-system.carried" name="system.carried" type="checkbox" value="carried" data-dtype="Boolean" {{checked system.carried}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.countLoad">{{localize "CONTAINER.COUNT_LOAD"}}</label>
+                        <input id="{{id}}-system.countLoad" name="system.countLoad" type="checkbox" value="countLoad" data-dtype="Boolean" {{checked system.countLoad}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.weightlessContents">{{localize "CONTAINER.WEIGHTLESS"}}</label>
+                        <input id="{{id}}-system.weightlessContents" name="system.weightlessContents" type="checkbox" value="weightlessContents" data-dtype="Boolean" {{checked system.weightlessContents}}/>
+                    </div>
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.isArtifact">{{localize "ITEM.ARTIFACT"}}</label>
+                        <input id="{{id}}-system.isArtifact" name="system.isArtifact" type="checkbox" value="artifact" {{checked system.isArtifact}}/>
+                    </div>
+                </div>
+                {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
+                {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+            {{else}}
+            <div class="m-panel">
+                {{!-- Segen & Lasten S2 Baustein A: Augur-Hinweis-Chip am Ritual-Blatt
+                    (nur bei Besitz des Augur-Segens, context.augurChip aus item.js). --}}
+                {{#if augurChip}}
+                <div class="m-roll-note augur-chip-row">{{augurChip}}</div>
+                {{/if}}
+                {{!-- Sammel-Fix v1.1: VW-Single-Select im Beschreibungs-Tab des Segen-Blatts
+                    — SPIELER-editierbar; OHNE name-Attribut (Änderung per item.update,
+                    Listener in item.js). --}}
+                {{#if tradition_knowledge.isForbiddenKnowledge}}
+                <div class="traditions-row traditions-desc-row">
+                    <label for="{{id}}-traditions-desc" data-tooltip="{{localize "TRADITION.VW_TOOLTIP"}}">{{localize "TRADITION.SELECT_LABEL"}}</label>
+                    <select id="{{id}}-traditions-desc" data-traditions-desc data-tooltip="{{localize "TRADITION.VW_TOOLTIP"}}" {{ifThen editable '' 'disabled'}}>
+                        <option value="" {{#unless tradition_knowledge.selected}}selected{{/unless}}>{{localize "TRADITION.SELECT_NONE"}}</option>
+                        {{#each tradition_knowledge.knownSelection as | t |}}
+                        <option value="{{t.id}}" {{#ife ../tradition_knowledge.selected t.id}}selected{{/ife}}>{{t.label}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                {{/if}}
+                {{!-- Segen & Lasten S2 Baustein B: Kontakte-Gruppierung am Kontakte-Segen
+                    (Listener data-contact-group / data-contact-group-custom in item.js). --}}
+                {{#if showContactGroup}}
+                <div class="traditions-row contact-group-row">
+                    <label for="{{id}}-contactgroup" data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}">{{localize "BOON.CONTACT_GROUP.SELECT_LABEL"}}</label>
+                    <select id="{{id}}-contactgroup" data-contact-group data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}" {{ifThen editable '' 'disabled'}}>
+                        <option value="" {{#unless contactGroup}}selected{{/unless}}>{{localize "BOON.CONTACT_GROUP.NONE"}}</option>
+                        {{#each contact_group_selection as |g|}}
+                        <option value="{{g.id}}" {{#ife ../contactGroup g.id}}selected{{/ife}}>{{g.label}}</option>
+                        {{/each}}
+                        <option value="custom" {{#ife contactGroup "custom"}}selected{{/ife}}>{{localize "BOON.CONTACT_GROUP.CUSTOM"}}</option>
+                    </select>
+                    {{#ife contactGroup "custom"}}
+                    {{#if editable}}
+                    <input type="text" id="{{id}}-contactgroup-custom" data-contact-group-custom value="{{contactGroupCustom}}" placeholder="{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}"/>
+                    {{else}}
+                    <span class="contact-group-custom-display {{#unless contactGroupCustom}}is-empty{{/unless}}" data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}">{{#if contactGroupCustom}}{{contactGroupCustom}}{{else}}{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}{{/if}}</span>
+                    {{/if}}
+                    {{else}}
+                    <span class="contact-group-custom-display {{#unless contactGroupCustom}}is-empty{{/unless}}" data-tooltip="{{localize "BOON.CONTACT_GROUP.TOOLTIP"}}">{{#if contactGroupCustom}}{{contactGroupCustom}}{{else}}{{localize "BOON.CONTACT_GROUP.CUSTOM_PLACEHOLDER"}}{{/if}}</span>
+                    {{/ife}}
+                </div>
+                {{/if}}
+                {{!-- Traditionen v1: zugeordnete Traditionen read-only (rendert nur bei vorhandenen Labels). --}}
+                {{> systems/symbaroum/template/sheet/tab/traditions-display.hbs}}
+                {{!-- Alchemie Modul 3 (GM): Nachbrau-Bonus-Banner am Alchemie-Fähigkeits-Item. --}}
+                {{#if symbaroumOptions.isGM}}
+                {{#if scheinBonusBanner}}
+                <div class="m-inline-field">
+                    <span>{{scheinBonusBanner}}</span>
+                    <button type="button" data-action="resetSchein" data-tooltip="{{localize 'SCHEIN.RESET_TOOLTIP'}}">{{localize "SCHEIN.RESET"}}</button>
+                </div>
+                {{/if}}
+                {{/if}}
+                <h1>{{localize "TITLE.DESCRIPTION"}}</h1>
+                {{#ife item.type "mysticalPower"}}
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.material">{{localize "MYSTICAL_POWER.MATERIAL"}}</label>
+                        <input id="{{id}}-system.material" name="system.material" type="text" value="{{system.material}}"/>
+                    </div>
+                </div>
+                {{/ife}}
+                <prose-mirror toggled name="system.description" {{ifThen editable '' 'disabled'}} value="{{rawSystem.description}}">{{{system.description}}}</prose-mirror>
+            </div>
+            {{/ife}}
+            {{/ife}}
+            {{/ife}}
+        </div>
+        {{!-- Konzept Runde 4: Status-Tab (GM-only, direkt hinter der Beschreibung). --}}
+        {{#if symbaroumOptions.isGM}}
+        {{#if hasStatusSlot}}
+        <div class="tab" data-group="primary" data-tab="status">
+            <div class="m-panel">
+                <h1>{{localize "STATUS.TITLE"}}</h1>
+                {{#if bonusValueDisplay}}
+                <div class="m-stat-chip" data-tooltip="{{localize 'BOON.BONUS_VALUE_TOOLTIP'}}">
+                    <span class="v">{{bonusValueDisplay}}</span>
+                    <span class="l">{{localize "BOON.BONUS_VALUE"}}</span>
+                </div>
+                {{/if}}
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}">{{localize "STATUS.CROSSFLAG_LABEL"}}</label>
+                        <div class="m-row m-crossflag-radios">
+                            <div class="m-inline-field m-check">
+                                <label for="{{id}}-system.crossflag-none">{{localize "STATUS.CROSSFLAG_NONE"}}</label>
+                                <input type="radio" id="{{id}}-system.crossflag-none" name="system.crossFlag" value="none" data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}" {{#ife crossFlag "none"}}checked{{/ife}}/>
+                            </div>
+                            <div class="m-inline-field m-check">
+                                <label for="{{id}}-system.crossflag-weapon">{{localize "STATUS.CROSSFLAG_WEAPON"}}</label>
+                                <input type="radio" id="{{id}}-system.crossflag-weapon" name="system.crossFlag" value="weapon" data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}" {{#ife crossFlag "weapon"}}checked{{/ife}}/>
+                            </div>
+                            <div class="m-inline-field m-check">
+                                <label for="{{id}}-system.crossflag-armor">{{localize "STATUS.CROSSFLAG_ARMOR"}}</label>
+                                <input type="radio" id="{{id}}-system.crossflag-armor" name="system.crossFlag" value="armor" data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}" {{#ife crossFlag "armor"}}checked{{/ife}}/>
+                            </div>
+                        </div>
+                    </div>
+                    {{#if hasLevelSlots}}
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.marker" data-tooltip="{{localize "STATUS.NO_LEVELS_TOOLTIP"}}">{{localize "STATUS.NO_LEVELS"}}</label>
+                        <input id="{{id}}-system.marker" name="system.marker" type="checkbox" value="active" data-tooltip="{{localize "STATUS.NO_LEVELS_TOOLTIP"}}" {{#if system.marker}}checked{{/if}}/>
+                    </div>
+                    {{/if}}
+                </div>
+                {{#if showCrossWeaponFields}}
+                <div class="m-grid">
+                    <div class="m-inline-field m-action-field">
+                        <label for="{{id}}-system.attribute">{{localize "WEAPON.ATTACK_ATTRIBUTE"}}</label>
+                        <select id="{{id}}-system.attribute" name="system.attribute">
+                            <option value="" {{#unless system.attribute}}selected{{/unless}}>{{localize "TITLE.CROSS_WEAPON_ATTRIBUTE_DEFAULT"}}</option>
+                            {{selectOptions attribute_selection selected=system.attribute labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.weaponReference">{{localize "WEAPON_CLASS.LABEL"}}</label>
+                        <select id="{{id}}-system.weaponReference" name="system.weaponReference">
+                            <option value="" {{#unless system.weaponReference}}selected{{/unless}}>{{localize "TITLE.CROSS_WEAPON_ATTRIBUTE_DEFAULT"}}</option>
+                            {{selectOptions weapon_type_selection selected=system.weaponReference labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseDamage">{{localize "TITLE.CROSS_WEAPON_DAMAGE"}}</label>
+                        <input id="{{id}}-system.baseDamage" name="system.baseDamage" type="text" value="{{system.baseDamage}}" placeholder="{{localize "TITLE.CROSS_WEAPON_DAMAGE_HINT"}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.bonusDamage">{{localize "WEAPON.BONUS_DAMAGE"}}</label>
+                        <input id="{{id}}-system.bonusDamage" name="system.bonusDamage" type="text" value="{{system.bonusDamage}}"/>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.alternativeDamage">{{localize "TRAIT_LABEL.ALTERNATIVEDAMAGE"}}</label>
+                        <select id="{{id}}-system.alternativeDamage" name="system.alternativeDamage">
+                            {{selectOptions alternative_selection selected=system.alternativeDamage labelAttr="label"}}
+                        </select>
+                    </div>
+                </div>
+                {{/if}}
+                {{#if showCrossArmorFields}}
+                <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseProtection">{{localize "ARMOR.BASE_PROT"}}</label>
+                        <select id="{{id}}-system.baseProtection" name="system.baseProtection">
+                            <option value="" {{#unless system.baseProtection}}selected{{/unless}}>{{localize "TITLE.CROSS_WEAPON_ATTRIBUTE_DEFAULT"}}</option>
+                            {{selectOptions protection_selection selected=system.baseProtection labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.bonusProtection">{{localize "ARMOR.BONUS_PROT"}}</label>
+                        <input id="{{id}}-system.bonusProtection" name="system.bonusProtection" type="text" value="{{system.bonusProtection}}"/>
+                    </div>
+                </div>
+                {{/if}}
+                {{#if hasTraditionsField}}
+                {{!-- Traditionen v1: Zuordnungsfeld — wohnt ab Runde 4 im Status-Tab
+                    (der Traditionen-ANZEIGE-Tab entfällt, read-only-Anzeige im
+                    Beschreibungs-Panel bleibt, s. §3.5). --}}
+                {{> systems/symbaroum/template/sheet/tab/traditions-field.hbs}}
+                {{/if}}
+            </div>
+            {{!-- Ausrüstung: der bisherige GM-Status-Inhalt (Alchemie, Ressourcen,
+                Täuschungs-/Taint-Banner) bleibt als Slot-Inhalt erhalten (§2). --}}
+            {{#ife item.type "equipment"}}
+            {{> systems/symbaroum/template/sheet/modern/item/tab-status.hbs}}
+            {{/ife}}
+        </div>
+        {{/if}}
+        {{/if}}
+        {{!-- Novize/Adept/Meister: gemeinsamer Stufen-Slot über die Kontext-
+            Liste levelList; GATE Stufen-Checkbox (system.marker). --}}
+        {{#if hasLevelSlots}}
+        {{#ifn system.marker}}
+        {{#each levelList}}
+        <div class="tab" data-group="primary" data-tab="{{this.id}}">
+            <div class="m-panel">
+                <div class="m-row">
+                    <div class="m-inline-field m-action-field">
+                        <label for="{{@root.id}}-system.{{this.id}}.action">{{localize @root.levelActionLabel}}</label>
+                        <select id="{{@root.id}}-system.{{this.id}}.action" name="system.{{this.id}}.action">
+                            {{selectOptions @root.action_types selected=(lookup (lookup @root.system this.id) "action") labelAttr="label"}}
+                        </select>
+                    </div>
+                    {{#if @root.isOwned}}
+                    <div class="m-inline-field m-check">
+                        <label for="{{@root.id}}-system.{{this.id}}.isActive">{{localize @root.levelActiveLabel}}</label>
+                        <input id="{{@root.id}}-system.{{this.id}}.isActive" name="system.{{this.id}}.isActive" type="checkbox" value="active" {{checked (lookup (lookup @root.system this.id) "isActive")}}/>
+                    </div>
+                    {{/if}}
+                </div>
+                {{#ife this.id "adept"}}
+                {{#if @root.isBeastlore}}
+                <div class="m-row">
+                    <div class="m-inline-field m-action-field">
+                        <label for="{{@root.id}}-system.beastloreCategory">{{localize "ABILITY.BEASTLORE_CATEGORY"}}</label>
+                        <select id="{{@root.id}}-system.beastloreCategory" name="system.beastloreCategory">
+                            {{selectOptions @root.beastlore_category_selection selected=@root.system.beastloreCategory labelAttr="label" valueAttr="id"}}
+                        </select>
+                    </div>
+                </div>
+                {{/if}}
+                {{/ife}}
+                <prose-mirror toggled name="system.{{this.id}}.description" {{ifThen @root.editable '' 'disabled'}} value="{{lookup (lookup @root.rawSystem this.id) 'description'}}">{{{lookup (lookup @root.system this.id) 'description'}}}</prose-mirror>
+            </div>
+        </div>
+        {{/each}}
+        {{/ifn}}
+        {{/if}}
+        {{!-- Kraft-Zone (Mystische Kraft, GM) — Slot-Partial, Inhalt unverändert. --}}
+        {{#if showAoeZoneTab}}
+        {{> systems/symbaroum/template/sheet/modern/item/master/tab-zone.hbs}}
+        {{/if}}
+        {{!-- Waffen-/Rüstungs-Stats — Slot-Partials, Inhalt unverändert. --}}
+        {{#ife item.type "weapon"}}
+        {{> systems/symbaroum/template/sheet/modern/item/master/tab-weapon-stats.hbs}}
+        {{/ife}}
+        {{#ife item.type "armor"}}
+        {{> systems/symbaroum/template/sheet/modern/item/master/tab-armor-stats.hbs}}
+        {{/ife}}
+        {{!-- Qualitäten: nativ (Waffe/Rüstung) oder Cross-Variante (Radio). --}}
+        {{#if showQualitiesTab}}
+        {{> systems/symbaroum/template/sheet/modern/item/master/tab-qualities.hbs}}
+        {{/if}}
+        {{!-- Kraft-Tab des isArtifact-Checkbox-Wegs (Waffe/Rüstung/Ausrüstung/
+            Behälter; der Artefakt-TYP läuft über sein eigenes Blatt). --}}
+        {{#if system.isArtifact}}
+        {{> systems/symbaroum/template/sheet/tab/artifact.hbs}}
+        {{/if}}
+        {{!-- Rezeptur-Tab (GM) — Slot-Partial, Inhalt unverändert. --}}
+        {{#if symbaroumOptions.isGM}}
+        {{#ife item.type "rezeptur"}}
+        {{> systems/symbaroum/template/sheet/modern/item/master/tab-rezeptur.hbs}}
+        {{/ife}}
+        {{/if}}
+        {{!-- v1.3: Bonus-Tab GM-only — nur Typen mit Bonus-Template. --}}
+        {{#if symbaroumOptions.isGM}}
+        {{#if hasBonusSlot}}
+        <div class="tab" data-group="primary" data-tab="bonus">
+            {{> systems/symbaroum/template/sheet/modern/item/tab-bonus.hbs}}
+        </div>
+        {{/if}}
+        {{/if}}
+    </div>
+</div>
+    <nav class="modern-rail tabs sheet-tabs" data-group="primary" data-tooltip-direction="LEFT">
+        <button type="button" class="modern-rail-btn" data-tab="description" data-tooltip="{{localize 'TAB.DESCRIPTION'}}"><i class="fas fa-feather-pointed"></i></button>
+        {{#if symbaroumOptions.isGM}}
+        {{#if hasStatusSlot}}
+        <button type="button" class="modern-rail-btn" data-tab="status" data-tooltip="{{localize 'TAB.STATUS'}}"><i class="fas fa-sliders"></i></button>
+        {{/if}}
+        {{/if}}
+        {{#if hasLevelSlots}}
+        {{#ifn system.marker}}
+        {{#each levelList}}
+        <button type="button" class="modern-rail-btn{{#if this.learned}} m-level-learned{{/if}}" data-tab="{{this.id}}" data-tooltip="{{localize this.tipKey}}"><i class="{{this.icon}}"></i></button>
+        {{/each}}
+        {{/ifn}}
+        {{/if}}
+        {{#if showAoeZoneTab}}<button type="button" class="modern-rail-btn" data-tab="zone" data-tooltip="{{localize 'AOE.TAB_LABEL'}}"><i class="fas fa-draw-polygon"></i></button>{{/if}}
+        {{#ife item.type "weapon"}}<button type="button" class="modern-rail-btn" data-tab="stats" data-tooltip="{{localize 'TAB.STATS'}}"><i class="fas fa-gear"></i></button>{{/ife}}
+        {{#ife item.type "armor"}}<button type="button" class="modern-rail-btn" data-tab="stats" data-tooltip="{{localize 'TAB.STATS'}}"><i class="fas fa-gear"></i></button>{{/ife}}
+        {{#if showQualitiesTab}}<button type="button" class="modern-rail-btn" data-tab="qualities" data-tooltip="{{localize 'TAB.QUALITIES'}}"><i class="fas fa-check-double"></i></button>{{/if}}
+        {{#if system.isArtifact}}<button type="button" class="modern-rail-btn" data-tab="power" data-tooltip="{{localize 'TAB.POWER'}}"><i class="fas fa-wand-magic-sparkles"></i></button>{{/if}}
+        {{#if symbaroumOptions.isGM}}{{#ife item.type "rezeptur"}}<button type="button" class="modern-rail-btn" data-tab="rezeptur" data-tooltip="{{localize 'TAB.REZEPTUR'}}"><i class="fas fa-scroll"></i></button>{{/ife}}{{/if}}
+        {{#if symbaroumOptions.isGM}}{{#if hasBonusSlot}}<button type="button" class="modern-rail-btn" data-tab="bonus" data-tooltip="{{localize 'TAB.BONUS'}}"><i class="fas fa-gears"></i></button>{{/if}}{{/if}}
+    </nav>
+</div>

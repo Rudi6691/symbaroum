@@ -473,15 +473,106 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		};
 		context.action_types = game.symbaroum.config.ACTION_TYPES;
 		/* Konzept Runde 3 Teil A (Cross-Waffen): Merkmals-Items mit
-		   Kanonik-Referenz (grapplingtongue, prehensileclaws, poisonspit,
-		   boneprojectile) bekommen im modernen Merkmalsblatt die GM-
-		   Editierfelder fuer Grundschaden und Angriffsattribut (Trait-
-		   Tab, s. trait.hbs) - Referenz aus config, Attribut-Liste wie
-		   Spielerblatt. */
+		   Kanonik-Referenz gelten nach wie vor als Cross-Waffen (Anzeige-
+		   und Vorbefuellungs-Info; die GM-Editierfelder wohnen ab Runde 4
+		   im Status-Tab des Master-Item-Sheets, s. Runde-4-Block unten). */
 		context.isCrossWeaponTrait = this.item.type === 'trait' && Boolean(game.symbaroum.config.CROSS_WEAPON_TRAITS[this.item.system.reference]);
-		if (context.isCrossWeaponTrait) {
+		/* ===================================================================
+		 * Konzept Runde 4, Commit A (Rudolfs Freigabe „Bau Commit A“
+		 * 25.11.2026): Kontext für das Master-Item-Sheet-Gerüst
+		 * (modern/item/master/item-master.hbs). ALLES reine Sheet-Sache -
+		 * Kampfmäßig wirkt das Cross-Flag-Feld erst mit Engine-Commit B
+		 * (R4-10: „Flags können erfasst werden, wirken noch nicht“).
+		 * Die 11 Typ-Blätter (ohne Artefakt-TYP, dokumentierte Grenze
+		 * der R4-12-Nachmessung: 0 Bestandsinstanzen) rendern über ein
+		 * Gerüst; alle Gates sind flache Booleans (A6-Lernweis).
+		 * =================================================================== */
+		const r4Type = this.item.type;
+		const r4Ref = String(this.item.system?.reference ?? '').trim();
+		/* Slot-Fahnen: Typ steuert Struktur/Slots/Defaults (§10: kein
+		 * sheetMode-Datenfeld, kein Dropdown - der Typ IST die Ordnung).
+		 * Status-Tab: alle Typen außer Waffe/Rüstung/Artefakt (deren
+		 * natives Stats-Layout bzw. Legacy-Blatt greift schon).
+		 * Bonus-Tab: nur Typen mit Bonus-Template (Behälter/Rezeptur
+		 * haben klassisch keines). Stufen-Tabs: trait/ability/
+		 * mysticalPower (system.hasLevels). Traditionen-Zuordnung im
+		 * Status-Tab: die Typen, die bisher den Traditionen-Tab
+		 * führten (§3.5 - Anzeige-Tab entfällt, Daten bleiben). */
+		context.hasStatusSlot = !['weapon', 'armor', 'artifact'].includes(r4Type);
+		context.hasTraditionsField = ['trait', 'ability', 'mysticalPower', 'ritual', 'boon', 'burden', 'container'].includes(r4Type);
+		context.hasBonusSlot = ['trait', 'ability', 'mysticalPower', 'ritual', 'boon', 'burden', 'weapon', 'armor', 'equipment'].includes(r4Type);
+		context.hasLevelSlots = ['trait', 'ability', 'mysticalPower'].includes(r4Type);
+		/* Cross-Flag-Radio (Runde 4): additives Datenfeld system.crossFlag
+		 * ('none'|'weapon'|'armor', template.json-Default 'none'). Anzeige-
+		 * Vorbelegung nach R4-8: gespeicherter Wert gewinnt, sonst
+		 * Kanonik - die 4 Cross-Merkmale aus CROSS_WEAPON_TRAITS zeigen
+		 * „Waffe“, Gepanzert (armored)/Robust (robust) zeigen „Rüstung",
+		 * echte Waffen-/Rüstungs-Typen wirken über ihren Typ ohnehin.
+		 * Der Radio-Submit materialisiert die Vorbelegung beim ersten
+		 * Form-Submit (harmlos - Engine B liest crossFlag ODER Kanonik,
+		 * Bestandswelten überspringen nichts, s. R4-8). */
+		const r4CrossPreset =
+			r4Type === 'weapon' || r4Type === 'armor'
+				? r4Type
+				: Boolean(game.symbaroum.config.CROSS_WEAPON_TRAITS[r4Ref])
+					? 'weapon'
+					: r4Type === 'trait' && ['armored', 'robust'].includes(r4Ref)
+						? 'armor'
+						: 'none';
+		const r4CrossStored = String(this.item.system?.crossFlag ?? '').trim();
+		context.crossFlag = r4CrossStored !== '' ? r4CrossStored : r4CrossPreset;
+		context.showCrossWeaponFields = context.hasStatusSlot && context.crossFlag === 'weapon';
+		context.showCrossArmorFields = context.hasStatusSlot && context.crossFlag === 'armor';
+		/* Cross-Feld-Kontexte (Status-Tab): binden die additiven Felder
+		 * (baseDamage/attribute/alternativeDamage/bonusDamage/weaponReference
+		 * bzw. baseProtection/bonusProtection) - Muster des Waffen-Sheets
+		 * (weapon.js), ohne dessen Bonus-Feld-Erweiterung (keine Dupletten). */
+		if (context.hasStatusSlot) {
 			context.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
+			context.weapon_type_selection = game.symbaroum.config.WEAPON_TYPE_SELECTION;
+			context.alternative_selection = { ...game.symbaroum.config.ATTRIBUTE_SELECTION };
+			context.alternative_selection.none = {
+				id: 'none',
+				label: game.i18n.localize('WEAPON.NONE'),
+			};
+			context.protection_selection = game.symbaroum.config.ARMOR_PROTECTION_SELECTION;
 		}
+		/* Qualitäten-Tab (Runde 4): nativ bei Waffe/Rüstung, sonst über
+		 * die Cross-Variante des Radios (R4-11: Rezeptur/Elixier hier NUR
+		 * Sheet-seitig vorbereitet - die Engine-Typ-Gate folgt in
+		 * Commit B, s. Konzept 11.3.7). */
+		context.showQualitiesTab =
+			['weapon', 'armor'].includes(r4Type) || context.crossFlag === 'weapon' || context.crossFlag === 'armor';
+		const r4QualitiesVariant = r4Type === 'armor' || (r4Type !== 'weapon' && context.crossFlag === 'armor') ? 'armor' : 'weapon';
+		if (context.showQualitiesTab && !['weapon', 'armor'].includes(r4Type)) {
+			if (r4QualitiesVariant === 'weapon') {
+				context.qualities = game.symbaroum.config.weaponQualities;
+				context.compatibilities = game.symbaroum.config.weaponCompatibilities;
+			} else {
+				context.qualities = game.symbaroum.config.armorQualities;
+				context.compatibilities = game.symbaroum.config.armorCompatibilities;
+			}
+		}
+		/* Stufen-Slots (Runde 4): gemeinsame Schleife im Master-Gerüst.
+		 * Label-Keys je Typ (die Blätter nutzten bisher typ eigene Keys),
+		 * learned-Flag flach vorbereitet (V3.1-Lernweis: keine
+		 * verschachtelten ifs im class-Attribut). */
+		const r4LevelLabel = {
+			trait: { action: 'TRAIT.ACTION', active: 'TRAIT.ACTIVE' },
+			ability: { action: 'ABILITY.ACTION', active: 'ABILITY.ACTIVE' },
+			mysticalPower: { action: 'MYSTICAL_POWER.ACTION', active: 'MYSTICAL_POWER.ACTIVE' },
+		}[r4Type] ?? { action: 'ABILITY.ACTION', active: 'ABILITY.ACTIVE' };
+		context.levelActionLabel = r4LevelLabel.action;
+		context.levelActiveLabel = r4LevelLabel.active;
+		const r4LevelMeta = [
+			{ id: 'novice', icon: 'fas fa-seedling', tipKey: 'TAB.NOVICE' },
+			{ id: 'adept', icon: 'fas fa-leaf', tipKey: 'TAB.ADEPT' },
+			{ id: 'master', icon: 'fas fa-crown', tipKey: 'TAB.MASTER' },
+		];
+		context.levelList = r4LevelMeta.map((m) => ({
+			...m,
+			learned: !!this.item.isOwned && !!this.item.system?.[m.id]?.isActive,
+		}));
 		/* Segen & Lasten S2 Baustein B (Rudolfs „Leg los“, 06.11.2026):
 		   Kontakte-Gruppierung am Kontakte-Segen (system.contactGroup,
 		   Single-Select der 7 offiziellen Fraktionen + 'custom' mit

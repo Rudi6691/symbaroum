@@ -1,0 +1,30 @@
+{{!-- Konzept Runde 4 (Commit A, Master-Item-Sheet, Rudolfs Freigabe 25.11.):
+    Gemeinsamer Slot-Partial "Qualitäten (Waffe/Rüstung/Cross-Variante via selectOptions-Kontext)" - Inhalt VERBATIM aus den bisherigen
+    Typ-Templates uebernommen (modern/item/*.hbs werden Duenne-Includes
+    dieses Geroests); klassische Blaetter bleiben unberuehrt. --}}
+<div class="tab" data-group="primary" data-tab="qualities">
+            <div class="m-panel">
+                <h1>{{localize "TITLE.QUALITIES"}}</h1>
+                <div class="m-qualities">
+                    {{#each qualities as | quality |}}
+                    <div class="m-quality">
+                        <label for="{{id}}-system.qualities.{{quality}}">{{qualitylocalize quality}}{{#with (lookup @root.quality_secret_labels quality)}} <span class="trad-secret-chip" data-tooltip="{{this}}"><i class="fas fa-lock"></i></span>{{/with}}</label>
+                        <input id="{{id}}-system.qualities.{{quality}}" name="system.qualities.{{quality}}" type="checkbox" value="flexible" {{checked (lookup ../system.qualities quality)}}/>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{#if_nempty compatibilities}}
+            <div class="m-panel">
+                <h1>{{localize "TITLE.SPECIALQUALITIES"}}</h1>
+                <div class="m-qualities">
+                    {{#each compatibilities as | compatibility |}}
+                    <div class="m-quality">
+                        <label for="{{id}}-system.qualities.{{compatibility}}">{{qualitylocalize compatibility}}{{#with (lookup @root.quality_secret_labels compatibility)}} <span class="trad-secret-chip" data-tooltip="{{this}}"><i class="fas fa-lock"></i></span>{{/with}}</label>
+                        <input id="{{id}}-system.qualities.{{compatibility}}" name="system.qualities.{{compatibility}}" type="checkbox" value="flexible" {{checked (lookup ../system.qualities compatibility)}}/>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{/if_nempty}}
+        </div>

@@ -253,7 +253,12 @@
       "baseDamage": "",
       "attribute": "",
       "alternativeDamage": "none",
-      "qualities": {}
+      "qualities": {},
+      "crossFlag": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": ""
     },
     "ability": {
       "templates": [
@@ -276,7 +281,17 @@
         "isActive": false,
         "action": "",
         "description": ""
-      }
+      },
+      "marker": false,
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     },
     "mysticalPower": {
       "templates": [
@@ -301,7 +316,17 @@
         "isActive": false,
         "action": "",
         "description": ""
-      }
+      },
+      "marker": false,
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     },
     "ritual": {
       "templates": [
@@ -310,7 +335,16 @@
       ],
       "tradition": "",
       "description": "",
-      "reference": ""
+      "reference": "",
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     },
     "rezeptur": {
       "templates": [
@@ -326,7 +360,16 @@
       "culture": "",
       "origin": "",
       "baseTarget": "",
-      "invented": false
+      "invented": false,
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     },
     "burden": {
       "templates": [
@@ -336,7 +379,16 @@
       "description": "",
       "reference": "",
       "level": 1,
-      "bonusValue": 0
+      "bonusValue": 0,
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     },
     "boon": {
       "templates": [
@@ -348,7 +400,16 @@
       "level": 1,
       "bonusValue": 0,
       "contactGroup": "",
-      "contactGroupCustom": ""
+      "contactGroupCustom": "",
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     },
     "weapon": {
       "templates": [
@@ -431,7 +492,16 @@
       "reference": "",
       "cost": "",
       "number": 1,
-      "state": "other"
+      "state": "other",
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     },
     "artifact": {
       "templates": [
@@ -474,7 +544,16 @@
       "carried": true,
       "countLoad": true,
       "currency": 0,
-      "weightlessContents": false
+      "weightlessContents": false,
+      "crossFlag": "none",
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "bonusDamage": "",
+      "weaponReference": "",
+      "baseProtection": "",
+      "bonusProtection": "",
+      "qualities": {}
     }
   }
 }

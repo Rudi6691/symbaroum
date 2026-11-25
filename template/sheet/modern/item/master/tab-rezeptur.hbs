@@ -1,0 +1,52 @@
+{{!-- Konzept Runde 4 (Commit A, Master-Item-Sheet, Rudolfs Freigabe 25.11.):
+    Gemeinsamer Slot-Partial "Rezeptur (GM-only)" - Inhalt VERBATIM aus den bisherigen
+    Typ-Templates uebernommen (modern/item/*.hbs werden Duenne-Includes
+    dieses Geroests); klassische Blaetter bleiben unberuehrt. --}}
+<div class="tab" data-group="primary" data-tab="rezeptur">
+            <div class="m-panel">
+                <h1>{{localize "TAB.REZEPTUR"}}</h1>
+                <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label>{{localize "REZEPTUR.TARGET"}}</label>
+                        <div class="rezeptur-target-box" data-tooltip="{{localize "REZEPTUR.TARGET_TOOLTIP"}}">
+                            {{#if targetName}}{{targetName}}{{else}}{{localize "REZEPTUR.TARGET_NONE"}}{{/if}}
+                        </div>
+                    </div>
+                    <div class="m-inline-field">
+                        <label>&nbsp;</label>
+                        <span class="rezeptur-drop-hint" data-tooltip="{{localize "REZEPTUR.TARGET_TOOLTIP"}}">{{localize "REZEPTUR.TARGET_HINT"}}</span>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.alchemyLevel">{{localize "ALCHEMY_LEVEL.LABEL"}}</label>
+                        <select id="{{id}}-system.alchemyLevel" name="system.alchemyLevel">
+                            {{selectOptions alchemy_level_selection selected=system.alchemyLevel valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.alchemyTradition">{{localize "REZEPTUR.TRADITION"}}</label>
+                        <select id="{{id}}-system.alchemyTradition" name="system.alchemyTradition" data-tooltip="{{localize "REZEPTUR.TRADITION_TOOLTIP"}}">
+                            {{selectOptions rezeptur_tradition_selection selected=system.alchemyTradition valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.price">{{localize "REZEPTUR.PRICE"}}</label>
+                        <input id="{{id}}-system.price" name="system.price" type="number" value="{{system.price}}" data-tooltip="{{localize "REZEPTUR.PRICE_TOOLTIP"}}"/>
+                    </div>
+                    {{!-- Rezeptur-Relaunch (03.11.): Besitz/Herkunft/Basis-
+                        Rezeptur/selbst entwickelt wohnen im Beschreibungs-Tab
+                        (Spieler-editierbar); GM-Tab = Auto-Felder + Kultur. --}}
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.culture">{{localize "REZEPTUR.CULTURE"}}</label>
+                        <select id="{{id}}-system.culture" name="system.culture" data-tooltip="{{localize "REZEPTUR.CULTURE_TOOLTIP"}}">
+                            {{selectOptions rezeptur_culture_selection selected=system.culture valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.origin">{{localize "REZEPTUR.ORIGIN"}}</label>
+                        <select id="{{id}}-system.origin" name="system.origin" data-tooltip="{{localize "REZEPTUR.ORIGIN_TOOLTIP"}}">
+                            {{selectOptions rezeptur_origin_selection selected=system.origin valueAttr="id" labelAttr="label"}}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
