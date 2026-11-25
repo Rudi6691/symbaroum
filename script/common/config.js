@@ -197,6 +197,11 @@ SYMBAROUM.traitsList = {
   armored: "TRAIT_LABEL.ARMORED",
   avengingsuccessor: "TRAIT_LABEL.AVENGINGSUCCESSOR",
   bloodlust: "TRAIT_LABEL.BLOODLUST",
+  /* MM-Paket 2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1,
+     Rudolfs Freigabe 25.11.2026): Knochengeschoss ist ein NEUES
+     Merkmal (Vault-Steckbrief, Rudolfs Welt-Item xs15Ci5sf3kML5FM) -
+     Kanonik-Stelle des Merkmals-Labels. */
+  boneprojectile: "TRAIT_LABEL.BONEPROJECTILE",
   carapace: "TRAIT_LABEL.CARAPACE",
   collectivepower: "TRAIT_LABEL.COLLECTIVEPOWER",
   colossal: "TRAIT_LABEL.COLOSSAL",
@@ -493,24 +498,27 @@ SYMBAROUM.scriptedAbilities = [
   "unholyaura",
   "unnoticeable",
   "poisonous",
-  /* MM-Paket 1 v1.1 (Rudolfs Wunsch "Badges wie bei den Faehigkeiten"):
-     Giftspucke ist ein KLICKBARER Trait (traitSetupPoisonspit, Kachel-
-     Klick oeffnet den Fernkampf-Wuerfeldialog) - das Skript-Badge kommt
-     aus DIESER Liste (Muster Giftig/Regeneration, actor.js markScripted). */
-  "poisonspit",
   /* MM-Paket 2 v1 (Rudolfs Baufreigabe 24.11.2026, Konzept Rev. 2):
      Die AKTIVEN Kampfkontroll-Merkmale als KLICKBARE Traits (Baustein 6,
      Giftspucke-Präzedenz): Netz (Netzkarte mit Verfangen-Buttons je
-     Ziel-Token), Greifzunge und Greifklauen (öffnen den Waffendialog der
-     natürlichen Waffe mit MM2-Presets), Rammen (SL-Kettendialog) und
+     Ziel-Token; Zonen-Redesign folgt im Commit 2), Greifzunge und
+     Greifklauen (öffnen den Waffendialog der natürlichen Waffe mit
+     MM2-Presets), Rammen (SL-Kettendialog) und
      Blitzschnell (Hinweiskarte - die eigentliche Reaktion läuft als
      Hinweiszeile + Button auf der Angriffs-Ergebniskarte). Die
      REAKTIONS-Merkmale (Erdrückende Umarmung, Verschlingen, Zerstörer)
      bewusst NICHT hier: sie laufen als Checkbox-Pakete am Waffendialog
      (v1.1-Muster) und tragen das isIntegrated-Badge. */
   "web",
+  /* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A):
+     Greifzunge/Greifklauen/Giftspucke bleiben Klickbar, aber der
+     Kachel-Klick oeffnet den STANDARD-Waffendialog der Cross-Waffe
+     (keine eigene Karten-/Wurfmaschine mehr); Knochengeschoss ist als
+     vierte Cross-Waffe mit dabei. */
   "grapplingtongue",
   "prehensileclaws",
+  "poisonspit",
+  "boneprojectile",
   "rampage",
   "swift",
   "regeneration",
@@ -2194,6 +2202,37 @@ SYMBAROUM.MM2_BELLY_DOT = 2;
 SYMBAROUM.MM2_WEB_MASTER_THREADS = 3;
 SYMBAROUM.MM2_FALL_PROBE_REDUCE = 3;
 SYMBAROUM.MM2_FALL_SOFT_REDUCE = 5;
+/* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1,
+   Rudolfs Freigabe 25.11.2026): Merkmale als ADDITIVE Waffen. Die
+   Referenzen erscheinen als eigene Waffenzeilen im Standard-Waffenablauf
+   (actor.js _getWeapons/_evaluateWeapons - derselbe Eintrittspunkt wie jede
+   Waffe, D1-Lernweis: KEIN system.isWeapon-Flip, Cross-Items bleiben
+   trait-Typ); die Rider laufen automatisch an der Waffen-Referenz
+   (item.js mm2AttackerTraits), Kachel-Klick und Waffenzeile oeffnen
+   dieselben Dialoge. GM-editierbar je Merkmals-Item auf dem modernen
+   Blatt (system.baseDamage/attribute, leer = diese Kanonik-Defaults):
+   - Greifzunge (stufenlos, Bola-Form): Fernkampf, "speziell" OHNE
+     Wurfschaden, Rider = Zugprobe + adjacent-Heranziehen.
+   - Greifklauen: Nahkampf-Klauen, Schaden aus der unbewaffneten Waffe
+     inkl. Natuerliche-Waffe-Staffelung, Serie 2 Angriffe, Packel-Rider
+     je Stufe.
+   - Giftspucke: Fernkampf-Spucke, "speziell" ohne Wurfschaden - das
+     Gift wirkt allein (Gift-Engine am Treffer).
+   - Knochengeschoss: Wurfwaffe, Schaden nach Natuerliche-Waffe-Stufe
+     (1W6 + 2 Wuerfelseiten je Stufe, max 1W12), ab Adept 2 Projektile,
+     Meister +1W4 Bonus (Kalibrierung) + Korruptionsangriff/Giftig-Rider
+     je Stufe des korrespondierenden Merkmals. */
+SYMBAROUM.CROSS_WEAPON_TRAITS = {
+  grapplingtongue: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 1 },
+  prehensileclaws: { attribute: "quick", isMelee: true, isDistance: false, damageFromUnarmed: true, numAttacks: 2 },
+  poisonspit: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 1 },
+  boneprojectile: { attribute: "accurate", isMelee: false, isDistance: true, naturalWeaponSides: true, numAttacks: 2, numAttacksFromLevel: 2 },
+};
+/* Knochengeschoss-Meister: Bonus-Schaden des einzelnen Projektils - die
+   Vault-Notiz nennt "zusaetzlichen Schaden" ohne Formel: vorlaeufige
+   Kalibrierung im Gunst-Muster (+1W4, NSC-Festwert 2), bis Rudolf den
+   RAW-Wert liefert (bewertbar in der Testrunde). */
+SYMBAROUM.MM2_BONE_MASTER_BONUS = { damageMod: "+1d4", damageModNPC: 2 };
 /* MM-Paket 2 v1.1 (Rudolfs Nachtest 16/6): stufen-lose Merkmale -
    Referenzen OHNE aktivierte Stufe. Blatt-Chip zeigt dann "Merkmal"
    statt "nicht erlernt" (player.js) und das A13-Nutzungsgate

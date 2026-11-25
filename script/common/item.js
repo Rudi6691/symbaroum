@@ -1138,6 +1138,36 @@ export class SymbaroumItem extends Item {
     }
   }
 
+  /* Konzept Runde 3 Teil A (Knochengeschoss): Meister-Bonus-Mitglied
+     (+1W4, Kalibrierung - der Vault-Steckbrief nennt keine Formel) und
+     Korruptionsangriff (Muster getItemModifierCorruptingattack) als
+     AUTOMATISCHE Paket-Mitglieder der Cross-Waffe - keine Checkbox,
+     nur bei Meisterstufe. Die Cross-Waffe IST dieses Merkmals-Item,
+     existsGuard falls _getWeapons sie (noch) nicht als Waffe fuehrt. */
+  getItemModifierBoneprojectile(combatMods, armors, weapons, abilities) {
+    const lvl = this.getLevel();
+    if (lvl.level < 3) return;
+    if (!combatMods.weapons[this.id]) return;
+    this.system.isIntegrated = true;
+    const masterCfg = game.symbaroum.config.MM2_BONE_MASTER_BONUS ?? { damageMod: "+1d4", damageModNPC: 2 };
+    let base = this._getBaseFormat();
+    base.label = game.i18n.localize("TRAIT_BONEPROJECTILE.MASTER_BONUS");
+    base.type = game.symbaroum.config.DAM_MOD;
+    base.value = masterCfg.damageMod;
+    base.alternatives = [{ damageMod: masterCfg.damageMod, damageModNPC: masterCfg.damageModNPC }];
+    combatMods.weapons[this.id].package[0].member.push(base);
+    const caLvl = this.actor ? getActorAbilityLevel(this.actor, "corruptingattack") : 0;
+    if (caLvl > 0) {
+      let caBase = this._getBaseFormat();
+      caBase.label = game.i18n.localize("TRAIT_LABEL.CORRUPTINGATTACK");
+      caBase.type = game.symbaroum.config.CORRUPTION_DAMAGE;
+      caBase.damage = "1d" + ((1 + caLvl) * 2).toString();
+      caBase.damageNPC = 1 + caLvl;
+      caBase.value = caBase.damage;
+      combatMods.weapons[this.id].package[0].member.push(caBase);
+    }
+  }
+
   getItemModifierDancingweapon(combatMods, armors, weapons, abilities) {
     let lvl = this.getLevel();
     if (lvl.level == 0 || (!this.actor.hasCondition("dancingweapon") && !this.actor.getFlag(game.system.id, "dancingweapon"))) {
@@ -4069,28 +4099,35 @@ export class SymbaroumItem extends Item {
      Kein Waffenschaden - die Spucke wirkt allein über das Gift (Vault-
      Notiz "Giftspucke.md"). Bewusst KEINE Reichweiten-Prüfung (Kurz,
      SL-Angelegenheit, Muster der übrigen Trait-Angriffe). */
+  /* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1):
+     Giftspucke ist keine eigene Kachel-Wurfmaschine mehr - das Merkmal
+     stiftet die FERNKAMPF-Cross-Waffe (config CROSS_WEAPON_TRAITS, actor.js
+     _getWeapons/_evaluateWeapons). Kachel-Klick und Waffenzeile oeffnen
+     denselben Standard-Waffendialog; die Gift-Engine haengt als Rider an
+     der Cross-Referenz (mm2AttackerTraits): separate Giftresistenz
+     [Scharfsinn<-Staerke] NUR bei Treffer, B5-Festwerte je Stufe am NSC
+     bzw. SC-Grad-Wuerfelmodell (v1.1-Bewertungsfrage 2 bleibt unveraen-
+     dert). Kein Waffenschaden - die Spucke wirkt allein ueber das Gift
+     (Vault-Notiz "Giftspucke.md"), Anzeige "speziell". Bewusst KEINE
+     Reichweiten-Pruefung (Kurz, SL-Angelegenheit, Muster der uebrigen
+     Trait-Angriffe). */
   traitSetupPoisonspit(base) {
     base.getTarget = true;
     base.targetMandatory = true;
-    base.casting = game.symbaroum.config.CASTING_RES;
-    base.castingAttributeName = "accurate";
-    base.askCastingAttribute = false;
-    base.targetResistAttribute = "quick";
-    base.introText = game.i18n.localize("TRAIT_POISONSPIT.CHAT_INTRO");
-    base.usePoison = true;
-    base.poison = base.powerLvl.level;
-    // MM-Paket 1 v1.1 (Rudolfs Testrunde, Bewertungsfrage 2: trait-
-    // besitzende SC wuerfeln): Ist der Merkmalstraeger ein SC (Dunkles
-    // Blut/Bestial), gilt die Baustein-0-Konvention - Giftschaden einmal
-    // gewuerfelt aus dem Grad-Wuerfelmodell (1d4/1d6/1d8, POISON_GRADE_
-    // DAMAGE), Runden bleiben RAW-fest (2/3/4). NSC-Traeger behalten die
-    // B5-Festwerte (Muster Giftig): Runden 2/3/4, Schaden 2/3/4 je Stufe.
-    if (this.actor?.system?.isPlayer) {
-      base.poisonSpitSC = true;
-    } else {
-      base.poisonFixedValues = true;
-    }
-    base.poisonResistSeparate = true;
+    base.casting = game.symbaroum.config.CASTING_NOT;
+    return base;
+  }
+
+  /* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1):
+     Knochengeschoss (NEUES Merkmal, Vault-Steckbrief) - Klick auf die
+     Kachel oeffnet den Standard-Waffendialog der Cross-Waffe (Wurfwaffe,
+     Schaden nach Natuerliche-Waffe-Stufe, ab Adept 2 Projektile/Runde,
+     Meister +1W4 Bonus [Kalibrierung] + Korruptionsangriff/Giftig-Rider
+     je Stufe des korrespondierenden Merkmals). */
+  traitSetupBoneprojectile(base) {
+    base.getTarget = true;
+    base.targetMandatory = true;
+    base.casting = game.symbaroum.config.CASTING_NOT;
     return base;
   }
 
@@ -4225,6 +4262,13 @@ async function weaponTypeLabel(weapon) {
       return game.i18n.localize("WEAPON_CLASS.SHIELD");
     case "other":
       return game.i18n.localize("GEAR.OTHER");
+    /* Konzept Runde 3 Teil A: Cross-Flag-Waffen (Merkmals-Referenzen als
+       Waffenklass-Ersatz) - einheitliches Label statt GEAR.OTHER. */
+    case "grapplingtongue":
+    case "prehensileclaws":
+    case "poisonspit":
+    case "boneprojectile":
+      return game.i18n.localize("TRAIT_MM2.CROSS_WEAPON_LABEL");
   }
   return game.i18n.localize("GEAR.OTHER");
 }
@@ -5630,17 +5674,23 @@ function getPowerResultFunction(functionStuff) {
      Die klickbaren Kampfkontroll-Merkmale laufen OHNE eigenen Wurf
      (CASTING_NOT, traitSetup*) direkt in ihre je Merkmal eigene
      Karten-Maschine (Baustein 6 + Steckbriefe §3): Netz = Netzkarte
-     mit Verfangen-/Befreiungs-Buttons je Ziel-Token, Greifzunge/
-     Greifklauen = Waffendialog der natürlichen Waffe mit MM2-Presets,
-     Rammen = SL-Kettendialog, Blitzschnell = Hinweiskarte (die
+     mit Verfangen-/Befreiungs-Buttons je Ziel-Token, Cross-Flag-Waffen
+     (v1.2, Konzept Runde 3: Greifzunge/Greifklauen/Giftspucke/
+     Knochengeschoss) = STANDARD-Waffendialog der Merkmals-eigenen
+     Waffe, Rammen = SL-Kettendialog, Blitzschnell = Hinweiskarte (die
      eigentliche Reaktion sitzt auf der Angriffs-Ergebniskarte). */
   switch (functionStuff.ability?.reference) {
     case "web":
       return mm2WebCard;
+    /* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1,
+       Rudolfs Entscheidung A-3 "Kachel behalten"): Kachel-Klick oeffnet den
+       STANDARD-Waffendialog der Cross-Waffe - dieselbe Zeile wie im Kampf-Tab,
+       die v1/v1.1-Preset-Flows auf der unbewaffneten Waffe sind ENTFERNT. */
     case "grapplingtongue":
-      return mm2GrapplingTongueFlow;
     case "prehensileclaws":
-      return mm2PrehensileClawsFlow;
+    case "poisonspit":
+    case "boneprojectile":
+      return mm2CrossWeaponFlow;
     case "rampage":
       return mm2RampageChain;
     case "swift":
@@ -9914,15 +9964,18 @@ async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
  *   Zug-Verschiebung eines Token, Befreiungskarte (Karten-Buttons,
  *   Besitzer wuerfelt selbst; SL/Player-Buchung 1x pro Runde).
  * - Karten-Maschinen der klickbaren Merkmale (Dispatch in
- *   getPowerResultFunction): mm2WebCard (Netz), mm2GrapplingTongueFlow /
- *   mm2PrehensileClawsFlow (Waffendialog der natuerlichen Waffe mit
- *   MM2-Presets), mm2RampageChain (SL-Kettendialog), mm2SwiftInfo
+ *   getPowerResultFunction): mm2WebCard (Netz), mm2CrossWeaponFlow
+ *   (Cross-Flag-Waffen: Kachel-Klick oeffnet den Standard-Waffendialog
+ *   der Merkmals-eigenen Waffe, Konzept Runde 3 Teil A),
+ *   mm2RampageChain (SL-Kettendialog), mm2SwiftInfo
  *   (Hinweiskarte; die eigentliche Reaktion sitzt auf der Angriffs-
  *   Ergebniskarte).
  * - mm2AttackerTraits: Reaktions-Merkmale im Angriffs-Pfad (parallel
- *   zu mm1AttackerTraits, Checkbox-Gating mm2Ticked mit identischer
- *   v1.1-Semantik): Erdrueckende Umarmung, Verschlingen, Zerstörer,
- *   Greifzunge-/Greifklauen-Rider, Blitzschnell-Hinweis.
+ *   zu mm1AttackerTraits; Reaktions-Merkmale weiter im Checkbox-Gating
+ *   mm2Ticked mit v1.1-Semantik, Cross-Flag-Waffen-aequivalente Rider
+ *   dagegen automatisch an der Waffen-Referenz): Erdrueckende Umarmung,
+ *   Verschlingen, Zerstörer, Greifzunge-/Greifklauen-Rider,
+ *   Giftspucke-Giftbindung, Knochengeschoss, Blitzschnell-Hinweis.
  * - Verschlingens-/Greifklauen-Zaegeloesung (mm2ResolveDevourPending /
  *   mm2ResolveClawPull, Export fuer den hooks.js-Zugbeginn-Hook) und
  *   mm2WreckerKnockdown (Export fuer den Anfragekarten-Handler).
@@ -9951,22 +10004,25 @@ function mm2RobustLevel(actor) {
   return getActorAbilityLevel(actor, "robust");
 }
 
-/* MM-Paket 2 v1.1 (Rudolfs Nachtest 7/12, TypeError D1): enhancedAttack-
-   Roll/rollWeapon erwarten das VORBEREITETE Waffenobjekt aus
-   actor.system.weapons (Kurzfelder .qualities/.attribute/.isArtifact,
-   Vorbereitung actor.js _evaluateWeapons) - das raw Item-Dokument
-   crasht in actor.js ("reading 'mystical'"). Kein Dokument-Rueckfall:
-   fehlt die vorbereitete Waffe, zeigt der Fehlerpfad die
-   ERROR_NO_NATURAL_WEAPON-Karte (SL pflegt die natuerliche Waffe). */
-function mm2PreparedUnarmedWeapon(actor) {
-  return actor?.system?.weapons?.find((w) => w?.reference === "unarmed") ?? null;
+/* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1):
+   Der Kachel-Klick sucht die VORBEREITETE Cross-Waffe in
+   actor.system.weapons (v1.1-Nachtest-D1-Lernweis bleibt bestehen:
+   enhancedAttackRoll/rollWeapon erwarten das Kurzfeld-Objekt aus
+   actor.js _evaluateWeapons, nie das raw Item-Dokument). Die
+   Referenz-Suche ersetzt den alten unbewaffneten Rueckgriff - das
+   Merkmal stiftet JEWEILS seine eigene Waffenzeile. */
+function mm2PreparedCrossWeapon(actor, reference) {
+  return actor?.system?.weapons?.find((w) => w?.reference === reference) ?? null;
 }
 
 /* Zug-Verschiebung: Opfer-Token eine Zellbreite DIREKT AN den Anker-
    heranziehen (Richtung aus der alten Position, SL justiert Hex-/
    Freiform-Raster und grosse Token manuell nach - bewusst globale
    Grenze, kein Pfad-Engine-Anspruch wie beim SL-Kettendialog). */
-async function mm2PullTokenAdjacent(movedToken, anchorToken) {
+/* MM-Paket 2 v1.2 Cross-Flag-Waffen: exportiert, weil die Greifzunge-
+   Zugprobe auch von der SC-Anfragekarte (hooks.js, probe.kind "mm2tongue")
+   aufgeloist wird - Opfer-Besitzer zieht das eigene Token. */
+export async function mm2PullTokenAdjacent(movedToken, anchorToken) {
   try {
     if (!movedToken || !anchorToken) return false;
     const size = canvas.dimensions?.size ?? 100;
@@ -10110,44 +10166,33 @@ async function mm2WebCard(_null, functionStuff) {
   }
 }
 
-/* Greifzunge (§3.2) / Greifklauen (§3.3): Kachel-Klick oeffnet den
-   Waffendialog der unbewaffneten Waffe; die Rider-Marker reisen als
-   Presets mit dem functionStuff bis attackResult (mm2AttackerTraits).
-   Greifklauen oeffnet SERIENANGRIFF 2x in EINER Karte (numberof-
-   Attacks 2, dokumentierte OEffnung der MM1-Grenze "1x pro Karte").
-   Kein Reichweiten/Gate-Filter (Präzedenz Giftspucke, SL-Sache). */
-async function mm2GrapplingTongueFlow(_null, functionStuff) {
+/* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1,
+   Rudolfs Freigabe 25.11.2026): Kachel-Klick oeffnet den STANDARD-Waffen-
+   dialog der MERKMALS-EIGENEN Waffe (config CROSS_WEAPON_TRAITS, actor.js
+   _getWeapons/_evaluateWeapons) - dieselbe Zeile wie im Kampf-Tab. Ersetzt
+   die v1/v1.1-Preset-Flows auf der unbewaffneten Waffe (Marker-Loesung
+   ENTFERNT): die Rider reisen ab sofort an der Waffen-Referenz selbst
+   (mm2AttackerTraits), die Serien-Vorbelegung (Greifklauen 2x, Knochen-
+   geschoss ab Adept 2x) uebernimmt enhancedAttackRoll aus der vorbereiteten
+   Waffe. Kein Reichweiten/Gate-Filter (Präzedenz Giftspucke, SL-Sache). */
+async function mm2CrossWeaponFlow(_null, functionStuff) {
   try {
     const attacker = functionStuff.actor;
-    if (!attacker) return null;
-    const weapon = mm2PreparedUnarmedWeapon(attacker);
+    const reference = functionStuff.ability?.reference;
+    if (!attacker || !reference) return null;
+    const weapon = mm2PreparedCrossWeapon(attacker, reference);
     if (!weapon) {
-      const title = `<h4>${game.i18n.localize("TRAIT_LABEL.GRAPPLINGTONGUE")}</h4>`;
-      await postMaintainChainCard(functionStuff, title, [`<p>${game.i18n.localize("TRAIT_MM2.ERROR_NO_NATURAL_WEAPON")}</p>`], []);
+      /* Kanonik-Label statt Item-Namen: functionStuff.ability ist nur die
+         System-DATEN-Kopie des Items (Hymnen-v1.2-Lernweis). */
+      const labelKey = game.symbaroum.config.traitsList[reference] ?? "TRAIT_MM2.CROSS_WEAPON_LABEL";
+      const title = `<h4>${game.i18n.localize(labelKey)}</h4>`;
+      await postMaintainChainCard(functionStuff, title, [`<p>${game.i18n.localize("TRAIT_MM2.ERROR_NO_CROSS_WEAPON")}</p>`], []);
       return null;
     }
-    await attacker.enhancedAttackRoll(weapon, { mm2GrapplingTongue: true });
+    await attacker.enhancedAttackRoll(weapon);
     return null;
   } catch (mm2Error) {
-    game.symbaroum.log("MM-Paket 2: Greifzunge", mm2Error);
-    return null;
-  }
-}
-
-async function mm2PrehensileClawsFlow(_null, functionStuff) {
-  try {
-    const attacker = functionStuff.actor;
-    if (!attacker) return null;
-    const weapon = mm2PreparedUnarmedWeapon(attacker);
-    if (!weapon) {
-      const title = `<h4>${game.i18n.localize("TRAIT_LABEL.PREHENSILECLAWS")}</h4>`;
-      await postMaintainChainCard(functionStuff, title, [`<p>${game.i18n.localize("TRAIT_MM2.ERROR_NO_NATURAL_WEAPON")}</p>`], []);
-      return null;
-    }
-    await attacker.enhancedAttackRoll(weapon, { mm2PrehensileClaws: true, numberofAttacks: 2 });
-    return null;
-  } catch (mm2Error) {
-    game.symbaroum.log("MM-Paket 2: Greifklauen", mm2Error);
+    game.symbaroum.log("MM-Paket 2: Cross-Waffen-Kachel", mm2Error);
     return null;
   }
 }
@@ -10669,80 +10714,154 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
       }
     }
 
-    /* --- Greifzunge-Rider (§3.2, Marker vom Kachel-Klick): Treffer
-       + Opfer mindestens eine Robust-Stufe schwächer -> Zug-Probe
-       [ST<-ST], Erfolg = Opfer wird herangezogen. Kein Range-Gate. */
-    if (functionStuff.mm2GrapplingTongue && anyHit && !targetDies && !functionStuff.freeAttack) {
+    /* --- Greifzunge (Cross-Waffe, Konzept Runde 3 Teil A - Bola-Form):
+   Treffer + Opfer mindestens eine Robust-Stufe schwaecher -> Zug-Probe
+   [ST<-ST] (SC-Opfer wuerfeln per Anfragekarte, NSC automatisch), Miss-
+   ling dem Opfer = adjacent zur Kreatur herangezogen. IMMER Zeile,
+   auch beim Angriffs-Fehlschlag (v1.1-Testbefunde 2/3: kein stiller
+   Wurf, keine leeren Dialoge); Freie Angriffe bleiben ohne Rider
+   (RAW-Präzedenz aktive Merkmale im Freien Angriff). */
+    if (weaponRef === "grapplingtongue" && !functionStuff.isAlternativeDamage) {
       const traitLabel = game.i18n.localize("TRAIT_LABEL.GRAPPLINGTONGUE");
       reactionTraits.push(traitLabel);
-      if (mm2RobustLevel(attacker) <= mm2RobustLevel(victim.actor)) {
-        lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_NO_ROBUST_EDGE", { targetname: victim.name }));
-      } else {
-        const pullTarget = getAttributeValue(attacker, "strong") + (10 - getAttributeValue(victim.actor, "strong"));
-        const probe = await new Roll("1d20").evaluate();
-        reactionRolls.push(probe);
-        lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_GRAPPLINGTONGUE.CHAT_PULL_LINE", { roll: probe.total, target: pullTarget })}</p>`);
-        if (probe.total <= pullTarget) {
-          const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
-          lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_GRAPPLINGTONGUE.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
+      if (!anyHit || targetDies) {
+        lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_MISS", { targetname: victim.name }));
+      } else if (!functionStuff.freeAttack) {
+        if (mm2RobustLevel(attacker) <= mm2RobustLevel(victim.actor)) {
+          lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_NO_ROBUST_EDGE", { targetname: victim.name }));
         } else {
-          lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_PULL_RESISTED", { targetname: victim.name, roll: probe.total, target: pullTarget }));
+          const pullTarget = getAttributeValue(attacker, "strong") + (10 - getAttributeValue(victim.actor, "strong"));
+          const probeOwner = await mm1ProbeOwner(victim.actor);
+          if (probeOwner) {
+           pendingProbes.push({
+              kind: "mm2tongue",
+              label: traitLabel,
+              target: pullTarget,
+              victimName: victim.name,
+              pullerTokenId: functionStuff.tokenId,
+            });
+            lines.push(bindLabelLine(traitLabel, "TRAIT_MM2.CHAT_PROBE_PENDING", { targetname: victim.name }));
+          } else {
+            const probe = await new Roll("1d20").evaluate();
+            reactionRolls.push(probe);
+            lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_GRAPPLINGTONGUE.CHAT_PULL_LINE", { roll: probe.total, target: pullTarget })}</p>`);
+            if (probe.total <= pullTarget) {
+              const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
+              lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_GRAPPLINGTONGUE.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
+            } else {
+              lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_PULL_RESISTED", { targetname: victim.name, roll: probe.total, target: pullTarget }));
+            }
+          }
         }
       }
     }
 
-    /* --- Greifklauen-Rider (§3.3, Marker vom Kachel-Klick):
-       Treffer-Zaehler ueber die beiden Klaueangriffe entscheidet das
-       Packeln je Stufe (Novize: beide, Adept: eines, Meister:
-       sofortiges Ziehen bei einem Treffer). Packeln [ST<-ST]:
-       Erfolg = bind (Nov/Adept mit Folgerunden-Zug-Pending, Meister:
-       sofortiger Zug, Loesung nur bei Tod/Loslassen - SL). */
-    if (functionStuff.mm2PrehensileClaws && anyHit && !targetDies && !functionStuff.freeAttack && !alreadyHeld()) {
+    /* --- Greifklauen (Cross-Waffe, Konzept Runde 3 Teil A): 2er-Serie
+       gegen dasselbe Ziel in EINER Karte (Serien-Vorbelegung aus der
+       vorbereiteten Waffe), Packeln je Stufe (Novize: BEIDE Klaue-
+       angriffe muessen treffen; Adept: einer genuegt; Meister: sofortiges
+       Ziehen bei einem Treffer, Befreiung nur noch Tod/Loslassen), bind-
+       Folgerunde ueber mm2ClawPending am Opfer-Zugbeginn (hooks.js
+       unberuehrt). Treffer-/Packel-Zeilen IMMER sichtbar. */
+    if (weaponRef === "prehensileclaws" && !functionStuff.isAlternativeDamage) {
       const traitLabel = game.i18n.localize("TRAIT_LABEL.PREHENSILECLAWS");
-      reactionTraits.push(traitLabel);
       const clawsLvl = getActorAbilityLevel(attacker, "prehensileclaws");
       const totalRolls = rollData.length;
-      const packThreshold = clawsLvl >= 2 ? 1 : totalRolls;
-      if (hits >= packThreshold) {
-        const packTarget = getAttributeValue(attacker, "strong") + (10 - getAttributeValue(victim.actor, "strong"));
-        const probe = await new Roll("1d20").evaluate();
-        reactionRolls.push(probe);
-        if (probe.total <= packTarget) {
-          const packedLine = game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PACKED", { targetname: victim.name, roll: probe.total, target: packTarget });
-          lines.push(`<p>${traitLabel}: ${packedLine}</p>`);
-          if (clawsLvl >= 3) {
-            const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
-            lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_PREHENSILECLAWS.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
-            lines.push(`<p>${game.i18n.localize("TRAIT_PREHENSILECLAWS.CHAT_MASTER_BIND")}</p>`);
-            result.flags.push({
-              tokenId: victim.tokenId,
-              addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
-              conditionData: { mm2Bind: { source: "clawsMaster" } },
-              label: `${traitLabel}: ${packedLine}`,
-            });
-          } else {
-            lines.push(`<p>${game.i18n.localize("TRAIT_PREHENSILECLAWS.CHAT_HELD")}</p>`);
-            result.flags.push({
-              tokenId: victim.tokenId,
-              addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
-              /* MM2 v1.1 (Nachtest 4a): Befreiungsdaten reiten in der
-                 bind-Condition mit - Karte erst am Opfer-Zugbeginn
-                 (hooks.js updateCombat), solange gebunden */
-              conditionData: {
-                mm2Bind: { source: "claws" },
-                mm2ClawPending: { pullerActorId: attacker.id, level: clawsLvl },
-                mm2Liberate: {
-                  target: getAttributeValue(victim.actor, "strong") + (10 - getAttributeValue(attacker, "strong")),
-                  source: "claws",
-                  attr: game.i18n.localize("TRAIT_MM2.LIBERATE_ATTR_STRONG"),
+      reactionTraits.push(traitLabel);
+      lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_SERIES_LINE", { hits: hits, total: totalRolls }));
+      if (anyHit && !targetDies && !functionStuff.freeAttack && !alreadyHeld()) {
+        const packThreshold = clawsLvl >= 2 ? 1 : totalRolls;
+        if (hits >= packThreshold) {
+          const packTarget = getAttributeValue(attacker, "strong") + (10 - getAttributeValue(victim.actor, "strong"));
+          const probe = await new Roll("1d20").evaluate();
+          reactionRolls.push(probe);
+          if (probe.total <= packTarget) {
+            const packedLine = game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PACKED", { targetname: victim.name, roll: probe.total, target: packTarget });
+            lines.push(`<p>${traitLabel}: ${packedLine}</p>`);
+            if (clawsLvl >= 3) {
+              const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
+              lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_PREHENSILECLAWS.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
+              lines.push(`<p>${game.i18n.localize("TRAIT_PREHENSILECLAWS.CHAT_MASTER_BIND")}</p>`);
+              result.flags.push({
+                tokenId: victim.tokenId,
+                addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
+                conditionData: { mm2Bind: { source: "clawsMaster" } },
+                label: `${traitLabel}: ${packedLine}`,
+              });
+            } else {
+              lines.push(`<p>${game.i18n.localize("TRAIT_PREHENSILECLAWS.CHAT_HELD")}</p>`);
+              result.flags.push({
+                tokenId: victim.tokenId,
+                addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
+                /* MM2 v1.1 (Nachtest 4a): Befreiungsdaten reiten in der
+                   bind-Condition mit - Karte erst am Opfer-Zugbeginn
+                   (hooks.js updateCombat), solange gebunden */
+                conditionData: {
+                  mm2Bind: { source: "claws" },
+                  mm2ClawPending: { pullerActorId: attacker.id, level: clawsLvl },
+                  mm2Liberate: {
+                    target: getAttributeValue(victim.actor, "strong") + (10 - getAttributeValue(attacker, "strong")),
+                    source: "claws",
+                    attr: game.i18n.localize("TRAIT_MM2.LIBERATE_ATTR_STRONG"),
+                  },
                 },
-              },
-              label: `${traitLabel}: ${packedLine}`,
-            });
+                label: `${traitLabel}: ${packedLine}`,
+              });
+            }
+          } else {
+            lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_PACK_RESISTED", { targetname: victim.name, roll: probe.total }));
           }
         } else {
-          lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_PACK_RESISTED", { targetname: victim.name, roll: probe.total }));
+          lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_NO_PACK", { hits: hits, total: totalRolls }));
         }
+      }
+    }
+
+    /* --- Giftspucke (Cross-Waffe, Konzept Runde 3 Teil A): Treffer ->
+       SEPARATE Giftresistenz [Scharfsinn<-Staerke] und Gift-DoT ueber die
+       bestehende Gift-Engine (poisonCalc): NSC-Traeger B5-Festwerte je
+       Stufe, SC-Traeger Grad-Wuerfelmodell (v1.1-Bewertungsfrage 2
+       unveraendert). Kein Waffenschaden - die Spucke wirkt allein ueber
+       das Gift (Vault-Notiz), IMMER Zeile. */
+    if (weaponRef === "poisonspit" && !functionStuff.isAlternativeDamage) {
+      const traitLabel = game.i18n.localize("TRAIT_LABEL.POISONSPIT");
+      reactionTraits.push(traitLabel);
+      lines.push(`<p>${traitLabel}: ${game.i18n.localize("TRAIT_POISONSPIT.CHAT_SPIT_ONLY")}</p>`);
+      if (!anyHit || targetDies || functionStuff.freeAttack) {
+        lines.push(bindLabelLine(traitLabel, "TRAIT_POISONSPIT.CHAT_MISS", { targetname: victim.name }));
+      } else if (!functionStuff.targetData.actor.system.combat.damageProt.poison) {
+        lines.push(bindLabelLine(traitLabel, "TRAIT_POISONSPIT.CHAT_IMMUNE", { targetname: victim.name }));
+      } else {
+        const spitLvl = getActorAbilityLevel(attacker, "poisonspit");
+        functionStuff.poison = Math.max(1, spitLvl);
+        if (attacker.system.isPlayer) {
+          functionStuff.poisonSpitSC = true;
+        } else {
+          functionStuff.poisonFixedValues = true;
+        }
+        /* Resistenzprobe Muster Giftspucke v1: einseitig
+           [Scharfsinn<-Staerke], NICHT der Angriffswurf */
+        const spitResistRoll = await baseRoll(attacker, "cunning", victim.actor, "strong", 0, 0, functionStuff.resistRoll);
+        if (spitResistRoll?.rolls) reactionRolls.push(...spitResistRoll.rolls);
+        const poisonRes = await poisonCalc(functionStuff, spitResistRoll);
+        if (poisonRes.roll) reactionRolls.push(poisonRes.roll);
+        if (poisonRes.poisonDotRoll) reactionRolls.push(poisonRes.poisonDotRoll);
+        lines.push(`<p>${traitLabel}: ${poisonRes.poisonChatResult ?? ""}</p>`);
+        if (poisonRes.flagData) result.flags.push(poisonRes.flagData);
+      }
+    }
+
+    /* --- Knochengeschoss (Cross-Waffe, Konzept Runde 3 Teil A,
+       Vault-Steckbrief): Wurfwaffen-Angriff, Schaden nach Natuerliche-
+       Waffe-Stufe; Meister-Bonus und Korruptionsangriff wirken als
+       automatische Paket-Mitglieder (getItemModifierBoneprojectile),
+       Giftig je Stufe im Angriffspfad (attackResult) - hier bleibt die
+       IMMER-Zeile. */
+    if (weaponRef === "boneprojectile" && !functionStuff.isAlternativeDamage) {
+      const traitLabel = game.i18n.localize("TRAIT_LABEL.BONEPROJECTILE");
+      reactionTraits.push(traitLabel);
+      if (!anyHit || targetDies) {
+        lines.push(bindLabelLine(traitLabel, "TRAIT_BONEPROJECTILE.CHAT_MISS", { targetname: victim.name }));
       }
     }
 
@@ -13741,6 +13860,22 @@ async function attackResult(rollData, functionStuff) {
     functionStuff.poison = 1;
     functionStuff.autoParams += game.i18n.localize("QUALITY.POISON") + ", ";
   }
+  /* Konzept Runde 3 Teil A (Knochengeschoss Meister + Giftig): Muster
+     Giftbeschichtet-Guess - der Knochengeschoss-Meister fuehrt das
+     Giftig-Merkmal des Akteurs automatisch auf dem Projektil mit
+     (Vault-Steckbrief); explizite Giftwahl/Beschichtung im Dialog bleibt
+     vorrangig, Immunitaet und 0-Schaden greifen erst im Gift-Block. */
+  const mm2BoneWeaponRef = functionStuff.weapon?.system?.reference ?? functionStuff.weapon?.reference;
+  if (mm2BoneWeaponRef === "boneprojectile" && !functionStuff.poison && !functionStuff.poisonCoating && damageTot > 0) {
+    if (getActorAbilityLevel(functionStuff.actor, "boneprojectile") >= 3) {
+      const mm2BonePoisonousLvl = getActorAbilityLevel(functionStuff.actor, "poisonous");
+      if (mm2BonePoisonousLvl > 0) {
+        functionStuff.poison = mm2BonePoisonousLvl;
+        functionStuff.poisonFixedValues = true;
+        functionStuff.autoParams += game.i18n.localize("TRAIT_LABEL.POISONOUS") + ", ";
+      }
+    }
+  }
   if (functionStuff.autoParams != "") {
     templateData.subText += ", " + functionStuff.autoParams;
   }
@@ -15784,18 +15919,11 @@ export async function standardPowerResult(rollData, functionStuff) {
        Bei ANGRIFFS-MISSERFELG läuft KEIN Giftpfad: die Karte zeigt allein
        den Fehlschlag (bewusster Unterschied zum Giftig-Pfad, dessen
        Aktionswurf identisch mit der Resistenz ist). */
-    let poisonRes = null;
-    if (functionStuff.poisonResistSeparate === true) {
-      if (rollData[0]?.trueActorSucceeded) {
-        const spitResistRoll = await baseRoll(functionStuff.actor, "cunning", functionStuff.targetData.actor, "strong", 0, 0, functionStuff.resistRoll);
-        // Wuerfelpaar auf der Karte sichtbar machen (Muster Beschichtungs-
-        // probe: rolls.push(...coatingRoll.rolls))
-        if (spitResistRoll?.rolls) rolls.push(...spitResistRoll.rolls);
-        poisonRes = await poisonCalc(functionStuff, spitResistRoll);
-      }
-    } else {
-      poisonRes = await poisonCalc(functionStuff, rollData[0]);
-    }
+    /* Konzept Runde 3 Teil A: die separate Giftspucke-Resistenz laeuft
+       jetzt INLINE im Cross-Waffen-Rider (mm2AttackerTraits) - der
+       poisonResistSeparate-Flag-Pfad (ehemaliger traitSetupPoisonspit-
+       Setter) ist tot und wurde entfernt. */
+    const poisonRes = await poisonCalc(functionStuff, rollData[0]);
     if (poisonRes) {
       // Gift v1: nur bei echtem Giftwurf auf die Karte (Neutralisierung
       // durch Giftresistent zeigt poisonCalc ohne eigenen Wurf an).

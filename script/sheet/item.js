@@ -472,6 +472,16 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 			allowShowReference: game.settings.get('symbaroum', 'allowShowReference'),
 		};
 		context.action_types = game.symbaroum.config.ACTION_TYPES;
+		/* Konzept Runde 3 Teil A (Cross-Waffen): Merkmals-Items mit
+		   Kanonik-Referenz (grapplingtongue, prehensileclaws, poisonspit,
+		   boneprojectile) bekommen im modernen Merkmalsblatt die GM-
+		   Editierfelder fuer Grundschaden und Angriffsattribut (Trait-
+		   Tab, s. trait.hbs) - Referenz aus config, Attribut-Liste wie
+		   Spielerblatt. */
+		context.isCrossWeaponTrait = this.item.type === 'trait' && Boolean(game.symbaroum.config.CROSS_WEAPON_TRAITS[this.item.system.reference]);
+		if (context.isCrossWeaponTrait) {
+			context.attribute_selection = game.symbaroum.config.ATTRIBUTE_SELECTION;
+		}
 		/* Segen & Lasten S2 Baustein B (Rudolfs „Leg los“, 06.11.2026):
 		   Kontakte-Gruppierung am Kontakte-Segen (system.contactGroup,
 		   Single-Select der 7 offiziellen Fraktionen + 'custom' mit

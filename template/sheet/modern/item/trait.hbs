@@ -16,6 +16,27 @@
                         <input id="{{id}}-system.marker" name="system.marker" type="checkbox" value="active" {{#if system.marker}}checked{{/if}}/>
                     </div>
                 </div>
+                {{!-- Konzept Runde 3 Teil A (Cross-Waffen): GM-Editierfelder
+                    fuer Cross-Flag-Merkmale im Beschreibungs-Tab - Grund-
+                    schaden frei (leer = Vorgabe je Merkmal, z. B. ohne
+                    Wurfschaden) und Angriffsattribut als override. --}}
+                {{#if symbaroumOptions.isGM}}
+                {{#if isCrossWeaponTrait}}
+                <div class="m-row">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.baseDamage">{{localize "TITLE.CROSS_WEAPON_DAMAGE"}}</label>
+                        <input id="{{id}}-system.baseDamage" name="system.baseDamage" type="text" value="{{system.baseDamage}}" placeholder="{{localize "TITLE.CROSS_WEAPON_DAMAGE_HINT"}}"/>
+                    </div>
+                    <div class="m-inline-field m-action-field">
+                        <label for="{{id}}-system.attribute">{{localize "WEAPON.ATTACK_ATTRIBUTE"}}</label>
+                        <select id="{{id}}-system.attribute" name="system.attribute">
+                            <option value="">{{localize "TITLE.CROSS_WEAPON_ATTRIBUTE_DEFAULT"}}</option>
+                            {{selectOptions attribute_selection selected=system.attribute labelAttr="label"}}
+                        </select>
+                    </div>
+                </div>
+                {{/if}}
+                {{/if}}
             </div>
         </div>
         {{#ifn system.marker}}

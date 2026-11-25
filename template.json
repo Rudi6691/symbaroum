@@ -249,7 +249,11 @@
         "action": "",
         "description": ""
       },
-      "marker": false
+      "marker": false,
+      "baseDamage": "",
+      "attribute": "",
+      "alternativeDamage": "none",
+      "qualities": {}
     },
     "ability": {
       "templates": [

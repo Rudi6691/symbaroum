@@ -212,6 +212,18 @@ export class SymbaroumActor extends Actor {
 				specialEffects: [],
 			};
 		}
+		/* MM-Paket 2 v1.2 Cross-Flag-Waffen: Serien-Angriffszahl aus der
+		   Kanonik (Greifklauen 2 Klaueangriffe, Knochengeschoss erst ab
+		   Adept 2 Projektile) - der Wuerfeldialog zeigt das 1x/2x-Radio
+		   (maxAttackNb), die Angriffs-Vorbelegung der Serie laeuft ueber die
+		   vorbereitete Waffe (_evaluateWeapons, numAttacks-Feld). */
+		for (let i = 0; i < allWeapons.length; i++) {
+			const crossCfg = game.symbaroum.config.CROSS_WEAPON_TRAITS[allWeapons[i].system.reference];
+			if (!crossCfg) continue;
+			const crossLvl = allWeapons[i].getLevel?.()?.level ?? 0;
+			combatMods.weapons[allWeapons[i].id].maxAttackNb =
+				crossLvl >= (crossCfg.numAttacksFromLevel ?? 1) ? Math.max(1, crossCfg.numAttacks) : 1;
+		}
 		for (let i = 0; i < allArmors.length; i++) {
 			combatMods.armors[allArmors[i].id] = {
 				specialEffects: [],
@@ -563,12 +575,56 @@ export class SymbaroumActor extends Actor {
 	_evaluateWeapons(activeWeapons, combatMods) {
 		let weaponArray = [];
 		for (let item of activeWeapons) {
+			/* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1):
+			   Merkmals-Waffen laufen durch dieselbe Vorbereitung wie echte
+			   Waffen. Kanonik aus config.js (CROSS_WEAPON_TRAITS), GM-Override
+			   je Merkmals-Item ueber die additiven Felder system.baseDamage /
+			   system.attribute (modernes Blatt, GM-only; leer = Kanonik). */
+			const crossCfg = game.symbaroum.config.CROSS_WEAPON_TRAITS[item.system.reference] ?? null;
+			let crossNumAttacks = 1;
+			let crossNoDamage = false;
+			if (crossCfg !== null) {
+				const crossLvl = item.getLevel?.()?.level ?? 0;
+				crossNumAttacks = crossLvl >= (crossCfg.numAttacksFromLevel ?? 1) ? Math.max(1, crossCfg.numAttacks) : 1;
+			}
 			let attribute = item.system.attribute;
+			if (crossCfg !== null && !attribute) attribute = crossCfg.attribute;
 			let doAlternativeDamage = item.system.alternativeDamage !== "none";
 			let tooltip = "";
 			let baseDamage = item.system.baseDamage;
 			if (baseDamage === undefined) {
 				baseDamage = "1d8"; // TODO move literal to config
+			}
+			if (crossCfg !== null) {
+				const gmBase = String(baseDamage ?? "").trim();
+				if (gmBase !== "") {
+					/* GM-Formel gewinnt (auch exotische wie "1d10+1d4" - die
+					   Normalisierung unten fasst Cross-Formeln nicht an). */
+					baseDamage = gmBase;
+				} else if (crossCfg.noDamage) {
+					/* "speziell" (Bola- bzw. Spuck-Form): kein Wurfschaden -
+					   die Waffe trifft/Kritisiert, aber wuerfelt 0 Schaden;
+					   Anzeige "speziell" (Rider/Zeilen tragen die Wirkung). */
+					crossNoDamage = true;
+					baseDamage = "0";
+				} else if (crossCfg.damageFromUnarmed) {
+					/* Greifklauen: unbewaffnete Waffe inkl. Natuerliche-
+					   Waffe-Staffelung (+2 Wuerfelseiten je Stufe, max 1W12;
+					   ohne Item-Fallback 1W6). */
+					const unarmedItem = activeWeapons.find((w) => w?.system?.reference === "unarmed");
+					const sidesMatch = String(unarmedItem?.system?.baseDamage ?? "").match(/[0-9]d([0-9]+)/);
+					let clawSides = sidesMatch ? parseInt(sidesMatch[1]) : 6;
+					clawSides = Math.min(12, clawSides + 2 * getActorAbilityLevel(this, "naturalweapon"));
+					baseDamage = `1d${clawSides}`;
+				} else if (crossCfg.naturalWeaponSides) {
+					/* Knochengeschoss (Vault-Steckbrief): Schaden nach der
+					   Stufe des Merkmals Natuerliche Waffe (0-3 ->
+					   1W6/1W8/1W10/1W12). */
+					const boneSides = Math.min(12, 6 + 2 * getActorAbilityLevel(this, "naturalweapon"));
+					baseDamage = `1d${boneSides}`;
+				} else {
+					baseDamage = crossCfg.baseDamage ?? "1d6";
+				}
 			}
 			let bonusDamage = "";
 			let damageFavour = 0;
@@ -609,7 +665,12 @@ export class SymbaroumActor extends Actor {
 			let allAttacksNPC = 0; // bonus for all attacks (including first & single)
 			let singleAttackNPC = [];
 
-			let diceSides = parseInt(baseDamage.match(/[0-9]d([0-9]+)/)[1]); // NEEDS CHANGING - assumes base damage is always a dice (might be true)
+			/* MM-Paket 2 v1.2 Cross-Flag-Waffen: "speziell"-Waffen (Greifzunge/
+			   Giftspucke) tragen bewusst KEINE Wuerfelformel (0 Schaden) - der
+			   Regex greift dann leer, diceSides bleibt 0 (alle npcFixedFromSides-
+			   Verbraucher sind 0-sicher). */
+			let diceSidesMatch = baseDamage.match(/[0-9]d([0-9]+)/);
+			let diceSides = diceSidesMatch ? parseInt(diceSidesMatch[1]) : 0; // NEEDS CHANGING - assumes base damage is always a dice (might be true)
 			weaponModifiers.package.forEach((pack) => {
 				let isDefaultPackage = pack.type === game.symbaroum.config.PACK_DEFAULT;
 				for (let i = 0; i < pack.member.length; i++) {
@@ -689,9 +750,13 @@ export class SymbaroumActor extends Actor {
 					singleText += ", ";
 				}
 			}
-			baseDamage = `1d${diceSides}`;
+			/* MM-Paket 2 v1.2 Cross-Flag-Waffen: echte Waffen normalisieren
+			   wie bisher auf "1d{sides}"; Cross-Waffen bleiben UNBERUEHRT -
+			   "speziell" bei "0" (keine 1d0-/2d0-Kippung) und GM-Formeln mit
+			   Zusatztermen (z. B. "1d10+1d4") vollstaendig durchgereicht. */
+			if (!crossNoDamage && !crossCfg && diceSides > 0) baseDamage = `1d${diceSides}`;
 			let baseDamageNPC = game.symbaroum.config.npcFixedFromSides(diceSides);
-			if (weaponModifiers.specialEffects.includes(game.symbaroum.config.DAM_FAVOUR)) {
+			if (weaponModifiers.specialEffects.includes(game.symbaroum.config.DAM_FAVOUR) && !crossNoDamage) {
 				baseDamage = `2d${diceSides}kh`;
 				damageFavour = 1;
 			}
@@ -701,6 +766,11 @@ export class SymbaroumActor extends Actor {
 				displayText = baseDamage + firstAttack + allAttacks;
 			} else {
 				displayText = singleText + displayText;
+			}
+			/* MM-Paket 2 v1.2 Cross-Flag-Waffen: "speziell"-Anzeige statt der
+			   0er-Formel (Kampf-Tab-Zeile + Wuerfeldialog). */
+			if (crossNoDamage) {
+				displayText = game.i18n.localize("TRAIT_MM2.CROSS_DAMAGE_SPECIAL");
 			}
 
 			let itemID = item.id;
@@ -714,11 +784,18 @@ export class SymbaroumActor extends Actor {
 				attributeValue: this.system.attributes[attribute].total + attributeMod,
 				attributeMod: 10 - attributeMod - this.system.attributes[attribute].total,
 				tooltip: tooltip,
-				isActive: item.system.isActive,
-				isEquipped: item.system.isEquipped,
+				/* MM-Paket 2 v1.2 Cross-Flag-Waffen: Merkmals-Waffen sind immer
+				   aktiv/angelegt (das Merkmal selbst ist das "Tragen") und
+				   tragen die Reichweiten-/Nahkampf-Flags aus der Kanonik. */
+				isActive: crossCfg !== null || item.system.isActive,
+				isEquipped: crossCfg !== null || item.system.isEquipped,
 				reference: item.system.reference,
-				isMelee: item.system.isMelee,
-				isDistance: item.system.isDistance,
+				isMelee: crossCfg !== null ? crossCfg.isMelee : item.system.isMelee,
+				isDistance: crossCfg !== null ? crossCfg.isDistance : item.system.isDistance,
+				/* Serien-Vorbelegung (nur Cross-Waffen belegt): enhancedAttack-
+				   Roll uebernimmt sie als numberofAttacks-Preset (Dialog-Radio
+				   bleibt uebersteuerbar). */
+				numAttacks: crossNumAttacks,
 				isArtifact: item.system.isArtifact,
 				doAlternativeDamage: doAlternativeDamage,
 				qualities: item.system.qualities,
@@ -878,7 +955,25 @@ export class SymbaroumActor extends Actor {
 	}
 
 	_getWeapons() {
-		let weaponArray = this.items.filter((element) => element.system.isWeapon);
+		/* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1):
+		   Merkmals-Referenzen aus CROSS_WEAPON_TRAITS laufen als ADDITIVE Waffen
+		   durch DIESEN Eintrittspunkt - bewusst NICHT ueber einen
+		   system.isWeapon-Flip (prepareData wuerde das Merkmal zum isGear-Item
+		   machen und Inventar-/Status-Chips streifen; Cross-Items bleiben
+		   trait-Typ, alle type==='weapon'-Filter bleiben unberuehrt). Gelernt-
+		   Gate: stufenlose Referenzen (LEVELLESS_TRAITS) gelten mit Itembesitz,
+		   gestufte erst mit aktiver Novize-Stufe. */
+		const crossSet = new Set(
+			this.items
+				.filter(
+					(element) =>
+						element.type === "trait" &&
+						game.symbaroum.config.CROSS_WEAPON_TRAITS[element.system.reference] &&
+						(game.symbaroum.config.LEVELLESS_TRAITS.includes(element.system.reference) || element.getLevel?.().level > 0)
+				)
+				.map((element) => element.id)
+		);
+		let weaponArray = this.items.filter((element) => element.system.isWeapon || crossSet.has(element.id));
 		weaponArray = Array.from(weaponArray.values()).sort((a, b) => {
 			if (a.type == b.type) {
 				return a.name == b.name ? 0 : a.name < b.name ? -1 : 1;
@@ -1382,6 +1477,11 @@ export class SymbaroumActor extends Actor {
 		// Axtkünstler v1 (Rudolfs Freigabe 29.10.): Preset-Marker (z. B.
 		// axeArtistNovice/axeArtistDouble aus dem Fähigkeits-Trigger)
 		// reisen mit dem functionStuff durch den EC-Dialog bis attackResult.
+		// MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1):
+		// Serien-Vorbelegung der vorbereiteten Cross-Waffe (Greifklauen 2x,
+		// Knochengeschoss ab Adept 2x) - die Serie laeuft RAW in EINER Karte;
+		// das 1x/2x-Attack-Radio im Wuerfeldialog bleibt uebersteuerbar.
+		if (weapon?.numAttacks > 1) presets.numberofAttacks = presets.numberofAttacks ?? weapon.numAttacks;
 		Object.assign(functionStuff, presets ?? {});
 		// Elixiere v1.7: die alte Grad-Zeile "Gift aufgetragen?" (askPoison)
 		// ist entfallen - die Waffengift-Zeile im EC-Dialog (dialog.js)

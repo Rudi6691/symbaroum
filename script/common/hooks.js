@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain, mm2ResolveDevourPending, mm2ResolveClawPull, mm2PostLiberateCard, openFallDamageDialog } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain, mm2ResolveDevourPending, mm2ResolveClawPull, mm2PostLiberateCard, mm2PullTokenAdjacent, openFallDamageDialog } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer, createModifyTokenChatButton } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -2674,6 +2674,21 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 							label: `${probe.label}: ${effectLine}`,
 						});
 						gmWhisperLines.push(game.i18n.localize('TRAIT_CRUSHINGEMBRACE.CHAT_NOACTION_HINT'));
+					}
+				}
+				/* Konzept Runde 3 Teil A (Greifzunge-Cross-Waffe): SC-Opfer
+				   wuerfelt die Zug-Probe [ST<-ST] selbst (Anfragekarte) -
+				   Gelingen = herangezogen (adjacent zur Kreatur, Token-
+				   Verschiebung wie beim NSC-Pfad), Misslingen = widerstanden.
+				   SL-Hinweis bei fehlgeschlagener Automatik-Verschiebung. */
+				else if (probe.kind === 'mm2tongue') {
+					if (probeRoll.total <= target) {
+						lines.push(game.i18n.format('TRAIT_GRAPPLINGTONGUE.CHAT_PULL_RESISTED', { targetname: victimName, roll: probeRoll.total, target: target }));
+					} else {
+						const victimToken = canvas.tokens?.get(mm1ResistRequest.tokenId) ?? canvas.tokens?.placeables?.find((t) => t.id === mm1ResistRequest.tokenId) ?? null;
+						const anchorToken = canvas.tokens?.get(probe.pullerTokenId) ?? canvas.tokens?.placeables?.find((t) => t.id === probe.pullerTokenId) ?? null;
+						const moveOk = await mm2PullTokenAdjacent(victimToken, anchorToken);
+						lines.push(game.i18n.format(moveOk ? 'TRAIT_GRAPPLINGTONGUE.CHAT_PULLED' : 'TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL', { targetname: victimName }));
 					}
 				}
 				/* MM-Paket 2 v1 (Zerstörer, Konzept §3.7): SC-Opfer wuerfelt die
