@@ -9951,9 +9951,15 @@ function mm2RobustLevel(actor) {
   return getActorAbilityLevel(actor, "robust");
 }
 
-function mm2UnarmedWeaponItem(actor) {
-  if (!actor?.items) return null;
-  return actor.items.find((w) => w.type === "weapon" && w.system?.reference === "unarmed") ?? null;
+/* MM-Paket 2 v1.1 (Rudolfs Nachtest 7/12, TypeError D1): enhancedAttack-
+   Roll/rollWeapon erwarten das VORBEREITETE Waffenobjekt aus
+   actor.system.weapons (Kurzfelder .qualities/.attribute/.isArtifact,
+   Vorbereitung actor.js _evaluateWeapons) - das raw Item-Dokument
+   crasht in actor.js ("reading 'mystical'"). Kein Dokument-Rueckfall:
+   fehlt die vorbereitete Waffe, zeigt der Fehlerpfad die
+   ERROR_NO_NATURAL_WEAPON-Karte (SL pflegt die natuerliche Waffe). */
+function mm2PreparedUnarmedWeapon(actor) {
+  return actor?.system?.weapons?.find((w) => w?.reference === "unarmed") ?? null;
 }
 
 /* Zug-Verschiebung: Opfer-Token eine Zellbreite DIREKT AN den Anker-
@@ -9995,10 +10001,15 @@ async function mm2PullTokenAdjacent(movedToken, anchorToken) {
    mm2Liberate), Erfolg entfernt das bind-Symbol (bei Netz zusaetzlich
    die Verfangen-Missgunst) automatisch ueber die GM-Anwenden-Karte,
    Fehlschlag verbleibt im Zustand. 1x pro Runde = SL/Player-
-   Buchung (Konzept: bewusst keine Runden-Sperre). */
-export async function mm2PostLiberateCard(victimTokenId, victimName, { target, source, titleHtml }) {
+   Buchung (Konzept: bewusst keine Runden-Sperre). MM2 v1.1 (Rudolfs
+   Nachtest 4a): gepostet ERST AM OPFER-ZUGBEGINN (hooks.js updateCombat)
+   statt sofort beim Fangen - die Liberationsdaten (target/source/attr)
+   reisen beim Fangen in der bind-Condition (conditionData.mm2Liberate
+   -> flagData). attr = Attributs-Notation-Label je Quelle (Punkt 17). */
+export async function mm2PostLiberateCard(victimTokenId, victimName, { target, source, attr, titleHtml }) {
   try {
     if (!victimTokenId || target == null) return;
+    const attrLabel = attr ?? "";
     const recipients = new Set();
     for (const user of game.users) {
       if (user.active && user.isGM) recipients.add(user.id);
@@ -10009,8 +10020,8 @@ export async function mm2PostLiberateCard(victimTokenId, victimName, { target, s
       for (const user of owners ?? []) recipients.add(user.id);
     }
     if (recipients.size === 0) recipients.add(game.user.id);
-    const buttonHtml = `<button class="mm2-liberate-probe"><i class="fas fa-dice-d20"></i> ${game.i18n.format("TRAIT_MM2.LIBERATE_BUTTON", { target })}</button>`;
-    const hintLine = game.i18n.format("TRAIT_MM2.LIBERATE_HINT", { targetname: victimName });
+    const buttonHtml = `<button class="mm2-liberate-probe"><i class="fas fa-dice-d20"></i> ${game.i18n.format("TRAIT_MM2.LIBERATE_BUTTON", { target, attr: attrLabel })}</button>`;
+    const hintLine = game.i18n.format("TRAIT_MM2.LIBERATE_HINT", { targetname: victimName, attr: attrLabel });
     const htmlBody = `<div class="symbaroum chat ability"><div class="foreground">${titleHtml}<div class="finalTxt"><p>${hintLine}</p><p>${buttonHtml}</p></div></div></div>`;
     const chatData = {
       user: game.user.id,
@@ -10018,7 +10029,7 @@ export async function mm2PostLiberateCard(victimTokenId, victimName, { target, s
       whisper: [...recipients],
       content: htmlBody,
     };
-    chatData[`flags.${game.system.id}.mm2Liberate`] = { tokenId: victimTokenId, victimName, target, source };
+    chatData[`flags.${game.system.id}.mm2Liberate`] = { tokenId: victimTokenId, victimName, target, source, attr: attrLabel };
     await ChatMessage.create(chatData);
   } catch (mm2Error) {
     game.symbaroum.log("MM-Paket 2: Befreiungskarte", mm2Error);
@@ -10104,7 +10115,7 @@ async function mm2GrapplingTongueFlow(_null, functionStuff) {
   try {
     const attacker = functionStuff.actor;
     if (!attacker) return null;
-    const weapon = mm2UnarmedWeaponItem(attacker);
+    const weapon = mm2PreparedUnarmedWeapon(attacker);
     if (!weapon) {
       const title = `<h4>${game.i18n.localize("TRAIT_LABEL.GRAPPLINGTONGUE")}</h4>`;
       await postMaintainChainCard(functionStuff, title, [`<p>${game.i18n.localize("TRAIT_MM2.ERROR_NO_NATURAL_WEAPON")}</p>`], []);
@@ -10122,7 +10133,7 @@ async function mm2PrehensileClawsFlow(_null, functionStuff) {
   try {
     const attacker = functionStuff.actor;
     if (!attacker) return null;
-    const weapon = mm2UnarmedWeaponItem(attacker);
+    const weapon = mm2PreparedUnarmedWeapon(attacker);
     if (!weapon) {
       const title = `<h4>${game.i18n.localize("TRAIT_LABEL.PREHENSILECLAWS")}</h4>`;
       await postMaintainChainCard(functionStuff, title, [`<p>${game.i18n.localize("TRAIT_MM2.ERROR_NO_NATURAL_WEAPON")}</p>`], []);
@@ -10215,14 +10226,14 @@ async function mm2SwiftInfo(_null, functionStuff) {
    Novize/Adept erst in der Folgerunde ueber den Zugbeginn-Hook).
    Bauch-DoT = A28-Festwert 2 je Zug, ignoriert Ruestung nativ;
    Zustands-Bind bis Ausspucken (freie Aktion der Kreatur), Ausspucken
-   als eigene Karte mit Button (hooks.js mm2SpitOut). */
+   per GM-Rundendialog am Zugbeginn der Kreatur (hooks.js, MM2 v1.1). */
 async function mm2DevourSwallow(victim, devourer, traitLabel, result, lines) {
   const swallowedLine = game.i18n.format("TRAIT_DEVOUR.CHAT_SWALLOWED", { targetname: victim.name });
   lines.push(`<p>${traitLabel}: ${swallowedLine}</p>`);
   result.flags.push({
     tokenId: victim.tokenId,
     addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
-    conditionData: { mm2Bind: { source: "devoured" } },
+    conditionData: { mm2Bind: { source: "devoured", creatureActorId: devourer.id } },
     dot: {
       label: "TRAIT_DEVOUR.DOT_LABEL",
       fixedDamage: game.symbaroum.config.MM2_BELLY_DOT,
@@ -10232,34 +10243,9 @@ async function mm2DevourSwallow(victim, devourer, traitLabel, result, lines) {
     },
     label: `${traitLabel}: ${swallowedLine}`,
   });
-  await mm2PostSpitOutCard(victim.tokenId, victim.name, devourer.name);
-}
-
-/* Ausspucken-Karte (Verschlingen, RAW: freie Aktion der Kreatur;
-   Kolossal-Kapazitaet 1/3/6 je Stufe als SL-Hinweis auf der Karte) */
-export async function mm2PostSpitOutCard(victimTokenId, victimName, creatureName) {
-  try {
-    if (!victimTokenId) return;
-    const recipients = new Set();
-    for (const user of game.users) {
-      if (user.active && user.isGM) recipients.add(user.id);
-    }
-    if (recipients.size === 0) recipients.add(game.user.id);
-    const title = `<h4>${game.i18n.localize("TRAIT_DEVOUR.SPIT_TITLE")}</h4>`;
-    const hintLine = game.i18n.format("TRAIT_DEVOUR.SPIT_HINT", { targetname: victimName, creaturename: creatureName });
-    const buttonHtml = `<button class="mm2-spit-out"><i class="fas fa-dice-d20"></i> ${game.i18n.localize("TRAIT_DEVOUR.SPIT_BUTTON")}</button>`;
-    const htmlBody = `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${hintLine}</p><p>${buttonHtml}</p></div></div></div>`;
-    const chatData = {
-      user: game.user.id,
-      speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize("DIALOG.SYSTEM_MESSAGE") }),
-      whisper: [...recipients],
-      content: htmlBody,
-    };
-    chatData[`flags.${game.system.id}.mm2SpitOut`] = { tokenId: victimTokenId, victimName };
-    await ChatMessage.create(chatData);
-  } catch (mm2Error) {
-    game.symbaroum.log("MM-Paket 2: Ausspucken-Karte", mm2Error);
-  }
+  /* MM2 v1.1 (Rudolfs Nachtest 9b): KEINE Ausspucken-Chat-Karte mehr -
+     der GM-Rundendialog (hooks.js updateCombat) fragt zu JEDEM Zug der
+     Kreatur je verschlucktem Opfer (mm2Bind.creatureActorId) nach. */
 }
 
 /* Verschlingens-Loesung am Zugbeginn der KREATUR (hooks.js ruft bei
@@ -10285,7 +10271,9 @@ export async function mm2ResolveDevourPending(victimToken, devourerActor) {
     const lines = [];
     if (probe.total <= target) {
       lines.push(game.i18n.format("TRAIT_DEVOUR.CHAT_PROBE_LINE", { roll: probe.total, target }));
-      await bind.setFlag(game.system.id, "flagData.mm2Bind", { source: "devoured" });
+      /* MM2 v1.1 (9b): creatureActorId fuer den GM-Rundendialog
+         (hooks.js updateCombat) - Ausspucken fragt je Kreaturen-Zug */
+      await bind.setFlag(game.system.id, "flagData.mm2Bind", { source: "devoured", creatureActorId: devourerActor.id });
       await bind.setFlag(game.system.id, "flagData.dot", {
         label: "TRAIT_DEVOUR.DOT_LABEL",
         fixedDamage: cfg.MM2_BELLY_DOT,
@@ -10294,7 +10282,6 @@ export async function mm2ResolveDevourPending(victimToken, devourerActor) {
         stackable: false,
       });
       lines.push(game.i18n.format("TRAIT_DEVOUR.CHAT_SWALLOWED", { targetname: victimToken.name }));
-      await mm2PostSpitOutCard(victimToken.id, victimToken.name, devourerActor.name);
     } else {
       await victimActor.removeCondition("bind");
       lines.push(game.i18n.format("TRAIT_DEVOUR.CHAT_ESCAPED", { targetname: victimToken.name, roll: probe.total }));
@@ -10318,7 +10305,6 @@ export async function mm2ResolveClawPull(victimToken, pullerActor) {
     if (!bind) return;
     const fd = bind.getFlag(game.system.id, "flagData");
     if (!fd?.mm2ClawPending) return;
-    const clawsLvl = Number(fd.mm2ClawPending.level) || getActorAbilityLevel(pullerActor, "prehensileclaws");
     await bind.unsetFlag(game.system.id, "flagData.mm2ClawPending");
     const traitLabel = game.i18n.localize("TRAIT_LABEL.PREHENSILECLAWS");
     const target = getAttributeValue(pullerActor, "strong") + (10 - getAttributeValue(victimActor, "strong"));
@@ -10331,19 +10317,14 @@ export async function mm2ResolveClawPull(victimToken, pullerActor) {
       lines.push(moveOk ? game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULLED", { targetname: victimToken.name }) : game.i18n.format("TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victimToken.name }));
     } else {
       await victimActor.removeCondition("bind");
-      lines.push(game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULL_RESISTED", { targetname: victimToken.name, roll: probe.total }));
+      lines.push(game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULL_RESISTED", { targetname: victimToken.name, roll: probe.total, target }));
     }
     const title = `<h4>${game.i18n.format("TRAIT_MM2.CHAT_REACTION_TITLE_ONE", { name: traitLabel })}</h4>`;
     await postMaintainChainCard({ actor: pullerActor, actingCharName: pullerActor.name }, title, lines.map((l) => `<p>${traitLabel}: ${l}</p>`), [probe]);
-    if (clawsLvl > 0 && clawsLvl < 3) {
-      /* Novize/Adept: Befreiung bei Erfolgsprobe je Runde moeglich
-         (RAW) - frische Befreiungskarte hinter der Zug-Karte */
-      await mm2PostLiberateCard(victimToken.id, victimToken.name, {
-        target: getAttributeValue(victimActor, "strong") + (10 - getAttributeValue(pullerActor, "strong")),
-        source: "claws",
-        titleHtml: `<h4>${game.i18n.localize("TRAIT_PREHENSILECLAWS.LIBERATE_TITLE")}</h4>`,
-      });
-    }
+    /* MM2 v1.1 (4a): KEINE Befreiungskarte mehr hier - sie erscheint am
+       OPFER-ZUGBEGINN (hooks.js updateCombat) aus den beim Packeln
+       gespeicherten mm2Liberate-Daten der bind-Condition, solange
+       gebunden (Novize/Adept, RAW 1x je Runde). */
   } catch (mm2Error) {
     game.symbaroum.log("MM-Paket 2: Greifklauen-Folgezug", mm2Error);
   }
@@ -10355,6 +10336,117 @@ export async function mm2ResolveClawPull(victimToken, pullerActor) {
    Fallschaden (applyFallDamage, Ruestung schuetzt normal) + SL-
    Verschiebe-Hinweis (Richtung manuell - bewusste Grenze). Export
    fuer den Anfragekarten-Handler (SC-Opfer wuerfeln selbst). */
+/* MM-Paket 2 v1.1 (Rudolfs Nachtest 11b/14): Fallschaden-SL-Karte -
+   gefluestert an die GMs mit Dialog-Oeffnen-Taste statt stiller Buchung;
+   Klick (hooks.js-Handler zum Flag mm2FallPrompt) oeffnet den Fallschaden-
+   Dialog am GM-Client mit vorbefuelltem Opfer + Fallhoehe. Laeuft auch,
+   wenn die Rueckschleuderungs-Reaktion auf dem Opfer-Spieler-Client
+   ausgewertet wurde. */
+export async function mm2FallPromptCard(victimTokenId, victimName, meter) {
+  try {
+    if (!victimTokenId) return;
+    const recipients = new Set();
+    for (const user of game.users) {
+      if (user.active && user.isGM) recipients.add(user.id);
+    }
+    if (recipients.size === 0) recipients.add(game.user.id);
+    const title = `<h4>${game.i18n.localize("FALL.PROMPT_TITLE")}</h4>`;
+    const line = game.i18n.format("FALL.PROMPT_LINE", { targetname: victimName ?? "", meter: Number(meter) || 0 });
+    const buttonHtml = `<button class="mm2-fall-dialog"><i class="fas fa-dice-d20"></i> ${game.i18n.localize("FALL.PROMPT_BUTTON")}</button>`;
+    const htmlBody = `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${line}</p><p>${buttonHtml}</p></div></div></div>`;
+    const chatData = {
+      user: game.user.id,
+      speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize("DIALOG.SYSTEM_MESSAGE") }),
+      whisper: [...recipients],
+      content: htmlBody,
+    };
+    chatData[`flags.${game.system.id}.mm2FallPrompt`] = { tokenId: victimTokenId, victimName: victimName ?? "", meter: Number(meter) || 0 };
+    await ChatMessage.create(chatData);
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Fallschaden-SL-Karte", mm2Error);
+  }
+}
+
+/* MM-Paket 2 v1.1 (Rudolfs Nachtest 11b/14): Fallschaden-SL-Dialog
+   (GM-Utility-Makro "Fallschaden" + Oeffnen-Taste der SL-Karte):
+   Ziel-Dropdown (Spieler-SCs + Szenen-Token-Akteure, dedupliziert),
+   hart/weich-Radios (hart default), numerisches Fallhoehenfeld;
+   Bestaetigen bucht applyFallDamage MIT [Gewandtheit]-Probe (withProbe)
+   ueber die GM-Anwenden-Karte. GM-only (Utility-Makro im System-Ordner,
+   keine Spieler-Freigabe - im Gegensatz zum Bergen-Muster). */
+export async function openFallDamageDialog(prefill = {}) {
+  try {
+    if (!game.user.isGM) return;
+    const candidates = [];
+    const seen = new Set();
+    const addCandidate = (actor) => {
+      if (!actor || seen.has(actor.id)) return;
+      seen.add(actor.id);
+      candidates.push(actor);
+    };
+    for (const actor of game.actors ?? []) {
+      if (actor.type === "character") addCandidate(actor);
+    }
+    for (const token of canvas.tokens?.placeables ?? []) addCandidate(token.actor);
+    if (candidates.length === 0) {
+      ui.notifications.warn(game.i18n.localize("FALL.DIALOG_NO_TARGET"));
+      return;
+    }
+    candidates.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    let preselect = null;
+    if (prefill.tokenId) {
+      const prefillToken = canvas.tokens?.placeables?.find((t) => t.id === prefill.tokenId) ?? null;
+      if (prefillToken?.actor && seen.has(prefillToken.actor.id)) preselect = prefillToken.actor.id;
+    }
+    const options = candidates
+      .map((a) => `<option value="${a.id}"${a.id === preselect ? " selected" : ""}>${a.name}</option>`)
+      .join("");
+    const opts = { actorId: "", meter: 0, weich: false };
+    const action = await foundry.applications.api.DialogV2.wait({
+      window: { title: game.i18n.localize("FALL.DIALOG_TITLE") },
+      classes: ["symb-dialog", "modern-dialog", "modern-theme-dark"],
+      position: { width: 440 },
+      content: `<div>
+  <div style="margin-bottom:0.6rem;"><label style="display:block;margin-bottom:0.25rem;">${game.i18n.localize("FALL.DIALOG_TARGET")}</label>
+  <select id="mm2-fall-target" style="width:100%;">${options}</select></div>
+  <div style="margin-bottom:0.6rem;"><label style="display:block;margin-bottom:0.25rem;">${game.i18n.localize("FALL.DIALOG_METER")}</label>
+  <input type="number" id="mm2-fall-meter" value="${Number(prefill.meter ?? 0) > 0 ? Number(prefill.meter) : ""}" min="1" step="1" style="width:6rem;"></div>
+  <div><label class="lblfavour"><input type="radio" name="mm2FallGround" value="hard" checked> ${game.i18n.localize("FALL.DIALOG_HARD")}</label></div>
+  <div><label class="lblfavour"><input type="radio" name="mm2FallGround" value="soft"> ${game.i18n.localize("FALL.DIALOG_SOFT")}</label></div>
+</div>`,
+      buttons: [
+        {
+          action: "fall",
+          label: game.i18n.localize("FALL.DIALOG_BUTTON"),
+          default: true,
+          /* Formularwerte NUR im Button-Callback lesen (DialogV2.wait
+             loest erst nach dem Schliessen auf - Bergen-Muster) */
+          callback: (event, button, dialog) => {
+            const root = dialog?.element ?? event?.target?.closest("dialog") ?? document;
+            opts.actorId = root.querySelector("#mm2-fall-target")?.value ?? "";
+            opts.meter = Number(root.querySelector("#mm2-fall-meter")?.value ?? 0) || 0;
+            opts.weich = root.querySelector('input[name="mm2FallGround"]:checked')?.value === "soft";
+          },
+        },
+        { action: "cancel", label: game.i18n.localize("BUTTON.CANCEL") },
+      ],
+    });
+    if (action !== "fall") return;
+    const targetActor = candidates.find((a) => a.id === opts.actorId) ?? null;
+    if (!targetActor) {
+      ui.notifications.warn(game.i18n.localize("FALL.DIALOG_NO_TARGET"));
+      return;
+    }
+    if (!(opts.meter > 0)) {
+      ui.notifications.warn(game.i18n.localize("FALL.DIALOG_NO_METER"));
+      return;
+    }
+    await applyFallDamage(targetActor, opts.meter, { weich: opts.weich, withProbe: true });
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Fallschaden-Dialog", mm2Error);
+  }
+}
+
 export async function mm2WreckerKnockdown(victim, attacker, wreckerLvl, probe, probeTarget, lines, rolls, resultFlags) {
   const traitLabel = game.i18n.localize("TRAIT_LABEL.WRECKER");
   /* Opfer probe total <= Zielwert = widestand geglueckt (steht),
@@ -10375,8 +10467,12 @@ export async function mm2WreckerKnockdown(victim, attacker, wreckerLvl, probe, p
     const distRoll = await new Roll("1d6").evaluate();
     rolls.push(distRoll);
     lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_WRECKER.CHAT_THROWN", { targetname: victim.name, count: distRoll.total })}</p>`);
-    await applyFallDamage(victim.actor, distRoll.total, { weich: false, withProbe: false });
-    lines.push(`<p>${game.i18n.localize("TRAIT_WRECKER.CHAT_MOVE_HINT")}</p>`);
+    /* MM2 v1.1 (Nachtest 11b/14): kein stiller applyFallDamage-Aufruf
+       mehr - gefluesterte SL-Karte mit Dialog-Oeffnen-Taste (Opfer +
+       1W6-Distanz vorbefüllt), funktioniert auch vom Spieler-Client
+       (Klick öffnet den Dialog am GM-Client). Zugrichtung zieht der SL
+       manuell am Token (bewusste Grenze, unveraendert). */
+    await mm2FallPromptCard(victim.tokenId, victim.name, distRoll.total);
   }
 }
 
@@ -10460,7 +10556,17 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
             result.flags.push({
               tokenId: victim.tokenId,
               addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
-              conditionData: { mm2Bind: { source: "embrace" } },
+              /* MM2 v1.1 (Nachtest 4a): Befreiungsdaten reiten in der
+                 bind-Condition mit - die Karte erscheint ERST AM
+                 OPFER-ZUGBEGINN (hooks.js updateCombat), solange gebunden */
+              conditionData: {
+                mm2Bind: { source: "embrace" },
+                mm2Liberate: {
+                  target: getAttributeValue(victim.actor, "strong") + (10 - getAttributeValue(attacker, "strong")),
+                  source: "embrace",
+                  attr: game.i18n.localize("TRAIT_MM2.LIBERATE_ATTR_STRONG"),
+                },
+              },
               dot: {
                 label: "TRAIT_CRUSHINGEMBRACE.CHAT_DOT_LABEL",
                 fixedDamage: griffDamage,
@@ -10469,11 +10575,6 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
                 stackable: false,
               },
               label: `${traitLabel}: ${appliedLine}`,
-            });
-            await mm2PostLiberateCard(victim.tokenId, victim.name, {
-              target: getAttributeValue(victim.actor, "strong") + (10 - getAttributeValue(attacker, "strong")),
-              source: "embrace",
-              titleHtml: `<h4>${game.i18n.localize("TRAIT_CRUSHINGEMBRACE.LIBERATE_TITLE")}</h4>`,
             });
           }
         }
@@ -10580,7 +10681,7 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
           const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
           lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_GRAPPLINGTONGUE.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
         } else {
-          lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_PULL_RESISTED", { targetname: victim.name, roll: probe.total }));
+          lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_PULL_RESISTED", { targetname: victim.name, roll: probe.total, target: pullTarget }));
         }
       }
     }
@@ -10619,16 +10720,19 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
             result.flags.push({
               tokenId: victim.tokenId,
               addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
+              /* MM2 v1.1 (Nachtest 4a): Befreiungsdaten reiten in der
+                 bind-Condition mit - Karte erst am Opfer-Zugbeginn
+                 (hooks.js updateCombat), solange gebunden */
               conditionData: {
                 mm2Bind: { source: "claws" },
                 mm2ClawPending: { pullerActorId: attacker.id, level: clawsLvl },
+                mm2Liberate: {
+                  target: getAttributeValue(victim.actor, "strong") + (10 - getAttributeValue(attacker, "strong")),
+                  source: "claws",
+                  attr: game.i18n.localize("TRAIT_MM2.LIBERATE_ATTR_STRONG"),
+                },
               },
               label: `${traitLabel}: ${packedLine}`,
-            });
-            await mm2PostLiberateCard(victim.tokenId, victim.name, {
-              target: getAttributeValue(victim.actor, "strong") + (10 - getAttributeValue(attacker, "strong")),
-              source: "claws",
-              titleHtml: `<h4>${game.i18n.localize("TRAIT_PREHENSILECLAWS.LIBERATE_TITLE")}</h4>`,
             });
           }
         } else {

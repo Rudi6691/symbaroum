@@ -1330,6 +1330,16 @@ export class SymbaroumMacros {
 				command: "game.symbaroum.macros.rationCapacityMigration();",
 				img: "icons/svg/item-bag.svg",
 			},
+			{
+				// MM2 v1.1 (Rudolfs Nachtest 11b/14): Fallschaden-SL-Dialog
+				// (GRW-Sturzregeln): Ziel-Dropdown (Spieler-SCs + Szenen-
+				// Token), hart/weich, Fallhoehe in Metern; bucht die
+				// [Gewandtheit]-Probe + den Schaden ueber die GM-Karte.
+				// GM-only (Utility-Makro), kein ownership-Feld.
+				name: game.i18n.localize("MACRO.FALL_DAMAGE_NAME"),
+				command: "game.symbaroum.api.openFallDamageDialog();",
+				img: CONFIG.statusEffects?.prone?.img ?? CONFIG.statusEffects?.find?.((e) => e.id === "prone")?.img ?? "icons/svg/falling.svg",
+			},
 		];
 		for (const def of utilities) {
 			// create only once, never overwrite an edited macro

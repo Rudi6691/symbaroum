@@ -1073,7 +1073,9 @@ export class SymbaroumActor extends Actor {
 			return;
 		}
 		// A13: block the use of unlearned abilities, powers and traits (level 0)
-		if (ability.system.hasLevels && ability.getLevel().level === 0) {
+		// MM-Paket 2 v1.1 (Rudolfs Nachtest 16/6): stufen-lose Merkmale
+		// (LEVELLESS_TRAITS, z.B. Greifzunge) sind ohne aktivierte Stufe nutzbar
+		if (ability.system.hasLevels && ability.getLevel().level === 0 && !game.symbaroum.config.LEVELLESS_TRAITS.includes(ability.system.reference)) {
 			ui.notifications.warn(game.i18n.format("ERROR.NOT_LEARNED", { name: ability.name }));
 			return;
 		}

@@ -22,7 +22,10 @@ import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone, 
 // Entscheidung 9 Fallschaden-Baustein): oeffentlicher Makro-Pfad
 // applyFallDamage(actor, sturzmeter, { weich }) - GRW "Schaden durch
 // einen Sturz", siehe item.js.
-import { applyFallDamage } from './item.js';
+// MM2 v1.1 (Rudolfs Nachtest 11b/14): zusaetzlich der Fallschaden-
+// SL-DIALOG als oeffentlicher API-Pfad (Utility-Makro "Fallschaden"
+// und Zerstoerer-Adept-Schleuderungskarte), siehe item.js.
+import { applyFallDamage, openFallDamageDialog } from './item.js';
 
 export class SymbaroumAPI
 {
@@ -93,6 +96,10 @@ export class SymbaroumAPI
         // makro-aufrufbarer Fallschaden (GRW-Sturzregeln, Ruestung
         // schuetzt wie immer, siehe applyFallDamage in item.js).
         this.applyFallDamage = applyFallDamage;
+        // MM2 v1.1 (Nachtest 11b/14): Fallschaden-SL-Dialog (GM-only)
+        // mit Ziel-Dropdown + hart/weich + Fallhoehe; bucht intern
+        // applyFallDamage MIT [Gewandtheit]-Probe (withProbe).
+        this.openFallDamageDialog = openFallDamageDialog;
     }
 
 

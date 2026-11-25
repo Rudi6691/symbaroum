@@ -2194,6 +2194,13 @@ SYMBAROUM.MM2_BELLY_DOT = 2;
 SYMBAROUM.MM2_WEB_MASTER_THREADS = 3;
 SYMBAROUM.MM2_FALL_PROBE_REDUCE = 3;
 SYMBAROUM.MM2_FALL_SOFT_REDUCE = 5;
+/* MM-Paket 2 v1.1 (Rudolfs Nachtest 16/6): stufen-lose Merkmale -
+   Referenzen OHNE aktivierte Stufe. Blatt-Chip zeigt dann "Merkmal"
+   statt "nicht erlernt" (player.js) und das A13-Nutzungsgate
+   (actor.js usePower) ist fuer diese Referenzen offen. Kompendium-
+   Merkmale tragen teils hasLevels ohne aktivierte Stufe - die Liste
+   ist die eine Kanonik-Stelle fuer kuenftige stufen-lose Merkmale. */
+SYMBAROUM.LEVELLESS_TRAITS = ["grapplingtongue"];
 SYMBAROUM.MM2_ROBUST_BONUS_PER_LEVEL = 2;
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
    eine Wuerfelstufe gesenkt (1d8 -> 1d6 -> 1d4 -> neutralisiert); exotische

@@ -655,13 +655,22 @@ export class PlayerSheet extends SymbaroumActorSheet {
 				noAccess: tradIds.length > 0 && !hasAnyTraditionAccess(this.actor, tradIds),
 			};
 			if (s.hasLevels) {
-				const lvl = item.getLevel();
-				entry.level = lvl.level;
-				entry.pipsOff = Math.max(0, 3 - lvl.level);
-				entry.sub = lvl.lvlName ?? '';
+				/* MM-Paket 2 v1.1 (Rudolfs Nachtest 16/6): stufen-lose
+				   Merkmale (LEVELLESS_TRAITS) zeigen "Merkmal" statt
+				   "nicht erlernt" und keine Stufen-Pips - Kompendium-
+				   Items tragen teils hasLevels ohne aktivierte Stufe */
+				if (game.symbaroum.config.LEVELLESS_TRAITS.includes(s.reference ?? '')) {
+					entry.sub = localize('ITEM.TypeTraitSingular');
+				} else {
+					const lvl = item.getLevel();
+					entry.level = lvl.level;
+					entry.pipsOff = Math.max(0, 3 - lvl.level);
+					entry.sub = lvl.lvlName ?? '';
+				}
 			} else if (s.isRitual) entry.sub = localize('ITEM.TypeRitual');
 			else if (s.isBoon) entry.sub = localize('ITEM.TypeBoon');
 			else if (s.isBurden) entry.sub = localize('ITEM.TypeBurden');
+			else entry.sub = localize('ITEM.TypeTraitSingular');
 			const groupId = TYPE_GROUP[item.type];
 			const group = groupById[groupId] ?? groupById.abilities;
 			group.items.push(entry);
