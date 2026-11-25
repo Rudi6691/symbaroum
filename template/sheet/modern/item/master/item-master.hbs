@@ -245,23 +245,18 @@
                     <span class="l">{{localize "BOON.BONUS_VALUE"}}</span>
                 </div>
                 {{/if}}
-                <div class="m-row">
-                    <div class="m-inline-field">
-                        <label data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}">{{localize "STATUS.CROSSFLAG_LABEL"}}</label>
-                        <div class="m-row m-crossflag-radios">
-                            <div class="m-inline-field m-check">
-                                <label for="{{id}}-system.crossflag-none">{{localize "STATUS.CROSSFLAG_NONE"}}</label>
-                                <input type="radio" id="{{id}}-system.crossflag-none" name="system.crossFlag" value="none" data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}" {{#ife crossFlag "none"}}checked{{/ife}}/>
-                            </div>
-                            <div class="m-inline-field m-check">
-                                <label for="{{id}}-system.crossflag-weapon">{{localize "STATUS.CROSSFLAG_WEAPON"}}</label>
-                                <input type="radio" id="{{id}}-system.crossflag-weapon" name="system.crossFlag" value="weapon" data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}" {{#ife crossFlag "weapon"}}checked{{/ife}}/>
-                            </div>
-                            <div class="m-inline-field m-check">
-                                <label for="{{id}}-system.crossflag-armor">{{localize "STATUS.CROSSFLAG_ARMOR"}}</label>
-                                <input type="radio" id="{{id}}-system.crossflag-armor" name="system.crossFlag" value="armor" data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}" {{#ife crossFlag "armor"}}checked{{/ife}}/>
-                            </div>
-                        </div>
+                {{!-- Commit A v1.1 (Rudolfs Testrunde zu Commit A): Cross-Flag-
+                    Radios im Gunst-Block-Stil des Wuerfeldialogs (Festlegung:
+                    Darstellung im Wuerfeldialog ist der Master) - Eine-Zeile-
+                    Kasten (.m-crossflag-radios, CSS nach der Gunst-Kastenzeile)
+                    mit lblfavour-Einzel-Labels und Glyph-Radios, Tooltip am
+                    Feld-Label ueber der Zeile. --}}
+                <div class="m-inline-field m-crossflag-field">
+                    <label data-tooltip="{{localize "STATUS.CROSSFLAG_TOOLTIP"}}">{{localize "STATUS.CROSSFLAG_LABEL"}}</label>
+                    <div class="m-crossflag-radios">
+                        <label class="lblfavour"><input type="radio" name="system.crossFlag" value="none" {{#ife crossFlag "none"}}checked{{/ife}}/> {{localize "STATUS.CROSSFLAG_NONE"}}</label>
+                        <label class="lblfavour"><input type="radio" name="system.crossFlag" value="weapon" {{#ife crossFlag "weapon"}}checked{{/ife}}/> {{localize "STATUS.CROSSFLAG_WEAPON"}}</label>
+                        <label class="lblfavour"><input type="radio" name="system.crossFlag" value="armor" {{#ife crossFlag "armor"}}checked{{/ife}}/> {{localize "STATUS.CROSSFLAG_ARMOR"}}</label>
                     </div>
                     {{#if hasLevelSlots}}
                     <div class="m-inline-field m-check">

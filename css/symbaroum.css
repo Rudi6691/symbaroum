@@ -8802,6 +8802,30 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   flex: 1 1 auto;
 }
 
+/* ---------- Commit A v1.1 (Rudolfs Commit-A-Testrunde): Cross-Flag-Radio-
+   zeile im Funktion-Tab - Gunst-Block-Bauweise des Wuerfeldialogs (Fest-
+   legung: Darstellung im Wuerfeldialog ist der Master). Kasten, Label-Stil
+   und Glyph-Radios teilen die Master-Regeln der Dialoge weiter unten per
+   Selektor-Erweiterung (jeweils mit .m-crossflag-radios-Mitglied, s. dort);
+   dieser Block traegt NUR die Blatt-Supplemente: den m-give-vis-Zeilen-
+   Zwischenraum (flex-wrap/gap, Deklarationen des Geben-Dialog-Containers
+   ~9550) fuer die DREI getrennten lblfavour-Labels sowie die Abweichungen
+   gegen den Blatt-Label-Leak-Reset (~7864: uppercase, letter-spacing) und
+   das Label-Margin (Muster lblfavour margin:0). */
+.symbaroum.sheet.item .modern-root .m-crossflag-radios {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+}
+
+.symbaroum.sheet.item .modern-root .m-crossflag-radios label.lblfavour {
+  text-transform: none;
+  letter-spacing: normal;
+  margin: 0;
+}
+
 /* ---------- Wiederverwendete Partials: Bonus-Tab ------------------------ */
 /* tab/bonus.hbs und tab/artifact.hbs bleiben im Markup unverändert; ihre
    klassischen Layout-Regeln sind aber an die Typ-Wrapper (.ability .bonus
@@ -9125,7 +9149,15 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   margin: 0;
 }
 
-.symbaroum.modern-roll-dialog .m-roll-favour {
+.symbaroum.modern-roll-dialog .m-roll-favour,
+/* Commit A v1.1 (Rudolfs Commit-A-Testrunde): Cross-Flag-Radiozeile im
+   Funktion-Tab des Master-Item-Sheets - Selektor-Erweiterung der MASTER-
+   Regeln (Lernweis v1.7/P26-fix2: gleiche Deklarationen statt Spiegel-
+   regeln, keine Drift bei kuenftigen Anpassungen). Ein Sheet-Fenster
+   hat kein dialog.symb-dialog-Scope, deshalb der vollstaendige Blatt-
+   Selektor als Listenglied (html-body-Praeflix gegen die Core-Form-
+   Kaskade, Muster der Master-Regeln). */
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios {
   display: flex;
   justify-content: center;
   padding: 0.1rem 0;
@@ -9133,6 +9165,8 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
 
 .symbaroum.modern-roll-dialog .m-roll-favour label.lblfavour,
 .symbaroum.modern-roll-dialog label.lblfavour,
+/* Commit A v1.1: Cross-Flag-Radios im Master-Item-Sheet (o.) */
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios label.lblfavour,
 /* P26-fix2 (Rudolfs Testrunde fix1-01): die Gunst-Zeile der Todesprobe
    (klassischer Inhalts-Root .symbaroum.dialog im modernen Fenster) im
    selben Zeilen-Stil wie die Gunst-Zeile des Würfeldialog-Masters -
@@ -9294,7 +9328,9 @@ html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]
    Modus-Radios und Fortsetzen-Checkbox identisch mit dem Master
    zeichnen (kein Regel-Drift). */
 html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"],
-html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"] {
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"],
+/* Commit A v1.1: Cross-Flag-Radios im Master-Item-Sheet (o.) */
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios input[type="radio"] {
   appearance: none !important;
   -webkit-appearance: none !important;
   padding: 0 !important;
@@ -9343,7 +9379,10 @@ html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]
 html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"]::before,
 html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="checkbox"]::after,
 html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]::before,
-html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]::after {
+/* Commit A v1.1: Cross-Flag-Radios im Master-Item-Sheet (o.) */
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios input[type="radio"]::before,
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]::after,
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios input[type="radio"]::after {
   content: none !important;
   background: none !important;
   mask-image: none !important;
@@ -9362,7 +9401,9 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"],
 /* P26-fix2: Todesprobe-Radios, s.o. (Selektor-Erweiterung) */
 html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"],
 /* S4: Reisetag-Dialog-Radios (Master-Erweiterung, s.o.) */
-html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"] {
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"],
+/* Commit A v1.1: Cross-Flag-Radios im Master-Item-Sheet (o.) */
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios input[type="radio"] {
   border-radius: 50% !important;
 }
 
@@ -9386,7 +9427,9 @@ html body dialog.symb-dialog .symbaroum.modern-give-dialog input[type="radio"]:c
 /* P26-fix2: Todesprobe-Radios, s.o. (Selektor-Erweiterung) */
 html body dialog.symb-dialog.modern-dialog .symbaroum.dialog input[type="radio"]:checked,
 /* S4: Reisetag-Dialog (Master-Erweiterung, s.o.) */
-html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]:checked {
+html body dialog.symb-dialog .symbaroum.modern-travel-dialog input[type="radio"]:checked,
+/* Commit A v1.1: Cross-Flag-Radios im Master-Item-Sheet (o.) */
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios input[type="radio"]:checked {
   /* v1.2: Radiopunkt vergrößert (38 % -> 48 % Füllung) - gut erkennbar
      auch im dunklen Design; Rahmen auf Akzent wie bei der Checkbox. */
   background-image: radial-gradient(circle, var(--m-accent) 0 48%, transparent 56% 100%) !important;
@@ -9411,7 +9454,9 @@ html body dialog.symb-dialog.modern-theme-classic .symbaroum.modern-travel-dialo
    Bestand 0 ausgegraute, fast leere) Kraeuterarznei-Box zu rutschen. */
 .symbaroum.modern-roll-dialog .m-roll-check,
 .symbaroum.modern-roll-dialog .m-roll-favour,
-.symbaroum.modern-roll-dialog .m-roll-boxed {
+.symbaroum.modern-roll-dialog .m-roll-boxed,
+/* Commit A v1.1: Cross-Flag-Radiozeile im Master-Item-Sheet (o.) */
+html body .symbaroum.sheet.item .modern-root .m-crossflag-radios {
   border: 0.0625rem solid var(--m-line);
   border-radius: 0.35rem;
   padding: 0.35rem 0.5rem;
