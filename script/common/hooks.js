@@ -12,7 +12,7 @@ import { ModernSheetConfig, MODERN_SHEET_DEFAULT_DESIGN, closeOpenRollDialogs, r
 import { enrichTextEditors } from './enricher.js';
 
 import { SymbaroumActor } from './actor.js';
-import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain, mm2ResolveDevourPending, mm2ResolveClawPull, mm2PostLiberateCard, mm2PullTokenAdjacent, openFallDamageDialog } from './item.js';
+import { SymbaroumItem, buildRolls, checkCorruptionThreshold, applyCorruptionMasterReactions, trollRerollInvoke, hymnPowerLabel, endActiveGlyph, endActiveSymbolZone, symbolZonePowerLabel, setSymbolMarkersUnmaintained, firesoulActiveLevel, sphereRescanMaintain, mm2ResolveDevourPending, mm2ResolveClawPull, mm2PostLiberateCard, mm2PullTokenAdjacent, mm2WebEntangleGmActions, mm2WebZoneRoundProbes, openFallDamageDialog } from './item.js';
 // A28 Stufe 1: the round/DoT engine attaches its damage rolls to the tick card
 import { createRollData, getAttributeValue, getOwnerPlayer, createModifyTokenChatButton } from './roll.js';
 // A29: the maintain reminder is a small dialog, rendered via the system's
@@ -2691,6 +2691,24 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						lines.push(game.i18n.format(moveOk ? 'TRAIT_GRAPPLINGTONGUE.CHAT_PULLED' : 'TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL', { targetname: victimName }));
 					}
 				}
+				/* Konzept Runde 3 Teil B (Netz-Dualmodell, Commit 2): SC-Opfer
+				   wuerfeln die Verfangen-Probe [GW<-SF] der NETZZONE selbst
+				   (Betreten oder Rundenbeginn im Netz) - Erfolg = entwischt,
+				   Fehlschlag = bind + Verfangen-Missgunst (in Zonen mit
+				   conditionData.mm2WebZone: die Missgunst endet automatisch
+				   beim Verlassen der Region). Das GM-Paket baut
+				   mm2WebEntangleGmActions identisch zum NSC-Pfad (item.js). */
+				else if (probe.kind === 'mm2web') {
+					if (probeRoll.total <= target) {
+						lines.push(game.i18n.format('TRAIT_WEB.CHAT_ESCAPED', { targetname: victimName, roll: probeRoll.total, target: target }));
+					} else {
+						const caughtLine = game.i18n.format('TRAIT_WEB.CHAT_CAUGHT', { targetname: victimName, roll: probeRoll.total, target: target });
+						lines.push(caughtLine);
+						const webVictimToken = canvas.tokens?.placeables?.find((t) => t.id === mm1ResistRequest.tokenId);
+						const webVictimDoc = webVictimToken?.document ?? null;
+						gmActions.push(...mm2WebEntangleGmActions(webVictimDoc ?? { id: mm1ResistRequest.tokenId, name: victimName }, { creatureSF: probe.webSF, creatureName: probe.creatureName ?? '' }, probe.regionId ?? null));
+					}
+				}
 				/* MM-Paket 2 v1 (Zerstörer, Konzept §3.7): SC-Opfer wuerfelt die
 				   Niedergerungen-Probe [ST<-ST, Robust ±2 je Stufe beidseitig]
 				   selbst - Fehlschlag = prone, Adept zusaetzlich 1W6 Meter
@@ -2754,19 +2772,47 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 	 * TokenChatButton = emit GMMessage, GM wendet an - auch vom
 	 * Spieler-Client aufrufbar). 1x pro Runde = SL/Player-Buchung.
 	 * ================================================================ */
-	/* Netz (§3.1): Verfangen-Probe [GW<-SF] je Ziel-Token - Fehlschlag:
-	 * bind + Verfangen-Missgunst (Disfavoured ueber die bestehende
-	 * Missgunst-Kette, boon.js) + Befreiungskarte [ST<-SF] mit
-	 * automatischere Symbol-Loeschung (Konzept Baustein 2). */
-	const mm2WebCard = await chatItem.getFlag(game.system.id, 'mm2WebCard');
-	if (mm2WebCard) {
+	/* Netz-Geschosse (Konzept Runde 3 Teil B, Commit 2; Flag mm2WebShots):
+	 * Keine Vorabbuchung mehr - JE Klick auf einen Ziel-Button verbraucht
+	 * EIN Geschoss (Zaehler bleibt mm2WebThreads {round, used} am
+	 * Kreatur-Token mit Runden-Auffuellung). Leergeschossen pro Klick
+	 * die MASTER_SPENT-Zeile und Ende. Probe [GW<-SF]: Erfolg =
+	 * entwischt, Fehlschlag = bind + Verfangen-Missgunst (GM-Anwenden-
+	 * Karte, Daten aus mm2WebEntangleGmActions - Geschoss-Missgunst ist
+	 * NICHT zonen-gebunden, sie endet nur ueber die Befreiung). */
+	const mm2WebShots = await chatItem.getFlag(game.system.id, 'mm2WebShots');
+	if (mm2WebShots) {
 		const traitsLabel = game.i18n.localize('TRAIT_LABEL.WEB');
 		for (const s of html.querySelectorAll('.mm2-web-probe')) {
 			s.addEventListener('click', async () => {
-				const victimEntry = (mm2WebCard.victims ?? []).find((v) => v.tokenId === s.dataset?.victim);
+				const victimEntry = (mm2WebShots.victims ?? []).find((v) => v.tokenId === s.dataset?.victim);
 				if (!victimEntry) return;
+				/* Munitions-Check JE Klick (nicht bei Kartenerstellung) */
+				const creatureToken = canvas.tokens?.get(mm2WebShots.creatureTokenId) ?? canvas.tokens?.placeables?.find((t) => t.id === mm2WebShots.creatureTokenId) ?? null;
+				const creatureDoc = creatureToken?.document ?? creatureToken ?? null;
+				const combatRound = game.combat?.round ?? 0;
+				let counter = null;
+				if (creatureDoc) {
+					counter = creatureDoc.getFlag(game.system.id, 'mm2WebThreads') ?? { round: combatRound, used: 0 };
+					if (counter.round !== combatRound) counter.used = 0;
+				}
+				const shotsMax = Number(mm2WebShots.max ?? 0);
+				if (counter && counter.used >= shotsMax) {
+					s.disabled = true;
+					const spentTitle = `<h4>${game.i18n.format('TRAIT_MM2.CHAT_REACTION_TITLE_ONE', { name: traitsLabel })}</h4>`;
+					await ChatMessage.create({
+						user: game.user.id,
+						speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+						content: `<div class="symbaroum chat ability"><div class="foreground">${spentTitle}<div class="finalTxt"><p>${traitsLabel}: ${game.i18n.format('TRAIT_WEB.MASTER_SPENT', { max: shotsMax })}</p></div></div></div>`,
+					});
+					return;
+				}
 				s.disabled = true;
 				s.style.display = 'none';
+				if (creatureDoc && counter) {
+					counter.used += 1;
+					await creatureDoc.setFlag(game.system.id, 'mm2WebThreads', counter);
+				}
 				const probeRoll = await new Roll('1d20').evaluate();
 				const rolls = [probeRoll];
 				const lines = [];
@@ -2776,41 +2822,17 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 				} else {
 					const caughtLine = game.i18n.format('TRAIT_WEB.CHAT_CAUGHT', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target });
 					lines.push(caughtLine);
-					/* Befreiung [St<-SF]: Zielwert am Klick-Zeitpunkt aus der
-					   Staerke des Opfers gegen den Scharfsinn der Netz-Kreatur;
-					   MM2 v1.1 (Nachtest 4a): KEIN Kartenpost hier - die
-					   Liberationsdaten reisen in der bind-Condition mit, die
-					   Karte erscheint am OPFER-ZUGBEGINN (updateCombat-Hook).
-					   Ohne auffindbares Opfer-Aktor-Objekt (unverknuepftes
-					   Token) bleiben die Daten weg - Symbol loescht die SL. */
 					const webVictimToken = canvas.tokens?.placeables?.find((t) => t.id === victimEntry.tokenId);
-					const webVictimActor = webVictimToken?.actor ?? null;
-					const webConditionData = { mm2Bind: { source: 'web' } };
-					if (webVictimActor) {
-						webConditionData.mm2Liberate = {
-							target: getAttributeValue(webVictimActor, 'strong') + (10 - Number(mm2WebCard.creatureSF ?? 10)),
-							source: 'web',
-							attr: game.i18n.localize('TRAIT_MM2.LIBERATE_ATTR_WEB'),
-						};
-					}
-					gmActions.push({
-						tokenId: victimEntry.tokenId,
-						addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'bind')),
-						conditionData: webConditionData,
-						label: `${traitsLabel}: ${caughtLine}`,
-					});
-					gmActions.push({
-						tokenId: victimEntry.tokenId,
-						addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === 'missgunst')),
-						label: `${traitsLabel}: ${game.i18n.format('TRAIT_WEB.CHAT_MISSGUNST_LINE', { targetname: victimEntry.name })}`,
-					});
+					const webVictimDoc = webVictimToken?.document ?? null;
+					gmActions.push(...mm2WebEntangleGmActions(webVictimDoc ?? { id: victimEntry.tokenId, name: victimEntry.name }, { creatureSF: mm2WebShots.creatureSF, creatureName: mm2WebShots.creatureName }, null));
 				}
+				lines.push(game.i18n.format('TRAIT_WEB.MASTER_THREADS', { used: counter?.used ?? 0, max: shotsMax }));
 				const cardTitle = `<h4>${game.i18n.format('TRAIT_MM2.CHAT_REACTION_TITLE_ONE', { name: traitsLabel })}</h4>`;
 				await ChatMessage.create({
 					user: game.user.id,
 					speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
 					rolls: [createRollData(rolls)],
-					content: `<div class="symbaroum chat ability"><div class="foreground">${cardTitle}<div class="finalTxt">${lines.length > 0 ? lines.map((l) => `<p>${traitsLabel}: ${l}</p>`).join('') : `<p>${traitsLabel}: ${game.i18n.format('TRAIT_MM2.PROBE_ROLL_LINE', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target })}</p>`}</div></div></div>`,
+					content: `<div class="symbaroum chat ability"><div class="foreground">${cardTitle}<div class="finalTxt">${lines.map((l) => `<p>${traitsLabel}: ${l}</p>`).join('')}</div></div></div>`,
 				});
 				if (gmActions.length > 0) {
 					await createModifyTokenChatButton(gmActions);
@@ -3344,6 +3366,15 @@ async function mm2TurnStartSweep(creatureActor, combatantTokenId = null) {
 		}
 	} catch (mm2LiberateError) {
 		game.symbaroum.log('MM-Paket 2: Befreiungskarte am Zugbeginn', mm2LiberateError);
+	}
+	/* (a2) Netzzone-RUNDENTICK (Konzept Runde 3 Teil B, Commit 2): Kampf
+	 * = die Zonen der aktiven Kreatur, Weltzeit = alle Netzonen der
+	 * angesehenen Szene - je im Netz stehendes Token ohne aktiven
+	 * Netz-bind bekommt die Verfangen-Probe erneut. */
+	try {
+		await mm2WebZoneRoundProbes(inCombat ? creatureActor : null);
+	} catch (mm2ZoneError) {
+		game.symbaroum.log('MM-Paket 2: Netzzone-Rundentick am Zugbeginn', mm2ZoneError);
 	}
 	const devouredVictims = [];
 	for (const token of canvas.tokens?.placeables ?? []) {

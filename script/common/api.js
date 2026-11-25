@@ -25,7 +25,7 @@ import { aoeZoneEnter, aoeTriggerZone, aoeEndZone, aoeZoneRound, placeFreeZone, 
 // MM2 v1.1 (Rudolfs Nachtest 11b/14): zusaetzlich der Fallschaden-
 // SL-DIALOG als oeffentlicher API-Pfad (Utility-Makro "Fallschaden"
 // und Zerstoerer-Adept-Schleuderungskarte), siehe item.js.
-import { applyFallDamage, openFallDamageDialog } from './item.js';
+import { applyFallDamage, openFallDamageDialog, mm2WebZoneEnter, mm2WebZoneExit } from './item.js';
 
 export class SymbaroumAPI
 {
@@ -75,6 +75,10 @@ export class SymbaroumAPI
         // AoE Stufe 2: Zonen-API (Script-Behavior aoeZoneEnter, Zonen-Karte
         // aoeTriggerZone/aoeZoneRound/aoeEndZone, Makro placeFreeZone)
         this.aoeZoneEnter = aoeZoneEnter;
+        // MM-Paket 2 v2.0 (Konzept Runde 3 Teil B, Commit 2): Netzzone-
+        // Script-Behaviors (TOKEN_ENTER/TOKEN_EXIT) der Netz-Kachel
+        this.mm2WebZoneEnter = mm2WebZoneEnter;
+        this.mm2WebZoneExit = mm2WebZoneExit;
         this.aoeTriggerZone = aoeTriggerZone;
         this.aoeEndZone = aoeEndZone;
         this.aoeZoneRound = aoeZoneRound;

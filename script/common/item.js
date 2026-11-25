@@ -4242,6 +4242,14 @@ export class SymbaroumItem extends Item {
   }
 }
 
+/* v1.0.1 (Rudolfs Testrunde Commit 1, Befund 11): einheitlicher Subtext-
+   Bau der Angriffs-Ergebniskarten - weaponTypeLabel null (Cross-Waffen)
+   laesst den Klammerzusatz weg, alles andere bleibt "Name (Klasse)". */
+async function mm2WeaponSubText(weapon) {
+  const typeLabel = await weaponTypeLabel(weapon);
+  return typeLabel ? `${weapon.name} (${typeLabel})` : weapon.name;
+}
+
 async function weaponTypeLabel(weapon) {
   switch (weapon.reference) {
     case "1handed":
@@ -4262,13 +4270,17 @@ async function weaponTypeLabel(weapon) {
       return game.i18n.localize("WEAPON_CLASS.SHIELD");
     case "other":
       return game.i18n.localize("GEAR.OTHER");
-    /* Konzept Runde 3 Teil A: Cross-Flag-Waffen (Merkmals-Referenzen als
-       Waffenklass-Ersatz) - einheitliches Label statt GEAR.OTHER. */
+    /* Konzept Runde 3 Teil A: Cross-Flag-Waffen (Merkmals-Referenzen
+       als Waffenklass-Ersatz). v1.0.1 (Rudolfs Testrunde Commit 1,
+       Befund 11): KEIN Klassen-Klammernzusatz mehr auf den Angriffs-
+       Ergebnis-Karten - null laesst mm2WeaponSubText den Klammeranteil
+       wegfallen; das Label bleibt als Kachel-Titel-Fallback
+       (mm2CrossWeaponFlow). */
     case "grapplingtongue":
     case "prehensileclaws":
     case "poisonspit":
     case "boneprojectile":
-      return game.i18n.localize("TRAIT_MM2.CROSS_WEAPON_LABEL");
+      return null;
   }
   return game.i18n.localize("GEAR.OTHER");
 }
@@ -4395,6 +4407,15 @@ will send to screen a windows asking for modifiers for the roll, then roll, then
    * @param {boolean} checkMaintain: if true, ask the player whether the roll is for casting the ability or maintaining it 
    * @param {any}   functionStuff  an object of parameters not used in the dialog function, but useful for resultFunction */
 export async function modifierDialog(functionStuff) {
+  /* v1.0.1 (Rudolfs Testrunde Commit 1, Befund 3): Cross-Waffen-Kacheln
+     liefen VOR dem Waffendialog durch diesen leeren Merkmals-Dialog
+     (CASTING_NOT zeigt keine Wurffelder, nur OK). Cross-Referenzen
+     springen direkt in buildRolls - der CASTING_NOT-Zweig am Ende ruft
+     mm2CrossWeaponFlow, der den Standard-Waffendialog oeffnet. */
+  if (game.symbaroum.config.CROSS_WEAPON_TRAITS[functionStuff.ability?.reference]) {
+    await buildRolls(functionStuff);
+    return;
+  }
   let hasTarget = functionStuff.targetData.hasTarget;
   // Segen & Lasten v1.2 (Rudolfs Testrunde v1.1, P6 + Rückmeldung b):
   // Die v1.1-Ziel-Hinweiszeile (addBoonTargetHint) ist ENTFERNT — die
@@ -5673,15 +5694,16 @@ function getPowerResultFunction(functionStuff) {
   /* MM-Paket 2 v1 (Rudolfs Baufreigabe 24.11.2026, Konzept Rev. 2):
      Die klickbaren Kampfkontroll-Merkmale laufen OHNE eigenen Wurf
      (CASTING_NOT, traitSetup*) direkt in ihre je Merkmal eigene
-     Karten-Maschine (Baustein 6 + Steckbriefe §3): Netz = Netzkarte
-     mit Verfangen-/Befreiungs-Buttons je Ziel-Token, Cross-Flag-Waffen
+     Karten-Maschine (Baustein 6 + Steckbriefe §3): Netz = SL-Wahl-
+     dialog Netzzone/Netz-Geschosse (Konzept Runde 3 Teil B),
+     Cross-Flag-Waffen
      (v1.2, Konzept Runde 3: Greifzunge/Greifklauen/Giftspucke/
      Knochengeschoss) = STANDARD-Waffendialog der Merkmals-eigenen
      Waffe, Rammen = SL-Kettendialog, Blitzschnell = Hinweiskarte (die
      eigentliche Reaktion sitzt auf der Angriffs-Ergebniskarte). */
   switch (functionStuff.ability?.reference) {
     case "web":
-      return mm2WebCard;
+      return mm2WebFlow;
     /* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1,
        Rudolfs Entscheidung A-3 "Kachel behalten"): Kachel-Klick oeffnet den
        STANDARD-Waffendialog der Cross-Waffe - dieselbe Zeile wie im Kampf-Tab,
@@ -9964,9 +9986,10 @@ async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
  *   Zug-Verschiebung eines Token, Befreiungskarte (Karten-Buttons,
  *   Besitzer wuerfelt selbst; SL/Player-Buchung 1x pro Runde).
  * - Karten-Maschinen der klickbaren Merkmale (Dispatch in
- *   getPowerResultFunction): mm2WebCard (Netz), mm2CrossWeaponFlow
- *   (Cross-Flag-Waffen: Kachel-Klick oeffnet den Standard-Waffendialog
- *   der Merkmals-eigenen Waffe, Konzept Runde 3 Teil A),
+ *   getPowerResultFunction): mm2WebFlow (Netz: SL-Wahl-Dialog
+ *   Netzzone/Netz-Geschosse, Konzept Runde 3 Teil B),
+ *   mm2CrossWeaponFlow (Cross-Flag-Waffen: Kachel-Klick oeffnet den
+ *   Standard-Waffendialog der Merkmals-eigenen Waffe),
  *   mm2RampageChain (SL-Kettendialog), mm2SwiftInfo
  *   (Hinweiskarte; die eigentliche Reaktion sitzt auf der Angriffs-
  *   Ergebniskarte).
@@ -10092,48 +10115,350 @@ export async function mm2PostLiberateCard(victimTokenId, victimName, { target, s
   }
 }
 
-/* Netz (Konzept §3.1): klickbare Karte mit je-Ziel-Verfangen-Proben
-   [Gewandtheit<-Scharfsinn] - SL platziert vorab ein Mess-Template
-   (rein visuell); Kandidaten = SL-Markierungen, sonst alle anderen
-   Szenen-Token. Meister (3 Fäden/Runde): Zaehler als Token-Flag mit
-   Runden-Reset und Restanzeige auf der Karte. Opfer-Besitzer oder SL
-   klicken je Ziel den Probe-Button (hooks.js mm2WebCard). */
-async function mm2WebCard(_null, functionStuff) {
+/* Netz-Dualmodell (Konzept Runde 3, Teil B, Commit 2): Die Kachel
+   oeffnet einen SL-Wahl-Dialog - "Netzzone platzieren" (ALLE Stufen,
+   passive Region mit Verfangen-Probe [GW<-SF] beim BETRETEN und je
+   RUNDENBEGINN im Netz, platziert ueber das Core-Region-Legewerkzeug,
+   Standard-Radius MM2_WEB_ZONE_RADIUS_CELLS, SL darf frei skalieren)
+   oder "Netz-Geschosse feuern" (Adept 1, Meister 3 je Runde; Munitions-
+   Zaehler bleibt der etablierte mm2WebThreads {round, used} am Kreatur-
+   Token, JE Klick verbraucht 1 Geschoss, bewusste RAW-Abweichung: nur
+   AKTIV abgefeuerte Geschosse zaehlen - auch beim Meister). Ersetzt
+   die v1-Netzkarte (SL-Mess-Template + je-Ziel-Buttons) vollstaendig.
+   Die v1.0.1-Fixes Rudolfs (Befunde 3/5a/6a/11) sind eingeflossen. */
+async function mm2WebFlow(_null, functionStuff) {
+  try {
+    const attacker = functionStuff.actor;
+    if (!attacker) return null;
+    const cfg = game.symbaroum.config;
+    const webLevel = getActorAbilityLevel(attacker, "web");
+    const shotsMax = Number(cfg.MM2_WEB_SHOTS_PER_LEVEL?.[webLevel] ?? 0);
+    const buttons = [
+      { action: "zone", icon: "fas fa-draw-polygon", label: game.i18n.localize("TRAIT_WEB.CHOICE_ZONE"), default: true },
+    ];
+    if (shotsMax > 0) {
+      buttons.push({ action: "shots", icon: "fas fa-crosshairs", label: game.i18n.format("TRAIT_WEB.CHOICE_SHOTS", { count: shotsMax }) });
+    }
+    const choice = await foundry.applications.api.DialogV2.wait({
+      window: { title: game.i18n.localize("TRAIT_WEB.CHOICE_TITLE") },
+      classes: ["symb-dialog", "modern-dialog", "modern-theme-dark"],
+      position: { width: 460 },
+      content: `<div class="finalTxt"><p>${game.i18n.localize("TRAIT_WEB.CHOICE_TEXT")}</p></div>`,
+      buttons,
+    });
+    if (choice === "zone") await mm2WebZonePlace(functionStuff);
+    else if (choice === "shots") await mm2WebShotsCard(functionStuff);
+    return null;
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Netz-Wahldialog", mm2Error);
+    return null;
+  }
+}
+
+/* Behavior-Skripte der Netzzone (Region-Script-Behaviors, V14-Typname
+   'executeScript' - aoe.js-Lernweis v2.1). Beide routen auf den aktiven
+   GM (AoE-Muster: Behaviors laufen auf ALLEN Clients). Der Enter-Event
+   mit moved === false ist die Behavior-AKTIVIERUNG beim Platzieren
+   (Foundry feuert TOKEN_ENTER auch dafuer, aoe.js v2.5-Lernweis) und
+   wird ignoriert - die Zone fackelt nicht fuer bereits stehende Token. */
+const MM2_WEB_ZONE_ENTER_SCRIPT = [
+  'const r = (typeof region !== "undefined") ? region : null;',
+  'const zexec = game.users.activeGM?.id ?? null;',
+  'if (!zexec || game.user.id !== zexec) return;',
+  'const ev = (typeof event !== "undefined") ? event : null;',
+  'if (ev?.data?.moved === false) return;',
+  'const t = ev?.data?.token ?? ev?.token ?? (typeof token !== "undefined" ? token : null);',
+  'const rid = r?.id ?? r?.document?.id ?? null;',
+  'const tid = t?.document?.id ?? t?.id ?? null;',
+  'if (!rid || !tid) return;',
+  'game.symbaroum.api?.mm2WebZoneEnter?.(rid, tid);',
+].join("\n");
+const MM2_WEB_ZONE_EXIT_SCRIPT = [
+  'const r = (typeof region !== "undefined") ? region : null;',
+  'const zexec = game.users.activeGM?.id ?? null;',
+  'if (!zexec || game.user.id !== zexec) return;',
+  'const ev = (typeof event !== "undefined") ? event : null;',
+  'const t = ev?.data?.token ?? ev?.token ?? (typeof token !== "undefined" ? token : null);',
+  'const rid = r?.id ?? r?.document?.id ?? null;',
+  'const tid = t?.document?.id ?? t?.id ?? null;',
+  'if (!rid || !tid) return;',
+  'game.symbaroum.api?.mm2WebZoneExit?.(rid, tid);',
+].join("\n");
+
+/* Netzzone platzieren: Region mit ENTER- und EXIT-Behavior (GM-Anlage,
+   Foundry untersagt Behaviors fuer Nicht-SLs - bewusst GM-only-Kachel).
+   Rechtsklick im Legewerkzeug = Abbruch ohne Karte. */
+async function mm2WebZonePlace(functionStuff) {
   try {
     const attacker = functionStuff.actor;
     if (!attacker) return null;
     const cfg = game.symbaroum.config;
     const actingToken = game.symbaroum.api.getActorToken(attacker);
-    /* MM2 v1.2 (Rudolfs Testbefund Netz/12): getActorToken liefert bei
-       SYNTHETISCHEM Actor (Blatt ueber den Szenen-Token geoeffnet) das
-       TokenDOCUMENT statt des Placeables - Documents haben kein .document.
-       Normalisieren: Placeable -> .document, TokenDocument -> selbst. */
+    const creatureName = functionStuff.actingCharName ?? actingToken?.name ?? attacker.name;
+    const creatureSF = getAttributeValue(attacker, "cunning");
+    const gridSize = Math.max(1, Math.round(canvas.scene?.grid?.size ?? 0)) || 100;
+    const radiusCells = Math.max(1, Number(cfg.MM2_WEB_ZONE_RADIUS_CELLS) || 2);
+    const regionData = {
+      name: game.i18n.format("TRAIT_WEB.ZONE_NAME", { creaturename: creatureName }),
+      color: game.user.color,
+      displayMeasurements: true,
+      highlightMode: "coverage",
+      visibility: CONST.REGION_VISIBILITY.ALWAYS,
+      shapes: [{ type: "circle", radius: radiusCells * gridSize, x: 0, y: 0, rotation: 0 }],
+      flags: { symbaroum: { mm2WebZone: { creatureActorId: attacker.id, creatureName, creatureSF } } },
+      behaviors: [
+        { type: "executeScript", system: { source: MM2_WEB_ZONE_ENTER_SCRIPT, events: [CONST.REGION_EVENTS.TOKEN_ENTER] } },
+        { type: "executeScript", system: { source: MM2_WEB_ZONE_EXIT_SCRIPT, events: [CONST.REGION_EVENTS.TOKEN_EXIT] } },
+      ],
+    };
+    let placed = null;
+    try {
+      placed = await canvas.regions.placeRegions([regionData]);
+    } catch (placeError) {
+      game.symbaroum.log("MM-Paket 2: Netzzone-Platzierung", placeError);
+      return null;
+    }
+    if (!Array.isArray(placed) || placed.length === 0) return null;
+    const title = `<h4>${game.i18n.localize("TRAIT_WEB.CARD_TITLE")}</h4>`;
+    await postMaintainChainCard(functionStuff, title, [game.i18n.format("TRAIT_WEB.ZONE_PLACED", { creaturename: creatureName })].map((l) => `<p>${l}</p>`), []);
+    return null;
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Netzzone-Platzierung", mm2Error);
+    return null;
+  }
+}
+
+/* GM-Anwenden-Paket eines VERFANGENEN Opfers (Zone und Geschoss
+   teilen den Bau): bind mit Netz-Befreiungsdaten [ST<-SF, Karte am
+   Opfer-Zugbeginn, v1.1-Nachtest-4a-Muster] + Verfangen-Missgunst.
+   In Zonen (regionId != null) traegt die Missgunst conditionData.
+   mm2WebZone {regionId} - beim VERLASSEN DER ZONE endet NUR diese
+   zonen-gebundene Missgunst (mm2WebZoneExit); Geschoss-Missgunst und
+   bind bleiben bis zur Befreiung. Exportiert: hooks.js loest die
+   SC-Anfragekarte (probe.kind 'mm2web') ueber denselben Bau. */
+export function mm2WebEntangleGmActions(tokenDoc, meta, regionId) {
+  const victimActor = tokenDoc?.actor ?? null;
+  const victimName = tokenDoc?.name ?? victimActor?.name ?? "";
+  const traitsLabel = game.i18n.localize("TRAIT_LABEL.WEB");
+  const creatureSF = Number(meta?.creatureSF ?? 10);
+  const actions = [];
+  const conditionData = { mm2Bind: { source: "web" } };
+  if (regionId) conditionData.mm2WebZone = { regionId };
+  if (victimActor) {
+    conditionData.mm2Liberate = {
+      target: getAttributeValue(victimActor, "strong") + (10 - creatureSF),
+      source: "web",
+      attr: game.i18n.localize("TRAIT_MM2.LIBERATE_ATTR_WEB"),
+    };
+  }
+  actions.push({
+    tokenId: tokenDoc?.id,
+    addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
+    conditionData,
+    label: `${traitsLabel}: ${game.i18n.format("TRAIT_WEB.CHAT_CAUGHT", { targetname: victimName })}`,
+  });
+  actions.push({
+    tokenId: tokenDoc?.id,
+    addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "missgunst")),
+    conditionData: regionId ? { mm2WebZone: { regionId } } : {},
+    label: `${traitsLabel}: ${game.i18n.format("TRAIT_WEB.CHAT_MISSGUNST_LINE", { targetname: victimName })}`,
+  });
+  return actions;
+}
+
+/* Verfangen-Aufloesung (Betreten UND Rundenbeginn teilen den Kern):
+   Verfangen-Probe [GW<-SF], Gelingen = entwischt, Misslingen = bind +
+   Verfangen-Missgunst + Befreiungsdaten. SC-Opfer wuerfeln selbst
+   (Anfragekarte, kind 'mm2web' - Auswertung im hooks.js-mm1Resist-
+   Request-Dispatcher), NSC-Opfer inline mit GM-Anwenden-Karte.
+   Bestehender Netz-bind KEIN Doppel-Fangen (Flucht in die Nachbar-
+   zone): die laufende Befreiung bleibt unberuehrt. */
+async function mm2WebEntangleResolve({ tokenDoc, meta, regionId, introLines = [] }) {
+  try {
+    const victimActor = tokenDoc.actor;
+    const victimName = tokenDoc.name ?? victimActor.name ?? "";
+    const traitsLabel = game.i18n.localize("TRAIT_LABEL.WEB");
+    const bind = victimActor.hasCondition?.("bind");
+    if (bind?.getFlag(game.system.id, "flagData")?.mm2Bind?.source === "web") return;
+    const target = getAttributeValue(victimActor, "quick") + (10 - Number(meta.creatureSF ?? 10));
+    const probeOwner = await mm1ProbeOwner(victimActor);
+    if (probeOwner) {
+      const probes = [
+        {
+          kind: "mm2web",
+          label: traitsLabel,
+          target,
+          webSF: Number(meta.creatureSF ?? 10),
+          regionId: regionId ?? null,
+          creatureName: meta.creatureName ?? "",
+        },
+      ];
+      await mm1SendResistProbe(probeOwner, tokenDoc.id, victimName, meta.creatureName ?? "", probes);
+      for (const l of introLines) await ChatMessage.create({ user: game.user.id, speaker: ChatMessage.getSpeaker({ alias: game.user.name }), content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${traitsLabel}: ${l}</p></div></div></div>` });
+      return;
+    }
+    const probeRoll = await new Roll("1d20").evaluate();
+    const lines = [];
+    if (probeRoll.total <= target) {
+      lines.push(game.i18n.format("TRAIT_WEB.CHAT_ESCAPED", { targetname: victimName, roll: probeRoll.total, target }));
+    } else {
+      lines.push(game.i18n.format("TRAIT_WEB.CHAT_CAUGHT", { targetname: victimName, roll: probeRoll.total, target }));
+    }
+    lines.push(...introLines);
+    const title = `<h4>${game.i18n.format("TRAIT_MM2.CHAT_REACTION_TITLE_ONE", { name: traitsLabel })}</h4>`;
+    await ChatMessage.create({
+      user: game.user.id,
+      speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+      rolls: [createRollData([probeRoll])],
+      content: `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt">${lines.map((l) => `<p>${traitsLabel}: ${l}</p>`).join("")}</div></div></div>`,
+    });
+    if (probeRoll.total > target) {
+      await createModifyTokenChatButton(mm2WebEntangleGmActions(tokenDoc, meta, regionId ?? null));
+    }
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Verfangen-Aufloesung", mm2Error);
+  }
+}
+
+/* Zone BETRETEN (Script-Behavior -> api.mm2WebZoneEnter, laeuft auf dem
+   aktiven GM-Client). Versteckte Token und die Netz-Kreatur selbst
+   bleiben aussen vor. */
+export async function mm2WebZoneEnter(regionId, tokenId) {
+  try {
+    if (!game.user.isGM) return;
+    const scene = game.scenes.viewed ?? canvas.scene ?? null;
+    const region = scene?.regions?.get?.(regionId) ?? null;
+    const meta = region?.flags?.symbaroum?.mm2WebZone;
+    if (!region || !meta) return;
+    const tokenDoc = region.parent?.tokens?.get?.(tokenId) ?? null;
+    if (!tokenDoc?.actor || tokenDoc.hidden) return;
+    if (meta.creatureActorId && tokenDoc.actor.id === meta.creatureActorId) return;
+    await mm2WebEntangleResolve({ tokenDoc, meta, regionId, introLines: [game.i18n.format("TRAIT_WEB.ZONE_ENTER_LINE", { targetname: tokenDoc.name ?? tokenDoc.actor.name ?? "" })] });
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Netzzone betreten", mm2Error);
+  }
+}
+
+/* Zone VERLASSEN (Script-Behavior -> api.mm2WebZoneExit): NUR die an
+   DIESER Region gebundene Verfangen-Missgunst endet (conditionData.
+   mm2WebZone.regionId-Match auf dem Missgunst-Effect); die Geschoss-
+   Missgunst und das bind bleiben bis zur Befreiung am Opferzug. */
+export async function mm2WebZoneExit(regionId, tokenId) {
+  try {
+    if (!game.user.isGM) return;
+    const scene = game.scenes.viewed ?? canvas.scene ?? null;
+    const region = scene?.regions?.get?.(regionId) ?? null;
+    if (!region?.flags?.symbaroum?.mm2WebZone) return;
+    const tokenDoc = region.parent?.tokens?.get?.(tokenId) ?? null;
+    const victimActor = tokenDoc?.actor ?? null;
+    if (!victimActor) return;
+    const victimName = tokenDoc.name ?? victimActor.name ?? "";
+    const zoneEffects = (victimActor.effects ?? []).filter((e) => {
+      if (!e.statuses?.has?.("missgunst")) return false;
+      const fd = e.getFlag(game.system.id, "flagData") ?? null;
+      return fd?.mm2WebZone?.regionId === regionId;
+    });
+    if (zoneEffects.length === 0) return;
+    await Promise.all(zoneEffects.map((e) => e.delete()));
+    const traitsLabel = game.i18n.localize("TRAIT_LABEL.WEB");
+    await ChatMessage.create({
+      user: game.user.id,
+      speaker: ChatMessage.getSpeaker({ alias: game.i18n.localize("DIALOG.SYSTEM_MESSAGE") }),
+      content: `<div class="symbaroum chat ability"><div class="foreground"><div class="finalTxt"><p>${traitsLabel}: ${game.i18n.format("TRAIT_WEB.ZONE_EXIT_LINE", { targetname: victimName })}</p></div></div></div>`,
+    });
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Netzzone verlassen", mm2Error);
+  }
+}
+
+/* Netzzone-RUNDENTICK (hooks.js mm2TurnStartSweep): Kampf = nur die
+   Zonen der AKTIVEN Kreatur (creatureActorId-Match), Weltzeit = ALLE
+   Netzonen der angesehenen Szene. JE im Netz stehendes Token ohne
+   aktiven Netz-bind bekommt die Verfangen-Probe erneut - Entwischt
+   (Probe gelungen) und dennoch Dabeistehen gibt die naechste Runde
+   eine neue Chance, Gebundene laufen ueber die Befreiungskarte weiter. */
+export async function mm2WebZoneRoundProbes(creatureActor = null) {
+  try {
+    if (!game.user.isActiveGM) return;
+    const scene = game.scenes.viewed ?? null;
+    const zones = (scene?.regions ?? []).filter((r) => r.flags?.symbaroum?.mm2WebZone);
+    if (zones.length === 0) return;
+    for (const region of zones) {
+      const meta = region.flags.symbaroum.mm2WebZone;
+      if (creatureActor && meta.creatureActorId !== creatureActor.id) continue;
+      for (const tokenDoc of mm2WebZoneTokens(region)) {
+        if (!tokenDoc.actor || tokenDoc.hidden) continue;
+        if (meta.creatureActorId && tokenDoc.actor.id === meta.creatureActorId) continue;
+        const bind = tokenDoc.actor.hasCondition?.("bind");
+        if (bind?.getFlag(game.system.id, "flagData")?.mm2Bind?.source === "web") continue;
+        await mm2WebEntangleResolve({ tokenDoc, meta, regionId: region.id, introLines: [game.i18n.format("TRAIT_WEB.ZONE_ROUND_LINE", { targetname: tokenDoc.name ?? tokenDoc.actor.name ?? "" })] });
+      }
+    }
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Netzzone-Rundentick", mm2Error);
+  }
+}
+
+/* Mitgliedschaft der Netzzone: prim die Core-Geometrie (RegionDocument.
+   tokens), Fallback TokenDocument#testInsideRegion (aoe.js-
+   _collectRegionTokens-Prinzip, F5-Lernweis). */
+function mm2WebZoneTokens(region) {
+  try {
+    const core = [...(region?.tokens ?? [])];
+    if (core.length > 0) return core;
+  } catch (mm2Error) {
+    game.symbaroum.log("MM-Paket 2: Netzzone-Geometrie", mm2Error);
+  }
+  const found = [];
+  const docs = region?.parent?.tokens?.contents ?? [];
+  for (const doc of docs) {
+    if (!doc?.actor) continue;
+    if (typeof doc.testInsideRegion === "function") {
+      try {
+        if (doc.testInsideRegion(region)) found.push(doc);
+      } catch (mm2Error) {
+        game.symbaroum.log("MM-Paket 2: testInsideRegion", mm2Error);
+      }
+    }
+  }
+  return found;
+}
+
+/* Netz-Geschosse (Adept 1, Meister 3 je Runde): Keine Vorabbuchung -
+   die Karte zaehlt die Kandidaten auf (SL-Markierungen, sonst alle
+   Szenen-Token), JE Klick verbraucht EIN Geschoss (Munitions-Check im
+   hooks.js-Handler zum Flag mm2WebShots, Zaehler bleibt mm2WebThreads
+   {round, used} am Kreatur-Token mit Runden-Auffuellung). Bei leerge-
+   schossener Karte pro Klick die MASTER_SPENT-Zeile und Ende. */
+async function mm2WebShotsCard(functionStuff) {
+  try {
+    const attacker = functionStuff.actor;
+    if (!attacker) return null;
+    const cfg = game.symbaroum.config;
+    const actingToken = game.symbaroum.api.getActorToken(attacker);
+    /* MM2 v1.2-Lernweis (Testbefund 12): getActorToken liefert bei
+       SYNTHETISCHEM Actor das TokenDOCUMENT statt des Placeables. */
     const actingTokenDoc = actingToken?.document ?? actingToken ?? null;
     const creatureName = functionStuff.actingCharName ?? actingToken?.name ?? attacker.name;
     const creatureSF = getAttributeValue(attacker, "cunning");
-    let threadsLine = "";
-    if (actingTokenDoc) {
-      const combatRound = game.combat?.round ?? 0;
-      const counter = actingTokenDoc.getFlag(game.system.id, "mm2WebThreads") ?? { round: combatRound, used: 0 };
-      if (counter.round !== combatRound) {
-        counter.round = combatRound;
-        counter.used = 0;
-      }
-      if (counter.used >= cfg.MM2_WEB_MASTER_THREADS) {
-        const title = `<h4>${game.i18n.localize("TRAIT_LABEL.WEB")}</h4>`;
-        const spentLine = game.i18n.format("TRAIT_WEB.MASTER_SPENT", { max: cfg.MM2_WEB_MASTER_THREADS });
-        await postMaintainChainCard(functionStuff, title, [`<p>${spentLine}</p>`], []);
-        return null;
-      }
-      counter.used += 1;
-      await actingTokenDoc.setFlag(game.system.id, "mm2WebThreads", counter);
-      threadsLine = `<p>${game.i18n.format("TRAIT_WEB.MASTER_THREADS", { used: counter.used, max: cfg.MM2_WEB_MASTER_THREADS })}</p>`;
+    const shotsMax = Number(cfg.MM2_WEB_SHOTS_PER_LEVEL?.[getActorAbilityLevel(attacker, "web")] ?? 0);
+    if (shotsMax <= 0) {
+      const title = `<h4>${game.i18n.localize("TRAIT_WEB.CARD_TITLE")}</h4>`;
+      await postMaintainChainCard(functionStuff, title, [`<p>${game.i18n.localize("TRAIT_WEB.SHOTS_NONE")}</p>`], []);
+      return null;
     }
     const marked = Array.from(game.user.targets).filter((t) => t.actor && t.id !== actingToken?.id);
     const candidates = marked.length > 0 ? marked : (canvas.tokens?.placeables ?? []).filter((t) => t.actor && t.id !== actingToken?.id);
     if (candidates.length === 0) {
       ui.notifications?.warn(game.i18n.localize("TRAIT_MM2.NO_TARGET"));
       return null;
+    }
+    let threadsLine = "";
+    if (actingTokenDoc) {
+      const combatRound = game.combat?.round ?? 0;
+      const counter = actingTokenDoc.getFlag(game.system.id, "mm2WebThreads") ?? { round: combatRound, used: 0 };
+      if (counter.round !== combatRound) counter.used = 0;
+      threadsLine = `<p>${game.i18n.format("TRAIT_WEB.MASTER_THREADS", { used: counter.used, max: shotsMax })}</p>`;
     }
     const victims = candidates.map((t) => ({
       tokenId: t.id,
@@ -10144,24 +10469,25 @@ async function mm2WebCard(_null, functionStuff) {
       .map((v) => `<button class="mm2-web-probe" data-victim="${v.tokenId}"><i class="fas fa-dice-d20"></i> ${game.i18n.format("TRAIT_WEB.CATCH_BUTTON", { targetname: v.name })}</button>`)
       .join(" ");
     const title = `<h4>${game.i18n.localize("TRAIT_WEB.CARD_TITLE")}</h4>`;
-    const hintLine = game.i18n.format("TRAIT_WEB.BUTTON_TEMPLATE_HINT", { creaturename: creatureName });
+    const hintLine = game.i18n.format("TRAIT_WEB.SHOTS_HINT", { creaturename: creatureName });
     const htmlBody = `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${hintLine}</p>${threadsLine}<p>${buttons}</p></div></div></div>`;
     const chatData = {
       user: game.user.id,
       speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: attacker.id }),
       content: htmlBody,
     };
-    chatData[`flags.${game.system.id}.mm2WebCard`] = {
+    chatData[`flags.${game.system.id}.mm2WebShots`] = {
       creatureTokenId: actingToken?.id ?? null,
       creatureActorId: attacker.id,
       creatureName: creatureName,
       creatureSF: creatureSF,
       victims,
+      max: shotsMax,
     };
     await ChatMessage.create(chatData);
     return null;
   } catch (mm2Error) {
-    game.symbaroum.log("MM-Paket 2: Netzkarte", mm2Error);
+    game.symbaroum.log("MM-Paket 2: Netz-Geschosskarte", mm2Error);
     return null;
   }
 }
@@ -10781,7 +11107,7 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
             if (clawsLvl >= 3) {
               const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
               lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_PREHENSILECLAWS.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
-              lines.push(`<p>${game.i18n.localize("TRAIT_PREHENSILECLAWS.CHAT_MASTER_BIND")}</p>`);
+              lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_MASTER_BIND", { targetname: victim.name }));
               result.flags.push({
                 tokenId: victim.tokenId,
                 addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
@@ -10789,7 +11115,7 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
                 label: `${traitLabel}: ${packedLine}`,
               });
             } else {
-              lines.push(`<p>${game.i18n.localize("TRAIT_PREHENSILECLAWS.CHAT_HELD")}</p>`);
+              lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_HELD", { targetname: victim.name }));
               result.flags.push({
                 tokenId: victim.tokenId,
                 addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
@@ -10847,7 +11173,13 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
         if (poisonRes.roll) reactionRolls.push(poisonRes.roll);
         if (poisonRes.poisonDotRoll) reactionRolls.push(poisonRes.poisonDotRoll);
         lines.push(`<p>${traitLabel}: ${poisonRes.poisonChatResult ?? ""}</p>`);
-        if (poisonRes.flagData) result.flags.push(poisonRes.flagData);
+        /* v1.0.1 (Rudolfs Testrunde Commit 1, Befund 6a): giftspit war das
+           einzige MM2-Flag ohne label - der GM-Anwenden-Karte blieb der
+           Bullets-Text leer. Label nachreichen, poisons phone poisonChatResult. */
+        if (poisonRes.flagData) {
+          if (!poisonRes.flagData.label) poisonRes.flagData.label = `${traitLabel}: ${poisonRes.poisonChatResult ?? ""}`;
+          result.flags.push(poisonRes.flagData);
+        }
       }
     }
 
@@ -13720,7 +14052,7 @@ async function attackResult(rollData, functionStuff) {
     introText: functionStuff.introText,
     introImg: functionStuff.actingCharImg,
     targetText: targetText,
-    subText: functionStuff.weapon.name + " (" + (await weaponTypeLabel(functionStuff.weapon)) + ")",
+    subText: await mm2WeaponSubText(functionStuff.weapon),
     subImg: functionStuff.weapon.img,
     hasRoll: true,
     resistRoll: functionStuff.resistRoll,

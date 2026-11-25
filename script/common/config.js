@@ -2190,8 +2190,14 @@ SYMBAROUM.MM1_ACID_DAMAGE = Object.fromEntries(
    nativ über den A28-Festwert-Pfad). MM2_RAMPAGE_DAMAGE = Rammen-
    Grundschaden je Stufe (Rüstung schützt wie immer; +2 je Robust-
    Stufe addiert die Engine). MM2_BELLY_DOT = Bauch-Schaden je Zug
-   bei Verschlingen (ignoriert Rüstung, RAW 2). MM2_WEB_MASTER_
-   THREADS = Netz-Meister Fäden je Runde (RAW 3). MM2_FALL_* =
+   bei Verschlingen (ignoriert Rüstung, RAW 2). MM2_WEB_* = Netz-
+   Dualmodell (Konzept Runde 3, Teil B, Commit 2): Zone mit
+   Verfangen-Probe + Netz-Geschosse Munitionssystem. MM2_WEB_SHOTS_PER_
+   LEVEL = verfügbare Netz-Geschosse je Merkmalsstufe (Index = Stufe;
+   Novize 0, Adept 1, Meister 3, RAW-Sonderweg: nur aktiv abgefeuert).
+   MM2_WEB_ZONE_RADIUS_CELLS = Standard-Radius der Netzzone in
+   Zellen; die SL kann die platzierte Region frei skalieren.
+   MM2_FALL_* =
    Fallschaden-Baustein (GRW „Schaden durch einen Sturz": gelungene
    [Gewandtheit]-Probe −3 Meter, weicher Untergrund −5 Meter, Rüstung
    schützt wie immer über mathDamageProt). MM2_ROBUST_BONUS_PER_LEVEL
@@ -2199,7 +2205,8 @@ SYMBAROUM.MM1_ACID_DAMAGE = Object.fromEntries(
 SYMBAROUM.MM2_EMBRACE_DOT = { 1: 2, 2: 3, 3: 4 };
 SYMBAROUM.MM2_RAMPAGE_DAMAGE = { 1: 2, 2: 3, 3: 4 };
 SYMBAROUM.MM2_BELLY_DOT = 2;
-SYMBAROUM.MM2_WEB_MASTER_THREADS = 3;
+SYMBAROUM.MM2_WEB_SHOTS_PER_LEVEL = [0, 1, 3];
+SYMBAROUM.MM2_WEB_ZONE_RADIUS_CELLS = 2;
 SYMBAROUM.MM2_FALL_PROBE_REDUCE = 3;
 SYMBAROUM.MM2_FALL_SOFT_REDUCE = 5;
 /* MM-Paket 2 v1.2 Cross-Flag-Waffen (Konzept Runde 3, Teil A - Commit 1,
