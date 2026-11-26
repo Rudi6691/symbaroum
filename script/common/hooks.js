@@ -2772,74 +2772,14 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 	 * TokenChatButton = emit GMMessage, GM wendet an - auch vom
 	 * Spieler-Client aufrufbar). 1x pro Runde = SL/Player-Buchung.
 	 * ================================================================ */
-	/* Netz-Geschosse (Konzept Runde 3 Teil B, Commit 2; Flag mm2WebShots):
-	 * Keine Vorabbuchung mehr - JE Klick auf einen Ziel-Button verbraucht
-	 * EIN Geschoss (Zaehler bleibt mm2WebThreads {round, used} am
-	 * Kreatur-Token mit Runden-Auffuellung). Leergeschossen pro Klick
-	 * die MASTER_SPENT-Zeile und Ende. Probe [GW<-SF]: Erfolg =
-	 * entwischt, Fehlschlag = bind + Verfangen-Missgunst (GM-Anwenden-
-	 * Karte, Daten aus mm2WebEntangleGmActions - Geschoss-Missgunst ist
-	 * NICHT zonen-gebunden, sie endet nur ueber die Befreiung). */
-	const mm2WebShots = await chatItem.getFlag(game.system.id, 'mm2WebShots');
-	if (mm2WebShots) {
-		const traitsLabel = game.i18n.localize('TRAIT_LABEL.WEB');
-		for (const s of html.querySelectorAll('.mm2-web-probe')) {
-			s.addEventListener('click', async () => {
-				const victimEntry = (mm2WebShots.victims ?? []).find((v) => v.tokenId === s.dataset?.victim);
-				if (!victimEntry) return;
-				/* Munitions-Check JE Klick (nicht bei Kartenerstellung) */
-				const creatureToken = canvas.tokens?.get(mm2WebShots.creatureTokenId) ?? canvas.tokens?.placeables?.find((t) => t.id === mm2WebShots.creatureTokenId) ?? null;
-				const creatureDoc = creatureToken?.document ?? creatureToken ?? null;
-				const combatRound = game.combat?.round ?? 0;
-				let counter = null;
-				if (creatureDoc) {
-					counter = creatureDoc.getFlag(game.system.id, 'mm2WebThreads') ?? { round: combatRound, used: 0 };
-					if (counter.round !== combatRound) counter.used = 0;
-				}
-				const shotsMax = Number(mm2WebShots.max ?? 0);
-				if (counter && counter.used >= shotsMax) {
-					s.disabled = true;
-					const spentTitle = `<h4>${game.i18n.format('TRAIT_MM2.CHAT_REACTION_TITLE_ONE', { name: traitsLabel })}</h4>`;
-					await ChatMessage.create({
-						user: game.user.id,
-						speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
-						content: `<div class="symbaroum chat ability"><div class="foreground">${spentTitle}<div class="finalTxt"><p>${traitsLabel}: ${game.i18n.format('TRAIT_WEB.MASTER_SPENT', { max: shotsMax })}</p></div></div></div>`,
-					});
-					return;
-				}
-				s.disabled = true;
-				s.style.display = 'none';
-				if (creatureDoc && counter) {
-					counter.used += 1;
-					await creatureDoc.setFlag(game.system.id, 'mm2WebThreads', counter);
-				}
-				const probeRoll = await new Roll('1d20').evaluate();
-				const rolls = [probeRoll];
-				const lines = [];
-				const gmActions = [];
-				if (probeRoll.total <= victimEntry.target) {
-					lines.push(game.i18n.format('TRAIT_WEB.CHAT_ESCAPED', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target }));
-				} else {
-					const caughtLine = game.i18n.format('TRAIT_WEB.CHAT_CAUGHT', { targetname: victimEntry.name, roll: probeRoll.total, target: victimEntry.target });
-					lines.push(caughtLine);
-					const webVictimToken = canvas.tokens?.placeables?.find((t) => t.id === victimEntry.tokenId);
-					const webVictimDoc = webVictimToken?.document ?? null;
-					gmActions.push(...mm2WebEntangleGmActions(webVictimDoc ?? { id: victimEntry.tokenId, name: victimEntry.name }, { creatureSF: mm2WebShots.creatureSF, creatureName: mm2WebShots.creatureName }, null));
-				}
-				lines.push(game.i18n.format('TRAIT_WEB.MASTER_THREADS', { used: counter?.used ?? 0, max: shotsMax }));
-				const cardTitle = `<h4>${game.i18n.format('TRAIT_MM2.CHAT_REACTION_TITLE_ONE', { name: traitsLabel })}</h4>`;
-				await ChatMessage.create({
-					user: game.user.id,
-					speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
-					rolls: [createRollData(rolls)],
-					content: `<div class="symbaroum chat ability"><div class="foreground">${cardTitle}<div class="finalTxt">${lines.map((l) => `<p>${traitsLabel}: ${l}</p>`).join('')}</div></div></div>`,
-				});
-				if (gmActions.length > 0) {
-					await createModifyTokenChatButton(gmActions);
-				}
-			});
-		}
-	}
+	/* B1 „Kampftab & Netz" (R4-13/§11.6, M1-Probenmodell): Der Karten-
+	 * Handler zum Flag mm2WebShots (je-Token-Geschoss-Buttons) ist
+	 * ENTFERNT - die Netz-GESCHOSSE feuern seit B1 ueber die WAFFEN-
+	 * ZEILE der Cross-Waffe web (actor.js rollWeapon -> item.js
+	 * mm2WebShotsFlow; Munitions-Zaehler bleibt mm2WebThreads am
+	 * Kreatur-Token, jetzt MIT counter.round-Pflege beim Runden-Reset,
+	 * Fix der v2.0-Befunde 10+11). Alte v2.0-Geschoss-Karten im Chat-
+	 * Archiv feuern nichts mehr (ihre Buttons bleiben still). */
 	/* Befreiungs-Karte (Netz/Umarmung/Greifklauen): Erfolg entfernt das
 	 * bind-Symbol (bei Netz zusaetzlich die Verfangen-Missgunst)
 	 * automatisch, Fehlschlag verbleibt im Zustand; ein Klick ver-

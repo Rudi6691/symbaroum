@@ -2193,8 +2193,13 @@ SYMBAROUM.MM1_ACID_DAMAGE = Object.fromEntries(
    bei Verschlingen (ignoriert Rüstung, RAW 2). MM2_WEB_* = Netz-
    Dualmodell (Konzept Runde 3, Teil B, Commit 2): Zone mit
    Verfangen-Probe + Netz-Geschosse Munitionssystem. MM2_WEB_SHOTS_PER_
-   LEVEL = verfügbare Netz-Geschosse je Merkmalsstufe (Index = Stufe;
-   Novize 0, Adept 1, Meister 3, RAW-Sonderweg: nur aktiv abgefeuert).
+   LEVEL = verfügbare Netz-Geschosse je Merkmalsstufe.
+   B1 „Kampftab & Netz" (Rudolfs Freigabe 26.11.2026, R4-13-ENTSCHEI-
+   DUNG §11.6 M1-Probenmodell): Index = getActorAbilityLevel-Stufe,
+   korrigierte Tabelle [0, 0, 1, 3] - der v2.0-Stand [0, 1, 3] gab dem
+   Novizen 1 und dem Adepten 3 Geschosse (v2.0-Befund 17); der Novize
+   hat ueber das Kanonik-Zeilen-Gate (rowFromLevel) zusaetzlich GAR
+   KEINE Waffenzeile, seine Zone platziert die Netz-Kachel.
    MM2_WEB_ZONE_RADIUS_CELLS = Standard-Radius der Netzzone in
    Zellen; die SL kann die platzierte Region frei skalieren.
    MM2_FALL_* =
@@ -2205,7 +2210,7 @@ SYMBAROUM.MM1_ACID_DAMAGE = Object.fromEntries(
 SYMBAROUM.MM2_EMBRACE_DOT = { 1: 2, 2: 3, 3: 4 };
 SYMBAROUM.MM2_RAMPAGE_DAMAGE = { 1: 2, 2: 3, 3: 4 };
 SYMBAROUM.MM2_BELLY_DOT = 2;
-SYMBAROUM.MM2_WEB_SHOTS_PER_LEVEL = [0, 1, 3];
+SYMBAROUM.MM2_WEB_SHOTS_PER_LEVEL = [0, 0, 1, 3];
 SYMBAROUM.MM2_WEB_ZONE_RADIUS_CELLS = 2;
 SYMBAROUM.MM2_FALL_PROBE_REDUCE = 3;
 SYMBAROUM.MM2_FALL_SOFT_REDUCE = 5;
@@ -2230,6 +2235,21 @@ SYMBAROUM.MM2_FALL_SOFT_REDUCE = 5;
      Meister +1W4 Bonus (Kalibrierung) + Korruptionsangriff/Giftig-Rider
      je Stufe des korrespondierenden Merkmals. */
 SYMBAROUM.CROSS_WEAPON_TRAITS = {
+  /* B1 „Kampftab & Netz" (R4-13-ENTSCHEIDUNG §11.6, M1-Probenmodell):
+     NETZ-GESCHOSSE laufen ueber die WAFFENZEILE dieser Cross-Waffe:
+     rowFromLevel 2 = Zeile erst ab ADEPT (Novize ohne Zeile - die
+     Netz-KACHEL platziert dafuer die Zone), numAttacks 3 ab
+     numAttacksFromLevel 3 = MEISTER feuert 3 (Adept 1). Feuern
+     loest KEINEN enhancedAttackRoll aus, sondern je markiertem Ziel
+     die RAW-genaue [GE<-SF]-AUSWEICHPROBE DES OPFERS (actor.js
+     rollWeapon-Router -> item.js mm2WebShotsFlow: SC-Anfragekarte
+     kind 'mm2web', NSC inline + GM-Karte, Misslingen = verfangen
+     ueber mm2WebEntangleGmActions); Munition je Geschoss ueber
+     MM2_WEB_SHOTS_PER_LEVEL + MASTER_SPENT. noDamage wie Greifzunge/
+     Giftspucke („speziell"-Zeile); isDistance/isMelee sind reine
+     Dokumentation - ohne Angriffswurf entfaellt auch das Parier-
+     Problem des v2.0-Geschoss-Ansatzes (Befund 7a). */
+  web: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 3, numAttacksFromLevel: 3, rowFromLevel: 2, probeShots: true },
   grapplingtongue: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 1 },
   prehensileclaws: { attribute: "quick", isMelee: true, isDistance: false, damageFromUnarmed: true, numAttacks: 2 },
   poisonspit: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 1 },

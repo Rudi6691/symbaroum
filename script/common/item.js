@@ -9986,8 +9986,9 @@ async function mm1AcidicBlood(functionStuff, damageTot, rollData) {
  *   Zug-Verschiebung eines Token, Befreiungskarte (Karten-Buttons,
  *   Besitzer wuerfelt selbst; SL/Player-Buchung 1x pro Runde).
  * - Karten-Maschinen der klickbaren Merkmale (Dispatch in
- *   getPowerResultFunction): mm2WebFlow (Netz: SL-Wahl-Dialog
- *   Netzzone/Netz-Geschosse, Konzept Runde 3 Teil B),
+ *   getPowerResultFunction): mm2WebFlow (Netz-Kachel platziert seit
+ *   B1 „Kampftab & Netz" NUR die Zone - die Geschosse feuern ueber
+ *   die Waffenzeile, s. mm2WebShotsFlow),
  *   mm2CrossWeaponFlow (Cross-Flag-Waffen: Kachel-Klick oeffnet den
  *   Standard-Waffendialog der Merkmals-eigenen Waffe),
  *   mm2RampageChain (SL-Kettendialog), mm2SwiftInfo
@@ -10115,44 +10116,18 @@ export async function mm2PostLiberateCard(victimTokenId, victimName, { target, s
   }
 }
 
-/* Netz-Dualmodell (Konzept Runde 3, Teil B, Commit 2): Die Kachel
-   oeffnet einen SL-Wahl-Dialog - "Netzzone platzieren" (ALLE Stufen,
-   passive Region mit Verfangen-Probe [GW<-SF] beim BETRETEN und je
-   RUNDENBEGINN im Netz, platziert ueber das Core-Region-Legewerkzeug,
-   Standard-Radius MM2_WEB_ZONE_RADIUS_CELLS, SL darf frei skalieren)
-   oder "Netz-Geschosse feuern" (Adept 1, Meister 3 je Runde; Munitions-
-   Zaehler bleibt der etablierte mm2WebThreads {round, used} am Kreatur-
-   Token, JE Klick verbraucht 1 Geschoss, bewusste RAW-Abweichung: nur
-   AKTIV abgefeuerte Geschosse zaehlen - auch beim Meister). Ersetzt
-   die v1-Netzkarte (SL-Mess-Template + je-Ziel-Buttons) vollstaendig.
-   Die v1.0.1-Fixes Rudolfs (Befunde 3/5a/6a/11) sind eingeflossen. */
+/* Netz-Kachel (B1 „Kampftab & Netz", R4-13-ENTSCHEIDUNG §11.6): Die
+   Kachel SCHRUMPFT AUF DIE NETZZONE - der v2.0-SL-Wahl-Dialog (Zone/
+   Geschosse) ist ENTFALLEN, denn die Netz-GESCHOSSE feuern seit B1
+   ueber die WAFFENZEILE der Cross-Waffe web (Adept 1, Meister 3,
+   Novize ohne Zeile; actor.js rollWeapon-Router -> mm2WebShotsFlow,
+   M1-Probenmodell). ALLE Stufen platzieren also direkt: die passive
+   Region mit Verfangen-Probe [GW<-SF] beim BETRETEN und je RUNDEN-
+   BEGINN im Netz (Standard-Radius MM2_WEB_ZONE_RADIUS_CELLS, SL darf
+   frei skalieren) - genau der Novizen-Weg, und der Meister nutzt
+   Zone PLUS Geschosse je Belieben. */
 async function mm2WebFlow(_null, functionStuff) {
-  try {
-    const attacker = functionStuff.actor;
-    if (!attacker) return null;
-    const cfg = game.symbaroum.config;
-    const webLevel = getActorAbilityLevel(attacker, "web");
-    const shotsMax = Number(cfg.MM2_WEB_SHOTS_PER_LEVEL?.[webLevel] ?? 0);
-    const buttons = [
-      { action: "zone", icon: "fas fa-draw-polygon", label: game.i18n.localize("TRAIT_WEB.CHOICE_ZONE"), default: true },
-    ];
-    if (shotsMax > 0) {
-      buttons.push({ action: "shots", icon: "fas fa-crosshairs", label: game.i18n.format("TRAIT_WEB.CHOICE_SHOTS", { count: shotsMax }) });
-    }
-    const choice = await foundry.applications.api.DialogV2.wait({
-      window: { title: game.i18n.localize("TRAIT_WEB.CHOICE_TITLE") },
-      classes: ["symb-dialog", "modern-dialog", "modern-theme-dark"],
-      position: { width: 460 },
-      content: `<div class="finalTxt"><p>${game.i18n.localize("TRAIT_WEB.CHOICE_TEXT")}</p></div>`,
-      buttons,
-    });
-    if (choice === "zone") await mm2WebZonePlace(functionStuff);
-    else if (choice === "shots") await mm2WebShotsCard(functionStuff);
-    return null;
-  } catch (mm2Error) {
-    game.symbaroum.log("MM-Paket 2: Netz-Wahldialog", mm2Error);
-    return null;
-  }
+  return mm2WebZonePlace(functionStuff);
 }
 
 /* Behavior-Skripte der Netzzone (Region-Script-Behaviors, V14-Typname
@@ -10424,70 +10399,131 @@ function mm2WebZoneTokens(region) {
   return found;
 }
 
-/* Netz-Geschosse (Adept 1, Meister 3 je Runde): Keine Vorabbuchung -
-   die Karte zaehlt die Kandidaten auf (SL-Markierungen, sonst alle
-   Szenen-Token), JE Klick verbraucht EIN Geschoss (Munitions-Check im
-   hooks.js-Handler zum Flag mm2WebShots, Zaehler bleibt mm2WebThreads
-   {round, used} am Kreatur-Token mit Runden-Auffuellung). Bei leerge-
-   schossener Karte pro Klick die MASTER_SPENT-Zeile und Ende. */
-async function mm2WebShotsCard(functionStuff) {
+/* Netz-GESCHOSSE, M1-PROBENMODELL (B1 „Kampftab & Netz", R4-13-
+   ENTSCHEIDUNG §11.6): Feuern laeuft ueber die WAFFENZEILE der Cross-
+   Waffe web (actor.js rollWeapon-Router) - die v2.0-Geschoss-KARTE
+   mit je-Token-Buttons, ihr hooks.js-Handler und der geplante Eigen-
+   bau-Kettendialog sind ALLE ENTFALLEN: Die Foundry-Zielmarkierung
+   IST die Kette (je markiertem Ziel EIN Geschoss, hoechstens die
+   Serienzahl numAttacks aus der vorbereiteten Waffe). Je Ziel laeuft
+   die RAW-genaue [GE<-SF]-AUSWEICHPROBE DES OPFERS - die Kreatur
+   wuerfelt NICHT, damit entfaellt das Parier-Problem (Befund 7a)
+   komplett; der geteilte Kern bleibt mm2WebEntangleResolve (wie bei
+   der Zone): SC-Opfer wuerfeln selbst (Anfragekarte kind 'mm2web',
+   Auswertung im hooks.js-mm1ResistRequest-Dispatcher), NSC-Opfer
+   inline, Misslingen = verfangen (GM-Anwenden-Karte ueber
+   mm2WebEntangleGmActions mit regionId null - die Geschoss-Missgunst
+   ist nicht zonen-gebunden, sie endet nur ueber die Befreiung);
+   bestehender Netz-bind wird nicht doppelt gefangen.
+   Munition: JE Geschoss bucht gegen mm2WebThreads {round, used} am
+   Kreatur-Token - der Runden-Reset pflegt jetzt AUCH counter.round
+   (v2.0-Befunde 10+11: das Rundfeld blieb an beiden v2.0-Stellen
+   stehen, der Zaehler lief entweder voll oder ins Grenzenlose);
+   leergeschossen die MASTER_SPENT-Zeile und Ketten-Abbruch. Ohne
+   Kreatur-Token laeuft KEINE Buchung (Welt-Actor ohne Spielstein -
+   bewusste Grenze, Proben laufen ueber die Serienzahl-Kappe). */
+export async function mm2WebShotsFlow(attacker, weapon) {
   try {
-    const attacker = functionStuff.actor;
     if (!attacker) return null;
     const cfg = game.symbaroum.config;
+    const traitsLabel = game.i18n.localize("TRAIT_LABEL.WEB");
     const actingToken = game.symbaroum.api.getActorToken(attacker);
     /* MM2 v1.2-Lernweis (Testbefund 12): getActorToken liefert bei
        SYNTHETISCHEM Actor das TokenDOCUMENT statt des Placeables. */
     const actingTokenDoc = actingToken?.document ?? actingToken ?? null;
-    const creatureName = functionStuff.actingCharName ?? actingToken?.name ?? attacker.name;
+    const creatureName = actingToken?.name ?? attacker.name;
     const creatureSF = getAttributeValue(attacker, "cunning");
     const shotsMax = Number(cfg.MM2_WEB_SHOTS_PER_LEVEL?.[getActorAbilityLevel(attacker, "web")] ?? 0);
     if (shotsMax <= 0) {
+      /* Defensiv-Guard (Novize hat normalerweise gar keine Zeile,
+         rowFromLevel-Gate in actor.js _getWeapons); F5-freundliche
+         Rueckmeldung statt stiller Funkstille. */
       const title = `<h4>${game.i18n.localize("TRAIT_WEB.CARD_TITLE")}</h4>`;
-      await postMaintainChainCard(functionStuff, title, [`<p>${game.i18n.localize("TRAIT_WEB.SHOTS_NONE")}</p>`], []);
+      await ChatMessage.create({
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+        content: `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${traitsLabel}: ${game.i18n.localize("TRAIT_WEB.SHOTS_NONE")}</p></div></div></div>`,
+      });
       return null;
     }
+    /* Runden-Reset MIT Rundfeld-Pflege (B1-Fix zu v2.0-Befunden 10+11). */
+    const combatRound = game.combat?.round ?? 0;
+    let counter = { round: combatRound, used: 0 };
+    if (actingTokenDoc) {
+      counter = (await actingTokenDoc.getFlag(game.system.id, "mm2WebThreads")) ?? { round: combatRound, used: 0 };
+      if (counter.round !== combatRound) {
+        counter.round = combatRound;
+        counter.used = 0;
+      }
+      /* Ohne laufenden Kampf (round 0) gibt es keinen Rundenwechsel:
+         JE Feuern startet mit vollem Magazin (v2.0-Fixliste, bewusste
+         Regel - sonst wuerde ausserhalb von Kampfrunden der alte
+         Freeze-Bug wiederaufstehen: Zaehler laeuft voll und friert). */
+      if (combatRound <= 0) {
+        counter.round = combatRound;
+        counter.used = 0;
+      }
+    }
+    /* Zielwahl OHNE Eigenbau-Dialog: die Foundry-Zielmarkierung IST
+       die Kette. Ohne Markierung bewusster Abbruch mit Warnung (die
+       v2.0-Karte liess alle Szenen-Token als Buttons zu - eine
+       Sofort-Feuerung auf ALLE waere unbedacht). */
     const marked = Array.from(game.user.targets).filter((t) => t.actor && t.id !== actingToken?.id);
-    const candidates = marked.length > 0 ? marked : (canvas.tokens?.placeables ?? []).filter((t) => t.actor && t.id !== actingToken?.id);
-    if (candidates.length === 0) {
+    if (marked.length === 0) {
       ui.notifications?.warn(game.i18n.localize("TRAIT_MM2.NO_TARGET"));
       return null;
     }
-    let threadsLine = "";
-    if (actingTokenDoc) {
-      const combatRound = game.combat?.round ?? 0;
-      const counter = actingTokenDoc.getFlag(game.system.id, "mm2WebThreads") ?? { round: combatRound, used: 0 };
-      if (counter.round !== combatRound) counter.used = 0;
-      threadsLine = `<p>${game.i18n.format("TRAIT_WEB.MASTER_THREADS", { used: counter.used, max: shotsMax })}</p>`;
+    /* Meister-Serie: hoechstens die numAttacks der vorbereiteten
+       Waffe (Greifklauen-Muster der Serienvorbelegung; Adept 1,
+       Meister 3), weiter gedeckelt durch die offene Munition. */
+    const maxShots = Math.min(marked.length, Math.max(1, Number(weapon?.numAttacks ?? 1)));
+    for (let i = 0; i < maxShots; i++) {
+      if (counter.used >= shotsMax) {
+        const title = `<h4>${game.i18n.format("TRAIT_MM2.CHAT_REACTION_TITLE_ONE", { name: traitsLabel })}</h4>`;
+        await ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+          content: `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${traitsLabel}: ${game.i18n.format("TRAIT_WEB.MASTER_SPENT", { max: shotsMax })}</p></div></div></div>`,
+        });
+        break;
+      }
+      const targetToken = marked[i];
+      const tokenDoc = targetToken.document ?? targetToken;
+      /* Netz-Doppel-Fangen-Gate vor der Buchung: Einem bereits im NETZ
+         Gebundenen (anderes Halten zaehlt nicht) keine Munition stumm
+         verbrennen - Hinweiskarte, kein Geschoss (dasselbe Gate wie im
+         geteilten Kern mm2WebEntangleResolve, hier SL-sichtbar). */
+      const alreadyWebBound =
+        tokenDoc.actor?.hasCondition?.("bind")?.getFlag(game.system.id, "flagData")?.mm2Bind?.source === "web";
+      if (alreadyWebBound) {
+        const heldTitle = `<h4>${game.i18n.format("TRAIT_MM2.CHAT_REACTION_TITLE_ONE", { name: traitsLabel })}</h4>`;
+        const heldLine = game.i18n.format("TRAIT_MM2.CHAT_ALREADY_HELD", {
+          targetname: tokenDoc.name ?? targetToken.name ?? "",
+        });
+        await ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+          content: `<div class="symbaroum chat ability"><div class="foreground">${heldTitle}<div class="finalTxt"><p>${traitsLabel}: ${heldLine}</p></div></div></div>`,
+        });
+        continue;
+      }
+      counter.used += 1;
+      if (actingTokenDoc) {
+        await actingTokenDoc.setFlag(game.system.id, "mm2WebThreads", counter);
+      }
+      await mm2WebEntangleResolve({
+        tokenDoc,
+        meta: { creatureActorId: attacker.id, creatureName, creatureSF },
+        regionId: null,
+        introLines: [
+          game.i18n.format("TRAIT_WEB.SHOTS_FIRE_LINE", { creaturename: creatureName, targetname: tokenDoc.name ?? targetToken.name ?? "" }),
+          game.i18n.format("TRAIT_WEB.MASTER_THREADS", { used: counter.used, max: shotsMax }),
+        ],
+      });
     }
-    const victims = candidates.map((t) => ({
-      tokenId: t.id,
-      name: t.name,
-      target: getAttributeValue(t.actor, "quick") + (10 - creatureSF),
-    }));
-    const buttons = victims
-      .map((v) => `<button class="mm2-web-probe" data-victim="${v.tokenId}"><i class="fas fa-dice-d20"></i> ${game.i18n.format("TRAIT_WEB.CATCH_BUTTON", { targetname: v.name })}</button>`)
-      .join(" ");
-    const title = `<h4>${game.i18n.localize("TRAIT_WEB.CARD_TITLE")}</h4>`;
-    const hintLine = game.i18n.format("TRAIT_WEB.SHOTS_HINT", { creaturename: creatureName });
-    const htmlBody = `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${hintLine}</p>${threadsLine}<p>${buttons}</p></div></div></div>`;
-    const chatData = {
-      user: game.user.id,
-      speaker: ChatMessage.getSpeaker({ alias: game.user.name, actor: attacker.id }),
-      content: htmlBody,
-    };
-    chatData[`flags.${game.system.id}.mm2WebShots`] = {
-      creatureTokenId: actingToken?.id ?? null,
-      creatureActorId: attacker.id,
-      creatureName: creatureName,
-      creatureSF: creatureSF,
-      victims,
-      max: shotsMax,
-    };
-    await ChatMessage.create(chatData);
     return null;
   } catch (mm2Error) {
-    game.symbaroum.log("MM-Paket 2: Netz-Geschosskarte", mm2Error);
+    game.symbaroum.log("MM-Paket 2: Netz-Geschoss-Feuern", mm2Error);
     return null;
   }
 }
@@ -11040,15 +11076,32 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
       }
     }
 
-    /* --- Greifzunge (Cross-Waffe, Konzept Runde 3 Teil A - Bola-Form):
+    /* --- Greifzunge (Cross-Waffe, Konzept Runde 3 Teil A - Bola-Form)
+   und/oder Qualitaet „Fangend" (B1, s. if unten):
    Treffer + Opfer mindestens eine Robust-Stufe schwaecher -> Zug-Probe
    [ST<-ST] (SC-Opfer wuerfeln per Anfragekarte, NSC automatisch), Miss-
    ling dem Opfer = adjacent zur Kreatur herangezogen. IMMER Zeile,
    auch beim Angriffs-Fehlschlag (v1.1-Testbefunde 2/3: kein stiller
    Wurf, keine leeren Dialoge); Freie Angriffe bleiben ohne Rider
    (RAW-Präzedenz aktive Merkmale im Freien Angriff). */
-    if (weaponRef === "grapplingtongue" && !functionStuff.isAlternativeDamage) {
-      const traitLabel = game.i18n.localize("TRAIT_LABEL.GRAPPLINGTONGUE");
+    /* B1 „Kampftab & Netz" (R4-4: Fangend als KLASSISCHE Qualitaets-
+       Checkbox, default UNANGEHAKT): Die Zug-Mechanik liest zusaetzlich
+       zur Merkmals-Referenz (Greifzunge) den QUALITAETS-WEG - JEDE
+       Waffe mit der Upstream-Qualitaet „Fangend" (system.qualities.
+       ensnaring, Qualitaeten-Katalog seit jeher, haekbar wie jede
+       andere) bekommt denselben Rider, inklusive der Greifzungen-
+       Cross-Waffe und spaeter gratis der Bola. KEIN preselect-Paket:
+       die Item-Konfiguration bleibt SL-Sache. Bei Kreuzung (Referenz
+       UND Qualität auf derselben Waffe) feuert EIN Rider - qualityRef
+       gewinnt, Mechanik identisch, keine Doppelprobe (Konzept §4). */
+    const mm2EnsnaringQuality = Boolean(
+      functionStuff.weapon?.qualities?.ensnaring ?? functionStuff.weapon?.system?.qualities?.ensnaring
+    );
+    if ((weaponRef === "grapplingtongue" || mm2EnsnaringQuality) && !functionStuff.isAlternativeDamage) {
+      const traitLabel =
+        weaponRef === "grapplingtongue"
+          ? game.i18n.localize("TRAIT_LABEL.GRAPPLINGTONGUE")
+          : game.i18n.localize("QUALITY.ENSNARING");
       reactionTraits.push(traitLabel);
       if (!anyHit || targetDies) {
         lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_MISS", { targetname: victim.name }));
@@ -14343,8 +14396,7 @@ async function attackResult(rollData, functionStuff) {
           templateData.poisonChatResult =
             functionStuff.targetData.name +
             game.i18n.format("COMBAT.CHAT_POISON_COATING_SUCCESS", { damage: coatingDamage.total, rounds: coatingRounds.total }) +
-            (reducedByResilient ? game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_REDUCED") : "") +
-            game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+            (reducedByResilient ? game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_REDUCED") : "");
           // Gift v1 B3: Dosis wird erst bei gelungener Vergiftung
           // abgebucht (consume-on-hit statt consume-on-submit); bei
           // Misslingen oder Neutralisierung bleibt der Vorrat unberuehrt.
@@ -14504,7 +14556,7 @@ async function attackResult(rollData, functionStuff) {
       // (addCondition), permanent until the symbol is removed; the round/DoT engine
       // applies the damage automatically at the start of the victim's turn
       templateData.bleedChat =
-        functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_BLEED") + bleedDamage + game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+        functionStuff.targetData.name + game.i18n.localize("COMBAT.CHAT_BLEED") + bleedDamage;
       let finalbleedDmg = await mathDamageProt(functionStuff.targetData.actor, 1, { bleeding: true });
       templateData.bleedChat += finalbleedDmg.text;
       flagDataArray.push({
@@ -14553,8 +14605,7 @@ async function attackResult(rollData, functionStuff) {
         game.i18n.localize("COMBAT.CHAT_FLAMING_SUCCESS1") +
         flamingDamage +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
-        flamingRounds.toString() +
-        game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+        flamingRounds.toString();
       let finalburningDmg = await mathDamageProt(functionStuff.targetData.actor, 2, { elemental: true, fire: true });
       templateData.flamingChat += finalburningDmg.text;
     } else if (doTime.effectIcon?.id === "acid" && hasDamage) {
@@ -14589,8 +14640,7 @@ async function attackResult(rollData, functionStuff) {
         game.i18n.localize("COMBAT.CHAT_ACID_SUCCESS1") +
         acidDamage +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
-        acidRounds.toString() +
-        game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+        acidRounds.toString();
       if (rollData?.[0]?.diceResult === 20) {
         // Vault: on a natural 20 on the attack roll the acid may hit the wielder
         // (reroll compared with Precision) - chat hint for the GM, no automation
@@ -15424,8 +15474,7 @@ async function poisonCalc(functionStuff, poisonRoll) {
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS1") +
         poisonDotTotal.toString() +
         game.i18n.localize("COMBAT.CHAT_POISON_SUCCESS2") +
-        NewPoisonRounds.toString() +
-        game.i18n.localize("COMBAT.CHAT_DOT_AUTOMATIC");
+        NewPoisonRounds.toString();
       if (resilient) {
         poisonRes.poisonChatResult += game.i18n.localize("COMBAT.CHAT_POISON_RESILIENT_REDUCED");
       }

@@ -1,4 +1,4 @@
-import { modifierDialog, standardPowerResult, getActorAbilityLevel, isHeavyWeapon, findSphereMarkerByCaster, sphereRescanMaintain } from "./item.js";
+import { modifierDialog, standardPowerResult, getActorAbilityLevel, isHeavyWeapon, findSphereMarkerByCaster, sphereRescanMaintain, mm2WebShotsFlow } from "./item.js";
 import { symbDialog } from "./symbDialog.js";
 import { modernDialogClasses, isModernDialogActive } from "./modernSheetConfig.js";
 // Hymnen-Paket 1.2: Übernahme der im Ausführungsdialog frisch platzierten
@@ -965,15 +965,34 @@ export class SymbaroumActor extends Actor {
 		   gestufte erst mit aktiver Novize-Stufe. */
 		const crossSet = new Set(
 			this.items
-				.filter(
-					(element) =>
-						element.type === "trait" &&
-						game.symbaroum.config.CROSS_WEAPON_TRAITS[element.system.reference] &&
-						(game.symbaroum.config.LEVELLESS_TRAITS.includes(element.system.reference) || element.getLevel?.().level > 0)
-				)
+				.filter((element) => {
+					const crossCfg =
+						element.type === "trait" ? game.symbaroum.config.CROSS_WEAPON_TRAITS[element.system.reference] : null;
+					if (!crossCfg) return false;
+					if (game.symbaroum.config.LEVELLESS_TRAITS.includes(element.system.reference)) return true;
+					/* B1 „Kampftab & Netz" (R4-13/§11.6): rowFromLevel-Gate -
+					   die NETZ-Zeile entsteht erst ab ADEPT (Novize 0 Geschosse
+					   und keine Zeile); alle uebrigen Kanonik-Eintraege bleiben
+					   wie bisher mit aktiver Novize-Stufe dabei. */
+					const lvl = element.getLevel?.()?.level ?? 0;
+					return lvl > 0 && lvl >= (crossCfg.rowFromLevel ?? 1);
+				})
 				.map((element) => element.id)
 		);
-		let weaponArray = this.items.filter((element) => element.system.isWeapon || crossSet.has(element.id));
+		/* B1 „Kampftab & Netz": crossFlag='weapon' ODER Kanonik (R4-8,
+		   Bestand laeuft unberuehrt weiter). Rezeptur-Typ-Gate (R4-11):
+		   Elixiere bleiben reine Sheet-Vorbereitung, bis die Elixier-
+		   Waffen-Runde sie in die Engine hebt. Gestufe crossFlag-Items
+		   wirken erst mit aktiver Novize-Stufe (dasselbe Gelernt-Gate
+		   wie die Kanonik; stufenlose Typen hat getLevel?.() nicht). */
+		let weaponArray = this.items.filter(
+			(element) =>
+				element.system.isWeapon ||
+				crossSet.has(element.id) ||
+				(element.type !== "rezeptur" &&
+					element.system.crossFlag === "weapon" &&
+					!(element.system.hasLevels && (element.getLevel?.()?.level ?? 0) === 0))
+		);
 		weaponArray = Array.from(weaponArray.values()).sort((a, b) => {
 			if (a.type == b.type) {
 				return a.name == b.name ? 0 : a.name < b.name ? -1 : 1;
@@ -1411,6 +1430,17 @@ export class SymbaroumActor extends Actor {
 		// der Munitions-Bestand dafuer nicht reicht (kein Wurf, keine
 		// Dialogoeffnung; Notification kam aus ammo.js).
 		if (!checkWeaponAmmoReady(this, weapon)) return false;
+		/* B1 „Kampftab & Netz" (R4-13/§11.6, M1-Probenmodell): Die
+		   Netz-GESCHOSSE feuern ueber die Waffenzeile, loesen aber KEINEN
+		   enhancedAttackRoll aus - je markiertem Ziel laeuft die [GE<-SF]-
+		   Ausweichprobe des OPFERS (item.js mm2WebShotsFlow: SC-Anfrage-
+		   karte kind 'mm2web', NSC inline + GM-Karte; Munition ueber
+		   mm2WebThreads). Kampftab-Zeile und Makro-Aufruf laufen beide
+		   durch DIESEN Choke-Point. */
+		const mm2RollRef = weapon?.reference ?? weapon?.system?.reference ?? null;
+		if (game.symbaroum.config.CROSS_WEAPON_TRAITS[mm2RollRef]?.probeShots) {
+			return mm2WebShotsFlow(this, weapon);
+		}
 		if (game.settings.get("symbaroum", "combatAutomation")) {
 			return this.enhancedAttackRoll(weapon);
 		} else {
