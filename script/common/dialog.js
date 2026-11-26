@@ -317,6 +317,37 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       ];
     }
   }
+  // B1.2 (Rudolfs Testrunde v1.1, Punkt 12 + Freigabe 26.11.2026):
+  // Knochengeschoss ab Adept - Radio "Anzahl Ziele" im Wuerfeldialog der
+  // Merkmals-eigenen Fernkampfwaffe. "Ein Ziel" = bisherige Serie (beide
+  // Projektile in EINER Karte auf EIN Ziel); "Zwei Ziele" = jedes Projektil
+  // als eigene Karte auf ein FRISCH markiertes Ziel (Kraft-Kettendialog-
+  // Muster chainSequenceResult/glyphNextTargetConfirmation), die Kette
+  // feuert in attackResult (Doppelschlag-Sub-Muster). RAW Vault
+  // "Knochengeschoss.md": "kann pro Runde zwei Projektile schießen oder
+  // werfen" - keine Zielbindung.
+  let askBoneTargets = false;
+  let boneTargetChoices = [];
+  if (ecOn && weapon !== null && weapon.reference === "boneprojectile") {
+    const boneLvl = getActorAbilityLevel(actor, "boneprojectile");
+    if (boneLvl >= 2) {
+      askBoneTargets = true;
+      boneTargetChoices = [
+        {
+          value: "one",
+          checked: true,
+          label: game.i18n.localize("DIALOG.BONE_TARGETS_ONE"),
+          hint: game.i18n.localize("DIALOG.BONE_TARGETS_ONE_HINT"),
+        },
+        {
+          value: "two",
+          checked: false,
+          label: game.i18n.localize("DIALOG.BONE_TARGETS_TWO"),
+          hint: game.i18n.localize("DIALOG.BONE_TARGETS_TWO_HINT"),
+        },
+      ];
+    }
+  }
   // Elixiere v1.4 (Rudolfs Freigabe 02.11.): Spezialmunition-Opt-in im
   // Wuerfeldialog des FERNKAMPF-Angriffs - Betaeubungspfeil (stunBolt) /
   // Treffpfeil (seekingArrow), nur EINE Wirkung waehlbar, Abbuchen beim
@@ -534,6 +565,8 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
     "axeArtistChoices": axeArtistChoices,
     "askCheapshot": askCheapshot,
     "cheapshotChoices": cheapshotChoices,
+    "askBoneTargets": askBoneTargets,
+    "boneTargetChoices": boneTargetChoices,
     "askAmmoEffect": askAmmoEffect,
     "ammoEffectChoices": ammoEffectChoices,
     "askPoisonCoating": askPoisonCoating,
@@ -973,6 +1006,29 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
             if(cheapshotTechnique === "strike"){
               ecData.cheapshotNovice = true;
               ecData.autoParams += game.i18n.localize('DIALOG.CHEAPSHOT_STRIKE') + ", ";
+            }
+          }
+          // B1.2 (Rudolfs Testrunde v1.1, Punkt 12): Knochengeschoss
+          // "Anzahl Ziele"-Radio. "Zwei Ziele" erzwingt EINEN Wurf je Karte
+          // (das zweite Projektil feuert als eigene Karte aus attackResult
+          // nach dem Kraft-Kettendialog) und setzt den Marker mm2BoneSplit.
+          // STEHT ABSICHTLICH NACH dem attNbRadio-Block, damit die 1x/2x-
+          // Angriffsvorbelegung der Serien-Vorbelegung (actor.js, ab Adept
+          // 2x) auf 1 ueberschrieben wird - der Context-Handler bucht fuer
+          // den ERSTEN Wurf (Cross-Waffe ohne Inventar-Munition, wie bei
+          // "Ein Ziel" mit abgewaehltem Radio).
+          if(askBoneTargets){
+            let boneTargetsTechnique = "one";
+            let boneTargetRadioSelection = html[0].querySelectorAll("input[name='boneTargetsRadio']");
+            for( let f of boneTargetRadioSelection) {
+              if( f.checked ){
+                boneTargetsTechnique = f.value;
+              }
+            }
+            if(boneTargetsTechnique === "two"){
+              ecData.mm2BoneSplit = true;
+              ecData.numberofAttacks = 1;
+              ecData.autoParams += game.i18n.localize('DIALOG.BONE_TARGETS_TWO') + ", ";
             }
           }
           // Munitionsverbrauch v1 (Rudolfs Freigabe 31.10.): Abbuchung beim

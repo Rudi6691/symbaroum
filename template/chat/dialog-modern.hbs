@@ -254,6 +254,20 @@
         </div>
       </fieldset>
     {{/if}}
+    {{!-- B1.2 (Rudolfs Testrunde v1.1, Punkt 12): Knochengeschoss ab
+         Adept - Radio "Anzahl Ziele", Muster Axtkünstler/Dreckiger Kampf;
+         "Zwei Ziele" feuert jedes Projektil als eigene Karte über den
+         Kraft-Kettendialog (frische Zielmarkierung je Projektil) --}}
+    {{#if askBoneTargets}}
+      <fieldset class="m-ability-frame">
+        <legend class="m-ability-label">{{localize "DIALOG.BONE_TARGETS_TITLE"}}</legend>
+        <div class="m-roll-favour">
+          {{#each boneTargetChoices as |choice|}}
+          <label class="lblfavour" title="{{choice.hint}}"><input type="radio" name="boneTargetsRadio" value="{{choice.value}}" {{#if choice.checked}}checked{{/if}}> {{choice.label}}</label>
+          {{/each}}
+        </div>
+      </fieldset>
+    {{/if}}
     {{!-- Elixiere v1.4 (Rudolfs Freigabe 02.11.): Spezialmunition-Opt-in
          (Betäubungspfeil/Treffpfeil) als eigener Rahmen, Muster Axtkünstler/
          Dreckiger Kampf; nur EINE Wirkung wählbar, Abbuchen beim Würfeln

@@ -175,6 +175,17 @@
         {{/each}}
       </div>
     {{/if}}
+    {{!-- B1.2 (Rudolfs Testrunde v1.1, Punkt 12): Knochengeschoss ab
+         Adept - klassische Radio-Zeile "Anzahl Ziele", Muster
+         Axtkünstler/Dreckiger Kampf --}}
+    {{#if askBoneTargets}}
+      <div class="favour">
+        <label class="lblfavour">{{localize "DIALOG.BONE_TARGETS_TITLE"}}:</label>
+        {{#each boneTargetChoices as |choice|}}
+        <label class="lblfavour" title="{{choice.hint}}"><input type="radio" name="boneTargetsRadio" value="{{choice.value}}" {{#if choice.checked}}checked{{/if}}> {{choice.label}}</label>
+        {{/each}}
+      </div>
+    {{/if}}
     {{!-- Elixiere v1.4 (Rudolfs Freigabe 02.11.): Spezialmunition-Opt-in
          (Betäubungspfeil/Treffpfeil) - klassische Radio-Zeile, Muster
          Axtkünstler/Dreckiger Kampf; nur EINE Wirkung wählbar, Abbuchen

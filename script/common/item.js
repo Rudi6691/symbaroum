@@ -5643,7 +5643,67 @@ export async function buildRolls(functionStuff) {
     rollData.push(await baseRoll(functionStuff.actor, functionStuff.castingAttributeName, null, null, functionStuff.favour, functionStuff.modifier, functionStuff.resistRoll));
   }
   if (isWeaponRoll) {
-    return await attackResult(rollData, functionStuff);
+    const weaponRes = await attackResult(rollData, functionStuff);
+    /* B1.2 (Rudolfs Testrunde v1.1, Punkt 12 + Freigabe 26.11.2026):
+       Knochengeschoss "Zwei Ziele" - das zweite Projektil feuert als
+       eigene Karte auf ein FRISCH markiertes Ziel. Rudolfs Verweis auf
+       den funktionierenden Kettendialog bei den Kraeften (chainSequence-
+       Result): nach der ersten Karte (inkl. ihrer Reaktionskarten) fragt
+       "Weiteres Ziel fuer Kette?", die SL markiert neu, dann laeuft der
+       zweite Wurf als Sub-Lauf im Doppelschlag-Muster (Klon erbt Waffe/
+       Rider/Modifikatoren, Meister-Bonus je Projektil ueber mm2Attacker-
+       Traits automatisch je Karte), AUCH bei Fehlschlag des ersten
+       Projektils (RAW: unabhaengige Projektile). Die Kette haengt
+       BEWUSST hier im buildRolls-Waffen-Ast und NICHT in attackResult:
+       attackResult erzeugt Sub-Karten als functionStuff-Klone (Freier
+       Angriff, Riposte, Doppelschlag), die den Marker sonst ERBEN und
+       die Kette erneut feuern wuerden; hier feuert sie GENAU EINMAL je
+       Wurf-Submit. Abbruch oder keine frische Markierung: das zweite
+       Projektil verfaellt (SL-Sache, Praezedenz Kraefte-Kette); kein
+       Ziel doppelt in EINER Kette (handled-Set) - fuer einen weiteren
+       Schuss auf dasselbe Ziel die Zeile erneut klicken. isBoneSecond
+       ist die Rekursions-Sperre. */
+    if (
+      functionStuff.mm2BoneSplit &&
+      !functionStuff.isBoneSecond &&
+      functionStuff.weapon?.reference === "boneprojectile" &&
+      functionStuff.targetData?.hasTarget
+    ) {
+      /* Waffen-functionStuff hat KEIN abilityName (nur introText) - der
+         Kettendialog kriegt einen flachen Klon mit dem Merkmals-Label
+         als Titel, ohne functionStuff selbst zu mutieren. */
+      const boneChainPrompt = Object.assign({}, functionStuff, {
+        abilityName: game.i18n.localize("TRAIT_LABEL.BONEPROJECTILE"),
+      });
+      const boneContinue = await glyphNextTargetConfirmation(boneChainPrompt, "DIALOG.CHAIN_NEXT_TARGET");
+      if (boneContinue) {
+        const boneHandled = new Set([functionStuff.targetData.tokenId]);
+        const nextBoneToken = Array.from(game.user.targets).find(
+          (token) => token.actor && !boneHandled.has(token.id)
+        );
+        if (!nextBoneToken?.actor) {
+          ui.notifications.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
+        } else {
+          const fsBoneSecond = Object.assign({}, functionStuff, {
+            isBoneSecond: true,
+            numberofAttacks: 1,
+            targetData: buildGlyphTargetData(nextBoneToken, functionStuff.targetData.resistAttributeName),
+          });
+          fsBoneSecond.introText = functionStuff.introText + game.i18n.localize("TRAIT_BONEPROJECTILE.CHAT_SECOND_SHOT");
+          const rdBoneSecond = await baseRoll(
+            functionStuff.actor,
+            functionStuff.castingAttributeName,
+            nextBoneToken.actor,
+            functionStuff.targetData.resistAttributeName,
+            functionStuff.favour,
+            functionStuff.modifier,
+            false
+          );
+          await attackResult([rdBoneSecond], fsBoneSecond);
+        }
+      }
+    }
+    return weaponRes;
   } else {
     const resultFunction = getPowerResultFunction(functionStuff);
     /* Trollsingen-Reroll (Hymnen-Paket v1, Rudolfs Entscheidungen 8+10,
@@ -10408,9 +10468,13 @@ function mm2WebZoneTokens(region) {
    ENTSCHEIDUNG §11.6): Feuern laeuft ueber die WAFFENZEILE der Cross-
    Waffe web (actor.js rollWeapon-Router) - die v2.0-Geschoss-KARTE
    mit je-Token-Buttons, ihr hooks.js-Handler und der geplante Eigen-
-   bau-Kettendialog sind ALLE ENTFALLEN: Die Foundry-Zielmarkierung
-   IST die Kette (je markiertem Ziel EIN Geschoss, hoechstens die
-   Serienzahl numAttacks aus der vorbereiteten Waffe). Je Ziel laeuft
+   bau-Kettendialog sind ALLE ENTFALLEN. B1.2 (Rudolfs Entscheidung
+   zur Testrunde v1.1, Punkt 12) laeuft die Kette ueber den KRAFT-
+   KETTENDIALOG (Muster chainSequenceResult): das erste markierte
+   Ziel ist das Primaergeschoss, JE Folgeschuss fragt die Karte
+   "Weiteres Netz-Geschoss?" und liest die FRISCHE Zielmarkierung;
+   Deckel ist das Stufen-Magazin shotsMax (Adept 1, Meister 3).
+   Je Ziel laeuft
    die RAW-genaue [GE<-SF]-AUSWEICHPROBE DES OPFERS - die Kreatur
    wuerfelt NICHT, damit entfaellt das Parier-Problem (Befund 7a)
    komplett; der geteilte Kern bleibt mm2WebEntangleResolve (wie bei
@@ -10426,7 +10490,7 @@ function mm2WebZoneTokens(region) {
    stehen, der Zaehler lief entweder voll oder ins Grenzenlose);
    leergeschossen die MASTER_SPENT-Zeile und Ketten-Abbruch. Ohne
    Kreatur-Token laeuft KEINE Buchung (Welt-Actor ohne Spielstein -
-   bewusste Grenze, Proben laufen ueber die Serienzahl-Kappe). */
+   bewusste Grenze, JE Feuern startet mit vollem Magazin). */
 export async function mm2WebShotsFlow(attacker, weapon) {
   try {
     if (!attacker) return null;
@@ -10487,30 +10551,50 @@ export async function mm2WebShotsFlow(attacker, weapon) {
         counter.round = combatRound;
       }
     }
-    /* Zielwahl OHNE Eigenbau-Dialog: die Foundry-Zielmarkierung IST
-       die Kette. Ohne Markierung bewusster Abbruch mit Warnung (die
-       v2.0-Karte liess alle Szenen-Token als Buttons zu - eine
-       Sofort-Feuerung auf ALLE waere unbedacht). */
+    /* B1.2 (Rudolfs Entscheidung zur Testrunde v1.1, Punkt 12): NETZ auf
+       das Kettendialog-Modell der Kraefte umgebaut (Retest im Testplan).
+       Das ERSTE markierte Ziel ist das Primaerziel (1. Geschoss), JE
+       Folgeschuss fragt die Karte "Weiteres Netz-Geschoss?" (Muster
+       glyphNextTargetConfirmation/chainSequenceResult) und liest die
+       FRISCHE Zielmarkierung - keine Mehrfach-Auswahl noetig; Abbruch
+       jederzeit. Kein Ziel doppelt in EINER Kette (handled-Set) - fuer
+       weitere Faeden auf dasselbe Ziel die Zeile erneut klicken
+       (bewusste Ausgestaltung, RAW je Faden ein Geschoss). Das Doppel-
+       Fangen-Gate bleibt VOR der Buchung aktiv (kein Verbrauch, Kette
+       laeuft weiter zur Abfrage). Leeres Magazin beim KLICK: MASTER_SPENT-
+       Karte (Eintritts-Guard, wie B1); durchgeschossenes Magazin IN der
+       Kette: stiller Abbruch - der naechste Klick zeigt MASTER_SPENT. */
     const marked = Array.from(game.user.targets).filter((t) => t.actor && t.id !== actingToken?.id);
     if (marked.length === 0) {
       ui.notifications?.warn(game.i18n.localize("TRAIT_MM2.NO_TARGET"));
       return null;
     }
-    /* Meister-Serie: hoechstens die numAttacks der vorbereiteten
-       Waffe (Greifklauen-Muster der Serienvorbelegung; Adept 1,
-       Meister 3), weiter gedeckelt durch die offene Munition. */
-    const maxShots = Math.min(marked.length, Math.max(1, Number(weapon?.numAttacks ?? 1)));
-    for (let i = 0; i < maxShots; i++) {
-      if (counter.used >= shotsMax) {
-        const title = `<h4>${game.i18n.format("TRAIT_MM2.CHAT_REACTION_TITLE_ONE", { name: traitsLabel })}</h4>`;
-        await ChatMessage.create({
-          user: game.user.id,
-          speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
-          content: `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${traitsLabel}: ${game.i18n.format("TRAIT_WEB.MASTER_SPENT", { max: shotsMax })}</p></div></div></div>`,
-        });
-        break;
+    if (counter.used >= shotsMax) {
+      const title = `<h4>${game.i18n.format("TRAIT_MM2.CHAT_REACTION_TITLE_ONE", { name: traitsLabel })}</h4>`;
+      await ChatMessage.create({
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
+        content: `<div class="symbaroum chat ability"><div class="foreground">${title}<div class="finalTxt"><p>${traitsLabel}: ${game.i18n.format("TRAIT_WEB.MASTER_SPENT", { max: shotsMax })}</p></div></div></div>`,
+      });
+      return null;
+    }
+    const handled = new Set();
+    let primary = true;
+    while (counter.used < shotsMax) {
+      let targetToken;
+      if (primary) {
+        targetToken = marked[0];
+        primary = false;
+      } else {
+        targetToken = Array.from(game.user.targets).find(
+          (t) => t.actor && t.id !== actingToken?.id && !handled.has(t.id)
+        );
+        if (!targetToken) {
+          ui.notifications?.warn(game.i18n.localize("DIALOG.CHAIN_NO_NEW_TARGET"));
+          break;
+        }
       }
-      const targetToken = marked[i];
+      handled.add(targetToken.id);
       const tokenDoc = targetToken.document ?? targetToken;
       /* Netz-Doppel-Fangen-Gate vor der Buchung: Einem bereits im NETZ
          Gebundenen (anderes Halten zaehlt nicht) keine Munition stumm
@@ -10528,21 +10612,24 @@ export async function mm2WebShotsFlow(attacker, weapon) {
           speaker: ChatMessage.getSpeaker({ alias: game.user.name }),
           content: `<div class="symbaroum chat ability"><div class="foreground">${heldTitle}<div class="finalTxt"><p>${traitsLabel}: ${heldLine}</p></div></div></div>`,
         });
-        continue;
+      } else {
+        counter.used += 1;
+        if (actingTokenDoc) {
+          await actingTokenDoc.setFlag(game.system.id, "mm2WebThreads", counter);
+        }
+        await mm2WebEntangleResolve({
+          tokenDoc,
+          meta: { creatureActorId: attacker.id, creatureName, creatureSF },
+          regionId: null,
+          introLines: [
+            game.i18n.format("TRAIT_WEB.SHOTS_FIRE_LINE", { creaturename: creatureName, targetname: tokenDoc.name ?? targetToken.name ?? "" }),
+            game.i18n.format("TRAIT_WEB.MASTER_THREADS", { used: counter.used, max: shotsMax }),
+          ],
+        });
       }
-      counter.used += 1;
-      if (actingTokenDoc) {
-        await actingTokenDoc.setFlag(game.system.id, "mm2WebThreads", counter);
-      }
-      await mm2WebEntangleResolve({
-        tokenDoc,
-        meta: { creatureActorId: attacker.id, creatureName, creatureSF },
-        regionId: null,
-        introLines: [
-          game.i18n.format("TRAIT_WEB.SHOTS_FIRE_LINE", { creaturename: creatureName, targetname: tokenDoc.name ?? targetToken.name ?? "" }),
-          game.i18n.format("TRAIT_WEB.MASTER_THREADS", { used: counter.used, max: shotsMax }),
-        ],
-      });
+      if (counter.used >= shotsMax) break;
+      const nextShot = await glyphNextTargetConfirmation({ abilityName: traitsLabel }, "TRAIT_WEB.CHAT_NEXT_SHOT");
+      if (!nextShot) break;
     }
     return null;
   } catch (mm2Error) {
