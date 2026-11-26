@@ -1,0 +1,37 @@
+# CI der Symbaroum-Testumgebung (ab v1, Entscheidung A2).
+# Zwei Stufen, beide ohne Foundry-Lizenz und ohne Netz-Zugriff auf Foundry:
+#   1. npm run validate  - statische Checks (Syntax, HBS/CSS-Bilanz, JSON,
+#      i18n-Parität und Key-Existenz; nur Node-Builtins)
+#   2. npm test          - vitest-Unit-Suite (config/stacking/i18n) mit dem
+#      Foundry-Mock-Layer aus tests/setup.mjs
+# npm install statt npm ci: die package-lock.json wird erst mit Rudolfs
+# nächstem Commit (npm install + Lock-Update) geführt; npm ci würde auf dem
+# ersten Push ohne aktualisiertes Lock rot laufen. Nach dem Lock-Commit
+# kann auf npm ci gewechselt werden.
+
+name: Tests
+
+on:
+  push:
+    branches: [v14]
+  pull_request:
+    branches: [v14]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Abhängigkeiten installieren
+        run: npm install
+
+      - name: Statische Validierung
+        run: npm run validate
+
+      - name: Unit-Suite
+        run: npm test
