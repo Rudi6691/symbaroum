@@ -2688,7 +2688,11 @@ Hooks.on('renderChatMessageHTML', async (chatItem, html, data) => {
 						const victimToken = canvas.tokens?.get(mm1ResistRequest.tokenId) ?? canvas.tokens?.placeables?.find((t) => t.id === mm1ResistRequest.tokenId) ?? null;
 						const anchorToken = canvas.tokens?.get(probe.pullerTokenId) ?? canvas.tokens?.placeables?.find((t) => t.id === probe.pullerTokenId) ?? null;
 						const moveOk = await mm2PullTokenAdjacent(victimToken, anchorToken);
-						lines.push(game.i18n.format(moveOk ? 'TRAIT_GRAPPLINGTONGUE.CHAT_PULLED' : 'TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL', { targetname: victimName }));
+						/* B1.1: Kreaturname in den Karten (Rudolfs Testrunde,
+					   Punkt 14) - Token-Name zuerst, Fallback probe.creatureName
+					   (reist seit B1.1 in der Anfrage mit). */
+						const pullerName = anchorToken?.name ?? probe.creatureName ?? '';
+						lines.push(game.i18n.format(moveOk ? 'TRAIT_GRAPPLINGTONGUE.CHAT_PULLED' : 'TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL', { targetname: victimName, creaturename: pullerName }));
 					}
 				}
 				/* Konzept Runde 3 Teil B (Netz-Dualmodell, Commit 2): SC-Opfer

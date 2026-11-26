@@ -2245,12 +2245,20 @@ SYMBAROUM.CROSS_WEAPON_TRAITS = {
      rollWeapon-Router -> item.js mm2WebShotsFlow: SC-Anfragekarte
      kind 'mm2web', NSC inline + GM-Karte, Misslingen = verfangen
      ueber mm2WebEntangleGmActions); Munition je Geschoss ueber
-     MM2_WEB_SHOTS_PER_LEVEL + MASTER_SPENT. noDamage wie Greifzunge/
+     MM2_WEB_SHOTS_PER_LEVEL + MASTER_SPENT. noDamage wie
      Giftspucke („speziell"-Zeile); isDistance/isMelee sind reine
      Dokumentation - ohne Angriffswurf entfaellt auch das Parier-
      Problem des v2.0-Geschoss-Ansatzes (Befund 7a). */
   web: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 3, numAttacksFromLevel: 3, rowFromLevel: 2, probeShots: true },
-  grapplingtongue: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 1 },
+  /* B1.1 (Rudolfs Testrunde, Punkt-18-Rahmen): Der Zungen-Angriff
+     zaehlt RAW (MCX) als BISS - der Schaden haengt damit von der Stufe
+     des Merkmals 'Natuerliche Waffe' ab (Vault-Steckbrief: 3/4/5
+     Schadenspunkte je Novize/Adept/Meister). naturalWeaponSides statt
+     noDamage (Knochengeschoss-Praezedenz: Stufe 0-3 -> 1W6/1W8/1W10/
+     1W12); eine am Merkmals-Item eingetragene GM-Schadensformel
+     gewinnt weiterhin (actor.js _evaluateWeapons). Der Zug-Rider
+     (Robust-Vorteil + [ST<-ST] + Heranziehen) bleibt unberuehrt. */
+  grapplingtongue: { attribute: "accurate", isMelee: false, isDistance: true, naturalWeaponSides: true, numAttacks: 1 },
   prehensileclaws: { attribute: "quick", isMelee: true, isDistance: false, damageFromUnarmed: true, numAttacks: 2 },
   poisonspit: { attribute: "accurate", isMelee: false, isDistance: true, noDamage: true, numAttacks: 1 },
   boneprojectile: { attribute: "accurate", isMelee: false, isDistance: true, naturalWeaponSides: true, numAttacks: 2, numAttacksFromLevel: 2 },

@@ -10178,7 +10178,12 @@ async function mm2WebZonePlace(functionStuff) {
       color: game.user.color,
       displayMeasurements: true,
       highlightMode: "coverage",
-      visibility: CONST.REGION_VISIBILITY.ALWAYS,
+      /* B1.1 (Rudolfs Testrunde, Punkt 3): nur fuer die SL sichtbar
+         (GAMEMASTER-Stufe, V14-Konstante). Behaviors (Betreten/
+         Verlassen/Verfangen-Proben) laufen unberuehrt ueber den
+         GM-Client; die SL sieht und skaliert die Zone im Regionen-
+         Werkzeug wie gehabt, Spieler sehen sie nicht mehr. */
+      visibility: CONST.REGION_VISIBILITY.GAMEMASTER,
       shapes: [{ type: "circle", radius: radiusCells * gridSize, x: 0, y: 0, rotation: 0 }],
       flags: { symbaroum: { mm2WebZone: { creatureActorId: attacker.id, creatureName, creatureSF } } },
       behaviors: [
@@ -10446,22 +10451,40 @@ export async function mm2WebShotsFlow(attacker, weapon) {
       });
       return null;
     }
-    /* Runden-Reset MIT Rundfeld-Pflege (B1-Fix zu v2.0-Befunden 10+11). */
+    /* Runden-Reset MIT Rundfeld-Pflege (B1-Fix zu v2.0-Befunden 10+11).
+       B1.1 (Rudolfs Testrunde, Punkt 6): OHNE laufenden Kampf zaehlt
+       das Magazin je WELTZEIT-Runde nach dem A28-Modell des Korrup-
+       tionsabbaus (SL-Setting dotWorldTimeRoundMinutes, Default 15
+       Minuten, 0 = Weltzeit-Takt aus; Marke = floor(Weltzeit /
+       (Minuten*60)) im mm2WebThreads-Flag, kein eigener Hook noetig
+       - die Pruefung hier beim Feuern genuegt). Im aktiven Kampf
+       gewinnt der Kampftracker wie gehabt ("ein Takt, keine zweite
+       Uhr"). Takt aus: dokumentierter Rueckfall - JE Feuern startet
+       mit vollem Magazin (SL-Sache; sonst stuende der alte Freeze-
+       Bug wieder: Zaehler laeuft voll und friert). */
     const combatRound = game.combat?.round ?? 0;
     let counter = { round: combatRound, used: 0 };
     if (actingTokenDoc) {
       counter = (await actingTokenDoc.getFlag(game.system.id, "mm2WebThreads")) ?? { round: combatRound, used: 0 };
-      if (counter.round !== combatRound) {
+      if (combatRound > 0) {
+        /* Kampfpfad: Reset je Kampfrundenwechsel (unveraendert). */
+        if (counter.round !== combatRound) {
+          counter.round = combatRound;
+          counter.used = 0;
+        }
+      } else {
+        /* Ohne Kampf: Weltzeit-Fenster, Takt-aus-Rueckfall darunter. */
+        const wtMinutes = Math.max(0, Math.round(Number(game.settings.get("symbaroum", "dotWorldTimeRoundMinutes")) || 0));
+        if (wtMinutes > 0) {
+          const wtMark = Math.floor(Number(game.time?.worldTime ?? 0) / (wtMinutes * 60));
+          if (counter.wtMark !== wtMark) {
+            counter.wtMark = wtMark;
+            counter.used = 0;
+          }
+        } else {
+          counter.used = 0;
+        }
         counter.round = combatRound;
-        counter.used = 0;
-      }
-      /* Ohne laufenden Kampf (round 0) gibt es keinen Rundenwechsel:
-         JE Feuern startet mit vollem Magazin (v2.0-Fixliste, bewusste
-         Regel - sonst wuerde ausserhalb von Kampfrunden der alte
-         Freeze-Bug wiederaufstehen: Zaehler laeuft voll und friert). */
-      if (combatRound <= 0) {
-        counter.round = combatRound;
-        counter.used = 0;
       }
     }
     /* Zielwahl OHNE Eigenbau-Dialog: die Foundry-Zielmarkierung IST
@@ -10719,14 +10742,15 @@ export async function mm2ResolveClawPull(victimToken, pullerActor) {
     if (!fd?.mm2ClawPending) return;
     await bind.unsetFlag(game.system.id, "flagData.mm2ClawPending");
     const traitLabel = game.i18n.localize("TRAIT_LABEL.PREHENSILECLAWS");
+    const pullerName = game.symbaroum.api.getActorToken(pullerActor)?.name ?? pullerActor.name;
     const target = getAttributeValue(pullerActor, "strong") + (10 - getAttributeValue(victimActor, "strong"));
     const probe = await new Roll("1d20").evaluate();
     const lines = [];
-    lines.push(game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULL_LINE", { roll: probe.total, target }));
+    lines.push(game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULL_LINE", { roll: probe.total, target, creaturename: pullerName }));
     if (probe.total <= target) {
       const pullerToken = game.symbaroum.api.getActorToken(pullerActor);
       const moveOk = await mm2PullTokenAdjacent(victimToken, pullerToken);
-      lines.push(moveOk ? game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULLED", { targetname: victimToken.name }) : game.i18n.format("TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victimToken.name }));
+      lines.push(moveOk ? game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULLED", { targetname: victimToken.name, creaturename: pullerName }) : game.i18n.format("TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victimToken.name, creaturename: pullerName }));
     } else {
       await victimActor.removeCondition("bind");
       lines.push(game.i18n.format("TRAIT_PREHENSILECLAWS.CHAT_PULL_RESISTED", { targetname: victimToken.name, roll: probe.total, target }));
@@ -11076,32 +11100,24 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
       }
     }
 
-    /* --- Greifzunge (Cross-Waffe, Konzept Runde 3 Teil A - Bola-Form)
-   und/oder Qualitaet „Fangend" (B1, s. if unten):
-   Treffer + Opfer mindestens eine Robust-Stufe schwaecher -> Zug-Probe
-   [ST<-ST] (SC-Opfer wuerfeln per Anfragekarte, NSC automatisch), Miss-
-   ling dem Opfer = adjacent zur Kreatur herangezogen. IMMER Zeile,
-   auch beim Angriffs-Fehlschlag (v1.1-Testbefunde 2/3: kein stiller
-   Wurf, keine leeren Dialoge); Freie Angriffe bleiben ohne Rider
-   (RAW-Präzedenz aktive Merkmale im Freien Angriff). */
-    /* B1 „Kampftab & Netz" (R4-4: Fangend als KLASSISCHE Qualitaets-
-       Checkbox, default UNANGEHAKT): Die Zug-Mechanik liest zusaetzlich
-       zur Merkmals-Referenz (Greifzunge) den QUALITAETS-WEG - JEDE
-       Waffe mit der Upstream-Qualitaet „Fangend" (system.qualities.
-       ensnaring, Qualitaeten-Katalog seit jeher, haekbar wie jede
-       andere) bekommt denselben Rider, inklusive der Greifzungen-
-       Cross-Waffe und spaeter gratis der Bola. KEIN preselect-Paket:
-       die Item-Konfiguration bleibt SL-Sache. Bei Kreuzung (Referenz
-       UND Qualität auf derselben Waffe) feuert EIN Rider - qualityRef
-       gewinnt, Mechanik identisch, keine Doppelprobe (Konzept §4). */
-    const mm2EnsnaringQuality = Boolean(
-      functionStuff.weapon?.qualities?.ensnaring ?? functionStuff.weapon?.system?.qualities?.ensnaring
-    );
-    if ((weaponRef === "grapplingtongue" || mm2EnsnaringQuality) && !functionStuff.isAlternativeDamage) {
-      const traitLabel =
-        weaponRef === "grapplingtongue"
-          ? game.i18n.localize("TRAIT_LABEL.GRAPPLINGTONGUE")
-          : game.i18n.localize("QUALITY.ENSNARING");
+    /* --- Greifzunge (Cross-Waffe, Konzept Runde 3 Teil A - Bola-Form;
+   B1.1: NUR Referenz-gebunden): Treffer + Opfer mindestens eine
+   Robust-Stufe schwaecher -> Zug-Probe [ST<-ST] (SC-Opfer wuerfeln
+   per Anfragekarte, NSC automatisch), Misslingen dem Opfer = adjacent
+   zur Kreatur herangezogen. IMMER Zeile, auch beim Angriffs-Fehl-
+   schlag (v1.1-Testbefunde 2/3: kein stiller Wurf, keine leeren
+   Dialoge); Freie Angriffe bleiben ohne Rider (RAW-Praezedenz
+   aktive Merkmale im Freien Angriff).
+   B1.1 (Rudolfs Testrunde, Punkt 18): Der B1-Qualitaets-Pfad (Upstream-
+   Qualitaet 'Fangend'/ensnaring) ist ENTFERNT - RAW (MCX) belegt das
+   Heranziehen allein fuer die Zungen-Referenz; fuer die Qualitaet
+   traegt das APG ein FESSEL-Modell [Praezision<-Gewandtheit] OHNE
+   Heranziehen. Das Fessel-Modell wartet auf eine eigene Freigabe,
+   bis dahin wirkt die Fangend-Checkbox rein konfigurativ (kein
+   Kampftab-Rider; QUALITY.ENSNARING bleibt Upstream-Label des
+   Qualitaeten-Katalogs). */
+    if (weaponRef === "grapplingtongue" && !functionStuff.isAlternativeDamage) {
+      const traitLabel = game.i18n.localize("TRAIT_LABEL.GRAPPLINGTONGUE");
       reactionTraits.push(traitLabel);
       if (!anyHit || targetDies) {
         lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_MISS", { targetname: victim.name }));
@@ -11118,15 +11134,16 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
               target: pullTarget,
               victimName: victim.name,
               pullerTokenId: functionStuff.tokenId,
+              creatureName: functionStuff.actingCharName ?? "",
             });
             lines.push(bindLabelLine(traitLabel, "TRAIT_MM2.CHAT_PROBE_PENDING", { targetname: victim.name }));
           } else {
             const probe = await new Roll("1d20").evaluate();
             reactionRolls.push(probe);
-            lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_GRAPPLINGTONGUE.CHAT_PULL_LINE", { roll: probe.total, target: pullTarget })}</p>`);
+            lines.push(`<p>${traitLabel}: ${game.i18n.format("TRAIT_GRAPPLINGTONGUE.CHAT_PULL_LINE", { roll: probe.total, target: pullTarget, creaturename: functionStuff.actingCharName })}</p>`);
             if (probe.total <= pullTarget) {
               const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
-              lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_GRAPPLINGTONGUE.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
+              lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_GRAPPLINGTONGUE.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name, creaturename: functionStuff.actingCharName }));
             } else {
               lines.push(bindLabelLine(traitLabel, "TRAIT_GRAPPLINGTONGUE.CHAT_PULL_RESISTED", { targetname: victim.name, roll: probe.total, target: pullTarget }));
             }
@@ -11159,8 +11176,8 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
             lines.push(`<p>${traitLabel}: ${packedLine}</p>`);
             if (clawsLvl >= 3) {
               const moveOk = await mm2PullTokenAdjacent(victim.token, functionStuff.token);
-              lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_PREHENSILECLAWS.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name }));
-              lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_MASTER_BIND", { targetname: victim.name }));
+              lines.push(bindLabelLine(traitLabel, moveOk ? "TRAIT_PREHENSILECLAWS.CHAT_PULLED" : "TRAIT_GRAPPLINGTONGUE.CHAT_MOVE_MANUAL", { targetname: victim.name, creaturename: functionStuff.actingCharName }));
+              lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_MASTER_BIND", { targetname: victim.name, creaturename: functionStuff.actingCharName }));
               result.flags.push({
                 tokenId: victim.tokenId,
                 addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
@@ -11168,7 +11185,7 @@ async function mm2AttackerTraits(functionStuff, damageTot, targetDies, rollData,
                 label: `${traitLabel}: ${packedLine}`,
               });
             } else {
-              lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_HELD", { targetname: victim.name }));
+              lines.push(bindLabelLine(traitLabel, "TRAIT_PREHENSILECLAWS.CHAT_HELD", { targetname: victim.name, creaturename: functionStuff.actingCharName }));
               result.flags.push({
                 tokenId: victim.tokenId,
                 addEffect: foundry.utils.duplicate(CONFIG.statusEffects.find((e) => e.id === "bind")),
