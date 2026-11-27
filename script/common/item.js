@@ -1842,17 +1842,25 @@ export class SymbaroumItem extends Item {
       if (armors[i].type !== "armor") {
         continue;
       }
+      /* B2 v2.1 (Rudolfs Kalibrierung 28.11., Testpunkt 7a): SL-Override -
+         ist das Bonus-Schutz-Feld gepflegt, ersetzt es den Stufenautomat-
+         SCHUTZbeitrag dieses Merkmals (der B2-Verteiler in actor.js liefert
+         den Feldwert; ohne Gate doppelt der Schutz auf getragenen/NoArmor-
+         Zeilen). Verteidigungs- und Nahkampf-Beitrag des Automaten bleiben
+         unverändert; Feld leer = Automat läuft wie bisher. */
+      if ((this.system?.bonusProtection ?? "").toString().trim() === "") {
+        let base = this._getBaseFormat();
+        base.type = game.symbaroum.config.DAM_MOD;
+        base.alternatives = [
+          {
+            protectionMod: "+1d" + (2 + lvl.level * 2),
+            protectionModNPC: 1 + lvl.level,
+          },
+        ];
+        this.system.isIntegrated = true;
+        combatMods.armors[armors[i].id].protectionChoices.push(base);
+      }
       let base = this._getBaseFormat();
-      base.type = game.symbaroum.config.DAM_MOD;
-      base.alternatives = [
-        {
-          protectionMod: "+1d" + (2 + lvl.level * 2),
-          protectionModNPC: 1 + lvl.level,
-        },
-      ];
-      this.system.isIntegrated = true;
-      combatMods.armors[armors[i].id].protectionChoices.push(base);
-      base = this._getBaseFormat();
       base.modifier = -1 * lvl.level - 1; // Reduce with up to current impeding
       combatMods.armors[armors[i].id].defenseModifiers.push(base);
     }

@@ -426,7 +426,10 @@ export class SymbaroumActor extends Actor {
 			const crossNameOverride = isCrossArmor ? String(item.system?.crossArmorName ?? "").trim() : "";
 			const crossIconOverride = isCrossArmor ? String(item.system?.crossArmorIcon ?? "").trim() : "";
 			// baseDamage = roll formula or "0"
-			let baseProtection = item.system.baseProtection;
+			/* B2 v2.1: Cross-Zeilen nutzen den EFFEKTIVEN Grund-Schutz
+			   (SL-Pflege ODER stufenautomatischer Kanonik-Default);
+			   echte Rüstungen weiter aus item.system.baseProtection. */
+			let baseProtection = isCrossArmor ? this._getEffectiveCrossBaseProtection(item) : item.system.baseProtection;
 			if (!baseProtection && !isCrossArmor) {
 				baseProtection = "1d4"; // TODO move literal to config
 			}
@@ -576,7 +579,7 @@ export class SymbaroumActor extends Actor {
 				_id: item.id,
 				id: item.id,
 				name: crossNameOverride || item.name, // B2 v2: crossArmorName-Override
-				base: item.system.baseProtection,
+				base: isCrossArmor ? baseProtection : item.system.baseProtection, // B2 v2.1: effektiver Grund-Schutz auf Cross-Zeilen
 				bonus: item.system.bonusProtection,
 				displayText: finalProtText.replace(/(d1\[[^\]]+\])/g, ""),
 				displayTextShort: finalProtText.replace(/(d1\[[^\]]+\])/g, "").replace(/\[[^\]]+\]/g, ""),
@@ -1009,6 +1012,22 @@ export class SymbaroumActor extends Actor {
 		});
 	}
 
+	_getEffectiveCrossBaseProtection(item) {
+		/* B2 v2.1 (Testrunde 28.11., Punkt 4a): Effektiver Grund-Schutz
+		   einer Cross-Zeile - SL-gepflegtes Feld gewinnt, sonst stufen-
+		   automatischer Kanonik-Default (CROSS_ARMOR_TRAITS.<ref>.
+		   baseProtectionByLevel, z. B. Gepanzert 1d4/1d6/1d8 nach
+		   Stufe; Progression aus dem Bestandsautomaten abgeleitet).
+		   Custom-Items und Robust (bonus-only) erhalten KEINEN
+		   Kanonik-Grund-Schutz: leer = keine Signatur-Zeile. */
+		const maintained = (item.system?.baseProtection ?? "").toString().trim();
+		if (maintained !== "") return maintained;
+		const crossCfg = item.type === "trait" ? game.symbaroum.config.CROSS_ARMOR_TRAITS[item.system.reference] : null;
+		if (!crossCfg?.baseProtectionByLevel) return "";
+		const lvl = item.getLevel?.()?.level ?? 0;
+		return (crossCfg.baseProtectionByLevel[lvl] ?? "").toString();
+	}
+
 	_getArmors() {
 		/* B2 v2 „Rüstungs-Cross“ (MM2, Konzept Runde 4 §3.7): Merkmals-
 		   Referenzen aus CROSS_ARMOR_TRAITS (Gepanzert = Signatur-
@@ -1021,11 +1040,15 @@ export class SymbaroumActor extends Actor {
 		   reine Verteiler ohne eigene Zeile (_applyCrossArmorBonuses
 		   scannt die Kandidaten direkt) - Bestandsschutz: nie submittete
 		   Radio-Presets bleiben unsichtbar. */
+		/* B2 v2: Zeilen entstehen NUR mit effektivem Grund-Schutz
+		   (SL-Pflege ODER stufenautomatischer Kanonik-Default, v2.1);
+		   Bonus-only-Items (Robust) sind reine Verteiler ohne eigene
+		   Zeile (_applyCrossArmorBonuses scannt die Kandidaten direkt). */
 		const crossArmorSet = new Set(this._getCrossArmorCandidates().map((element) => element.id));
 		let armorArray = this.items.filter(
 			(element) =>
 				element.system.isArmor ||
-				(crossArmorSet.has(element.id) && (element.system.baseProtection ?? "") !== "")
+				(crossArmorSet.has(element.id) && this._getEffectiveCrossBaseProtection(element) !== "")
 		);
 		armorArray = Array.from(armorArray.values()).sort((a, b) => {
 			if (a.type == b.type) {
@@ -1041,6 +1064,8 @@ export class SymbaroumActor extends Actor {
 		/* B2 „Rüstungs-Cross“: Cross-Item MIT NdM-Grund-Schutz-Signatur
 		   (natürliche Rüstung, z. B. Gepanzert 1W8) - Kandidat für die
 		   primäre Rüstung, solange keine getragene Rüstung aktiv ist.
+		   B2 v2.1: auch die stufenautomatische Kanonik-Signatur (leeres
+		   SL-Feld) zählt - effektiver Grund-Schutz statt Rohfeld.
 		   Nur-Bonus-Items (Robust) sind keine Signatur; echte Rüstungen
 		   laufen weiter über den isArmor-Pfad (kein Cross). */
 		return (
@@ -1048,7 +1073,7 @@ export class SymbaroumActor extends Actor {
 				(item) =>
 					item.type !== "armor" &&
 					!item.isNoArmor &&
-					/[0-9]d[0-9]+/.test(item.system?.baseProtection ?? "")
+					/[0-9]d[0-9]+/.test(this._getEffectiveCrossBaseProtection(item))
 			) ?? null
 		);
 	}
@@ -1073,9 +1098,15 @@ export class SymbaroumActor extends Actor {
 		       Zeilenname (crossArmorName, leer = Merkmalsname) steht im
 		       Alternativen-Label. */
 		for (const item of this._getCrossArmorCandidates()) {
-			const base = (item.system?.baseProtection ?? "").toString().trim();
+			/* B2 v2.1: effektiver Grund-Schutz (SL-Pflege ODER stufenautomatischer
+			   Kanonik-Default); das Bonus-Feld bleibt SL-Pflege-only. */
+			const base = this._getEffectiveCrossBaseProtection(item);
 			const bonus = (item.system?.bonusProtection ?? "").toString().trim();
-			const stackable = item.system?.crossArmorStackable === true;
+			/* B2 v2.1 (Testrunde 28.11., Punkt 5): Foundry-Submits ohne
+			   data-dtype="Boolean" materialisieren das Häkchen als STRING
+			   "true" - defensiv auswerten (Rettet Altdaten; echte Booleans
+			   und alles andere laufen wie bisher). */
+			const stackable = item.system?.crossArmorStackable === true || item.system?.crossArmorStackable === "true";
 			if (bonus === "" && !(stackable && base !== "")) continue;
 			const hasSignature = /[0-9]d[0-9]+/.test(base);
 			const label = String(item.system?.crossArmorName ?? "").trim() || item.name; // B2 v2: Zeilenname-Override

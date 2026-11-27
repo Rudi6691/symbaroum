@@ -17,6 +17,22 @@
  *    'none' (template-Default seit Commit A) darf die Kanonik-Vorbelegung
  *    NICHT schlagen - Anzeige-Lüge-Befund der v1-Testrunde, Punkt 2.
  *
+ * B2 v2.1 (Testrunde 28.11., Punkte 4a/5/7a/10, Rudolf-freigegeben):
+ *  - STUFENAUTOMATISCHE SIGNATUR (4a): Gepanzert (Kanonik) liefert ohne
+ *    gepflegtes Grund-Schutz-Feld automatisch 1d4/1d6/1d8 nach Stufe
+ *    (Progression aus dem Bestandsautomaten DiceUpgrade 4+2*(lvl-1)
+ *    abgeleitet); gepflegtes Feld = SL-Override gewinnt.
+ *  - ROBUST-OVERRIDE (7a): gepflegtes Bonus-Feld ersetzt den Automat-
+ *    SCHUTZbeitrag dieses Merkmals (keine Doppelung); Verteidigungs- und
+ *    Nahkampf-Waffenbeitrag des Automaten bleiben; leer = Automat läuft.
+ *  - CHECKBOX-DEFENSIV (5): crossArmorStackable kann aus Foundry-Submits
+ *    ohne data-dtype="Boolean" als STRING "true" ankommen - der Verteiler
+ *    wertet "true" wie true (Altdaten-Rettung), alles andere wie aus.
+ *  - repoPath statt new URL(..., import.meta.url) (10): der vitest-Modul-
+ *    Runner trägt KEIN file:-Schema in import.meta.url („The URL must be
+ *    of scheme file", Rudolfs npm test + CI rot) - der Bestand löst das
+ *    über tests/helpers/repo-paths.mjs, die Suite folgt dem Muster.
+ *
  * Enthalten: Eintrittspunkt _getArmors (Kanonik/crossFlag, Gelernt-Gate,
  * Wert-Gate base-only, Rezeptur-Gate, kein Typ-Flip), Signatur-Zeile
  * (Würfelseiten, impeding-Guard, Name/Icon-Override, Marker), RS-Bonus
@@ -26,8 +42,10 @@
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
+import { repoPath } from "../helpers/repo-paths.mjs";
 import { SYMBAROUM } from "../../script/common/config.js";
 import { SymbaroumActor } from "../../script/common/actor.js";
+import { SymbaroumItem } from "../../script/common/item.js";
 
 /* Mock-Lücken des Foundry-Layers, die erst diese Suite berührt (setup.mjs
    deckt i18n/settings/Hooks; die folgenden Bindungen sind jsdom-neutral und
@@ -166,15 +184,15 @@ describe("B2 Eintrittspunkt _getArmors", () => {
 		expect(actor._getArmors().some((a) => a.id === "r1")).toBe(false);
 	});
 
-	it("Wert-Gate v2: NUR gepflegtes Grund-Schutz-Feld erzeugt eine Zeile (bonus-only bleibt draußen)", () => {
-		const gepanzert = makeTrait({ id: "t2", name: "Gepanzert", reference: "armored", level: 3, crossFlag: "armor", baseProtection: "", bonusProtection: "+2" });
-		const actor = makeProtoActor([gepanzert]);
+	it("Wert-Gate v2: Custom-Item (keine Kanonik-Werte) ohne gepflegtes Grund-Schutz-Feld => keine Zeile (bonus-only bleibt draußen)", () => {
+		const sonder = makeTrait({ id: "t2", name: "Steinhaut", reference: "customskin", level: 3, crossFlag: "armor", baseProtection: "", bonusProtection: "+2" });
+		const actor = makeProtoActor([sonder]);
 		expect(actor._getArmors().some((a) => a.id === "t2")).toBe(false);
 	});
 
-	it("Wert-Gate: beide Pflege-Felder leer => keine Zeile (Bestandswelt-Schutz)", () => {
-		const gepanzert = makeTrait({ id: "t3", name: "Gepanzert", reference: "armored", level: 3, crossFlag: "armor" });
-		const actor = makeProtoActor([gepanzert]);
+	it("Wert-Gate: Custom-Item mit beiden Pflege-Feldern leer => keine Zeile (Bestandswelt-Schutz)", () => {
+		const sonder = makeTrait({ id: "t3", name: "Steinhaut", reference: "customskin", level: 3, crossFlag: "armor" });
+		const actor = makeProtoActor([sonder]);
 		expect(actor._getArmors().some((a) => a.id === "t3")).toBe(false);
 	});
 
@@ -469,7 +487,7 @@ describe("B2 v2 crossFlag-Preset (resolveCrossFlagDisplay)", () => {
 /* --------------------------------------------------- */
 
 describe("B2 v2 Datenbasis (template.json, i18n)", () => {
-	const templateJson = JSON.parse(readFileSync(new URL("../../template.json", import.meta.url), "utf8"));
+	const templateJson = JSON.parse(readFileSync(repoPath("template.json"), "utf8"));
 	/* template.json: Item-Typen tragen die System-Felder DIREKT (Foundry
 	   wrappt sie zur Laufzeit in .system) - Commit A hat crossFlag usw.
 	   direkt unter Item.<type> materialisiert. */
@@ -495,8 +513,8 @@ describe("B2 v2 Datenbasis (template.json, i18n)", () => {
 	});
 
 	it("i18n: die neuen sichtbaren Labels existieren in de UND en (Parität)", () => {
-		const langDe = JSON.parse(readFileSync(new URL("../../lang/de.json", import.meta.url), "utf8"));
-		const langEn = JSON.parse(readFileSync(new URL("../../lang/en.json", import.meta.url), "utf8"));
+		const langDe = JSON.parse(readFileSync(repoPath("lang", "de.json"), "utf8"));
+		const langEn = JSON.parse(readFileSync(repoPath("lang", "en.json"), "utf8"));
 		const keys = [
 			"STATUS.CROSS_ARMOR_NAME",
 			"STATUS.CROSS_ARMOR_NAME_TOOLTIP",
@@ -514,5 +532,175 @@ describe("B2 v2 Datenbasis (template.json, i18n)", () => {
 			expect(langDe[key]).toBeDefined();
 			expect(langEn[key]).toBeDefined();
 		}
+	});
+});
+
+/* --------------------------------------------------- */
+/*  8. B2 v2.1: Stufenautomatische Gepanzert-Signatur   */
+/* --------------------------------------------------- */
+
+describe("B2 v2.1 stufenautomatische Gepanzert-Signatur (Kanonik-Defaults)", () => {
+	it("Gepanzert Novize OHNE Pflege: Zeile mit stufenautomatischer 1d4-Signatur", () => {
+		const gepanzert = makeTrait({ id: "t1", name: "Gepanzert", reference: "armored", level: 1, baseProtection: "" });
+		const actor = makeProtoActor([gepanzert]);
+		const armors = actor._getArmors();
+		expect(armors.some((a) => a.id === "t1")).toBe(true);
+		const rows = actor._evaluateArmors(armors, makeCombatMods(["t1"]));
+		expect(rows[0].base).toBe("1d4");
+		expect(rows[0].protectionPc).toContain("1d4");
+	});
+
+	it("Stufenprogression aus der Kanonik: Adept 1d6, Meister 1d8", () => {
+		for (const [level, dice] of [[2, "1d6"], [3, "1d8"]]) {
+			const gepanzert = makeTrait({ id: `t${level}`, name: "Gepanzert", reference: "armored", level, baseProtection: "" });
+			const actor = makeProtoActor([gepanzert]);
+			const rows = actor._evaluateArmors(actor._getArmors(), makeCombatMods([`t${level}`]));
+			expect(rows[0].base).toBe(dice);
+			expect(rows[0].protectionPc).toContain(dice);
+		}
+	});
+
+	it("SL-Override gewinnt: gepflegtes Feld 1d10 schlägt Kanonik-Default 1d4", () => {
+		const gepanzert = makeTrait({ id: "t1", name: "Gepanzert", reference: "armored", level: 1, baseProtection: "1d10" });
+		const actor = makeProtoActor([gepanzert]);
+		const rows = actor._evaluateArmors(actor._getArmors(), makeCombatMods(["t1"]));
+		expect(rows[0].base).toBe("1d10");
+		expect(rows[0].protectionPc).toContain("1d10");
+	});
+
+	it("Robust bleibt Bonus-only: KEIN Kanonik-Grund-Schutz, keine Zeile ohne Pflege", () => {
+		const robust = makeTrait({ id: "r1", name: "Robust", reference: "robust", level: 1, baseProtection: "" });
+		const actor = makeProtoActor([robust]);
+		expect(actor._getArmors().some((a) => a.id === "r1")).toBe(false);
+	});
+
+	it("_getCrossSignatureArmor erkennt die stufenautomatische Signatur als Primär-Kandidat", () => {
+		const gepanzert = makeTrait({ id: "t1", name: "Gepanzert", reference: "armored", level: 2, baseProtection: "" });
+		const actor = makeProtoActor([gepanzert]);
+		expect(actor._getCrossSignatureArmor(actor._getArmors())?.id).toBe("t1");
+	});
+
+	it("Gelernt-Gate vor Kanonik-Werten: Stufe 0 => keine Zeile", () => {
+		const gepanzert = makeTrait({ id: "t0", name: "Gepanzert", reference: "armored", level: 0, baseProtection: "" });
+		const actor = makeProtoActor([gepanzert]);
+		expect(actor._getArmors().some((a) => a.id === "t0")).toBe(false);
+	});
+
+	it("NSC-Anzeige: Novize ungepanzert => Schutz-Festwert 2 (halbiertes 1d4)", () => {
+		const gepanzert = makeTrait({ id: "t1", name: "Gepanzert", reference: "armored", level: 1, baseProtection: "" });
+		const actor = makeProtoActor([gepanzert], { isPlayer: false });
+		const rows = actor._evaluateArmors(actor._getArmors(), makeCombatMods(["t1"]));
+		expect(rows[0].protectionNpc).toBe("2");
+	});
+
+	it("Stapelbar mit stufenautomatischem Wert: getragene Zeile bekommt +1d6[Gepanzert], NSC 6", () => {
+		const gepanzert = makeTrait({ id: "c1", name: "Gepanzert", reference: "armored", level: 2, baseProtection: "", crossArmorStackable: true });
+		const leder = makeArmor({ id: "w1" });
+		/* Spieler-Ansicht: das Alternativen-Label steht im PC-Schutztext;
+		   die NSC-Spalte (protectionNpc) wird unabhängig berechnet. */
+		const actor = makeProtoActor([gepanzert], { isPlayer: true });
+		const combatMods = makeCombatMods(["c1", "w1"]);
+		actor._applyCrossArmorBonuses(combatMods, [gepanzert, leder]);
+		const rows = actor._evaluateArmors([gepanzert, leder], combatMods);
+		const wornRow = rows.find((r) => r.id === "w1");
+		expect(wornRow.protectionPc).toContain("+1d6[Gepanzert]");
+		expect(wornRow.protectionNpc).toBe("6");
+	});
+});
+
+/* --------------------------------------------------- */
+/*  9. B2 v2.1: Robust-Override (Kalibrierung 7a)      */
+/* --------------------------------------------------- */
+
+describe("B2 v2.1 Robust-Override (Automat schweigt bei gepflegtem Bonus-Feld)", () => {
+	function makeNoArmor() {
+		return { id: "NoArmorID", name: "Keine Rüstung", type: "armor", isNoArmor: true, impeding: 0, img: "icons/equipment/chest/shirt-simple-white.webp", system: { isArmor: true, isActive: true, isStackableArmor: false, baseProtection: "1d0", bonusProtection: "" } };
+	}
+
+	function makeRobustItem({ level = 1, bonusProtection = "" } = {}) {
+		const item = Object.create(SymbaroumItem.prototype);
+		item.id = "r1";
+		item.name = "Robust";
+		item.type = "trait";
+		item.system = { reference: "robust", bonusProtection, isPower: false };
+		item.getLevel = () => ({ level });
+		item.actor = { items: [] };
+		return item;
+	}
+
+	it("Gepflegtes Bonus-Feld: Automat-SCHUTZbeitrag entfällt, Verteidigungs- und Nahkampf-Beitrag bleiben", () => {
+		const robust = makeRobustItem({ level: 1, bonusProtection: "+1d4" });
+		const noArmor = makeNoArmor();
+		const combatMods = makeCombatMods(["NoArmorID", "w1"]);
+		combatMods.weapons.w1 = { package: [], maxAttackNb: 1, specialEffects: [] };
+		const melee = { id: "w1", system: { alternativeDamage: "none", isMelee: true } };
+		robust.getItemModifierRobust(combatMods, [noArmor], [melee], []);
+		expect(combatMods.armors.NoArmorID.protectionChoices).toHaveLength(0);
+		expect(combatMods.armors.NoArmorID.defenseModifiers).toHaveLength(1);
+		expect(combatMods.weapons.w1.package).toHaveLength(1);
+	});
+
+	it("Feld leer: Automat läuft wie bisher (+1d4-Schutz auf Novize, NSC-Beitrag 2)", () => {
+		const robust = makeRobustItem({ level: 1, bonusProtection: "" });
+		const noArmor = makeNoArmor();
+		const combatMods = makeCombatMods(["NoArmorID"]);
+		robust.getItemModifierRobust(combatMods, [noArmor], [], []);
+		expect(combatMods.armors.NoArmorID.protectionChoices).toHaveLength(1);
+		expect(combatMods.armors.NoArmorID.protectionChoices[0].alternatives[0].protectionMod).toBe("+1d4");
+		expect(combatMods.armors.NoArmorID.protectionChoices[0].alternatives[0].protectionModNPC).toBe(2);
+	});
+
+	it("Integration 7a: Robust Novize, gepflegtes Feld +1d4, keine Rüstung => NSC-Schutz 2 (statt 4, keine Doppelung)", () => {
+		const robust = makeRobustItem({ level: 1, bonusProtection: "+1d4" });
+		const noArmor = makeNoArmor();
+		const actor = makeProtoActor([robust], { isPlayer: false });
+		const combatMods = makeCombatMods(["NoArmorID"]);
+		robust.getItemModifierRobust(combatMods, [noArmor], [], []);
+		actor._applyCrossArmorBonuses(combatMods, [noArmor]);
+		const rows = actor._evaluateArmors([noArmor], combatMods);
+		expect(rows[0].protectionNpc).toBe("2");
+	});
+
+	it("Integration, Feld leer: nur der Automat => NSC-Schutz 2 (Bestand)", () => {
+		const robust = makeRobustItem({ level: 1, bonusProtection: "" });
+		const noArmor = makeNoArmor();
+		const actor = makeProtoActor([robust], { isPlayer: false });
+		const combatMods = makeCombatMods(["NoArmorID"]);
+		robust.getItemModifierRobust(combatMods, [noArmor], [], []);
+		actor._applyCrossArmorBonuses(combatMods, [noArmor]);
+		const rows = actor._evaluateArmors([noArmor], combatMods);
+		expect(rows[0].protectionNpc).toBe("2");
+	});
+});
+
+/* --------------------------------------------------- */
+/*  10. B2 v2.1: Stapelbar-Checkbox defensiv           */
+/* --------------------------------------------------- */
+
+describe("B2 v2.1 Stapelbar-Checkbox defensiv (Foundry-Submit-Strings)", () => {
+	it("String \"true\" (Submit ohne data-dtype Boolean) wirkt wie das Häkchen", () => {
+		const leder = makeArmor({ id: "w1" });
+		const chitin = makeTrait({
+			id: "c1", name: "Natürliche Panzerung", reference: "armored", level: 1, crossFlag: "armor",
+			baseProtection: "1d6", crossArmorStackable: "true", crossArmorName: "Chitinpanzer",
+		});
+		const actor = makeProtoActor([chitin]);
+		const combatMods = makeCombatMods(["c1", "w1"]);
+		actor._applyCrossArmorBonuses(combatMods, [chitin, leder]);
+		const rows = actor._evaluateArmors([chitin, leder], combatMods);
+		const wornRow = rows.find((r) => r.id === "w1");
+		expect(wornRow.protectionPc).toContain("+1d6[Chitinpanzer]");
+	});
+
+	it("String \"false\" wirkt nicht (keine Verteilung)", () => {
+		const leder = makeArmor({ id: "w1" });
+		const chitin = makeTrait({
+			id: "c1", name: "Natürliche Panzerung", reference: "armored", level: 1, crossFlag: "armor",
+			baseProtection: "1d6", crossArmorStackable: "false", crossArmorName: "Chitinpanzer",
+		});
+		const actor = makeProtoActor([chitin]);
+		const combatMods = makeCombatMods(["c1", "w1"]);
+		actor._applyCrossArmorBonuses(combatMods, [chitin, leder]);
+		expect(combatMods.armors.w1.protectionChoices).toHaveLength(0);
 	});
 });

@@ -325,7 +325,11 @@
                         stapelbaren Zeilen (Schutzrunen-Muster, actor.js). --}}
                     <div class="m-inline-field m-check">
                         <label for="{{id}}-system.crossArmorStackable" data-tooltip="{{localize "STATUS.CROSS_ARMOR_STACKABLE_TOOLTIP"}}">{{localize "STATUS.CROSS_ARMOR_STACKABLE"}}</label>
-                        <input id="{{id}}-system.crossArmorStackable" name="system.crossArmorStackable" type="checkbox" value="true" data-tooltip="{{localize "STATUS.CROSS_ARMOR_STACKABLE_TOOLTIP"}}" {{#if system.crossArmorStackable}}checked{{/if}}/>
+                        {{!-- B2 v2.1 (Testpunkt 5): data-dtype="Boolean" wie alle
+                            Bestands-Checkboxen (carried/countLoad/...) - ohne
+                            dtype liefert der Foundry-Submit den STRING "true",
+                            und der Verteiler wertet strikt. --}}
+                        <input id="{{id}}-system.crossArmorStackable" name="system.crossArmorStackable" type="checkbox" value="true" data-dtype="Boolean" data-tooltip="{{localize "STATUS.CROSS_ARMOR_STACKABLE_TOOLTIP"}}" {{#if system.crossArmorStackable}}checked{{/if}}/>
                     </div>
                     <div class="m-inline-field">
                         <label for="{{id}}-system.baseProtection">{{localize "ARMOR.BASE_PROT"}}</label>

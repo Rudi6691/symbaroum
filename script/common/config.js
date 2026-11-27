@@ -2289,7 +2289,13 @@ SYMBAROUM.MM2_ROBUST_BONUS_PER_LEVEL = 2;
    laufen ueber die Kanonik weiter; Rezepturen bleiben ausgeschlossen
    (R4-11, Praezedenz Waffen-Pfad). */
 SYMBAROUM.CROSS_ARMOR_TRAITS = {
-  armored: { mode: "signature", rowFromLevel: 1 },
+  /* B2 v2.1 (Rudolfs Kalibrierung 28.11., Testpunkt 4a): stufenautomatische
+     Signatur - Gepanzert liefert ohne SL-gepflegtes Grund-Schutz-Feld
+     automatisch die natürliche Rüstung nach Stufe. Progression aus dem
+     Bestandsautomaten abgeleitet (getItemModifierArmored: DiceUpgrade
+     4+2*(lvl-1) auf NoArmor/Skin = 1d4/1d6/1d8). Gepflegtes Feld gewinnt
+     als SL-Override. Robust bleibt Bonus-only (kein Kanonik-Grund-Schutz). */
+  armored: { mode: "signature", rowFromLevel: 1, baseProtectionByLevel: { 1: "1d4", 2: "1d6", 3: "1d8" } },
   robust: { mode: "bonus", rowFromLevel: 1 },
 };
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
