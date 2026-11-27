@@ -3,3 +3,11 @@ node_modules
 foundry.js
 .eslintrc.js
 Toolbox
+
+# Foundry-Runtime: LevelDB-Dateien der Kompendien (nicht committen)
+packs/*/CURRENT
+packs/*/LOCK
+packs/*/LOG*
+packs/*/MANIFEST-*
+packs/*/*.log
+packs/*/*.ldb

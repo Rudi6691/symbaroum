@@ -75,10 +75,7 @@ an diesem Fork arbeiten. Sie ist verbindlich; im Zweifel fragen statt bauen.
 
 - Namensmuster: `Symbaroum-V14-{Schlagwort}-v{x.y}-*` (Overlay.zip,
   Installation.zip, Auslieferungsdoc).
-- Auslieferungsdoc: 1. Befund -> 2. Umsetzung -> 3. Downloads + Hashes ->
-  4. Testplan (Punkt 1 = F5-Neustart der Dev-Instanz) -> 5. Commit-Vorschlag
-  (EN, einzeilig) -> 6. Versionskontext -> Trennlinie -> Testergebnisse als
-  Checkboxen am Ende.
+- Auslieferungsdoc: 1. Befund -> 2. Umsetzung -> 3. Downloads + Hashes -> 4. Commit-Vorschlag (EN, einzeilig, kurz, nicht mehr als 150 Zeichen) -> 5. Versionskontext -> 6. Testplan (Punkt 1 = F5-Neustart der Dev-Instanz) -> Trennlinie -> 7. Testergebnisse als markdown-Checkboxen am Ende.
 - Zips mit `python scripts/package_delivery.py --name ... --files ...`
   schnüren (git archive + Overlay, Hash-Tabellen, Roundtrip-Prüfung).
 - Neue npm-Abhängigkeiten VOR dem Schnüren auf Peer-Dependency-Konflikte
