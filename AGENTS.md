@@ -86,3 +86,34 @@ an diesem Fork arbeiten. Sie ist verbindlich; im Zweifel fragen statt bauen.
   lösen bzw. zur Bewertungsfrage machen, nicht dem Paket beilegen.
 - Commit-Vorschlag nur VORSCHLAGEN: Rudolf committet selbst. Die
   package-lock.json aktualisiert Rudolf per `npm install` im selben Zug.
+
+## 6. UI-/Dialog-Konventionen
+(verbindlich; jede Berührung eines Pakets löst die Absicherungspflicht aus)
+
+- STEUERELEMENTE: Exklusive Wahl = Radio-Gruppe (vollständig sichtbar oder
+  vollständig versteckt, nie teilweise; Vorbelegung nach RAW, d.h. der
+  Stufe der Kraft entsprechend). Unabhängige Optionen = Checkbox. Keine
+  gemischten Zeilen, keine unbeschrifteten Inputs. Jede sichtbare Zeile
+  über i18n-Key (de+en).
+- KANONIK VOR RADIO: Was RAW für eine Stufe festlegt (z.B. Serien-
+  Vorbelegung ab Adept), bekommt KEIN wählbares Steuerelement — der Wert
+  ist fix, nicht übersteuerbar.
+- SICHTBARKEIT STATT UMBAU: Optionale Elemente werden über Bedingungen
+  (Referenz, Stufe, Modus) ausgeblendet; der Dialogfluss wird nicht
+  umgebaut oder ersetzt.
+- ZIELKETTE: Wirkungen über mehrere Ziele laufen als EIN Kettendialogfluss
+  in Reihenfolge der Zielauswahl, nie als parallele Einzelkarten. Das
+  Abbruchverhalten (ganze Kette abbrechen oder Rest weiterführen) wird
+  je Kraft passend zur Regelung festgelegt und in der Umsetzung
+  dokumentiert.
+- MASTER-RAHMEN (Kraft-Anwendung): Der Master-Rahmen ist der zentrale
+  Dialogfluss zum Anwenden von Kräften — vom Auslösen über Zielauswahl
+  und Optionsabfrage bis zur Würfelung und Chat-Karte. Neue
+  Automatisierungen ergänzen ihre Felder/Radios als Schritte in DIESEM
+  Fluss, statt eigene parallele Dialoge zu öffnen.
+- KEINE BLATT-CHROME: Keine Cross-Radios auf Waffen-/Rüstungsblättern
+  (MM2-Konzept §7.2); native Stats-Tabs genügen.
+- ABSICHERUNG: Jede berührte Konvention bekommt beim ersten Kontakt einen
+  Unit-Test (TDD), greifbare Regeln zusätzlich als statische Checks in
+  scripts/validate.mjs. Konventionsbruch aus einer Testrunde = roter
+  Testpunkt = Bewertungsfrage.
