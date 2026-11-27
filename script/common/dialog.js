@@ -236,7 +236,15 @@ export async function prepareRollAttribute(actor, attributeName, armor, weapon, 
       weaponDamage += " ("+game.symbaroum.api.getAttributeLabel(actor, ecData.alternativeDamageAttribute)+")";
     }
     if(game.settings.get('symbaroum', 'combatAutomation')){
-      askAttackNb = weaponModifiers.maxAttackNb > 1;
+      /* B1.3 (Rudolfs Entscheidung zur B1.2-Testrunde, offene Frage 18):
+         Das 1x/2x-Angriffs-Radio ist fuer das KNOCHENGESCHOSS versteckt -
+         die Serien-Vorbelegung aus der Kanonik (ab Adept 2 Projektile,
+         actor.js numAttacks-Preset) ist damit fix, die Zielverteilung
+         laeuft allein ueber das "Anzahl Ziele"-Radio (B1.2). Greifklauen
+         und alle anderen Serienwaffen behalten das Radio unveraendert;
+         unter Adept war es beim Knochengeschoss eh nicht zu sehen
+         (maxAttackNb 1). */
+      askAttackNb = weaponModifiers.maxAttackNb > 1 && weapon?.reference !== "boneprojectile";
     }
   }
   // A30: bastard grip radio - only for melee bastard weapons in enhanced
