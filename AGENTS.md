@@ -117,3 +117,4 @@ an diesem Fork arbeiten. Sie ist verbindlich; im Zweifel fragen statt bauen.
   Unit-Test (TDD), greifbare Regeln zusätzlich als statische Checks in
   scripts/validate.mjs. Konventionsbruch aus einer Testrunde = roter
   Testpunkt = Bewertungsfrage.
+  

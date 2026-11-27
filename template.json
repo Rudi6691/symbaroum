@@ -258,7 +258,12 @@
       "bonusDamage": "",
       "weaponReference": "",
       "baseProtection": "",
-      "bonusProtection": ""
+      "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": ""
     },
     "ability": {
       "templates": [
@@ -291,6 +296,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     },
     "mysticalPower": {
@@ -326,6 +336,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     },
     "ritual": {
@@ -344,6 +359,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     },
     "rezeptur": {
@@ -369,6 +389,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     },
     "burden": {
@@ -388,6 +413,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     },
     "boon": {
@@ -409,6 +439,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     },
     "weapon": {
@@ -501,6 +536,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     },
     "artifact": {
@@ -553,6 +593,11 @@
       "weaponReference": "",
       "baseProtection": "",
       "bonusProtection": "",
+      "crossArmorName": "",
+      "crossArmorIcon": "",
+      "crossArmorStackable": false,
+      "crossWeaponName": "",
+      "crossWeaponIcon": "",
       "qualities": {}
     }
   }

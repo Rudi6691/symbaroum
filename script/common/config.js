@@ -2276,6 +2276,22 @@ SYMBAROUM.MM2_BONE_MASTER_BONUS = { damageMod: "+1d4", damageModNPC: 2 };
    ist die eine Kanonik-Stelle fuer kuenftige stufen-lose Merkmale. */
 SYMBAROUM.LEVELLESS_TRAITS = ["grapplingtongue", "amphibian"];
 SYMBAROUM.MM2_ROBUST_BONUS_PER_LEVEL = 2;
+/* B2 „Ruestungs-Cross" (MM2, Konzept Runde 4 §3.7/R4-8): Kanonik der
+   Merkmale mit Ruestungs-Wirkung - Gepanzert (armored) legt seine
+   NATUERLICHE RUESTUNG als Signatur-Zeile an (SL pflegt das
+   Grund-Schutz-Feld, NdM-Formel), Robust (robust) liefert einen
+   RS-BONUS auf getragene/natuerliche Ruestungen (Bonus-Schutz-Feld).
+   Das mode-Feld ist rein dokumentierend - die Maschine ist feldgetrieben
+   (actor.js _getArmors/_applyCrossArmorBonuses): Ohne gepflegte Felder
+   entsteht KEINE Zeile (Wert-Gate, Bestandsschutz). rowFromLevel wie
+   bei den Cross-Waffen: gestufte Kanonik-Merkmale erst ab Novize 1.
+   Kanonik-Oder-crossFlag (R4-8): Bestandswelten ohne Radio-Submit
+   laufen ueber die Kanonik weiter; Rezepturen bleiben ausgeschlossen
+   (R4-11, Praezedenz Waffen-Pfad). */
+SYMBAROUM.CROSS_ARMOR_TRAITS = {
+  armored: { mode: "signature", rowFromLevel: 1 },
+  robust: { mode: "bonus", rowFromLevel: 1 },
+};
 /* B1 im Beschichtungs-Pfad: Inventar-Dosen mit Standard-Formel werden um
    eine Wuerfelstufe gesenkt (1d8 -> 1d6 -> 1d4 -> neutralisiert); exotische
    SL-kalibrierte Formeln bleiben unberuehrt (dokumentierte Begrenzung). */

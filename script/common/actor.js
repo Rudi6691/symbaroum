@@ -194,10 +194,20 @@ export class SymbaroumActor extends Actor {
 			}
 		}
 		if (primaryArmor === null) {
-			// Create No Armor and add to system.armors
-			// Note that this has the structure of Symbaroum Armor Item but is not an item
-			primaryArmor = this._getNoArmor();
-			allArmors.push(primaryArmor);
+			/* B2 „Rüstungs-Cross“ (Konzept Runde 4 §3.7): Eine gepflegte
+			   Signatur-Natürliche-Rüstung (Gepanzert) wird primär, solange
+			   keine getragene Rüstung aktiv ist - dann bewusst KEIN
+			   NoArmor-Stummel (die natürliche Rüstung IST die Abdeckung).
+			   Getragene Rüstungen gewinnen immer (obenIsActive-Loop). */
+			const crossSignature = this._getCrossSignatureArmor(allArmors);
+			if (crossSignature !== null) {
+				primaryArmor = crossSignature;
+			} else {
+				// Create No Armor and add to system.armors
+				// Note that this has the structure of Symbaroum Armor Item but is not an item
+				primaryArmor = this._getNoArmor();
+				allArmors.push(primaryArmor);
+			}
 		}
 
 		const allWeapons = this._getWeapons();
@@ -269,6 +279,11 @@ export class SymbaroumActor extends Actor {
 		}
 		// Hook - itemModifiers retrieved
 		game.symbaroum.api.symbaroumItemModifiersSetup(this, combatMods, allArmors, allWeapons, allAbilities);
+
+		/* B2 „Rüstungs-Cross“: Bonus-Schutz der Cross-Items verteilen -
+		   nach den getItemModifier*-Beiträgen, vor _evaluateArmors (die
+		   protectionChoices fließen in den Schutztext der Zeilen). */
+		this._applyCrossArmorBonuses(combatMods, allArmors);
 
 		/* Kräfte-Paket 1 (Sphäre, Rudolfs Baufreigabe 21.11., Baustein C):
 		   Konditionsbasierte Defense-Substitution für Marker-Halter OHNE
@@ -395,14 +410,30 @@ export class SymbaroumActor extends Actor {
 	_evaluateArmors(activeArmors, combatMods) {
 		let armorArray = [];
 		for (let item of activeArmors) {
+			/* B2 „Rüstungs-Cross“ (Konzept Runde 4 §3.7): Cross-Items
+			   (natürliche Rüstung aus Merkmalen) haben KEIN volles
+			   Rüstungs-Datenmodell - impeding-Getter fehlt, Bonus-Only-
+			   Items (Robust) haben keine NdM-Signatur. Guards: Behinderung
+			   per ?? 0 (kein NaN in der Verteidigung), KEIN 1d4-Fallback
+			   und KEIN Würfelseiten-Parse für Cross-Zeilen ohne gepflegte
+			   Signatur (leere Schutzanzeile statt erfundener Werte). */
+			const isCrossArmor = item.type !== "armor" && !item.isNoArmor;
+			/* B2 v2: Zeilen-Name/Icon-Override (crossArmorName/crossArmorIcon,
+			   leer = Merkmalsname/-bild; ?? ''-Guards, denn template-Defaults
+			   füllen Altdaten nicht auf - AGENTS.md). Marker isCrossArmor
+			   filtert die Merkmals-Zeilen im Ausrüstungs-Tab heraus (nur
+			   Kampf-Tab-Anzeige, Rudolfs v2-Wunsch 3). */
+			const crossNameOverride = isCrossArmor ? String(item.system?.crossArmorName ?? "").trim() : "";
+			const crossIconOverride = isCrossArmor ? String(item.system?.crossArmorIcon ?? "").trim() : "";
 			// baseDamage = roll formula or "0"
 			let baseProtection = item.system.baseProtection;
-			if (!baseProtection) {
+			if (!baseProtection && !isCrossArmor) {
 				baseProtection = "1d4"; // TODO move literal to config
 			}
 			let diceSides = 0;
-			if (!item.system.isStackableArmor && !item.isNoArmor && !item.system.isSkin) {
-				diceSides = parseInt(baseProtection.match(/[0-9]d([0-9]+)/)[1]);
+			if (!item.system.isStackableArmor && !item.isNoArmor && !item.system.isSkin && baseProtection) {
+				const sidesMatch = baseProtection.match(/[0-9]d([0-9]+)/);
+				diceSides = sidesMatch ? parseInt(sidesMatch[1]) : 0;
 			}
 			// Start of with full damage from all
 			let damageProtection = this._getDamageProtections();
@@ -410,7 +441,7 @@ export class SymbaroumActor extends Actor {
 				defMsg: "",
 				attribute: "quick", // TODO move literal to config
 			};
-			let impeding = item.impeding;
+			let impeding = item.impeding ?? 0; // B2: Cross-Zeilen ohne impeding-Getter
 			let impedingMov = impeding;
 			let impedingMagic = impeding;
 			let tooltip = "";
@@ -526,7 +557,10 @@ export class SymbaroumActor extends Actor {
 			if ((item.isNoArmor || item.system.isSkin) && diceSides === 0) {
 				// allDefenseProtNPC contains a 0 if npc
 				diceRoller = this.system.isPlayer ? "0" : "";
-			} else if (!item.system.isStackableArmor) {
+			} else if (!item.system.isStackableArmor && (!isCrossArmor || diceSides > 0)) {
+				/* B2: Cross-Bonus-Zeilen (Robust, keine Signatur) bleiben
+				   ohne Würfelanteil - der RS-Bonus wandert über die
+				   protectionChoices auf die Zielformeln. */
 				diceRoller = this.system.isPlayer ? `1d${diceSides}` : game.symbaroum.config.npcFixedFromSides(diceSides);
 				unfavourPcProt = `2d${diceSides}kl${allDefenseProt}`;
 			}
@@ -541,7 +575,7 @@ export class SymbaroumActor extends Actor {
 			armorArray.push({
 				_id: item.id,
 				id: item.id,
-				name: item.name,
+				name: crossNameOverride || item.name, // B2 v2: crossArmorName-Override
 				base: item.system.baseProtection,
 				bonus: item.system.bonusProtection,
 				displayText: finalProtText.replace(/(d1\[[^\]]+\])/g, ""),
@@ -556,7 +590,8 @@ export class SymbaroumActor extends Actor {
 				isActive: item.system.isActive,
 				isEquipped: item.system.isEquipped,
 				isNoArmor: item.isNoArmor,
-				img: item.img,
+				isCrossArmor: isCrossArmor, // B2 v2: Ausrüstungs-Tab-Filter-Basis
+				img: crossIconOverride || item.img, // B2 v2: crossArmorIcon-Override
 				tooltipProt: tooltip,
 				defense: totDefense,
 				defenseAttribute: {
@@ -773,12 +808,19 @@ export class SymbaroumActor extends Actor {
 				displayText = game.i18n.localize("TRAIT_MM2.CROSS_DAMAGE_SPECIAL");
 			}
 
+			/* B2 v2: Merkmals-Waffenzeilen - Name/Icon-Override
+			   (crossWeaponName/crossWeaponIcon, leer = Merkmalsname/-bild,
+			   ?? ''-Guards für Altdaten) und isCrossWeapon-Marker
+			   (Ausrüstungs-Tab-Filter: Merkmals-Zeilen nur Kampf-Tab). */
+			const isCrossWeapon = item.type !== "weapon";
+			const crossWeaponNameOverride = isCrossWeapon ? String(item.system?.crossWeaponName ?? "").trim() : "";
+			const crossWeaponIconOverride = isCrossWeapon ? String(item.system?.crossWeaponIcon ?? "").trim() : "";
 			let itemID = item.id;
 			weaponArray.push({
 				id: itemID,
 				sort: item.sort,
-				name: item.name,
-				img: item.img,
+				name: crossWeaponNameOverride || item.name, // B2 v2: crossWeaponName-Override
+				img: crossWeaponIconOverride || item.img, // B2 v2: crossWeaponIcon-Override
 				attribute: attribute,
 				attributeLabel: this.system.attributes[attribute].label,
 				attributeValue: this.system.attributes[attribute].total + attributeMod,
@@ -787,6 +829,7 @@ export class SymbaroumActor extends Actor {
 				/* MM-Paket 2 v1.2 Cross-Flag-Waffen: Merkmals-Waffen sind immer
 				   aktiv/angelegt (das Merkmal selbst ist das "Tragen") und
 				   tragen die Reichweiten-/Nahkampf-Flags aus der Kanonik. */
+				isCrossWeapon: isCrossWeapon, // B2 v2: Ausrüstungs-Tab-Filter-Basis
 				isActive: crossCfg !== null || item.system.isActive,
 				isEquipped: crossCfg !== null || item.system.isEquipped,
 				reference: item.system.reference,
@@ -942,8 +985,48 @@ export class SymbaroumActor extends Actor {
 		return noArmor;
 	}
 
+	_getCrossArmorCandidates() {
+		/* B2 v2 „Rüstungs-Cross“: Kandidaten-Menge der natürlichen
+		   Rüstungen - Kanonik (CROSS_ARMOR_TRAITS, Gelernt-Gate mit
+		   rowFromLevel) ODER crossFlag='armor' (R4-8: Bestandswelten
+		   ohne Radio-Submit laufen über die Kanonik weiter; gestufte
+		   Flag-Items erst mit aktiver Novize-Stufe), Rezeptur-Typ-Gate
+		   (R4-11: Elixiere bleiben reine Sheet-Vorbereitung). Geteilt
+		   zwischen _getArmors (Zeilen nur mit gepflegtem Grund-Schutz,
+		   Signatur) und _applyCrossArmorBonuses (Bonus-/Stapelbar-
+		   Verteiler, auch ohne eigene Zeile). */
+		return this.items.filter((element) => {
+			if (element.type === "rezeptur") return false;
+			const crossCfg = element.type === "trait" ? game.symbaroum.config.CROSS_ARMOR_TRAITS[element.system.reference] : null;
+			if (crossCfg) {
+				if (game.symbaroum.config.LEVELLESS_TRAITS.includes(element.system.reference)) return true;
+				const lvl = element.getLevel?.()?.level ?? 0;
+				if (lvl > 0 && lvl >= (crossCfg.rowFromLevel ?? 1)) return true;
+			}
+			if (element.system.crossFlag !== "armor") return false;
+			if (element.system.hasLevels && (element.getLevel?.()?.level ?? 0) === 0) return false;
+			return true;
+		});
+	}
+
 	_getArmors() {
-		let armorArray = this.items.filter((element) => element.system.isArmor);
+		/* B2 v2 „Rüstungs-Cross“ (MM2, Konzept Runde 4 §3.7): Merkmals-
+		   Referenzen aus CROSS_ARMOR_TRAITS (Gepanzert = Signatur-
+		   natürliche Rüstung, Robust = RS-Bonus) laufen als ADDITIVE
+		   Rüstungen durch DIESEN Eintrittspunkt - bewusst NICHT über
+		   einen system.isArmor-Flip (Präzedenz B1-Waffenpfad: alle
+		   type==='armor'-Filter bleiben unberührt, Cross-Items bleiben
+		   trait-Typ). Wert-Gate v2: Zeilen entstehen NUR aus gepflegtem
+		   Grund-Schutz-Feld (Signatur); Bonus-only-Items (Robust) sind
+		   reine Verteiler ohne eigene Zeile (_applyCrossArmorBonuses
+		   scannt die Kandidaten direkt) - Bestandsschutz: nie submittete
+		   Radio-Presets bleiben unsichtbar. */
+		const crossArmorSet = new Set(this._getCrossArmorCandidates().map((element) => element.id));
+		let armorArray = this.items.filter(
+			(element) =>
+				element.system.isArmor ||
+				(crossArmorSet.has(element.id) && (element.system.baseProtection ?? "") !== "")
+		);
 		armorArray = Array.from(armorArray.values()).sort((a, b) => {
 			if (a.type == b.type) {
 				return a.name == b.name ? 0 : a.name < b.name ? -1 : 1;
@@ -952,6 +1035,123 @@ export class SymbaroumActor extends Actor {
 			}
 		});
 		return armorArray;
+	}
+
+	_getCrossSignatureArmor(allArmors) {
+		/* B2 „Rüstungs-Cross“: Cross-Item MIT NdM-Grund-Schutz-Signatur
+		   (natürliche Rüstung, z. B. Gepanzert 1W8) - Kandidat für die
+		   primäre Rüstung, solange keine getragene Rüstung aktiv ist.
+		   Nur-Bonus-Items (Robust) sind keine Signatur; echte Rüstungen
+		   laufen weiter über den isArmor-Pfad (kein Cross). */
+		return (
+			allArmors.find(
+				(item) =>
+					item.type !== "armor" &&
+					!item.isNoArmor &&
+					/[0-9]d[0-9]+/.test(item.system?.baseProtection ?? "")
+			) ?? null
+		);
+	}
+
+	_applyCrossArmorBonuses(combatMods, allArmors) {
+		/* B2 v2 „Rüstungs-Cross“ (MM2, Konzept Runde 4 §3.7): Der Verteiler
+		   scannt die Cross-Kandidaten DIREKT aus this.items (Bonus-only-
+		   Items wie Robust erzeugen seit v2 keine eigene Zeile mehr).
+		   Zwei Hebel aus den SL-gepflegten Feldern:
+		   (a) Bonus-Schutz: feste Schutz-Alternative (Stapelrüstungs-
+		       Muster aus _getOwnArmorBonuses: NSC-Festwert = halbierter
+		       maximierter Wurf). ZIELE: Item MIT eigener Signatur nur
+		       die EIGENE Zeile (kein Selbst-Schub zusätzlich); Item OHNE
+		       Signatur (Robust) alle nicht-stapelbaren Zeilen AUSSER
+		       sich selbst - getragene Rüstungen, die NoArmor-Stummel-
+		       Zeile und fremde Signatur-Zeilen.
+		   (b) crossArmorStackable (B2 v2, Default aus): der gepflegte
+		       GRUND-Schutz wirkt zusätzlich als feste Alternative auf
+		       alle anderen nicht-stapelbaren Zeilen (Semantik-Anker
+		       Schutzrunen, getItemModifierProtectiverunes) - die Kreatur
+		       trägt ihre natürliche Rüstung UNTER der getragenen. Der
+		       Zeilenname (crossArmorName, leer = Merkmalsname) steht im
+		       Alternativen-Label. */
+		for (const item of this._getCrossArmorCandidates()) {
+			const base = (item.system?.baseProtection ?? "").toString().trim();
+			const bonus = (item.system?.bonusProtection ?? "").toString().trim();
+			const stackable = item.system?.crossArmorStackable === true;
+			if (bonus === "" && !(stackable && base !== "")) continue;
+			const hasSignature = /[0-9]d[0-9]+/.test(base);
+			const label = String(item.system?.crossArmorName ?? "").trim() || item.name; // B2 v2: Zeilenname-Override
+			const nonStackTargets = allArmors.filter(
+				(row) =>
+					row.id !== item.id &&
+					!row.system.isStackableArmor &&
+					(row.type === "armor" || /[0-9]d[0-9]+/.test(row.system?.baseProtection ?? ""))
+			);
+			// (a) Bonus-Schutz
+			if (bonus !== "") {
+				const targets = hasSignature ? [item] : nonStackTargets;
+				if (targets.length > 0) {
+					// NSC - cant get away from this (Muster _getOwnArmorBonuses)
+					let npcProt = 0;
+					try {
+						npcProt = Math.ceil(new Roll(item.system.bonusProtection).evaluateSync({ maximize: true }).total / 2);
+					} catch (err) {
+						ui.notifications?.error(`Could not evaluate cross armor bonus protection for ${item.name} - check bonus protection field - ` + err);
+						continue;
+					}
+					let plus = "+";
+					if (item.system.bonusProtection.charAt(0) === "+") {
+						plus = "";
+					}
+					const mod = plus + item.system.bonusProtection;
+					const choice = {
+						id: item.id,
+						label: label,
+						reference: item.system.reference,
+						abilityMod: !!item.system?.isPower,
+						type: game.symbaroum.config.DAM_FIXED,
+						alternatives: [
+							{
+								protectionMod: mod,
+								protectionModNPC: npcProt,
+								displayMod: mod,
+							},
+						],
+					};
+					for (const target of targets) {
+						combatMods.armors[target.id]?.protectionChoices.push(choice);
+					}
+				}
+			}
+			// (b) Stapelbarer Grund-Schutz (Schutzrunen-Muster)
+			if (stackable && base !== "") {
+				if (nonStackTargets.length > 0) {
+					let npcProt = 0;
+					try {
+						npcProt = Math.ceil(new Roll(base).evaluateSync({ maximize: true }).total / 2);
+					} catch (err) {
+						ui.notifications?.error(`Could not evaluate cross armor base protection for ${item.name} - check base protection field - ` + err);
+						continue;
+					}
+					const mod = base.charAt(0) === "+" ? base : `+${base}`;
+					const choice = {
+						id: item.id,
+						label: label,
+						reference: item.system.reference,
+						abilityMod: !!item.system?.isPower,
+						type: game.symbaroum.config.DAM_FIXED,
+						alternatives: [
+							{
+								protectionMod: mod,
+								protectionModNPC: npcProt,
+								displayMod: mod,
+							},
+						],
+					};
+					for (const target of nonStackTargets) {
+						combatMods.armors[target.id]?.protectionChoices.push(choice);
+					}
+				}
+			}
+		}
 	}
 
 	_getWeapons() {

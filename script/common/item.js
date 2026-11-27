@@ -868,6 +868,15 @@ export class SymbaroumItem extends Item {
       if (armors[i].system.isStackableArmor) {
         continue;
       }
+      /* B2 „Rüstungs-Cross“ (Konzept Runde 4 §3.7): Cross-Zeilen
+         (natürliche Rüstung aus Merkmalen) tragen ihren Schutz
+         vollständig aus dem SL-gepflegten Feld - der DiceUpgrade des
+         Stufenautomaten wäre eine Dopplung auf die kalibrierte
+         Signatur. Getragene Rüstungen und der NoArmor-Stummel laufen
+         wie bisher durch den Automaten. */
+      if (armors[i].type !== "armor") {
+        continue;
+      }
       let base = this._getBaseFormat();
       let modifier = 0;
       // game.symbaroum.log("getItemModifierArmored", armors[i]); // TODO Remove
@@ -1823,6 +1832,14 @@ export class SymbaroumItem extends Item {
 
     for (let i = 0; i < armors.length; i++) {
       if (armors[i].system.isStackableArmor) {
+        continue;
+      }
+      /* B2 „Rüstungs-Cross“: Cross-Zeilen (Robust-Quellzeile,
+         Gepanzert-Signatur) bekommen keinen Automat-Bonus - ihr Wert
+         kommt aus den SL-gepflegten Feldern (Wert-Quelle B2), nicht
+         aus dem Stufenautomaten. Getragene Rüstungen und NoArmor
+         laufen wie bisher. */
+      if (armors[i].type !== "armor") {
         continue;
       }
       let base = this._getBaseFormat();

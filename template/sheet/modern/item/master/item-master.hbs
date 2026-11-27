@@ -267,6 +267,17 @@
                 </div>
                 {{#if showCrossWeaponFields}}
                 <div class="m-grid">
+                    <div class="m-inline-field">
+                        <label for="{{id}}-system.crossWeaponName" data-tooltip="{{localize "STATUS.CROSS_WEAPON_NAME_TOOLTIP"}}">{{localize "STATUS.CROSS_WEAPON_NAME"}}</label>
+                        <input id="{{id}}-system.crossWeaponName" name="system.crossWeaponName" type="text" value="{{system.crossWeaponName}}"/>
+                    </div>
+                    {{!-- B2 v2: Icon-Auswahl wie das Kopf-Bild (gleicher Foundry-Core-
+                        Handler: Klick oeffnet die Dateiauswahl, data-edit ist die
+                        Dokument-Pfad-Quelle; leer = Merkmalsbild als Platzhalter). --}}
+                    <div class="m-inline-field">
+                        <label data-tooltip="{{localize "STATUS.CROSS_WEAPON_ICON_TOOLTIP"}}">{{localize "STATUS.CROSS_WEAPON_ICON"}}</label>
+                        <img class="profile-img m-cross-icon" src="{{#if system.crossWeaponIcon}}{{system.crossWeaponIcon}}{{else}}{{item.img}}{{/if}}" data-edit="system.crossWeaponIcon" data-action="editImage" data-tooltip="{{localize "STATUS.CROSS_WEAPON_ICON_TOOLTIP"}}"/>
+                    </div>
                     <div class="m-inline-field m-action-field">
                         <label for="{{id}}-system.attribute">{{localize "WEAPON.ATTACK_ATTRIBUTE"}}</label>
                         <select id="{{id}}-system.attribute" name="system.attribute">
@@ -300,9 +311,26 @@
                 {{#if showCrossArmorFields}}
                 <div class="m-grid">
                     <div class="m-inline-field">
+                        <label for="{{id}}-system.crossArmorName" data-tooltip="{{localize "STATUS.CROSS_ARMOR_NAME_TOOLTIP"}}">{{localize "STATUS.CROSS_ARMOR_NAME"}}</label>
+                        <input id="{{id}}-system.crossArmorName" name="system.crossArmorName" type="text" value="{{system.crossArmorName}}"/>
+                    </div>
+                    {{!-- B2 v2: Icon-Auswahl wie das Kopf-Bild (gleicher Foundry-Core-
+                        Handler, data-edit = Dokument-Pfad; leer = Merkmalsbild). --}}
+                    <div class="m-inline-field">
+                        <label data-tooltip="{{localize "STATUS.CROSS_ARMOR_ICON_TOOLTIP"}}">{{localize "STATUS.CROSS_ARMOR_ICON"}}</label>
+                        <img class="profile-img m-cross-icon" src="{{#if system.crossArmorIcon}}{{system.crossArmorIcon}}{{else}}{{item.img}}{{/if}}" data-edit="system.crossArmorIcon" data-action="editImage" data-tooltip="{{localize "STATUS.CROSS_ARMOR_ICON_TOOLTIP"}}"/>
+                    </div>
+                    {{!-- B2 v2: Stapelbar-Häkchen - gepflegter Grund-Schutz wirkt
+                        zusaetzlich als fester Schutz auf alle anderen nicht-
+                        stapelbaren Zeilen (Schutzrunen-Muster, actor.js). --}}
+                    <div class="m-inline-field m-check">
+                        <label for="{{id}}-system.crossArmorStackable" data-tooltip="{{localize "STATUS.CROSS_ARMOR_STACKABLE_TOOLTIP"}}">{{localize "STATUS.CROSS_ARMOR_STACKABLE"}}</label>
+                        <input id="{{id}}-system.crossArmorStackable" name="system.crossArmorStackable" type="checkbox" value="true" data-tooltip="{{localize "STATUS.CROSS_ARMOR_STACKABLE_TOOLTIP"}}" {{#if system.crossArmorStackable}}checked{{/if}}/>
+                    </div>
+                    <div class="m-inline-field">
                         <label for="{{id}}-system.baseProtection">{{localize "ARMOR.BASE_PROT"}}</label>
                         <select id="{{id}}-system.baseProtection" name="system.baseProtection">
-                            <option value="" {{#unless system.baseProtection}}selected{{/unless}}>{{localize "TITLE.CROSS_WEAPON_ATTRIBUTE_DEFAULT"}}</option>
+                            <option value="" {{#unless system.baseProtection}}selected{{/unless}}>{{localize "TITLE.CROSS_ARMOR_PROT_NONE"}}</option>
                             {{selectOptions protection_selection selected=system.baseProtection labelAttr="label"}}
                         </select>
                     </div>

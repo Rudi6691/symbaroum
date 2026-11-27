@@ -17,6 +17,9 @@ import { symbDialog } from '../common/symbDialog.js';
 import { allocateFromBase, getDenominations } from '../common/currency.js';
 // Elixier-Automatisierung v1: Munitionswirkung nur auf Munitions-Items anzeigen
 import { isAmmoCategory } from '../common/ammo.js';
+// B2 v2 „Rüstungs-Cross“: zentrale Cross-Flag-Radio-Auflösung (KANONIK
+// VOR RADIO, inkl. des 'none'-Default-Fixes aus der Testrunde 27./28.11.)
+import { resolveCrossFlagDisplay } from '../common/crossFlags.js';
 // Status-Tab v1: „Ist alchemistisch?“-Kanonik (abgeleitete Anzeige für
 // Alt-Items ohne Flag) aus elixirs.js
 import { isAlchemical } from '../common/elixirs.js';
@@ -503,24 +506,17 @@ export class SymbaroumItemSheet extends SymbaroumItemSheetBase {
 		context.hasBonusSlot = ['trait', 'ability', 'mysticalPower', 'ritual', 'boon', 'burden', 'weapon', 'armor', 'equipment'].includes(r4Type);
 		context.hasLevelSlots = ['trait', 'ability', 'mysticalPower'].includes(r4Type);
 		/* Cross-Flag-Radio (Runde 4): additives Datenfeld system.crossFlag
-		 * ('none'|'weapon'|'armor', template.json-Default 'none'). Anzeige-
-		 * Vorbelegung nach R4-8: gespeicherter Wert gewinnt, sonst
-		 * Kanonik - die 4 Cross-Merkmale aus CROSS_WEAPON_TRAITS zeigen
-		 * „Waffe“, Gepanzert (armored)/Robust (robust) zeigen „Rüstung",
-		 * echte Waffen-/Rüstungs-Typen wirken über ihren Typ ohnehin.
-		 * Der Radio-Submit materialisiert die Vorbelegung beim ersten
-		 * Form-Submit (harmlos - Engine B liest crossFlag ODER Kanonik,
-		 * Bestandswelten überspringen nichts, s. R4-8). */
-		const r4CrossPreset =
-			r4Type === 'weapon' || r4Type === 'armor'
-				? r4Type
-				: Boolean(game.symbaroum.config.CROSS_WEAPON_TRAITS[r4Ref])
-					? 'weapon'
-					: r4Type === 'trait' && ['armored', 'robust'].includes(r4Ref)
-						? 'armor'
-						: 'none';
-		const r4CrossStored = String(this.item.system?.crossFlag ?? '').trim();
-		context.crossFlag = r4CrossStored !== '' ? r4CrossStored : r4CrossPreset;
+		 * ('none'|'weapon'|'armor', template.json-Default 'none').
+		 * B2 v2 (Testrunde 27./28.11., Punkt 2): Vorbelegung über die
+		 * zentrale Auflösung resolveCrossFlagDisplay (AGENTS.md §6
+		 * KANONIK VOR RADIO) - gespeichertes 'none' (template-Default
+		 * seit Commit A, mit jedem Submit materialisiert) schlägt die
+		 * Kanonik-Vorbelegung NICHT mehr. Vorher log das Radio für
+		 * Gepanzert/Robust, obwohl die Engine (Kanonik ODER Flag) das
+		 * Item weiterhin aufnimmt. SL-Override ('weapon'/'armor')
+		 * gewinnt weiterhin; die Abwahl läuft über leere Pflege-Felder
+		 * (Wert-Gate in actor.js), nicht über das Radio. */
+		context.crossFlag = resolveCrossFlagDisplay(this.item.system?.crossFlag, r4Type, r4Ref);
 		context.showCrossWeaponFields = context.hasStatusSlot && context.crossFlag === 'weapon';
 		context.showCrossArmorFields = context.hasStatusSlot && context.crossFlag === 'armor';
 		/* Cross-Feld-Kontexte (Status-Tab): binden die additiven Felder

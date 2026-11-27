@@ -773,6 +773,11 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		};
 		for (const a of live.armors ?? []) {
 			if (packed(itemsById.get(a.id))) continue;
+			/* B2 v2 „Rüstungs-Cross“: Merkmals-Rüstungszeilen (natürliche
+			   Rüstung, z. B. „Chitinpanzer“) wohnen am Merkmal und gehören
+			   NUR in den Kampf-Tab - im Ausrüstungs-Tab blieben sie als
+			   scheinbar entfernbares Item stehen (Rudolfs v2-Befund). */
+			if (a.isCrossArmor) continue;
 			if (a.isNoArmor) {
 				gear.armors.push(gearRow(a.id, a.name, a.img, withCount(`${a.displayTextShort} · ${localize('ARMOR.IMPEDING')} ${a.impeding}`, itemsById.get(a.id)), itemsById.get(a.id), { isNoArmor: true }));
 				continue;
@@ -781,6 +786,10 @@ export class PlayerSheet extends SymbaroumActorSheet {
 		}
 		for (const w of live.weapons ?? []) {
 			if (packed(itemsById.get(w.id))) continue;
+			/* B2 v2: Merkmals-Waffenzeilen (Greifzunge & Co.) analog zu
+			   den Cross-Rüstungszeilen nur Kampf-Tab, nicht Ausrüstungs-
+			   Tab (Symmetrie zum isCrossArmor-Filter). */
+			if (w.isCrossWeapon) continue;
 			gear.weapons.push(gearRow(w.id, w.name, w.img, withCount(`${w.damage?.displayTextShort ?? ''} · ${localize(`${w.attributeLabel}ABBR`)}`, itemsById.get(w.id)), itemsById.get(w.id)));
 		}
 		for (const item of context.items) {

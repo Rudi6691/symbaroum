@@ -8826,6 +8826,19 @@ dialog.symb-dialog.modern-dialog .m-cont-confirm {
   margin: 0;
 }
 
+/* ---------- B2 v2 „Rüstungs-Cross“: Zeilen-Name/Icon-Pflegefelder im
+   Funktion-Tab. Das Icon nutzt den Foundry-Core-Dateiauswahl-Handler
+   (data-action="editImage", Muster des Kopf-Bilds) - hier als kompakte
+   32px-Kachel im m-grid (nicht die 64px-m-avatar-Groesse). */
+.symbaroum.sheet.item .modern-root .m-inline-field img.profile-img.m-cross-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border: 0.0625rem solid var(--m-line);
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
 /* ---------- Wiederverwendete Partials: Bonus-Tab ------------------------ */
 /* tab/bonus.hbs und tab/artifact.hbs bleiben im Markup unverändert; ihre
    klassischen Layout-Regeln sind aber an die Typ-Wrapper (.ability .bonus
